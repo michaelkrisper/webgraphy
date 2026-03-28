@@ -180,30 +180,22 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
         const xData = ds.data[xIdx];
         const yData = ds.data[yIdx];
         
-        // GEOMETRY: Segments as quads
-        // For N points, we have N-1 segments. 
-        // Each segment needs 4 vertices for TRIANGLE_STRIP.
-        // We use degenerates (repeating vertices) to separate segments.
-        const lineData = new Float32Array((ds.rowCount - 1) * 6 * 5); // 6 vertices per segment (incl degenerates)
+        const lineData = new Float32Array((ds.rowCount - 1) * 6 * 6); // 6 vertices * 6 floats (posA.xy, posB.xy, uv.xy)
         let vIdx = 0;
         for (let i = 0; i < ds.rowCount - 1; i++) {
           const ax = xData[i], ay = yData[i];
           const bx = xData[i+1], by = yData[i+1];
           
-          // Vertices for one segment (Triangle Strip)
-          // 1: A, side -1
-          lineData[vIdx++] = ax; lineData[vIdx++] = ay; lineData[vIdx++] = bx; lineData[vIdx++] = by; lineData[vIdx++] = -1.0;
-          // 2: A, side 1
-          lineData[vIdx++] = ax; lineData[vIdx++] = ay; lineData[vIdx++] = bx; lineData[vIdx++] = by; lineData[vIdx++] = 1.0;
-          // 3: B, side -2
-          lineData[vIdx++] = ax; lineData[vIdx++] = ay; lineData[vIdx++] = bx; lineData[vIdx++] = by; lineData[vIdx++] = -2.0;
-          // 4: B, side 2
-          lineData[vIdx++] = ax; lineData[vIdx++] = ay; lineData[vIdx++] = bx; lineData[vIdx++] = by; lineData[vIdx++] = 2.0;
-          
-          // Degenerates to break strip
-          lineData[vIdx++] = ax; lineData[vIdx++] = ay; lineData[vIdx++] = bx; lineData[vIdx++] = by; lineData[vIdx++] = 2.0;
-          lineData[vIdx++] = xData[Math.min(i+2, ds.rowCount-1)]; lineData[vIdx++] = yData[Math.min(i+2, ds.rowCount-1)]; 
-          lineData[vIdx++] = 0; lineData[vIdx++] = 0; lineData[vIdx++] = 0;
+          const addVertex = (ux: number, uy: number) => {
+            lineData[vIdx++] = ax; lineData[vIdx++] = ay;
+            lineData[vIdx++] = bx; lineData[vIdx++] = by;
+            lineData[vIdx++] = ux; lineData[vIdx++] = uy;
+          };
+
+          // Triangle 1
+          addVertex(-1, -1); addVertex(1, -1); addVertex(-1, 1);
+          // Triangle 2
+          addVertex(-1, 1); addVertex(1, -1); addVertex(1, 1);
         }
 
         const lineBuf = gl.createBuffer()!;
@@ -237,37 +229,30 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.line);
       const aPosA = gl.getAttribLocation(lProg, 'a_posA');
       const aPosB = gl.getAttribLocation(lProg, 'a_posB');
-      const aSide = gl.getAttribLocation(lProg, 'a_side');
+      const aUV = gl.getAttribLocation(lProg, 'a_uv');
       gl.enableVertexAttribArray(aPosA);
       gl.enableVertexAttribArray(aPosB);
-      gl.enableVertexAttribArray(aSide);
-      gl.vertexAttribPointer(aPosA, 2, gl.FLOAT, false, 20, 0);
-      gl.vertexAttribPointer(aPosB, 2, gl.FLOAT, false, 20, 8);
-      gl.vertexAttribPointer(aSide, 1, gl.FLOAT, false, 20, 16);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, (buffers.count - 1) * 6);
+      gl.enableVertexAttribArray(aUV);
+      gl.vertexAttribPointer(aPosA, 2, gl.FLOAT, false, 24, 0);
+      gl.vertexAttribPointer(aPosB, 2, gl.FLOAT, false, 24, 8);
+      gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 24, 16);
+      gl.drawArrays(gl.TRIANGLES, 0, (buffers.count - 1) * 6);
 
-      // 2. DRAW JOINTS (Rounded)
-      const pProg = pointProgramRef.current!;
-      gl.useProgram(pProg);
-      gl.uniform2f(gl.getUniformLocation(pProg, 'u_viewport_x'), viewportX.min, viewportX.max);
-      gl.uniform2f(gl.getUniformLocation(pProg, 'u_viewport_y'), axis.min, axis.max);
-      gl.uniform4f(gl.getUniformLocation(pProg, 'u_padding'), padding.top, padding.right, padding.bottom, padding.left);
-      gl.uniform2f(gl.getUniformLocation(pProg, 'u_resolution'), width, height);
-      gl.uniform1i(gl.getUniformLocation(pProg, 'u_is_point'), 1);
-      
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.points);
-      const aPointPos = gl.getAttribLocation(pProg, 'a_position');
-      gl.enableVertexAttribArray(aPointPos);
-      gl.vertexAttribPointer(aPointPos, 2, gl.FLOAT, false, 0, 0);
-
-      // Always draw rounded joints to keep line continuous
-      gl.uniform1f(gl.getUniformLocation(pProg, 'u_point_size'), s.lineWidth);
-      gl.uniform1i(gl.getUniformLocation(pProg, 'u_point_style'), 0); // Round
-      gl.uniform4f(gl.getUniformLocation(pProg, 'u_color'), ...hexToRgba(s.lineColor), 1.0);
-      gl.drawArrays(gl.POINTS, 0, buffers.count);
-
-      // 3. DRAW ACTUAL DATA POINTS (if style is not circle or size differs)
+      // 2. DRAW ACTUAL DATA POINTS (if style is not circle or size differs)
       if (s.pointStyle !== 'circle' || s.pointSize !== s.lineWidth) {
+        const pProg = pointProgramRef.current!;
+        gl.useProgram(pProg);
+        gl.uniform2f(gl.getUniformLocation(pProg, 'u_viewport_x'), viewportX.min, viewportX.max);
+        gl.uniform2f(gl.getUniformLocation(pProg, 'u_viewport_y'), axis.min, axis.max);
+        gl.uniform4f(gl.getUniformLocation(pProg, 'u_padding'), padding.top, padding.right, padding.bottom, padding.left);
+        gl.uniform2f(gl.getUniformLocation(pProg, 'u_resolution'), width, height);
+        gl.uniform1i(gl.getUniformLocation(pProg, 'u_is_point'), 1);
+        
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.points);
+        const aPointPos = gl.getAttribLocation(pProg, 'a_position');
+        gl.enableVertexAttribArray(aPointPos);
+        gl.vertexAttribPointer(aPointPos, 2, gl.FLOAT, false, 0, 0);
+
         gl.uniform1f(gl.getUniformLocation(pProg, 'u_point_size'), s.pointSize);
         gl.uniform1i(gl.getUniformLocation(pProg, 'u_point_style'), s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2);
         gl.uniform4f(gl.getUniformLocation(pProg, 'u_color'), ...hexToRgba(s.pointColor), 1.0);
