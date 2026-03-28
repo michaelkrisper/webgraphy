@@ -1,156 +1,170 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
-import { type SeriesConfig } from '../../services/persistence';
-import { Settings, Trash2, Plus } from 'lucide-react';
+import { type SeriesConfig, type Dataset } from '../../services/persistence';
+import { Trash2, Circle, Square, X, Rows, Ban } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
-  datasetName: string;
-  columns: string[];
+  dataset: Dataset | undefined;
 }
 
-export const SeriesConfigUI: React.FC<Props> = ({ series, datasetName, columns }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  const { updateSeries, removeSeries, yAxes, addYAxis, updateYAxis } = useGraphStore();
+/**
+ * SeriesConfigUI Component
+ * Provides an extremely compact UI for configuring an individual data series in a single row.
+ */
+export const SeriesConfigUI: React.FC<Props> = ({ series, dataset }) => {
+  const { updateSeries, removeSeries, yAxes, updateYAxis } = useGraphStore();
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
     updateSeries(series.id, updates);
   };
 
-  const handleCreateYAxis = () => {
-    const newId = crypto.randomUUID();
-    addYAxis({
-      id: newId,
-      name: `Axis ${yAxes.length + 1}`,
-      min: 0,
-      max: 100,
-      position: 'right',
-      color: series.lineColor
-    });
-    handleUpdate({ yAxisId: newId });
-  };
-
+  const currentAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
   const currentAxis = yAxes.find(a => a.id === series.yAxisId);
 
+  const cycleAxis = () => {
+    const nextIndex = (currentAxisIndex % 9) + 1;
+    handleUpdate({ yAxisId: `axis-${nextIndex}` });
+  };
+
+  const renderPointStyleIcon = () => {
+    const size = 10;
+    switch (series.pointStyle) {
+      case 'circle': return <Circle size={size} fill="currentColor" />;
+      case 'square': return <Square size={size} fill="currentColor" />;
+      case 'cross': return <X size={size + 2} strokeWidth={3} />;
+      case 'none': return <Ban size={size + 2} strokeWidth={2.5} opacity={0.5} />;
+      default: return null;
+    }
+  };
+
+  const renderLineStyleIcon = () => {
+    const color = "currentColor";
+    return (
+      <svg width="14" height="14" viewBox="0 0 16 16" style={{ display: 'block' }}>
+        {series.lineStyle === 'solid' && <line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />}
+        {series.lineStyle === 'dashed' && <line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="4,3" />}
+        {series.lineStyle === 'dotted' && <line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="1,3" strokeLinecap="round" />}
+        {series.lineStyle === 'none' && (
+          <g opacity="0.4">
+            <line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="1" strokeDasharray="2,2" />
+            <line x1="4" y1="4" x2="12" y2="12" stroke="#dc3545" strokeWidth="1.5" opacity="1" />
+          </g>
+        )}
+      </svg>
+    );
+  };
+
   return (
-    <div style={{ border: '1px solid #dee2e6', borderRadius: '4px', marginBottom: '0.5rem', padding: '0.5rem', background: '#fff' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
-          {series.yColumn}
-        </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button onClick={() => setIsExpanded(!isExpanded)} style={{ padding: '2px 4px', cursor: 'pointer', display: 'flex' }}>
-            <Settings size={14} />
-          </button>
-          <button onClick={() => removeSeries(series.id)} style={{ padding: '2px 4px', cursor: 'pointer', display: 'flex', color: 'red', border: 'none', background: 'none' }}>
-            <Trash2 size={14} />
-          </button>
-        </div>
+    <div style={{ borderBottom: '1px solid #dee2e6', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+      {/* Color Picker */}
+      <input 
+        type="color" 
+        value={series.lineColor} 
+        onInput={(e) => {
+          const color = (e.target as HTMLInputElement).value;
+          handleUpdate({ lineColor: color, pointColor: color });
+        }} 
+        style={{ width: '18px', height: '18px', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '2px' }} 
+        title="Color" 
+      />
+
+      {/* L/R Side Toggle */}
+      {currentAxis && (
+        <button
+          onClick={() => updateYAxis(currentAxis.id, { position: currentAxis.position === 'left' ? 'right' : 'left' })}
+          style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
+          title="Side (L/R)"
+        >
+          {currentAxis.position === 'left' ? 'L' : 'R'}
+        </button>
+      )}
+      
+      {/* Point Style Cycle */}
+      <button 
+        onClick={() => {
+          const styles = ['circle', 'square', 'cross', 'none'] as const;
+          const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
+          handleUpdate({ pointStyle: next });
+        }}
+        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0 }}
+        title="Point Style"
+      >
+        {renderPointStyleIcon()}
+      </button>
+
+      {/* Line Style Cycle */}
+      <button 
+        onClick={() => {
+          const styles = ['solid', 'dashed', 'dotted', 'none'] as const;
+          const next = styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
+          handleUpdate({ lineStyle: next });
+        }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0 }}
+        title={`Line Style: ${series.lineStyle}`}
+      >
+        {renderLineStyleIcon()}
+      </button>
+
+      {/* Y Axis Cycle Button (1-9) */}
+      <button
+        onClick={cycleAxis}
+        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
+        title="Cycle Y-Axis (1-9)"
+      >
+        {currentAxisIndex}
+      </button>
+
+      {/* Y Column Selector */}
+      <select 
+        value={series.yColumn} 
+        onChange={(e) => handleUpdate({ yColumn: e.target.value })} 
+        style={{ width: '80px', fontSize: '9px', padding: '0', height: '18px', minWidth: 0, flexShrink: 1 }} 
+        title="Y Column"
+      >
+        {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+
+      {/* Grid Toggle */}
+      {currentAxis && (
+        <button
+          onClick={() => updateYAxis(currentAxis.id, { showGrid: !currentAxis.showGrid })}
+          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          title="Toggle Grid"
+        >
+          {currentAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
+        </button>
+      )}
+
+      {/* Editable Title */}
+      <div style={{ flex: '2', minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+        {isEditingTitle ? (
+          <input 
+            autoFocus
+            defaultValue={series.name || series.yColumn}
+            onBlur={(e) => { handleUpdate({ name: e.target.value }); setIsEditingTitle(false); }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter') { handleUpdate({ name: e.currentTarget.value }); setIsEditingTitle(false); }
+              if (e.key === 'Escape') { setIsEditingTitle(false); }
+            }}
+            style={{ width: '100%', fontSize: '10px', padding: '0 2px', height: '16px' }}
+          />
+        ) : (
+          <span 
+            onClick={() => setIsEditingTitle(true)}
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', color: series.lineColor, fontSize: '10px', cursor: 'text', width: '100%' }}
+            title="Click to rename"
+          >
+            {series.name || series.yColumn}
+          </span>
+        )}
       </div>
 
-      {isExpanded && (
-        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', borderTop: '1px solid #eee', paddingTop: '0.5rem' }}>
-          <div style={{ marginBottom: '8px' }}>
-             <strong>X-Column:</strong>
-             <select 
-               value={series.xColumn} 
-               onChange={(e) => handleUpdate({ xColumn: e.target.value })}
-               style={{ width: '100%', fontSize: '0.8rem' }}
-             >
-               {columns.map(c => <option key={c} value={c}>{c}</option>)}
-             </select>
-          </div>
-
-          <div style={{ marginBottom: '8px', border: '1px solid #eee', padding: '5px', borderRadius: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-              <strong>Y-Axis:</strong>
-              <button onClick={handleCreateYAxis} style={{ fontSize: '10px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                <Plus size={10} /> New
-              </button>
-            </div>
-            <select 
-              value={series.yAxisId} 
-              onChange={(e) => handleUpdate({ yAxisId: e.target.value })}
-              style={{ width: '100%', marginBottom: '5px' }}
-            >
-              {yAxes.map(a => <option key={a.id} value={a.id}>{a.name} ({a.position})</option>)}
-            </select>
-            
-            {currentAxis && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <select 
-                    value={currentAxis.position} 
-                    onChange={(e) => updateYAxis(currentAxis.id, { position: e.target.value as any })}
-                    style={{ flex: 1, fontSize: '10px' }}
-                  >
-                    <option value="left">Left</option>
-                    <option value="right">Right</option>
-                  </select>
-                  <input 
-                    type="text" 
-                    value={currentAxis.name} 
-                    onChange={(e) => updateYAxis(currentAxis.id, { name: e.target.value })}
-                    style={{ flex: 2, fontSize: '10px' }}
-                    placeholder="Axis Name"
-                  />
-                </div>
-                <label style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={currentAxis.showGrid} 
-                    onChange={(e) => updateYAxis(currentAxis.id, { showGrid: e.target.checked })} 
-                  />
-                  Show Major Grid
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <strong>Pt Color:</strong>
-              <input 
-                type="color" 
-                value={series.pointColor} 
-                onInput={(e) => handleUpdate({ pointColor: (e.target as HTMLInputElement).value })} 
-                style={{ width: '100%', height: '20px', padding: 0 }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <strong>Pt Size:</strong>
-              <input 
-                type="number" 
-                value={series.pointSize} 
-                onInput={(e) => handleUpdate({ pointSize: parseFloat((e.target as HTMLInputElement).value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <strong>Line Color:</strong>
-              <input 
-                type="color" 
-                value={series.lineColor} 
-                onInput={(e) => handleUpdate({ lineColor: (e.target as HTMLInputElement).value })} 
-                style={{ width: '100%', height: '20px', padding: 0 }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <strong>Width:</strong>
-              <input 
-                type="number" 
-                step="0.1"
-                value={series.lineWidth} 
-                onInput={(e) => handleUpdate({ lineWidth: parseFloat((e.target as HTMLInputElement).value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete Button */}
+      <button onClick={() => removeSeries(series.id)} style={{ padding: '2px', cursor: 'pointer', color: '#dc3545', border: 'none', background: 'none', flexShrink: 0 }} title="Delete">
+        <Trash2 size={12} />
+      </button>
     </div>
   );
 };

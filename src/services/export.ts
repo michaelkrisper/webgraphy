@@ -41,14 +41,22 @@ export const exportToSVG = (
     const sampledData = lttb(visibleData, 5000);
     const screenPoints = sampledData.map(p => worldToScreen(p.x, p.y, viewport));
 
-    if (screenPoints.length > 1) {
+    if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-      svg += `<path d="${pathData}" fill="none" stroke="${s.lineColor}" stroke-width="${s.lineWidth}" />`;
+      let dashArray = '';
+      if (s.lineStyle === 'dashed') dashArray = 'stroke-dasharray="5,5"';
+      else if (s.lineStyle === 'dotted') dashArray = 'stroke-dasharray="2,2"';
+      
+      svg += `<path d="${pathData}" fill="none" stroke="${s.lineColor}" stroke-width="1" ${dashArray} />`;
     }
 
     screenPoints.forEach(p => {
       if (s.pointStyle === 'circle') {
-        svg += `<circle cx="${p.x}" cy="${p.y}" r="${s.pointSize}" fill="${s.pointColor}" />`;
+        svg += `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${s.pointColor}" />`;
+      } else if (s.pointStyle === 'square') {
+        svg += `<rect x="${p.x - 2.5}" y="${p.y - 2.5}" width="5" height="5" fill="${s.pointColor}" />`;
+      } else if (s.pointStyle === 'cross') {
+        svg += `<path d="M ${p.x - 2.5} ${p.y - 2.5} L ${p.x + 2.5} ${p.y + 2.5} M ${p.x + 2.5} ${p.y - 2.5} L ${p.x - 2.5} ${p.y + 2.5}" stroke="${s.pointColor}" stroke-width="1" />`;
       }
     });
   });
@@ -96,9 +104,6 @@ export const exportToPNG = async (plotContainer: HTMLElement): Promise<string> =
     ctx.drawImage(webglCanvas, 0, 0, width, height);
   }
 
-  // 4. Draw DOM Labels (simplified)
-  // Converting DOM to Canvas is complex, so we just capture the visual state
-  
   return canvas.toDataURL('image/png');
 };
 

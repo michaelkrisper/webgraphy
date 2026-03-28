@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig } from '../../services/persistence';
-import { type Viewport } from '../../utils/coords';
 
 interface Props {
   datasets: Dataset[];
@@ -12,7 +11,11 @@ interface Props {
   padding: { top: number; right: number; bottom: number; left: number };
 }
 
-export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewportX, width, height, padding }) => {
+/**
+ * WebGLRenderer Component (Version 2.2)
+ * Optimized rendering with intelligent dashing and conditional point drawing.
+ */
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yAxes, viewportX, width, height, padding }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
@@ -28,31 +31,70 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
 
     const vsSource = `
       attribute vec2 a_position;
-      uniform vec2 u_viewport_x; // min, max
-      uniform vec2 u_viewport_y; // min, max
-      uniform vec4 u_padding;    // top, right, bottom, left
+      attribute vec2 a_other;
+      attribute float a_t;
+
+      uniform vec2 u_viewport_x;
+      uniform vec2 u_viewport_y;
+      uniform vec4 u_padding;
       uniform vec2 u_resolution;
 
-      void main() {
-        float nx = (a_position.x - u_viewport_x.x) / (u_viewport_x.y - u_viewport_x.x);
-        float ny = (a_position.y - u_viewport_y.x) / (u_viewport_y.y - u_viewport_y.x);
-        
+      varying float v_t;
+      varying float v_len;
+
+      vec2 toScreen(vec2 worldPos) {
+        float nx = (worldPos.x - u_viewport_x.x) / (u_viewport_x.y - u_viewport_x.x);
+        float ny = (worldPos.y - u_viewport_y.x) / (u_viewport_y.y - u_viewport_y.x);
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
-        
         float px = u_padding.w + nx * chartWidth;
         float py = u_padding.z + ny * chartHeight;
+        return vec2(px, py);
+      }
+
+      void main() {
+        vec2 p = toScreen(a_position);
+        vec2 other = toScreen(a_other);
         
-        vec2 clipSpace = (vec2(px, py) / u_resolution * 2.0) - 1.0;
-        gl_Position = vec4(clipSpace, 0, 1);
-        gl_PointSize = 3.0;
+        v_t = a_t;
+        v_len = length(other - p);
+        
+        gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
+        gl_PointSize = 5.0;
       }
     `;
 
     const fsSource = `
       precision mediump float;
       uniform vec4 u_color;
+      uniform int u_point_style; // -1: line, 0: circle, 1: square, 2: cross
+      uniform int u_line_style;  // 0: solid, 1: dashed, 2: dotted
+
+      varying float v_t;
+      varying float v_len;
+
       void main() {
+        if (u_point_style == -1) { // Line rendering
+          if (u_line_style > 0) {
+            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+            float period = dashLen + gapLen;
+            
+            float numPeriods = floor(v_len / period + 0.5);
+            if (numPeriods > 0.0) {
+               float adjustedPeriod = v_len / numPeriods;
+               float adjustedDash = adjustedPeriod * (dashLen / period);
+               float dist = v_t * v_len;
+               if (mod(dist + adjustedDash * 0.5, adjustedPeriod) > adjustedDash) discard;
+            }
+          }
+        } else if (u_point_style == 0) { // Circle
+          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+          if (d > 0.5) discard;
+        } else if (u_point_style == 2) { // Cross
+          vec2 p = gl_PointCoord - vec2(0.5);
+          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+        }
         gl_FragColor = u_color;
       }
     `;
@@ -68,12 +110,13 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
     const program = programRef.current;
     if (!gl || !program) return;
 
-    gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(padding.left, padding.bottom, width - padding.left - padding.right, height - padding.top - padding.bottom);
-
+    gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(padding.left, padding.bottom, width - padding.left - padding.right, height - padding.top - padding.bottom);
 
     gl.useProgram(program);
 
@@ -82,7 +125,12 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
     const padLoc = gl.getUniformLocation(program, 'u_padding');
     const resLoc = gl.getUniformLocation(program, 'u_resolution');
     const colorLoc = gl.getUniformLocation(program, 'u_color');
+    const styleLoc = gl.getUniformLocation(program, 'u_point_style');
+    const lineStyleLoc = gl.getUniformLocation(program, 'u_line_style');
+    
     const posLoc = gl.getAttribLocation(program, 'a_position');
+    const otherLoc = gl.getAttribLocation(program, 'a_other');
+    const tLoc = gl.getAttribLocation(program, 'a_t');
 
     gl.uniform2f(xViewLoc, viewportX.min, viewportX.max);
     gl.uniform4f(padLoc, padding.top, padding.right, padding.bottom, padding.left);
@@ -97,39 +145,79 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
       const yIdx = ds.columns.indexOf(s.yColumn);
       if (xIdx === -1 || yIdx === -1) return;
 
-      // Set Y-Axis viewport for THIS series
       gl.uniform2f(yViewLoc, axis.min, axis.max);
 
-      const bufferKey = `${ds.id}-${s.xColumn}-${s.yColumn}`;
-      let buffer = buffersRef.current.get(bufferKey);
+      if (s.lineStyle !== 'none') {
+        const lineBufferKey = `line-${ds.id}-${s.xColumn}-${s.yColumn}`;
+        let lineBuffer = buffersRef.current.get(lineBufferKey);
 
-      if (!buffer) {
-        buffer = gl.createBuffer()!;
-        const interleaved = new Float32Array(ds.rowCount * 2);
+        if (!lineBuffer) {
+          lineBuffer = gl.createBuffer()!;
+          const data = new Float32Array((ds.rowCount - 1) * 2 * 5);
+          const xData = ds.data[xIdx];
+          const yData = ds.data[yIdx];
+          let offset = 0;
+          for (let i = 0; i < ds.rowCount - 1; i++) {
+            const ax = xData[i], ay = yData[i];
+            const bx = xData[i+1], by = yData[i+1];
+            data[offset++] = ax; data[offset++] = ay; data[offset++] = bx; data[offset++] = by; data[offset++] = 0;
+            data[offset++] = bx; data[offset++] = by; data[offset++] = ax; data[offset++] = ay; data[offset++] = 1;
+          }
+          gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+          buffersRef.current.set(lineBufferKey, lineBuffer);
+        } else {
+          gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
+        }
+
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 20, 0);
+        gl.enableVertexAttribArray(otherLoc);
+        gl.vertexAttribPointer(otherLoc, 2, gl.FLOAT, false, 20, 8);
+        gl.enableVertexAttribArray(tLoc);
+        gl.vertexAttribPointer(tLoc, 1, gl.FLOAT, false, 20, 16);
+
+        const lineColor = hexToRgba(s.lineColor);
+        gl.uniform4f(colorLoc, lineColor[0], lineColor[1], lineColor[2], 1.0);
+        gl.uniform1i(styleLoc, -1);
+        const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
+        gl.uniform1i(lineStyleLoc, lStyle);
+        gl.lineWidth(1);
+        gl.drawArrays(gl.LINES, 0, (ds.rowCount - 1) * 2);
+      }
+
+      const pointBufferKey = `points-${ds.id}-${s.xColumn}-${s.yColumn}`;
+      let pointBuffer = buffersRef.current.get(pointBufferKey);
+
+      if (!pointBuffer) {
+        pointBuffer = gl.createBuffer()!;
+        const data = new Float32Array(ds.rowCount * 2);
         const xData = ds.data[xIdx];
         const yData = ds.data[yIdx];
         for (let i = 0; i < ds.rowCount; i++) {
-          interleaved[i * 2] = xData[i];
-          interleaved[i * 2 + 1] = yData[i];
+          data[i * 2] = xData[i];
+          data[i * 2 + 1] = yData[i];
         }
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
-        buffersRef.current.set(bufferKey, buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        buffersRef.current.set(pointBufferKey, pointBuffer);
       } else {
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffer);
       }
 
+      gl.disableVertexAttribArray(otherLoc);
+      gl.disableVertexAttribArray(tLoc);
       gl.enableVertexAttribArray(posLoc);
       gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
-      const lineColor = hexToRgba(s.lineColor);
-      gl.uniform4f(colorLoc, lineColor[0], lineColor[1], lineColor[2], 1.0);
-      gl.lineWidth(s.lineWidth);
-      gl.drawArrays(gl.LINE_STRIP, 0, ds.rowCount);
-
       const pointColor = hexToRgba(s.pointColor);
       gl.uniform4f(colorLoc, pointColor[0], pointColor[1], pointColor[2], 1.0);
-      gl.drawArrays(gl.POINTS, 0, ds.rowCount);
+      
+      if (s.pointStyle !== 'none') {
+        const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
+        gl.uniform1i(styleLoc, pStyle);
+        gl.drawArrays(gl.POINTS, 0, ds.rowCount);
+      }
     });
   };
 
@@ -141,7 +229,7 @@ export const WebGLRenderer: React.FC<Props> = ({ datasets, series, yAxes, viewpo
       style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }}
     />
   );
-};
+});
 
 function createProgram(gl: WebGLRenderingContext, vsSource: string, fsSource: string) {
   const vs = loadShader(gl, gl.VERTEX_SHADER, vsSource);

@@ -42,6 +42,36 @@ body, html, #root {
   height: 100%;
   overflow-y: auto;
   padding: 1rem;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: opacity 0.2s ease-in-out;
+  opacity: 1;
+}
+
+.sidebar-content.hidden {
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+
+.sidebar-collapsed-content {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.sidebar-collapsed-content.visible {
+  display: flex;
+  opacity: 1;
 }
 
 .sidebar h2 {

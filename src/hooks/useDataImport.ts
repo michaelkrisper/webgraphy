@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react';
 import { persistence, type Dataset } from '../services/persistence';
 import { useGraphStore } from '../store/useGraphStore';
 
+/**
+ * Hook to manage data import logic and worker communication.
+ */
 export const useDataImport = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,14 @@ export const useDataImport = () => {
 
       if (type === 'success') {
         const ds = dataset as Dataset;
+        const currentDatasets = useGraphStore.getState().datasets;
+        
+        // Add A-Z prefix
+        const letter = String.fromCharCode(65 + currentDatasets.length);
+        const prefix = `${letter}: `;
+        ds.name = `${letter} - ${ds.name}`;
+        ds.columns = ds.columns.map(c => `${prefix}${c}`);
+
         await persistence.saveDataset(ds);
         addDataset(ds);
         setIsImporting(false);

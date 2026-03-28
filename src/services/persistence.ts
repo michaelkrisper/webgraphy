@@ -27,15 +27,14 @@ export interface YAxisConfig {
 export interface SeriesConfig {
   id: string;
   sourceId: string;
+  name: string; // Display name
   xColumn: string;
   yColumn: string;
   yAxisId: string;
-  pointStyle: 'circle' | 'square' | 'cross';
+  pointStyle: 'circle' | 'square' | 'cross' | 'none';
   pointColor: string;
-  pointSize: number;
-  lineStyle: 'solid' | 'dashed' | 'dotted';
+  lineStyle: 'solid' | 'dashed' | 'dotted' | 'none';
   lineColor: string;
-  lineWidth: number;
 }
 
 export interface AppState {
@@ -43,6 +42,8 @@ export interface AppState {
   yAxes: YAxisConfig[];
   series: SeriesConfig[];
   axisTitles: { x: string; y: string };
+  globalXColumn: string;
+  xMode: 'date' | 'numeric';
 }
 
 let db: IDBPDatabase | null = null;
