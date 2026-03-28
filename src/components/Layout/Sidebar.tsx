@@ -14,7 +14,7 @@ const COLOR_PALETTE = [
 ];
 
 /**
- * Sidebar Component
+ * Sidebar Component (v2.5 - Stable Export)
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
@@ -31,18 +31,6 @@ export const Sidebar: React.FC = () => {
   const [width, setWidth] = useState(450);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-
-  // Smoothly delay unmounting contents when collapsing
-  const [renderContent, setRenderContent] = useState(!isCollapsed);
-
-  useEffect(() => {
-    if (!isCollapsed) {
-      setRenderContent(true);
-    } else {
-      const timer = setTimeout(() => setRenderContent(false), 200); // Wait for transition
-      return () => clearTimeout(timer);
-    }
-  }, [isCollapsed]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -74,22 +62,35 @@ export const Sidebar: React.FC = () => {
   const handleExportSVG = () => {
     const plotContainer = document.querySelector('.plot-area') as HTMLElement;
     if (!plotContainer) return;
-    
-    const svgContent = exportToSVG(datasets, series, {
-      xMin: viewportX.min, xMax: viewportX.max,
-      yMin: yAxes[0]?.min || 0, yMax: yAxes[0]?.max || 100,
-      width: plotContainer.clientWidth, height: plotContainer.clientHeight,
-      padding: { top: 20, right: 30, bottom: 50, left: 70 }
-    }, axisTitles);
-    
+
+    const svgContent = exportToSVG(
+      datasets, 
+      series, 
+      yAxes,
+      { min: viewportX.min, max: viewportX.max },
+      axisTitles,
+      xMode,
+      plotContainer.clientWidth, 
+      plotContainer.clientHeight
+    );
+
     downloadFile(svgContent, 'webgraphy-export.svg', 'image/svg+xml');
   };
 
   const handleExportPNG = async () => {
     const plotContainer = document.querySelector('.plot-area') as HTMLElement;
     if (!plotContainer) return;
-    
-    const pngData = await exportToPNG(plotContainer);
+
+    const pngData = await exportToPNG(
+      datasets, 
+      series, 
+      yAxes,
+      { min: viewportX.min, max: viewportX.max },
+      axisTitles,
+      xMode,
+      plotContainer.clientWidth, 
+      plotContainer.clientHeight
+    );
     downloadFile(pngData, 'webgraphy-export.png', 'image/png');
   };
 
@@ -120,21 +121,23 @@ export const Sidebar: React.FC = () => {
         className="sidebar" 
         style={{ 
           width: isCollapsed ? '40px' : `${width}px`, 
-          transition: isResizing ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
           paddingRight: isCollapsed ? '0px' : '15px',
           padding: isCollapsed ? '10px 0' : '1rem'
         }}
       >
-        <div className={`sidebar-collapsed-content ${!renderContent && isCollapsed ? 'visible' : ''}`} style={{ transition: 'opacity 0.2s', opacity: (!renderContent && isCollapsed) ? 1 : 0 }}>
+        <div className={`sidebar-collapsed-content ${isCollapsed ? 'visible' : ''}`}>
           <button onClick={() => setIsCollapsed(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
             <ChevronLeft size={20} />
           </button>
           <div style={{ writingMode: 'vertical-rl', marginTop: '20px', fontWeight: 'bold', color: '#666', fontSize: '14px' }}>WebGraphy</div>
         </div>
 
-        <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`} style={{ transition: 'opacity 0.2s', opacity: isCollapsed ? 0 : 1, display: renderContent ? 'flex' : 'none' }}>
+        <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #212529', paddingBottom: '0.5rem' }}>
-            <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/favicon.svg" alt="logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+              <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
+            </div>
             <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <ChevronRight size={18} />
             </button>

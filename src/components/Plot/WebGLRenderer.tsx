@@ -12,7 +12,7 @@ interface Props {
 }
 
 /**
- * WebGLRenderer Component (Version 2.2)
+ * WebGLRenderer Component (Version 2.3 - Robust dimensions)
  * Optimized rendering with intelligent dashing and conditional point drawing.
  */
 export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yAxes, viewportX, width, height, padding }) => {
@@ -110,13 +110,23 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     const program = programRef.current;
     if (!gl || !program) return;
 
+    const scissorWidth = Math.max(0, width - padding.left - padding.right);
+    const scissorHeight = Math.max(0, height - padding.top - padding.bottom);
+
+    // Skip rendering if chart area is zero or negative
+    if (scissorWidth <= 0 || scissorHeight <= 0) {
+      gl.clearColor(0.0, 0.0, 0.0, 0.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      return;
+    }
+
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(padding.left, padding.bottom, width - padding.left - padding.right, height - padding.top - padding.bottom);
+    gl.scissor(padding.left, padding.bottom, scissorWidth, scissorHeight);
 
     gl.useProgram(program);
 
