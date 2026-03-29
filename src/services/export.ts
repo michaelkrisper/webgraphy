@@ -84,11 +84,23 @@ export const exportToSVG = (
     const ds = datasets.find(d => d.id === s.sourceId);
     const axis = yAxes.find(a => a.id === s.yAxisId);
     if (!ds || !axis) return;
-    const xIdx = ds.columns.indexOf(s.xColumn), yIdx = ds.columns.indexOf(s.yColumn);
+
+    const findColumn = (name: string) => {
+      const idx = ds.columns.indexOf(name);
+      if (idx !== -1) return idx;
+      return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
+    };
+
+    const xIdx = findColumn(s.xColumn);
+    const yIdx = findColumn(s.yColumn);
     if (xIdx === -1 || yIdx === -1) return;
-    const xData = ds.data[xIdx], yData = ds.data[yIdx], visibleData = [];
+
+    const xCol = ds.data[xIdx], yCol = ds.data[yIdx], visibleData = [];
+    const xData = xCol.levels[0], yData = yCol.levels[0];
     for (let i = 0; i < ds.rowCount; i++) {
-      if (xData[i] >= viewportX.min && xData[i] <= viewportX.max) visibleData.push({ x: xData[i], y: yData[i] });
+      const vx = xData[i] + xCol.refPoint;
+      const vy = yData[i] + yCol.refPoint;
+      if (vx >= viewportX.min && vx <= viewportX.max) visibleData.push({ x: vx, y: vy });
     }
     const sampledData = visibleData.length > 5000 ? lttb(visibleData, 5000) : visibleData;
     const seriesVp = { ...vp, yMin: axis.min, yMax: axis.max };
@@ -144,7 +156,7 @@ export const exportToSVG = (
     for (let t = firstTick; t <= axis.max; t += step) {
       const { y } = worldToScreen(0, t, { ...vp, yMin: axis.min, yMax: axis.max });
       svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="#333" stroke-width="1" />`;
-      const labelX = isLeft ? xPos + axisWidth - 8 : xPos + axisWidth - 8;
+      const labelX = xPos + axisWidth - 8;
       svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="#333">${t.toFixed(precision)}</text>`;
     }
 

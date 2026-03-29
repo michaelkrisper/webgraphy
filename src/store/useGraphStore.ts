@@ -51,7 +51,19 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   isLoaded: false,
 
   addDataset: (dataset) => {
-    set((state) => ({ datasets: [...state.datasets, dataset] }));
+    set((state) => {
+      const newDatasets = [...state.datasets, dataset];
+      let newGlobalX = state.globalXColumn;
+      
+      // If current globalX is default or not in the new dataset, try to find a better one
+      const currentXInNew = dataset.columns.find(c => c === newGlobalX || c.endsWith(`: ${newGlobalX}`));
+      if (!currentXInNew) {
+        const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+        if (potentialX) newGlobalX = potentialX;
+      }
+      
+      return { datasets: newDatasets, globalXColumn: newGlobalX };
+    });
     if (get().isLoaded) debouncedSaveState(get());
   },
 

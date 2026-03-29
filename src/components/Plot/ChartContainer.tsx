@@ -137,7 +137,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, formatDate }: any) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode }: any) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -151,20 +151,16 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => { window.removeEventListener('mousemove', handleMove); el.removeEventListener('mouseleave', handleLeave); };
   }, [containerRef, padding, width, height, isPanning]);
   if (!pos) return null;
-  
   const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
   const worldPos = screenToWorld(pos.x, pos.y, vp);
-  
   const xValue = xMode === 'date' 
     ? new Date(worldPos.x * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
     : worldPos.x.toFixed(6);
-    
   const yValues = yAxes.map((axis: any, idx: number) => {
     const axisVp = { ...vp, yMin: axis.min, yMax: axis.max };
     const w = screenToWorld(pos.x, pos.y, axisVp);
     return { id: axis.id, label: `y${idx + 1}`, value: w.y.toFixed(4) };
   });
-  
   const isTooltipOnRight = pos.x < width / 2;
   return (
     <>
@@ -182,7 +178,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded } = useGraphStore();
+  const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded, globalXColumn } = useGraphStore();
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [editingXTitle, setEditingXTitle] = useState(false);
@@ -194,7 +190,6 @@ const ChartContainer: React.FC = () => {
   const [height, setHeight] = useState(600);
   const pressedKeys = useRef<Set<string>>(new Set());
   
-  // Persistent targets for animation - initialized from store values to restore view status
   const targetX = useRef({ min: viewportX.min, max: viewportX.max });
   const targetYs = useRef<Record<string, { min: number, max: number }>>({});
   const wasEmptyRef = useRef(true);
@@ -203,83 +198,54 @@ const ChartContainer: React.FC = () => {
   const startAnimation = useCallback(() => {
     if (isAnimating.current) return;
     isAnimating.current = true;
-    
-    let rafId: number;
     const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
-    
     const loop = () => {
       const state = useGraphStore.getState();
       const factor = 0.4;
       const keys = pressedKeys.current;
       let needsNextFrame = false;
-      
-      // Keyboard Zoom
       if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
-        const isCtrl = keys.has('Control');
-        const zoomFactor = (keys.has('+') || keys.has('=')) ? 0.85 : 1.15;
-        const xRange = targetX.current.max - targetX.current.min;
-        const newXRange = xRange * zoomFactor;
+        const isCtrl = keys.has('Control'), zoomFactor = (keys.has('+') || keys.has('=')) ? 0.85 : 1.15;
+        const xRange = targetX.current.max - targetX.current.min, newXRange = xRange * zoomFactor;
         targetX.current = { min: targetX.current.min + (xRange - newXRange) / 2, max: targetX.current.max - (xRange - newXRange) / 2 };
         if (!isCtrl) {
           state.yAxes.forEach(axis => {
             const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-            const yRange = t.max - t.min;
-            const newYRange = yRange * zoomFactor;
+            const yRange = t.max - t.min, newYRange = yRange * zoomFactor;
             targetYs.current[axis.id] = { min: t.min + (yRange - newYRange) / 2, max: t.max - (yRange - newYRange) / 2 };
           });
         }
         needsNextFrame = true;
       }
-      
-      // Viewport X animation
-      const xRange = Math.abs(state.viewportX.max - state.viewportX.min);
-      const xEps = xRange * 0.0001 || 0.0001;
-      const nextXMin = lerp(state.viewportX.min, targetX.current.min, factor);
-      const nextXMax = lerp(state.viewportX.max, targetX.current.max, factor);
-      
+      const xRange = Math.abs(state.viewportX.max - state.viewportX.min), xEps = xRange * 0.0001 || 0.0001;
+      const nextXMin = lerp(state.viewportX.min, targetX.current.min, factor), nextXMax = lerp(state.viewportX.max, targetX.current.max, factor);
       if (Math.abs(nextXMin - state.viewportX.min) > xEps || Math.abs(nextXMax - state.viewportX.max) > xEps) {
-        state.setViewportX({ min: nextXMin, max: nextXMax });
-        needsNextFrame = true;
+        state.setViewportX({ min: nextXMin, max: nextXMax }); needsNextFrame = true;
       } else if (state.viewportX.min !== targetX.current.min || state.viewportX.max !== targetX.current.max) {
         state.setViewportX({ min: targetX.current.min, max: targetX.current.max });
       }
-      
-      // Y Axes animations
       state.yAxes.forEach(axis => {
-        const target = targetYs.current[axis.id];
-        if (!target) return;
-        const yRange = Math.abs(axis.max - axis.min);
-        const yEps = yRange * 0.0001 || 0.0001;
-        const nextYMin = lerp(axis.min, target.min, factor);
-        const nextYMax = lerp(axis.max, target.max, factor);
-        
+        const target = targetYs.current[axis.id]; if (!target) return;
+        const yRange = Math.abs(axis.max - axis.min), yEps = yRange * 0.0001 || 0.0001;
+        const nextYMin = lerp(axis.min, target.min, factor), nextYMax = lerp(axis.max, target.max, factor);
         if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
-          state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax });
-          needsNextFrame = true;
+          state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax }); needsNextFrame = true;
         } else if (axis.min !== target.min || axis.max !== target.max) {
           state.updateYAxis(axis.id, { min: target.min, max: target.max });
         }
       });
-
-      if (needsNextFrame) {
-        rafId = requestAnimationFrame(loop);
-      } else {
-        isAnimating.current = false;
-      }
+      if (needsNextFrame) requestAnimationFrame(loop); else isAnimating.current = false;
     };
-    
-    rafId = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
   }, []);
 
   useEffect(() => {
     if (isLoaded) {
       targetX.current = { min: viewportX.min, max: viewportX.max };
-      yAxes.forEach(axis => {
-        targetYs.current[axis.id] = { min: axis.min, max: axis.max };
-      });
+      yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
       startAnimation();
     }
-  }, [isLoaded]); // Only on initial load to restore status
+  }, [isLoaded]);
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
@@ -289,86 +255,110 @@ const ChartContainer: React.FC = () => {
   const axisLayout = useMemo(() => {
     const layout: Record<string, { total: number, label: number }> = {};
     activeYAxes.forEach(axis => {
-      const range = axis.max - axis.min;
-      const step = range / Math.max(2, Math.floor(500 / 30));
+      const range = axis.max - axis.min, approxHeight = 20, maxTicks = Math.max(2, Math.floor(height / (approxHeight + 10)));
+      const step = range / maxTicks;
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
-      let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-      const actualStep = finalStep * magnitude;
-      const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
+      const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+      const actualStep = finalStep * magnitude, precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
       const widestValChars = Math.max(axis.min.toFixed(precision).length, axis.max.toFixed(precision).length);
       const labelWidth = widestValChars * 6;
       layout[axis.id] = { label: labelWidth, total: labelWidth + 24 };
     });
     return layout;
-  }, [activeYAxes]);
+  }, [activeYAxes, height]);
 
   const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
   const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
-
   const padding = useMemo(() => {
     const leftSum = leftAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
     const rightSum = rightAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
     return { ...BASE_PADDING, left: BASE_PADDING.left + leftSum, right: BASE_PADDING.right + rightSum };
   }, [leftAxes, rightAxes, axisLayout]);
 
-  const chartWidth = Math.max(0, width - padding.left - padding.right);
-  const chartHeight = Math.max(0, height - padding.top - padding.bottom);
+  const chartWidth = Math.max(0, width - padding.left - padding.right), chartHeight = Math.max(0, height - padding.top - padding.bottom);
 
   useEffect(() => {
     if (!isLoaded) return;
-    
-    if (series.length === 0) {
-      wasEmptyRef.current = true;
-      return;
+    const state = useGraphStore.getState();
+    if (state.series.length === 0 && state.datasets.length === 0) { wasEmptyRef.current = true; return; }
+
+    // AGGRESSIVE AUTO-SCALE: If current viewport is way off data bounds, reset it.
+    let shouldReset = wasEmptyRef.current;
+    if (!shouldReset && state.datasets.length > 0) {
+       // Check if ANY dataset is visible in current X range
+       let anyDataVisible = false;
+       state.datasets.forEach(ds => {
+         // Use fuzzy matching for X column
+         const xIdx = ds.columns.findIndex(c => c === state.globalXColumn || c.endsWith(`: ${state.globalXColumn}`));
+         const xCol = ds.data[xIdx === -1 ? 0 : xIdx];
+         
+         if (xCol && xCol.bounds) {
+           const overlap = Math.max(0, Math.min(state.viewportX.max, xCol.bounds.max) - Math.max(state.viewportX.min, xCol.bounds.min));
+           if (overlap > 0 || (state.viewportX.min >= xCol.bounds.min && state.viewportX.max <= xCol.bounds.max)) {
+             anyDataVisible = true;
+           }
+         }
+       });
+       
+       if (!anyDataVisible) {
+         console.log("Dead zone detected! Auto-scaling to data...");
+         shouldReset = true;
+       }
     }
 
-    if (wasEmptyRef.current && datasets.length > 0) {
+    if (shouldReset && state.datasets.length > 0) {
       wasEmptyRef.current = false;
-      // If we have saved viewport values that aren't the default 0-100, don't auto-scale
-      if (viewportX.min === 0 && viewportX.max === 100) {
-        let xMin = Infinity, xMax = -Infinity;
-        series.forEach(s => {
-          const ds = datasets.find(d => d.id === s.sourceId);
-          if (!ds) return;
-          const xIdx = ds.columns.indexOf(s.xColumn);
-          if (xIdx === -1) return;
-          const xData = ds.data[xIdx];
-          for (let i = 0; i < ds.rowCount; i++) { 
-            if (xData[i] < xMin) xMin = xData[i]; 
-            if (xData[i] > xMax) xMax = xData[i]; 
-          }
-        });
-        
-        if (xMin !== Infinity) {
-          const pad = (xMax - xMin || 1) * 0.05;
-          targetX.current = { min: xMin - pad, max: xMax + pad };
-          startAnimation();
-        }
-        
-        activeYAxes.forEach(axis => {
-          const axisSeries = series.filter(s => s.yAxisId === axis.id);
-          let yMin = Infinity, yMax = -Infinity;
-          axisSeries.forEach(s => {
-            const ds = datasets.find(d => d.id === s.sourceId);
-            if (!ds) return;
-            const yIdx = ds.columns.indexOf(s.yColumn);
-            if (yIdx === -1) return;
-            const yData = ds.data[yIdx];
-            for (let i = 0; i < ds.rowCount; i++) {
-              if (yData[i] < yMin) yMin = yData[i];
-              if (yData[i] > yMax) yMax = yData[i];
+      let xMin = Infinity, xMax = -Infinity;
+      
+      // Calculate global X bounds from all datasets
+      state.datasets.forEach(ds => {
+        const xIdx = ds.columns.findIndex(c => c === state.globalXColumn || c.endsWith(`: ${state.globalXColumn}`));
+        if (xIdx !== -1) {
+          const col = ds.data[xIdx];
+          if (col.bounds.min < xMin) xMin = col.bounds.min;
+          if (col.bounds.max > xMax) xMax = col.bounds.max;
+        } else {
+          // Fallback to searching for "time" or index 0 if globalXColumn not found in this dataset
+          ds.data.forEach((col, idx) => {
+            if (idx === 0 || ds.columns[idx].toLowerCase().includes('time')) {
+              if (col.bounds.min < xMin) xMin = col.bounds.min;
+              if (col.bounds.max > xMax) xMax = col.bounds.max;
             }
           });
-          if (yMin !== Infinity) {
-            const pad = (yMax - yMin || 1) * 0.1;
-            targetYs.current[axis.id] = { min: yMin - pad, max: yMax + pad };
-            startAnimation();
-          }
-        });
+        }
+      });
+      
+      if (xMin !== Infinity) {
+        const range = xMax - xMin || 1;
+        const pad = range * 0.05;
+        const nextX = { min: xMin - pad, max: xMax + pad };
+        targetX.current = nextX;
+        setViewportX(nextX);
+        startAnimation();
       }
+      
+      activeYAxes.forEach(axis => {
+        const axisSeries = state.series.filter(s => s.yAxisId === axis.id);
+        if (axisSeries.length === 0) return;
+        let yMin = Infinity, yMax = -Infinity;
+        axisSeries.forEach(s => {
+          const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
+          const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
+          if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
+          if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
+        });
+        if (yMin !== Infinity) {
+          const range = yMax - yMin || 1;
+          const pad = range * 0.1;
+          const nextY = { min: yMin - pad, max: yMax + pad };
+          targetYs.current[axis.id] = nextY;
+          updateYAxis(axis.id, nextY);
+          startAnimation();
+        }
+      });
     }
-  }, [series, datasets, isLoaded, activeYAxes, startAnimation]);
+  }, [isLoaded, startAnimation, series, datasets]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -379,64 +369,42 @@ const ChartContainer: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleWheel = (e: React.WheelEvent, target: 'all' | 'x' | { yAxisId: string }) => {
+  const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    
     if (target === 'all' || target === 'x') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseX = rect ? e.clientX - rect.left : width / 2;
       const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
       const worldMouse = screenToWorld(mouseX, 0, vp);
-      
-      const currentX = targetX.current;
-      const xRange = currentX.max - currentX.min;
-      const newXRange = xRange * zoomFactor;
-      
+      const currentX = targetX.current, xRange = currentX.max - currentX.min, newXRange = xRange * zoomFactor;
       const weight = (mouseX - padding.left) / chartWidth;
-      targetX.current = { 
-        min: worldMouse.x - weight * newXRange, 
-        max: worldMouse.x + (1 - weight) * newXRange 
-      };
+      targetX.current = { min: worldMouse.x - weight * newXRange, max: worldMouse.x + (1 - weight) * newXRange };
     }
     if (target === 'all' || typeof target === 'object') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseY = rect ? e.clientY - rect.top : height / 2;
       const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as any).yAxisId)!];
-      
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
         const worldMouse = screenToWorld(0, mouseY, axisVp);
-        
         const currentTarget = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-        const yRange = currentTarget.max - currentTarget.min;
-        const newYRange = yRange * zoomFactor;
-        
+        const yRange = currentTarget.max - currentTarget.min, newYRange = yRange * zoomFactor;
         const weight = (height - padding.bottom - mouseY) / chartHeight;
-        targetYs.current[axis.id] = { 
-          min: worldMouse.y - weight * newYRange, 
-          max: worldMouse.y + (1 - weight) * newYRange 
-        };
+        targetYs.current[axis.id] = { min: worldMouse.y - weight * newYRange, max: worldMouse.y + (1 - weight) * newYRange };
       });
     }
     startAnimation();
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
-    const axisSeries = series.filter(s => s.yAxisId === axisId);
-    if (axisSeries.length === 0) return;
-    const state = useGraphStore.getState();
+    const axisSeries = series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     axisSeries.forEach(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      if (!ds) return;
-      const xIdx = ds.columns.indexOf(s.xColumn), yIdx = ds.columns.indexOf(s.yColumn);
-      if (xIdx === -1 || yIdx === -1) return;
-      const xData = ds.data[xIdx], yData = ds.data[yIdx];
-      for (let i = 0; i < ds.rowCount; i++) {
-        const x = xData[i];
-        if (x >= state.viewportX.min && x <= state.viewportX.max) { const y = yData[i]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
-      }
+      const ds = datasets.find(d => d.id === s.sourceId); if (!ds) return;
+      const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
+      if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
+      if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
     });
     if (yMin !== Infinity) {
       let nextMin = yMin, nextMax = yMax;
@@ -447,31 +415,33 @@ const ChartContainer: React.FC = () => {
         const range = yMax - yMin || 1, pad = (range / 0.9 - range) / 2;
         nextMin = yMin - pad; nextMax = yMax + pad;
       }
-      targetYs.current[axisId] = { min: nextMin, max: nextMax };
-      startAnimation();
+      targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
   }, [series, datasets, padding.top, chartHeight, startAnimation]);
 
   const handleAutoScaleX = useCallback(() => {
-    if (series.length === 0) return;
+    if (datasets.length === 0) return;
     let xMin = Infinity, xMax = -Infinity;
-    series.forEach(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      if (!ds) return;
-      const xIdx = ds.columns.indexOf(s.xColumn);
-      if (xIdx === -1) return;
-      const xData = ds.data[xIdx];
-      for (let i = 0; i < ds.rowCount; i++) { 
-        if (xData[i] < xMin) xMin = xData[i]; 
-        if (xData[i] > xMax) xMax = xData[i]; 
+    datasets.forEach(ds => {
+      const xIdx = ds.columns.findIndex(c => c === globalXColumn || c.endsWith(`: ${globalXColumn}`));
+      if (xIdx !== -1) {
+        const col = ds.data[xIdx];
+        if (col.bounds.min < xMin) xMin = col.bounds.min;
+        if (col.bounds.max > xMax) xMax = col.bounds.max;
+      } else {
+        ds.data.forEach((col, idx) => {
+          if (idx === 0 || ds.columns[idx].toLowerCase().includes('time')) {
+            if (col.bounds.min < xMin) xMin = col.bounds.min;
+            if (col.bounds.max > xMax) xMax = col.bounds.max;
+          }
+        });
       }
     });
     if (xMin !== Infinity) { 
       const pad = (xMax - xMin || 1) * 0.05; 
-      targetX.current = { min: xMin - pad, max: xMax + pad }; 
-      startAnimation();
+      targetX.current = { min: xMin - pad, max: xMax + pad }; startAnimation();
     }
-  }, [series, datasets, startAnimation]);
+  }, [datasets, globalXColumn, startAnimation]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {
@@ -497,41 +467,34 @@ const ChartContainer: React.FC = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    
     const state = useGraphStore.getState();
-    const xRange = state.viewportX.max - state.viewportX.min;
-    const xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
-    
+    const xRange = state.viewportX.max - state.viewportX.min, xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
     if (panTarget === 'all' || panTarget === 'x') {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
-      state.setViewportX(nextX); 
-      targetX.current = nextX;
+      state.setViewportX(nextX); targetX.current = nextX;
     }
-    
     const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
     axesToPan.forEach(axis => {
       if (!axis) return;
       const yRange = axis.max - axis.min, yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
       const nextY = { min: axis.min + yMove, max: axis.max + yMove };
-      state.updateYAxis(axis.id, nextY); 
-      targetYs.current[axis.id] = nextY;
+      state.updateYAxis(axis.id, nextY); targetYs.current[axis.id] = nextY;
     });
-  }, [panTarget, activeYAxes, chartWidth, chartHeight]);
+  }, [panTarget, activeYAxes, chartWidth, chartHeight, padding, width, height]);
 
   useEffect(() => {
     const handleMouseUp = () => {
       if (zoomBoxStartRef.current) {
-        const box = zoomBoxStartRef.current;
-        zoomBoxStartRef.current = null; setZoomBoxState(null);
+        const box = zoomBoxStartRef.current; zoomBoxStartRef.current = null; setZoomBoxState(null);
         const minX = Math.min(box.startX, box.endX), maxX = Math.max(box.startX, box.endX);
         const minY = Math.min(box.startY, box.endY), maxY = Math.max(box.startY, box.endY);
         if (maxX - minX > 5 && maxY - minY > 5) {
           const state = useGraphStore.getState();
-          const vp = { ...state.viewportX, xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+          const vp = { xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: 0, yMax: 100, width, height, padding };
           const w1 = screenToWorld(minX, maxY, vp), w2 = screenToWorld(maxX, minY, vp);
           targetX.current = { min: w1.x, max: w2.x };
           activeYAxes.forEach(axis => {
-             const axisVp = { ...state.viewportX, xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: axis.min, yMax: axis.max, width, height, padding };
+             const axisVp = { xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: axis.min, yMax: axis.max, width, height, padding };
              const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
              targetYs.current[axis.id] = { min: a1.y, max: a2.y };  
           });
@@ -550,33 +513,24 @@ const ChartContainer: React.FC = () => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
-      
       const step = 0.15;
       if (e.key === 'ArrowLeft') {
         const range = targetX.current.max - targetX.current.min;
-        targetX.current = { min: targetX.current.min - range * step, max: targetX.current.max - range * step };
-        startAnimation();
+        targetX.current = { min: targetX.current.min - range * step, max: targetX.current.max - range * step }; startAnimation();
       } else if (e.key === 'ArrowRight') {
         const range = targetX.current.max - targetX.current.min;
-        targetX.current = { min: targetX.current.min + range * step, max: targetX.current.max + range * step };
-        startAnimation();
+        targetX.current = { min: targetX.current.min + range * step, max: targetX.current.max + range * step }; startAnimation();
       } else if (e.key === 'ArrowUp') {
         activeYAxes.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min;
-          targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
-        });
-        startAnimation();
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
+        }); startAnimation();
       } else if (e.key === 'ArrowDown') {
         activeYAxes.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min;
-          targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
-        });
-        startAnimation();
-      } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) {
-        startAnimation();
-      }
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
+        }); startAnimation();
+      } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) startAnimation();
     };
     const handleKeyUp = (e: KeyboardEvent) => { if (e.key === 'Control') setIsCtrlPressed(false); pressedKeys.current.delete(e.key); };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
@@ -600,17 +554,12 @@ const ChartContainer: React.FC = () => {
       const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000];
       step = intervals.find(i => i > step) || intervals[intervals.length - 1];
     }
-    const firstTick = Math.ceil(viewportX.min / step) * step;
-    const result = [];
-    for (let t = firstTick; t <= viewportX.max; t += step) {
-      if (result.length > 100) break;
-      result.push(t);
-    }
+    const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
+    for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
     return { result, step, precision, isXDate };
   }, [viewportX.min, viewportX.max, chartWidth, xMode]);
 
-  const viewportRef = useMemo(() => ({ ...viewportX, xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
-
+  const viewportRef = useMemo(() => ({ xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
   const formatDate = useCallback((val: number, step: number) => {
     const d = new Date(val * 1000);
     if (step >= 86400) return d.getDate() + '.' + (d.getMonth()+1) + '.';
@@ -620,21 +569,13 @@ const ChartContainer: React.FC = () => {
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden' }}>
-      {series.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
+      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} viewportRef={viewportRef} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <WebGLRenderer datasets={datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
       </div>
       <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} isXDate={xTicks.isXDate} formatDate={formatDate} series={series} axisLayout={axisLayout} />
-      <div 
-        onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} 
-        onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} 
-        onDoubleClick={(e) => { 
-          e.stopPropagation(); 
-          handleAutoScaleX(); 
-        }} 
-        style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} 
-      />
+      <div onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(); }} style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} />
       {activeYAxes.map((axis) => {
         const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
         const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };

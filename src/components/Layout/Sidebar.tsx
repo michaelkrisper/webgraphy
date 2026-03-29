@@ -98,8 +98,25 @@ export const Sidebar: React.FC = () => {
     const dataset = datasets.find(d => d.id === datasetId);
     if (!dataset) return;
 
-    const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
     const { addSeries } = useGraphStore.getState();
+    
+    // Find the first Y-axis that is not currently used by any series
+    const usedAxisIds = new Set(series.map(s => s.yAxisId));
+    let nextAxisId = 'axis-1';
+    for (let i = 1; i <= 9; i++) {
+      const id = `axis-${i}`;
+      if (!usedAxisIds.has(id)) {
+        nextAxisId = id;
+        break;
+      }
+    }
+    
+    // If all axes are already in use, fall back to a simple cycle
+    if (usedAxisIds.size >= 9) {
+      nextAxisId = `axis-${(series.length % 9) + 1}`;
+    }
+
+    const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
     
     addSeries({
       id: crypto.randomUUID(),
@@ -107,7 +124,7 @@ export const Sidebar: React.FC = () => {
       name: columnName,
       xColumn: globalXColumn || dataset.columns[0],
       yColumn: columnName,
-      yAxisId: 'axis-1',
+      yAxisId: nextAxisId,
       pointStyle: 'circle',
       pointColor: color,
       lineStyle: 'solid',
@@ -273,14 +290,31 @@ export const Sidebar: React.FC = () => {
             </button>
             <button 
               onClick={handleExportPNG}
-              style={{ width: '100%', padding: '8px', cursor: 'pointer' }}
+              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer' }}
             >
               Export PNG
+            </button>
+            <button 
+              onClick={async () => {
+                if (confirm('Delete all datasets and reset all settings?')) {
+                  localStorage.removeItem('webgraphy-state');
+                  const db = await indexedDB.open('webgraphy-db');
+                  db.onsuccess = () => {
+                    const database = db.result;
+                    const transaction = database.transaction(['datasets'], 'readwrite');
+                    transaction.objectStore('datasets').clear();
+                    transaction.oncomplete = () => window.location.reload();
+                  };
+                }
+              }}
+              style={{ width: '100%', padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px' }}
+            >
+              Reset App (Wipe Storage)
             </button>
           </div>
 
           <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '10px', color: '#999' }}>
-            v0.1.7
+            v0.3.4
           </div>
         </div>
 

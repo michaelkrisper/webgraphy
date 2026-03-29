@@ -4,11 +4,18 @@ const DB_NAME = 'webgraphy-db';
 const DATASET_STORE = 'datasets';
 const VERSION = 1;
 
+export interface DataColumn {
+  isFloat64: boolean;
+  refPoint: number;
+  bounds: { min: number; max: number };
+  levels: Float32Array[];
+}
+
 export interface Dataset {
   id: string;
   name: string;
   columns: string[];
-  data: Float32Array[];
+  data: DataColumn[];
   rowCount: number;
 }
 
@@ -21,13 +28,13 @@ export interface YAxisConfig {
   max: number;
   position: AxisPosition;
   color: string;
-  showGrid: boolean; // Added
+  showGrid: boolean;
 }
 
 export interface SeriesConfig {
   id: string;
   sourceId: string;
-  name: string; // Display name
+  name: string;
   xColumn: string;
   yColumn: string;
   yAxisId: string;
@@ -60,6 +67,37 @@ async function getDB() {
   return db;
 }
 
+/**
+ * Ensures that all data in a dataset is correctly typed.
+ */
+function fixDatasetTypes(dataset: Dataset): Dataset {
+  if (!dataset.data || !Array.isArray(dataset.data)) return dataset;
+
+  dataset.data = dataset.data.map((col: any) => {
+    // Migration: ensure bounds exist
+    if (!col.bounds) {
+      col.bounds = { min: 0, max: 0 };
+    }
+    
+    // Restoration of TypedArrays for new format
+    if (col && col.levels) {
+      col.levels = col.levels.map((level: any) => {
+        if (level instanceof Float32Array) return level;
+        // Handle cases where IndexedDB de-types TypedArrays into Objects
+        if (typeof level === 'object' && level !== null) {
+          const values = Object.values(level) as number[];
+          return new Float32Array(values);
+        }
+        return new Float32Array(0);
+      });
+      if (col.refPoint === undefined) col.refPoint = 0;
+    }
+    return col;
+  });
+  
+  return dataset;
+}
+
 export const persistence = {
   async saveDataset(dataset: Dataset): Promise<void> {
     const db = await getDB();
@@ -67,11 +105,13 @@ export const persistence = {
   },
   async loadDataset(id: string): Promise<Dataset | undefined> {
     const db = await getDB();
-    return db.get(DATASET_STORE, id);
+    const ds = await db.get(DATASET_STORE, id);
+    return ds ? fixDatasetTypes(ds) : undefined;
   },
   async getAllDatasets(): Promise<Dataset[]> {
     const db = await getDB();
-    return db.getAll(DATASET_STORE);
+    const all = await db.getAll(DATASET_STORE);
+    return all.map(fixDatasetTypes);
   },
   async deleteDataset(id: string): Promise<void> {
     const db = await getDB();
