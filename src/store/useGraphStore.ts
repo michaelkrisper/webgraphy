@@ -52,51 +52,80 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   addDataset: (dataset) => {
     set((state) => ({ datasets: [...state.datasets, dataset] }));
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   removeDataset: (id) => {
-    set((state) => ({
-      datasets: state.datasets.filter(d => d.id !== id),
-      series: state.series.filter(s => s.sourceId !== id)
-    }));
-    if (get().isLoaded) saveState(get());
+    set((state) => {
+      const newDatasets = state.datasets.filter(d => d.id !== id);
+      const newSeries = state.series.filter(s => s.sourceId !== id);
+      
+      if (newDatasets.length === 0 && newSeries.length === 0) {
+        localStorage.removeItem('webgraphy-state');
+        return {
+          datasets: [],
+          series: [],
+          yAxes: createInitialYAxes(),
+          axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
+          viewportX: { min: 0, max: 100 },
+          globalXColumn: 'Timestamp',
+          xMode: 'date'
+        };
+      }
+      
+      return { datasets: newDatasets, series: newSeries };
+    });
+    if (get().isLoaded && (get().datasets.length > 0 || get().series.length > 0)) debouncedSaveState(get());
   },
 
   addSeries: (series) => {
     set((state) => ({ series: [...state.series, series] }));
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   updateSeries: (id, updates) => {
     set((state) => ({
       series: state.series.map(s => s.id === id ? { ...s, ...updates } : s)
     }));
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   removeSeries: (id) => {
-    set((state) => ({
-      series: state.series.filter(s => s.id !== id)
-    }));
-    if (get().isLoaded) saveState(get());
+    set((state) => {
+      const newSeries = state.series.filter(s => s.id !== id);
+      
+      if (newSeries.length === 0 && state.datasets.length === 0) {
+        localStorage.removeItem('webgraphy-state');
+        return {
+          series: [],
+          yAxes: createInitialYAxes(),
+          axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
+          viewportX: { min: 0, max: 100 },
+          globalXColumn: 'Timestamp',
+          xMode: 'date'
+        };
+      }
+      
+      return { series: newSeries };
+    });
+    if (get().isLoaded && (get().datasets.length > 0 || get().series.length > 0)) debouncedSaveState(get());
   },
 
   updateYAxis: (id, updates) => {
     set((state) => ({
       yAxes: state.yAxes.map(a => a.id === id ? { ...a, ...updates } : a)
     }));
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   setAxisTitles: (x, y) => {
     set({ axisTitles: { x, y } });
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   setViewportX: (v) => {
     set({ viewportX: v });
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   setGlobalXColumn: (col) => {
@@ -104,12 +133,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       globalXColumn: col,
       series: state.series.map(s => ({ ...s, xColumn: col }))
     }));
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   setXMode: (mode) => {
     set({ xMode: mode });
-    if (get().isLoaded) saveState(get());
+    if (get().isLoaded) debouncedSaveState(get());
   },
 
   loadPersistedState: async () => {
@@ -126,6 +155,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
   }
 }));
+
+let saveTimeout: any = null;
+function debouncedSaveState(state: GraphState) {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    saveState(state);
+    saveTimeout = null;
+  }, 1000);
+}
 
 function saveState(state: GraphState) {
   const appState: AppState = {

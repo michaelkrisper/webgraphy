@@ -16,13 +16,20 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
       })}
       {yAxes.map((axis: any) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
-        const range = axis.max - axis.min, approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
+        const range = axis.max - axis.min;
+        if (range <= 0) return null;
+        const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
         let step = range / maxTicks;
         const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
         const normalizedStep = step / magnitude;
         let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-        const actualStep = finalStep * magnitude, firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-        for (let t = firstTick; t <= axis.max; t += actualStep) result.push(t);
+        const actualStep = finalStep * magnitude;
+        if (actualStep <= 0) return null;
+        const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
+        for (let t = firstTick; t <= axis.max; t += actualStep) {
+          if (result.length > 100) break;
+          result.push(t);
+        }
         return result.map(t => {
           const { y } = worldToScreen(0, t, { ...viewportX, xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding });
           return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f0f0f0" strokeWidth="1" />;
@@ -55,12 +62,19 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             xPos = width - padding.right + offset;
           }
           const axisLineX = isLeft ? xPos + axisMetrics.total : xPos;
-          const range = axis.max - axis.min, step = range / Math.max(2, Math.floor(chartHeight / 30));
+          const range = axis.max - axis.min;
+          if (range <= 0 || chartHeight <= 0) return null;
+          const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
           let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-          const actualStep = finalStep * magnitude, firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-          for (let t = firstTick; t <= axis.max; t += actualStep) result.push(t);
+          const actualStep = finalStep * magnitude;
+          if (actualStep <= 0) return null;
+          const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
+          for (let t = firstTick; t <= axis.max; t += actualStep) {
+            if (result.length > 100) break;
+            result.push(t);
+          }
           return (
             <g key={axis.id}>
               <line x1={axisLineX} y1={padding.top} x2={axisLineX} y2={height - padding.bottom} stroke="#333" strokeWidth="1" />
@@ -91,12 +105,19 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
             xPos = width - padding.right + offset;
           }
-          const range = axis.max - axis.min, step = range / Math.max(2, Math.floor(chartHeight / 30));
+          const range = axis.max - axis.min;
+          if (range <= 0 || chartHeight <= 0) return null;
+          const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
           let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-          const actualStep = finalStep * magnitude, precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-          for (let t = firstTick; t <= axis.max; t += actualStep) result.push(t);
+          const actualStep = finalStep * magnitude;
+          if (actualStep <= 0) return null;
+          const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
+          for (let t = firstTick; t <= axis.max; t += actualStep) {
+            if (result.length > 100) break;
+            result.push(t);
+          }
           const axisSeries = series.filter((s: any) => s.yAxisId === axis.id), title = axisSeries.map((s: any) => s.name || s.yColumn).join(' / ');
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
@@ -107,7 +128,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
                 const { y } = worldToScreen(0, t, { ...viewportX, xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding });
                 return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#333', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{t.toFixed(precision)}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '10px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', backgroundColor: 'rgba(255, 255, 255, 0.8)', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '10px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -153,9 +174,10 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   );
 });
 
-const GraphPlotArea = () => {
+const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded } = useGraphStore();
+  
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [editingXTitle, setEditingXTitle] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -168,13 +190,22 @@ const GraphPlotArea = () => {
   const targetX = useRef({ min: viewportX.min, max: viewportX.max });
   const targetYs = useRef<Record<string, { min: number, max: number }>>({});
   const wasEmptyRef = useRef(true);
+  const isAnimating = useRef(false);
 
-  useEffect(() => {
+  const startAnimation = useCallback(() => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+    
     let rafId: number;
     const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
+    
     const loop = () => {
-      const factor = 0.55; 
+      const state = useGraphStore.getState();
+      const factor = 0.4;
       const keys = pressedKeys.current;
+      let needsNextFrame = false;
+      
+      // Keyboard Zoom
       if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
         const isCtrl = keys.has('Control');
         const zoomFactor = (keys.has('+') || keys.has('=')) ? 0.95 : 1.05;
@@ -182,28 +213,65 @@ const GraphPlotArea = () => {
         const newXRange = xRange * zoomFactor;
         targetX.current = { min: targetX.current.min + (xRange - newXRange) / 2, max: targetX.current.max - (xRange - newXRange) / 2 };
         if (!isCtrl) {
-          yAxes.forEach(axis => {
+          state.yAxes.forEach(axis => {
             const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
             const yRange = t.max - t.min;
             const newYRange = yRange * zoomFactor;
             targetYs.current[axis.id] = { min: t.min + (yRange - newYRange) / 2, max: t.max - (yRange - newYRange) / 2 };
           });
         }
+        needsNextFrame = true;
       }
-      const nextMin = lerp(viewportX.min, targetX.current.min, factor);
-      const nextMax = lerp(viewportX.max, targetX.current.max, factor);
-      if (Math.abs(nextMin - viewportX.min) > 0.000001 * (viewportX.max - viewportX.min)) setViewportX({ min: nextMin, max: nextMax });
-      yAxes.forEach(axis => {
-        const target = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
+      
+      // Viewport X animation
+      const xRange = Math.abs(state.viewportX.max - state.viewportX.min);
+      const xEps = xRange * 0.0001 || 0.0001;
+      const nextXMin = lerp(state.viewportX.min, targetX.current.min, factor);
+      const nextXMax = lerp(state.viewportX.max, targetX.current.max, factor);
+      
+      if (Math.abs(nextXMin - state.viewportX.min) > xEps || Math.abs(nextXMax - state.viewportX.max) > xEps) {
+        state.setViewportX({ min: nextXMin, max: nextXMax });
+        needsNextFrame = true;
+      } else if (state.viewportX.min !== targetX.current.min || state.viewportX.max !== targetX.current.max) {
+        state.setViewportX({ min: targetX.current.min, max: targetX.current.max });
+      }
+      
+      // Y Axes animations
+      state.yAxes.forEach(axis => {
+        const target = targetYs.current[axis.id];
+        if (!target) return;
+        const yRange = Math.abs(axis.max - axis.min);
+        const yEps = yRange * 0.0001 || 0.0001;
         const nextYMin = lerp(axis.min, target.min, factor);
         const nextYMax = lerp(axis.max, target.max, factor);
-        if (Math.abs(nextYMin - axis.min) > 0.000001 * (axis.max - axis.min)) updateYAxis(axis.id, { min: nextYMin, max: nextYMax });
+        
+        if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
+          state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax });
+          needsNextFrame = true;
+        } else if (axis.min !== target.min || axis.max !== target.max) {
+          state.updateYAxis(axis.id, { min: target.min, max: target.max });
+        }
       });
-      rafId = requestAnimationFrame(loop);
+
+      if (needsNextFrame) {
+        rafId = requestAnimationFrame(loop);
+      } else {
+        isAnimating.current = false;
+      }
     };
+    
     rafId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafId);
-  }, [viewportX, yAxes, setViewportX, updateYAxis]);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      targetX.current = { min: viewportX.min, max: viewportX.max };
+      yAxes.forEach(axis => {
+        targetYs.current[axis.id] = { min: axis.min, max: axis.max };
+      });
+      startAnimation();
+    }
+  }, [isLoaded, startAnimation]);
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
@@ -241,35 +309,55 @@ const GraphPlotArea = () => {
 
   useEffect(() => {
     if (!isLoaded) return;
-    const isEmpty = series.length === 0;
-    const justAddedFirst = wasEmptyRef.current && !isEmpty;
-    wasEmptyRef.current = isEmpty;
-    if (!justAddedFirst || datasets.length === 0) return;
-    let xMin = Infinity, xMax = -Infinity;
-    series.forEach(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      if (!ds) return;
-      const xIdx = ds.columns.indexOf(s.xColumn);
-      if (xIdx === -1) return;
-      const xData = ds.data[xIdx];
-      for (let i = 0; i < ds.rowCount; i++) { if (xData[i] < xMin) xMin = xData[i]; if (xData[i] > xMax) xMax = xData[i]; }
-    });
-    if (xMin !== Infinity) { const pad = (xMax - xMin || 1) * 0.05; targetX.current = { min: xMin - pad, max: xMax + pad }; }
-    activeYAxes.forEach(axis => {
-      const axisSeries = series.filter(s => s.yAxisId === axis.id);
-      if (axisSeries.length === 0) { targetYs.current[axis.id] = { min: 0, max: 1 }; return; }
-      let yMin = Infinity, yMax = -Infinity;
-      axisSeries.forEach(s => {
+    
+    if (series.length === 0) {
+      wasEmptyRef.current = true;
+      return;
+    }
+
+    if (wasEmptyRef.current && datasets.length > 0) {
+      wasEmptyRef.current = false;
+      let xMin = Infinity, xMax = -Infinity;
+      series.forEach(s => {
         const ds = datasets.find(d => d.id === s.sourceId);
         if (!ds) return;
-        const yIdx = ds.columns.indexOf(s.yColumn);
-        if (yIdx === -1) return;
-        const yData = ds.data[yIdx];
-        for (let i = 0; i < ds.rowCount; i++) { if (yData[i] < yMin) yMin = yData[i]; if (yData[i] > yMax) yMax = yData[i]; }
+        const xIdx = ds.columns.indexOf(s.xColumn);
+        if (xIdx === -1) return;
+        const xData = ds.data[xIdx];
+        for (let i = 0; i < ds.rowCount; i++) { 
+          if (xData[i] < xMin) xMin = xData[i]; 
+          if (xData[i] > xMax) xMax = xData[i]; 
+        }
       });
-      if (yMin !== Infinity) { const pad = (yMax - yMin || 1) * 0.1; targetYs.current[axis.id] = { min: yMin - pad, max: yMax + pad }; }
-    });
-  }, [series, datasets, isLoaded, activeYAxes]);
+      
+      if (xMin !== Infinity) {
+        const pad = (xMax - xMin || 1) * 0.05;
+        targetX.current = { min: xMin - pad, max: xMax + pad };
+        startAnimation();
+      }
+      
+      activeYAxes.forEach(axis => {
+        const axisSeries = series.filter(s => s.yAxisId === axis.id);
+        let yMin = Infinity, yMax = -Infinity;
+        axisSeries.forEach(s => {
+          const ds = datasets.find(d => d.id === s.sourceId);
+          if (!ds) return;
+          const yIdx = ds.columns.indexOf(s.yColumn);
+          if (yIdx === -1) return;
+          const yData = ds.data[yIdx];
+          for (let i = 0; i < ds.rowCount; i++) {
+            if (yData[i] < yMin) yMin = yData[i];
+            if (yData[i] > yMax) yMax = yData[i];
+          }
+        });
+        if (yMin !== Infinity) {
+          const pad = (yMax - yMin || 1) * 0.1;
+          targetYs.current[axis.id] = { min: yMin - pad, max: yMax + pad };
+          startAnimation();
+        }
+      });
+    }
+  }, [series, datasets, isLoaded, activeYAxes, startAnimation]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -282,26 +370,51 @@ const GraphPlotArea = () => {
 
   const handleWheel = (e: React.WheelEvent, target: 'all' | 'x' | { yAxisId: string }) => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    
     if (target === 'all' || target === 'x') {
-      const range = targetX.current.max - targetX.current.min;
-      const newRange = range * zoomFactor;
-      targetX.current = { min: targetX.current.min + (range - newRange) / 2, max: targetX.current.max - (range - newRange) / 2 };
+      const rect = containerRef.current?.getBoundingClientRect();
+      const mouseX = rect ? e.clientX - rect.left : width / 2;
+      const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+      const worldMouse = screenToWorld(mouseX, 0, vp);
+      
+      const currentX = targetX.current;
+      const xRange = currentX.max - currentX.min;
+      const newXRange = xRange * zoomFactor;
+      
+      const weight = (mouseX - padding.left) / chartWidth;
+      targetX.current = { 
+        min: worldMouse.x - weight * newXRange, 
+        max: worldMouse.x + (1 - weight) * newXRange 
+      };
     }
     if (target === 'all' || typeof target === 'object') {
+      const rect = containerRef.current?.getBoundingClientRect();
+      const mouseY = rect ? e.clientY - rect.top : height / 2;
       const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as any).yAxisId)!];
+      
       axesToZoom.forEach(axis => {
         if (!axis) return;
+        const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
+        const worldMouse = screenToWorld(0, mouseY, axisVp);
+        
         const currentTarget = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-        const range = currentTarget.max - currentTarget.min;
-        const newRange = range * zoomFactor;
-        targetYs.current[axis.id] = { min: currentTarget.min + (range - newRange) / 2, max: currentTarget.max - (range - newRange) / 2 };
+        const yRange = currentTarget.max - currentTarget.min;
+        const newYRange = yRange * zoomFactor;
+        
+        const weight = (height - padding.bottom - mouseY) / chartHeight;
+        targetYs.current[axis.id] = { 
+          min: worldMouse.y - weight * newYRange, 
+          max: worldMouse.y + (1 - weight) * newYRange 
+        };
       });
     }
+    startAnimation();
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
     const axisSeries = series.filter(s => s.yAxisId === axisId);
     if (axisSeries.length === 0) return;
+    const state = useGraphStore.getState();
     let yMin = Infinity, yMax = -Infinity;
     axisSeries.forEach(s => {
       const ds = datasets.find(d => d.id === s.sourceId);
@@ -311,7 +424,7 @@ const GraphPlotArea = () => {
       const xData = ds.data[xIdx], yData = ds.data[yIdx];
       for (let i = 0; i < ds.rowCount; i++) {
         const x = xData[i];
-        if (x >= viewportX.min && x <= viewportX.max) { const y = yData[i]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
+        if (x >= state.viewportX.min && x <= state.viewportX.max) { const y = yData[i]; if (y < yMin) yMin = y; if (y > yMax) yMax = y; }
       }
     });
     if (yMin !== Infinity) {
@@ -324,8 +437,9 @@ const GraphPlotArea = () => {
         nextMin = yMin - pad; nextMax = yMax + pad;
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax };
+      startAnimation();
     }
-  }, [series, datasets, viewportX, padding.top, chartHeight]);
+  }, [series, datasets, padding.top, chartHeight, startAnimation]);
 
   const handleAutoScaleX = useCallback(() => {
     if (series.length === 0) return;
@@ -336,10 +450,17 @@ const GraphPlotArea = () => {
       const xIdx = ds.columns.indexOf(s.xColumn);
       if (xIdx === -1) return;
       const xData = ds.data[xIdx];
-      for (let i = 0; i < ds.rowCount; i++) { if (xData[i] < xMin) xMin = xData[i]; if (xData[i] > xMax) xMax = xData[i]; }
+      for (let i = 0; i < ds.rowCount; i++) { 
+        if (xData[i] < xMin) xMin = xData[i]; 
+        if (xData[i] > xMax) xMax = xData[i]; 
+      }
     });
-    if (xMin !== Infinity) { const pad = (xMax - xMin || 1) * 0.05; targetX.current = { min: xMin - pad, max: xMax + pad }; }
-  }, [series, datasets]);
+    if (xMin !== Infinity) { 
+      const pad = (xMax - xMin || 1) * 0.05; 
+      targetX.current = { min: xMin - pad, max: xMax + pad }; 
+      startAnimation();
+    }
+  }, [series, datasets, startAnimation]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {
@@ -365,20 +486,26 @@ const GraphPlotArea = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    const xRange = viewportX.max - viewportX.min;
+    
+    const state = useGraphStore.getState();
+    const xRange = state.viewportX.max - state.viewportX.min;
     const xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
+    
     if (panTarget === 'all' || panTarget === 'x') {
-      const nextX = { min: viewportX.min - xMove, max: viewportX.max - xMove };
-      setViewportX(nextX); targetX.current = nextX;
+      const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
+      state.setViewportX(nextX); 
+      targetX.current = nextX;
     }
+    
     const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
     axesToPan.forEach(axis => {
       if (!axis) return;
       const yRange = axis.max - axis.min, yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
       const nextY = { min: axis.min + yMove, max: axis.max + yMove };
-      updateYAxis(axis.id, nextY); targetYs.current[axis.id] = nextY;
+      state.updateYAxis(axis.id, nextY); 
+      targetYs.current[axis.id] = nextY;
     });
-  }, [panTarget, viewportX, activeYAxes, chartWidth, chartHeight, setViewportX, updateYAxis]);
+  }, [panTarget, activeYAxes, chartWidth, chartHeight]);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -388,21 +515,23 @@ const GraphPlotArea = () => {
         const minX = Math.min(box.startX, box.endX), maxX = Math.max(box.startX, box.endX);
         const minY = Math.min(box.startY, box.endY), maxY = Math.max(box.startY, box.endY);
         if (maxX - minX > 5 && maxY - minY > 5) {
-          const vp = { ...viewportX, xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+          const state = useGraphStore.getState();
+          const vp = { ...state.viewportX, xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: 0, yMax: 100, width, height, padding };
           const w1 = screenToWorld(minX, maxY, vp), w2 = screenToWorld(maxX, minY, vp);
           targetX.current = { min: w1.x, max: w2.x };
           activeYAxes.forEach(axis => {
-             const axisVp = { ...viewportX, xMin: viewportX.min, xMax: viewportX.max, yMin: axis.min, yMax: axis.max, width, height, padding };
+             const axisVp = { ...state.viewportX, xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: axis.min, yMax: axis.max, width, height, padding };
              const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
              targetYs.current[axis.id] = { min: a1.y, max: a2.y };  
           });
+          startAnimation();
         }
       }
       setPanTarget(null);
     };
     window.addEventListener('mousemove', handleMouseMoveRaw); window.addEventListener('mouseup', handleMouseUp);
     return () => { window.removeEventListener('mousemove', handleMouseMoveRaw); window.removeEventListener('mouseup', handleMouseUp); };
-  }, [handleMouseMoveRaw, viewportX, activeYAxes, width, height, padding]);
+  }, [handleMouseMoveRaw, activeYAxes, width, height, padding, startAnimation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -410,34 +539,42 @@ const GraphPlotArea = () => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
+      
       const step = 0.15;
       if (e.key === 'ArrowLeft') {
         const range = targetX.current.max - targetX.current.min;
         targetX.current = { min: targetX.current.min - range * step, max: targetX.current.max - range * step };
+        startAnimation();
       } else if (e.key === 'ArrowRight') {
         const range = targetX.current.max - targetX.current.min;
         targetX.current = { min: targetX.current.min + range * step, max: targetX.current.max + range * step };
+        startAnimation();
       } else if (e.key === 'ArrowUp') {
         activeYAxes.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
         });
+        startAnimation();
       } else if (e.key === 'ArrowDown') {
         activeYAxes.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
         });
+        startAnimation();
+      } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) {
+        startAnimation();
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => { if (e.key === 'Control') setIsCtrlPressed(false); pressedKeys.current.delete(e.key); };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, [activeYAxes]);
+  }, [activeYAxes, startAnimation]);
 
   const xTicks = useMemo(() => {
     const isXDate = xMode === 'date', range = viewportX.max - viewportX.min;
+    if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate };
     const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
     let step = range / maxTicks;
     let precision = 0;
@@ -446,6 +583,7 @@ const GraphPlotArea = () => {
       const normalizedStep = step / magnitude;
       let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
+      if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));
     } else {
       const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000];
@@ -453,7 +591,10 @@ const GraphPlotArea = () => {
     }
     const firstTick = Math.ceil(viewportX.min / step) * step;
     const result = [];
-    for (let t = firstTick; t <= viewportX.max; t += step) result.push(t);
+    for (let t = firstTick; t <= viewportX.max; t += step) {
+      if (result.length > 100) break;
+      result.push(t);
+    }
     return { result, step, precision, isXDate };
   }, [viewportX.min, viewportX.max, chartWidth, xMode]);
 
@@ -474,7 +615,15 @@ const GraphPlotArea = () => {
         <WebGLRenderer datasets={datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
       </div>
       <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} isXDate={xTicks.isXDate} formatDate={formatDate} series={series} axisLayout={axisLayout} />
-      <div onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(); }} style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} />
+      <div 
+        onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} 
+        onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} 
+        onDoubleClick={(e) => { 
+          e.stopPropagation(); 
+          handleAutoScaleX(); 
+        }} 
+        style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} 
+      />
       {activeYAxes.map((axis) => {
         const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
         const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
@@ -499,4 +648,4 @@ const GraphPlotArea = () => {
   );
 };
 
-export default GraphPlotArea;
+export default ChartContainer;

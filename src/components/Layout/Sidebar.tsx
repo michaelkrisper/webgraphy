@@ -278,6 +278,10 @@ export const Sidebar: React.FC = () => {
               Export PNG
             </button>
           </div>
+
+          <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '10px', color: '#999' }}>
+            v0.1.5
+          </div>
         </div>
 
         {/* Resizer overlay positioned relative to sidebar */}

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import GraphPlotArea from './components/Plot/PlotArea'
+import ChartContainer from './components/Plot/ChartContainer'
 import { Sidebar } from './components/Layout/Sidebar'
 import { useGraphStore } from './store/useGraphStore'
 import './index.css'
@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <GraphPlotArea />
+      <ChartContainer />
       <Sidebar />
     </div>
   )
