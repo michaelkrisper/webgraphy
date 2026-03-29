@@ -151,23 +151,29 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => { window.removeEventListener('mousemove', handleMove); el.removeEventListener('mouseleave', handleLeave); };
   }, [containerRef, padding, width, height, isPanning]);
   if (!pos) return null;
+  
   const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
   const worldPos = screenToWorld(pos.x, pos.y, vp);
-  const xValue = xMode === 'date' ? formatDate(worldPos.x, (viewportX.max - viewportX.min) / 10) : worldPos.x.toFixed(4);
+  
+  const xValue = xMode === 'date' 
+    ? new Date(worldPos.x * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+    : worldPos.x.toFixed(6);
+    
   const yValues = yAxes.map((axis: any, idx: number) => {
     const axisVp = { ...vp, yMin: axis.min, yMax: axis.max };
     const w = screenToWorld(pos.x, pos.y, axisVp);
-    return { id: axis.id, label: `y${idx + 1}`, value: w.y.toFixed(2) };
+    return { id: axis.id, label: `y${idx + 1}`, value: w.y.toFixed(4) };
   });
+  
   const isTooltipOnRight = pos.x < width / 2;
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-        <line x1={pos.x} y1={padding.top} x2={pos.x} y2={height - padding.bottom} stroke="#999" strokeWidth="1" strokeDasharray="4 4" />
-        <line x1={padding.left} y1={pos.y} x2={width - padding.right} y2={pos.y} stroke="#999" strokeWidth="1" strokeDasharray="4 4" />
+        <line x1={pos.x} y1={padding.top} x2={pos.x} y2={height - padding.bottom} stroke="#ccc" strokeWidth="1" strokeDasharray="2 2" />
+        <line x1={padding.left} y1={pos.y} x2={width - padding.right} y2={pos.y} stroke="#ccc" strokeWidth="1" strokeDasharray="2 2" />
       </svg>
-      <div style={{ position: 'absolute', left: isTooltipOnRight ? pos.x + 15 : 'auto', right: isTooltipOnRight ? 'auto' : (width - pos.x) + 15, top: pos.y + 15, backgroundColor: 'rgba(33, 37, 41, 0.85)', color: '#fff', padding: '8px 12px', borderRadius: '6px', fontSize: '11px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'pre', lineHeight: '1.4' }}>
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', marginBottom: '4px', paddingBottom: '2px', fontWeight: 'bold' }}>X: {xValue}</div>
+      <div style={{ position: 'absolute', left: isTooltipOnRight ? pos.x + 15 : 'auto', right: isTooltipOnRight ? 'auto' : (width - pos.x) + 15, top: pos.y + 15, backgroundColor: 'rgba(255, 255, 255, 0.85)', color: '#333', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.05)', whiteSpace: 'pre', lineHeight: '1.2' }}>
+        <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px', paddingBottom: '2px', fontWeight: 'bold' }}>X: {xValue}</div>
         {yValues.map((y: any) => (<div key={y.id}>{y.label}: {y.value}</div>))}
       </div>
     </>
@@ -187,6 +193,8 @@ const ChartContainer: React.FC = () => {
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
   const pressedKeys = useRef<Set<string>>(new Set());
+  
+  // Persistent targets for animation - initialized from store values to restore view status
   const targetX = useRef({ min: viewportX.min, max: viewportX.max });
   const targetYs = useRef<Record<string, { min: number, max: number }>>({});
   const wasEmptyRef = useRef(true);
@@ -208,7 +216,7 @@ const ChartContainer: React.FC = () => {
       // Keyboard Zoom
       if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
         const isCtrl = keys.has('Control');
-        const zoomFactor = (keys.has('+') || keys.has('=')) ? 0.95 : 1.05;
+        const zoomFactor = (keys.has('+') || keys.has('=')) ? 0.85 : 1.15;
         const xRange = targetX.current.max - targetX.current.min;
         const newXRange = xRange * zoomFactor;
         targetX.current = { min: targetX.current.min + (xRange - newXRange) / 2, max: targetX.current.max - (xRange - newXRange) / 2 };
@@ -271,7 +279,7 @@ const ChartContainer: React.FC = () => {
       });
       startAnimation();
     }
-  }, [isLoaded, startAnimation]);
+  }, [isLoaded]); // Only on initial load to restore status
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
@@ -317,45 +325,48 @@ const ChartContainer: React.FC = () => {
 
     if (wasEmptyRef.current && datasets.length > 0) {
       wasEmptyRef.current = false;
-      let xMin = Infinity, xMax = -Infinity;
-      series.forEach(s => {
-        const ds = datasets.find(d => d.id === s.sourceId);
-        if (!ds) return;
-        const xIdx = ds.columns.indexOf(s.xColumn);
-        if (xIdx === -1) return;
-        const xData = ds.data[xIdx];
-        for (let i = 0; i < ds.rowCount; i++) { 
-          if (xData[i] < xMin) xMin = xData[i]; 
-          if (xData[i] > xMax) xMax = xData[i]; 
-        }
-      });
-      
-      if (xMin !== Infinity) {
-        const pad = (xMax - xMin || 1) * 0.05;
-        targetX.current = { min: xMin - pad, max: xMax + pad };
-        startAnimation();
-      }
-      
-      activeYAxes.forEach(axis => {
-        const axisSeries = series.filter(s => s.yAxisId === axis.id);
-        let yMin = Infinity, yMax = -Infinity;
-        axisSeries.forEach(s => {
+      // If we have saved viewport values that aren't the default 0-100, don't auto-scale
+      if (viewportX.min === 0 && viewportX.max === 100) {
+        let xMin = Infinity, xMax = -Infinity;
+        series.forEach(s => {
           const ds = datasets.find(d => d.id === s.sourceId);
           if (!ds) return;
-          const yIdx = ds.columns.indexOf(s.yColumn);
-          if (yIdx === -1) return;
-          const yData = ds.data[yIdx];
-          for (let i = 0; i < ds.rowCount; i++) {
-            if (yData[i] < yMin) yMin = yData[i];
-            if (yData[i] > yMax) yMax = yData[i];
+          const xIdx = ds.columns.indexOf(s.xColumn);
+          if (xIdx === -1) return;
+          const xData = ds.data[xIdx];
+          for (let i = 0; i < ds.rowCount; i++) { 
+            if (xData[i] < xMin) xMin = xData[i]; 
+            if (xData[i] > xMax) xMax = xData[i]; 
           }
         });
-        if (yMin !== Infinity) {
-          const pad = (yMax - yMin || 1) * 0.1;
-          targetYs.current[axis.id] = { min: yMin - pad, max: yMax + pad };
+        
+        if (xMin !== Infinity) {
+          const pad = (xMax - xMin || 1) * 0.05;
+          targetX.current = { min: xMin - pad, max: xMax + pad };
           startAnimation();
         }
-      });
+        
+        activeYAxes.forEach(axis => {
+          const axisSeries = series.filter(s => s.yAxisId === axis.id);
+          let yMin = Infinity, yMax = -Infinity;
+          axisSeries.forEach(s => {
+            const ds = datasets.find(d => d.id === s.sourceId);
+            if (!ds) return;
+            const yIdx = ds.columns.indexOf(s.yColumn);
+            if (yIdx === -1) return;
+            const yData = ds.data[yIdx];
+            for (let i = 0; i < ds.rowCount; i++) {
+              if (yData[i] < yMin) yMin = yData[i];
+              if (yData[i] > yMax) yMax = yData[i];
+            }
+          });
+          if (yMin !== Infinity) {
+            const pad = (yMax - yMin || 1) * 0.1;
+            targetYs.current[axis.id] = { min: yMin - pad, max: yMax + pad };
+            startAnimation();
+          }
+        });
+      }
     }
   }, [series, datasets, isLoaded, activeYAxes, startAnimation]);
 
