@@ -331,7 +331,7 @@ const ChartContainer: React.FC = () => {
       
       if (xMin !== Infinity) {
         const range = xMax - xMin || 1;
-        const pad = range * 0.05;
+        const pad = range * 0.1; // 10% margin
         const nextX = { min: xMin - pad, max: xMax + pad };
         targetX.current = nextX;
         setViewportX(nextX);
@@ -350,7 +350,7 @@ const ChartContainer: React.FC = () => {
         });
         if (yMin !== Infinity) {
           const range = yMax - yMin || 1;
-          const pad = range * 0.1;
+          const pad = range * 0.1; // 10% margin
           const nextY = { min: yMin - pad, max: yMax + pad };
           targetYs.current[axis.id] = nextY;
           updateYAxis(axis.id, nextY);
@@ -438,7 +438,7 @@ const ChartContainer: React.FC = () => {
       }
     });
     if (xMin !== Infinity) { 
-      const pad = (xMax - xMin || 1) * 0.05; 
+      const pad = (xMax - xMin || 1) * 0.1; // 10% margin
       targetX.current = { min: xMin - pad, max: xMax + pad }; startAnimation();
     }
   }, [datasets, globalXColumn, startAnimation]);
