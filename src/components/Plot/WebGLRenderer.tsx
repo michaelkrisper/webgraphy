@@ -57,7 +57,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
         v_t = a_t;
         v_len = length(other - p);
         gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
-        gl_PointSize = 4.0;
+        gl_PointSize = u_point_size;
       }
     `;
 
@@ -83,11 +83,15 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
             }
           }
         } else if (u_point_style == 0) {
+          // Circle
           float d = distance(gl_PointCoord, vec2(0.5, 0.5));
           if (d > 0.5) discard;
         } else if (u_point_style == 2) {
+          // 'X' Symbol
           vec2 p = gl_PointCoord - vec2(0.5);
-          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+          float d1 = abs(p.x - p.y);
+          float d2 = abs(p.x + p.y);
+          if (min(d1, d2) > 0.15) discard;
         }
         gl_FragColor = u_color;
       }
@@ -104,6 +108,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       colorLoc: gl.getUniformLocation(pg, 'u_color'),
       styleLoc: gl.getUniformLocation(pg, 'u_point_style'),
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
+      sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
       posLoc: gl.getAttribLocation(pg, 'a_position'),
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
       tLoc: gl.getAttribLocation(pg, 'a_t')
@@ -200,6 +205,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = hexToRgba(s.lineColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+        gl.uniform1f(locs.sizeLoc, 4.0);
         const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
         gl.uniform1i(locs.lineStyleLoc, lStyle);
         gl.uniform1i(locs.styleLoc, -1);
@@ -247,6 +253,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.pointStyle !== 'none') {
         const c = hexToRgba(s.pointColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+        gl.uniform1f(locs.sizeLoc, 7.0);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
         
