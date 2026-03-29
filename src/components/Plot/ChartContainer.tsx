@@ -331,7 +331,7 @@ const ChartContainer: React.FC = () => {
       
       if (xMin !== Infinity) {
         const range = xMax - xMin || 1;
-        const pad = range * 0.1; // 10% margin
+        const pad = range * 0.05; // 5% margin
         const nextX = { min: xMin - pad, max: xMax + pad };
         targetX.current = nextX;
         setViewportX(nextX);
@@ -350,7 +350,7 @@ const ChartContainer: React.FC = () => {
         });
         if (yMin !== Infinity) {
           const range = yMax - yMin || 1;
-          const pad = range * 0.1; // 10% margin
+          const pad = range * 0.05; // 5% margin
           const nextY = { min: yMin - pad, max: yMax + pad };
           targetYs.current[axis.id] = nextY;
           updateYAxis(axis.id, nextY);
@@ -408,12 +408,23 @@ const ChartContainer: React.FC = () => {
     });
     if (yMin !== Infinity) {
       let nextMin = yMin, nextMax = yMax;
+      const range = yMax - yMin || 1;
+      const pad = range * 0.05; // 5% margin
+      
       if (isCtrl && mouseY !== undefined) {
         const chartCenterY = padding.top + chartHeight / 2;
-        if (mouseY < chartCenterY) { nextMin = 2 * yMin - yMax; nextMax = yMax; } else { nextMin = yMin; nextMax = 2 * yMax - yMin; }
+        if (mouseY < chartCenterY) { 
+          // Scale from top: keep max, extend min
+          nextMin = yMin - pad; 
+          nextMax = yMax + (yMax - yMin) + pad; 
+        } else { 
+          // Scale from bottom: keep min, extend max
+          nextMin = yMin - (yMax - yMin) - pad; 
+          nextMax = yMax + pad; 
+        }
       } else {
-        const range = yMax - yMin || 1, pad = (range / 0.9 - range) / 2;
-        nextMin = yMin - pad; nextMax = yMax + pad;
+        nextMin = yMin - pad; 
+        nextMax = yMax + pad;
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
@@ -438,7 +449,7 @@ const ChartContainer: React.FC = () => {
       }
     });
     if (xMin !== Infinity) { 
-      const pad = (xMax - xMin || 1) * 0.1; // 10% margin
+      const pad = (xMax - xMin || 1) * 0.05; // 5% margin
       targetX.current = { min: xMin - pad, max: xMax + pad }; startAnimation();
     }
   }, [datasets, globalXColumn, startAnimation]);
