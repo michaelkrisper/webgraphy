@@ -32,23 +32,30 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
 
     const vsSource = `
       attribute vec2 a_position;
-      uniform vec2 u_rel_viewport_x; // Already relative to refPoint
-      uniform vec2 u_rel_viewport_y; // Already relative to refPoint
+      attribute vec2 a_other;
+      attribute float a_t;
+      uniform vec2 u_rel_viewport_x;
+      uniform vec2 u_rel_viewport_y;
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
-      
-      void main() {
+      varying float v_t;
+      varying float v_len;
+
+      vec2 toScreen(vec2 pos) {
         float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
         float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-        
-        // Final screen position calculation (0 to 1 range)
-        float nx = (abs(dx) > 0.000001) ? (a_position.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 0.000001) ? (a_position.y - u_rel_viewport_y.x) / dy : 0.5;
-        
+        float nx = (abs(dx) > 0.000001) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
+        float ny = (abs(dy) > 0.000001) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
-        
-        vec2 p = vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
+        return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
+      }
+
+      void main() {
+        vec2 p = toScreen(a_position);
+        vec2 other = toScreen(a_other);
+        v_t = a_t;
+        v_len = length(other - p);
         gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
         gl_PointSize = 4.0;
       }
@@ -58,8 +65,24 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       precision mediump float;
       uniform vec4 u_color;
       uniform int u_point_style;
+      uniform int u_line_style;
+      varying float v_t;
+      varying float v_len;
       void main() {
-        if (u_point_style == 0) {
+        if (u_point_style == -1) {
+          if (u_line_style > 0) {
+            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+            float period = dashLen + gapLen;
+            float numPeriods = floor(v_len / period + 0.5);
+            if (numPeriods > 0.0) {
+               float adjustedPeriod = v_len / numPeriods;
+               float adjustedDash = adjustedPeriod * (dashLen / period);
+               float dist = v_t * v_len;
+               if (mod(dist + adjustedDash * 0.5, adjustedPeriod) > adjustedDash) discard;
+            }
+          }
+        } else if (u_point_style == 0) {
           float d = distance(gl_PointCoord, vec2(0.5, 0.5));
           if (d > 0.5) discard;
         } else if (u_point_style == 2) {
@@ -80,7 +103,10 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       resLoc: gl.getUniformLocation(pg, 'u_resolution'),
       colorLoc: gl.getUniformLocation(pg, 'u_color'),
       styleLoc: gl.getUniformLocation(pg, 'u_point_style'),
-      posLoc: gl.getAttribLocation(pg, 'a_position')
+      lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
+      posLoc: gl.getAttribLocation(pg, 'a_position'),
+      otherLoc: gl.getAttribLocation(pg, 'a_other'),
+      tLoc: gl.getAttribLocation(pg, 'a_t')
     });
     setGlReady(true);
   }, []);
@@ -174,8 +200,48 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = hexToRgba(s.lineColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+        const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
+        gl.uniform1i(locs.lineStyleLoc, lStyle);
         gl.uniform1i(locs.styleLoc, -1);
-        gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
+
+        if (lStyle === 0) {
+          // Solid line can use the same interleaved point buffer with LINE_STRIP
+          // but we need to disable other attributes
+          gl.disableVertexAttribArray(locs.otherLoc);
+          gl.disableVertexAttribArray(locs.tLoc);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
+          gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
+        } else {
+          // Dashed/Dotted needs segment buffer
+          const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
+          let segBuffer = buffersRef.current.get(segBufferKey);
+          if (!segBuffer) {
+            segBuffer = gl.createBuffer()!;
+            // Each segment: 2 points * (pos(2) + other(2) + t(1)) = 10 floats per segment
+            const segData = new Float32Array((numPoints - 1) * 10);
+            for (let i = 0; i < numPoints - 1; i++) {
+              const ax = xLOD[i], ay = yLOD[i];
+              const bx = xLOD[i + 1], by = yLOD[i + 1];
+              const off = i * 10;
+              // P1
+              segData[off] = ax; segData[off + 1] = ay; segData[off + 2] = bx; segData[off + 3] = by; segData[off + 4] = 0;
+              // P2
+              segData[off + 5] = bx; segData[off + 6] = by; segData[off + 7] = ax; segData[off + 8] = ay; segData[off + 9] = 1;
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, segData, gl.STATIC_DRAW);
+            buffersRef.current.set(segBufferKey, segBuffer);
+          } else gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+
+          gl.enableVertexAttribArray(locs.posLoc);
+          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 20, 0);
+          gl.enableVertexAttribArray(locs.otherLoc);
+          gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 20, 8);
+          gl.enableVertexAttribArray(locs.tLoc);
+          gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 20, 16);
+          gl.drawArrays(gl.LINES, 0, (numPoints - 1) * 2);
+        }
       }
 
       if (s.pointStyle !== 'none') {
@@ -183,6 +249,13 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
+        
+        // Ensure point rendering uses the correct point buffer and attributes
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
+        gl.disableVertexAttribArray(locs.otherLoc);
+        gl.disableVertexAttribArray(locs.tLoc);
+        
         gl.drawArrays(gl.POINTS, 0, numPoints);
       }
     });
