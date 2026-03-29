@@ -4,7 +4,7 @@ import { Sidebar } from './components/Layout/Sidebar'
 import { useGraphStore } from './store/useGraphStore'
 import './index.css'
 
-function App() {
+export default function App() {
   const { loadPersistedState } = useGraphStore();
 
   useEffect(() => {
@@ -18,5 +18,3 @@ function App() {
     </div>
   )
 }
-
-export default App

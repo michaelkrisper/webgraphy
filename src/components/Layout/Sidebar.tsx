@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronLeft, ChevronRight, Clock, Hash } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash } from 'lucide-react';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 
@@ -14,7 +14,7 @@ const COLOR_PALETTE = [
 ];
 
 /**
- * Sidebar Component (v2.5 - Stable Export)
+ * Sidebar Component (v2.6 - Floating Expand Button)
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
@@ -35,7 +35,7 @@ export const Sidebar: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const newWidth = Math.max(200, Math.min(600, e.clientX));
+      const newWidth = Math.max(200, Math.min(600, window.innerWidth - e.clientX));
       setWidth(newWidth);
     };
 
@@ -116,22 +116,46 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', position: 'relative' }}>
+    <>
+      {isCollapsed && (
+        <button 
+          onClick={() => setIsCollapsed(false)}
+          style={{
+            position: 'absolute',
+            bottom: '15px',
+            right: '15px',
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.6)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(4px)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'}
+          title="Open Configuration"
+        >
+          <img src="/favicon.svg" alt="config" style={{ width: '24px', height: '24px', opacity: 0.8 }} />
+        </button>
+      )}
+
       <aside 
         className="sidebar" 
         style={{ 
-          width: isCollapsed ? '40px' : `${width}px`, 
-          paddingRight: isCollapsed ? '0px' : '15px',
-          padding: isCollapsed ? '10px 0' : '1rem'
+          width: isCollapsed ? '0px' : `${width}px`, 
+          borderLeft: isCollapsed ? 'none' : '1px solid var(--border-color)',
+          padding: isCollapsed ? '0px' : '1rem',
+          position: 'relative',
+          overflow: isCollapsed ? 'hidden' : 'auto'
         }}
       >
-        <div className={`sidebar-collapsed-content ${isCollapsed ? 'visible' : ''}`}>
-          <button onClick={() => setIsCollapsed(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
-            <ChevronLeft size={20} />
-          </button>
-          <div style={{ writingMode: 'vertical-rl', marginTop: '20px', fontWeight: 'bold', color: '#666', fontSize: '14px' }}>WebGraphy</div>
-        </div>
-
         <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #212529', paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -255,25 +279,25 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Resizer overlay positioned relative to sidebar */}
+        {!isCollapsed && (
+          <div 
+            onMouseDown={() => setIsResizing(true)}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '5px',
+              cursor: 'col-resize',
+              background: isResizing ? '#007bff' : 'transparent',
+              zIndex: 10,
+              transition: 'background 0.2s'
+            }}
+          />
+        )}
       </aside>
-      
-      {/* Resizer overlay hidden when collapsed */}
-      {!isCollapsed && (
-        <div 
-          onMouseDown={() => setIsResizing(true)}
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: '5px',
-            cursor: 'col-resize',
-            background: isResizing ? '#007bff' : 'transparent',
-            zIndex: 10,
-            transition: 'background 0.2s'
-          }}
-        />
-      )}
-    </div>
+    </>
   );
 };
