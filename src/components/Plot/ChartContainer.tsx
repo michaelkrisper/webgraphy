@@ -400,12 +400,57 @@ const ChartContainer: React.FC = () => {
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
     const axisSeries = series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
+    
     axisSeries.forEach(s => {
       const ds = datasets.find(d => d.id === s.sourceId); if (!ds) return;
-      const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
-      if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
-      if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
+      
+      const findColumn = (name: string) => {
+        const idx = ds.columns.indexOf(name);
+        if (idx !== -1) return idx;
+        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
+      };
+
+      const xIdx = findColumn(s.xColumn);
+      const yIdx = findColumn(s.yColumn);
+      if (xIdx === -1 || yIdx === -1) return;
+
+      const colX = ds.data[xIdx];
+      const colY = ds.data[yIdx];
+      if (!colX || !colY || !colX.levels[0] || !colY.levels[0]) return;
+
+      const xData = colX.levels[0];
+      const yData = colY.levels[0];
+      const refX = colX.refPoint;
+      const refY = colY.refPoint;
+      
+      // Binary search for visible range indices
+      let startIdx = 0;
+      let endIdx = xData.length - 1;
+      
+      // Find first index where xData[i] + refX >= viewportX.min
+      let low = 0, high = xData.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >>> 1;
+        if (xData[mid] + refX >= viewportX.min) { startIdx = mid; high = mid - 1; }
+        else { low = mid + 1; }
+      }
+      
+      // Find last index where xData[i] + refX <= viewportX.max
+      low = 0; high = xData.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >>> 1;
+        if (xData[mid] + refX <= viewportX.max) { endIdx = mid; low = mid + 1; }
+        else { high = mid - 1; }
+      }
+
+      // Scan Y values in visible range
+      for (let i = startIdx; i <= endIdx; i++) {
+        const val = yData[i] + refY;
+        if (val < yMin) yMin = val;
+        if (val > yMax) yMax = val;
+      }
     });
+
     if (yMin !== Infinity) {
       let nextMin = yMin, nextMax = yMax;
       const range = yMax - yMin || 1;
@@ -414,11 +459,9 @@ const ChartContainer: React.FC = () => {
       if (isCtrl && mouseY !== undefined) {
         const chartCenterY = padding.top + chartHeight / 2;
         if (mouseY < chartCenterY) { 
-          // Scale from top: keep max, extend min
           nextMin = yMin - pad; 
           nextMax = yMax + (yMax - yMin) + pad; 
         } else { 
-          // Scale from bottom: keep min, extend max
           nextMin = yMin - (yMax - yMin) - pad; 
           nextMax = yMax + pad; 
         }
@@ -428,7 +471,7 @@ const ChartContainer: React.FC = () => {
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
-  }, [series, datasets, padding.top, chartHeight, startAnimation]);
+  }, [series, datasets, viewportX, padding.top, chartHeight, startAnimation]);
 
   const handleAutoScaleX = useCallback(() => {
     if (datasets.length === 0) return;
