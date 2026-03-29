@@ -459,11 +459,13 @@ const ChartContainer: React.FC = () => {
       if (isCtrl && mouseY !== undefined) {
         const chartCenterY = padding.top + chartHeight / 2;
         if (mouseY < chartCenterY) { 
-          nextMin = yMin - pad; 
-          nextMax = yMax + (yMax - yMin) + pad; 
-        } else { 
+          // TOP half click -> Show TOP half of data (extend min downwards)
           nextMin = yMin - (yMax - yMin) - pad; 
           nextMax = yMax + pad; 
+        } else { 
+          // BOTTOM half click -> Show BOTTOM half of data (extend max upwards)
+          nextMin = yMin - pad; 
+          nextMax = yMax + (yMax - yMin) + pad; 
         }
       } else {
         nextMin = yMin - pad; 
