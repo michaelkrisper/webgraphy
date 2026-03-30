@@ -193,40 +193,146 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode }: any) => {
+const SNAP_PX = 30; // pixel radius for snapping to a point
+
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, datasets, series }: any) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
     const handleMove = (e: MouseEvent) => {
       if (isPanning) { setPos(null); return; }
-      const rect = el.getBoundingClientRect(); const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) { setPos({ x, y }); } else { setPos(null); }
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
+        setPos({ x, y });
+      } else {
+        setPos(null);
+      }
     };
     const handleLeave = () => setPos(null);
-    window.addEventListener('mousemove', handleMove); el.addEventListener('mouseleave', handleLeave);
+    window.addEventListener('mousemove', handleMove);
+    el.addEventListener('mouseleave', handleLeave);
     return () => { window.removeEventListener('mousemove', handleMove); el.removeEventListener('mouseleave', handleLeave); };
   }, [containerRef, padding, width, height, isPanning]);
+
+  const snap = useMemo(() => {
+    if (!pos || !datasets || !series || series.length === 0) return null;
+    const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+    const mouseWorld = screenToWorld(pos.x, pos.y, vp);
+
+    // Convert SNAP_PX radius to world-x distance
+    const xWorldPerPx = (viewportX.max - viewportX.min) / Math.max(1, width - padding.left - padding.right);
+    const xSnapWorld = SNAP_PX * xWorldPerPx;
+
+    // Find the nearest X point across all series
+    let bestDist = Infinity;
+    let bestXWorld: number | null = null;
+
+    series.forEach((s: any) => {
+      const ds = datasets.find((d: any) => d.id === s.sourceId);
+      if (!ds) return;
+      const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
+      if (xIdx === -1) return;
+      const xCol = ds.data[xIdx];
+      if (!xCol || !xCol.levels || !xCol.levels[0]) return;
+      const xData = xCol.levels[0];
+      const refX = xCol.refPoint;
+
+      // Binary search for the closest point
+      let lo = 0, hi = xData.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (xData[mid] + refX < mouseWorld.x) lo = mid + 1; else hi = mid;
+      }
+      for (const i of [lo - 1, lo, lo + 1]) {
+        if (i < 0 || i >= xData.length) continue;
+        const wx = xData[i] + refX;
+        const d = Math.abs(wx - mouseWorld.x);
+        if (d < bestDist) { bestDist = d; bestXWorld = wx; }
+      }
+    });
+
+    if (bestXWorld === null || bestDist > xSnapWorld) return null;
+    const finalBestXWorld = bestXWorld as number;
+
+    // Collect all Y values from all series at this X
+    const entries: { label: string, value: number, color: string }[] = [];
+    series.forEach((s: any) => {
+      const ds = datasets.find((d: any) => d.id === s.sourceId);
+      if (!ds) return;
+      const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
+      const yIdx = ds.columns.findIndex((c: string) => c === s.yColumn || c.endsWith(`: ${s.yColumn}`));
+      if (xIdx === -1 || yIdx === -1) return;
+      const xCol = ds.data[xIdx], yCol = ds.data[yIdx];
+      if (!xCol?.levels?.[0] || !yCol?.levels?.[0]) return;
+      const xData = xCol.levels[0], yData = yCol.levels[0];
+      const refX = xCol.refPoint, refY = yCol.refPoint;
+
+      // Find closest index to bestXWorld
+      let lo = 0, hi = xData.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (xData[mid] + refX < finalBestXWorld) lo = mid + 1; else hi = mid;
+      }
+      let bestI = lo;
+      if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
+
+      const yVal = yData[bestI] + refY;
+      const axis = yAxes.find((a: any) => a.id === s.yAxisId);
+      const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
+      const label = s.name || s.yColumn;
+      entries.push({ label: axisTitle ? `${label} [${axisTitle}]` : label, value: yVal, color: s.lineColor || '#333' });
+    });
+
+    // Screen position of the snapped point (use first series to get Y screen pos for crosshair)
+    const snapScreenX = worldToScreen(finalBestXWorld, 0, vp).x;
+
+    return { xWorld: finalBestXWorld, snapScreenX, entries };
+  }, [pos, datasets, series, yAxes, viewportX, width, height, padding]);
+
   if (!pos) return null;
-  const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
-  const worldPos = screenToWorld(pos.x, pos.y, vp);
-  const xValue = xMode === 'date' 
-    ? new Date(worldPos.x * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
-    : worldPos.x.toFixed(6);
-  const yValues = yAxes.map((axis: any, idx: number) => {
-    const axisVp = { ...vp, yMin: axis.min, yMax: axis.max };
-    const w = screenToWorld(pos.x, pos.y, axisVp);
-    return { id: axis.id, label: `y${idx + 1}`, value: w.y.toFixed(4) };
-  });
-  const isTooltipOnRight = pos.x < width / 2;
+  if (!snap) return null; // Only show when near a point
+
+  const { xWorld, snapScreenX, entries } = snap;
+  const isTooltipOnRight = snapScreenX < width / 2;
+
+  const xLabel = xMode === 'date'
+    ? new Date(xWorld * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+    : xWorld.toFixed(6);
+
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-        <line x1={pos.x} y1={padding.top} x2={pos.x} y2={height - padding.bottom} stroke="#ccc" strokeWidth="1" strokeDasharray="2 2" />
-        <line x1={padding.left} y1={pos.y} x2={width - padding.right} y2={pos.y} stroke="#ccc" strokeWidth="1" strokeDasharray="2 2" />
+        <line x1={snapScreenX} y1={padding.top} x2={snapScreenX} y2={height - padding.bottom} stroke="#aaa" strokeWidth="1" strokeDasharray="3 3" />
       </svg>
-      <div style={{ position: 'absolute', left: isTooltipOnRight ? pos.x + 15 : 'auto', right: isTooltipOnRight ? 'auto' : (width - pos.x) + 15, top: pos.y + 15, backgroundColor: 'rgba(255, 255, 255, 0.85)', color: '#333', padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.05)', whiteSpace: 'pre', lineHeight: '1.2' }}>
-        <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px', paddingBottom: '2px', fontWeight: 'bold' }}>X: {xValue}</div>
-        {yValues.map((y: any) => (<div key={y.id}>{y.label}: {y.value}</div>))}
+      <div style={{
+        position: 'absolute',
+        left: isTooltipOnRight ? snapScreenX + 12 : 'auto',
+        right: isTooltipOnRight ? 'auto' : (width - snapScreenX) + 12,
+        top: padding.top + 12,
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        color: '#333',
+        padding: '6px 10px',
+        borderRadius: '5px',
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        pointerEvents: 'none',
+        zIndex: 100,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+        backdropFilter: 'blur(4px)',
+        border: '1px solid rgba(0,0,0,0.08)',
+        whiteSpace: 'pre',
+        lineHeight: '1.5',
+        maxWidth: 320
+      }}>
+        <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', marginBottom: '4px', paddingBottom: '3px', fontWeight: 'bold', fontSize: '11px' }}>
+          X: {xLabel}
+        </div>
+        {entries.map((e: any, i: number) => (
+          <div key={i} style={{ color: e.color }}>
+            {e.label}: <span style={{ color: '#333', fontWeight: 'bold' }}>{e.value.toFixed(4)}</span>
+          </div>
+        ))}
       </div>
     </>
   );
@@ -701,7 +807,7 @@ const ChartContainer: React.FC = () => {
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={xMode} formatDate={formatDate} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={xMode} formatDate={formatDate} datasets={datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {editingXTitle ? (
         <input autoFocus defaultValue={axisTitles.x} onBlur={(e) => { setAxisTitles(e.target.value, axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { setAxisTitles(e.currentTarget.value, axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
