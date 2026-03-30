@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -426,19 +426,19 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid #dee2e6' }}>
-            <button 
+            <button
               onClick={handleExportSVG}
-              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer' }}
+              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              Export SVG
+              <FileImage size={14} /> Export SVG
             </button>
-            <button 
+            <button
               onClick={handleExportPNG}
-              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer' }}
+              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              Export PNG
+              <Image size={14} /> Export PNG
             </button>
-            <button 
+            <button
               onClick={async () => {
                 if (confirm('Delete all datasets and reset all settings?')) {
                   localStorage.removeItem('webgraphy-state');
@@ -451,9 +451,9 @@ export const Sidebar: React.FC = () => {
                   };
                 }
               }}
-              style={{ width: '100%', padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px' }}
+              style={{ width: '100%', padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              Reset App (Wipe Storage)
+              <RotateCcw size={14} /> Reset
             </button>
           </div>
 
