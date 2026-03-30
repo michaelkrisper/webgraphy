@@ -38,6 +38,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       uniform vec2 u_rel_viewport_y;
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
+      uniform float u_point_size;
       varying float v_t;
       varying float v_len;
 
