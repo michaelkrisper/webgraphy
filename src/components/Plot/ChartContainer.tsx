@@ -281,7 +281,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const axis = yAxes.find((a: any) => a.id === s.yAxisId);
       const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
       const label = s.name || s.yColumn;
-      entries.push({ label: axisTitle ? `${label} [${axisTitle}]` : label, value: yVal, color: s.lineColor || '#333' });
+      const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
+      entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
     });
 
     // Screen position of the snapped point (use first series to get Y screen pos for crosshair)
