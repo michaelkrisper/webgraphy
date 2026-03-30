@@ -129,15 +129,15 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
 }
 
 function parseCSV(text: string) {
-  const lines = text.split(/\r?\n/);
+  // Strip BOM if present
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   if (lines.length === 0) throw new Error('Empty CSV file');
-  
-  // Detect delimiter
+
+  // Detect delimiter from the first line
   const firstLine = lines[0];
   const delimiters = [',', ';', '\t'];
   let bestDelimiter = ',';
   let maxCount = 0;
-  
   for (const delimiter of delimiters) {
     const count = firstLine.split(delimiter).length;
     if (count > maxCount) {
@@ -159,6 +159,7 @@ function parseCSV(text: string) {
   }
   return { columns: headers, rowCount: data.length, data: data };
 }
+
 
 function parseJSON(text: string) {
   const raw = JSON.parse(text);

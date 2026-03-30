@@ -328,11 +328,29 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', marginBottom: '4px', paddingBottom: '3px', fontWeight: 'bold', fontSize: '11px' }}>
           X: {xLabel}
         </div>
-        {entries.map((e: any, i: number) => (
-          <div key={i} style={{ color: e.color }}>
-            {e.label}: <span style={{ color: '#333', fontWeight: 'bold' }}>{e.value.toFixed(4)}</span>
+        {entries.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '2px' }}>
+            {entries.map((e: any, i: number) => {
+              // Format value with appropriate precision using German locale for the comma
+              // We'll use up to 5 decimals unless it's a very large number
+              const valStr = e.value.toLocaleString('de-DE', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: Math.max(2, Math.min(6, 6 - Math.floor(Math.log10(Math.max(1, Math.abs(e.value))))))
+              });
+              const idx = valStr.indexOf(',');
+              const intPart = idx !== -1 ? valStr.substring(0, idx) : valStr;
+              const decPart = idx !== -1 ? valStr.substring(idx) : '';
+
+              return (
+                <React.Fragment key={i}>
+                  <div style={{ color: e.color, textAlign: 'right' }}>{e.label}:</div>
+                  <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
+                  <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
+                </React.Fragment>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
     </>
   );
