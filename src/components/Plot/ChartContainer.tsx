@@ -431,7 +431,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { series, yAxes, viewportX, isLoaded, lastAppliedViewId, views } = useGraphStore();
+  const { series, yAxes, viewportX, isLoaded, lastAppliedViewId } = useGraphStore();
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [editingXTitle, setEditingXTitle] = useState(false);
