@@ -329,7 +329,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           X: {xLabel}
         </div>
         {entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '2px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '2px' }}>
             {entries.map((e: any, i: number) => {
               // Format value with appropriate precision using German locale for the comma
               // We'll use up to 5 decimals unless it's a very large number
@@ -343,7 +343,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
               return (
                 <React.Fragment key={i}>
-                  <div style={{ color: e.color, textAlign: 'right' }}>{e.label}:</div>
+                  <div style={{ color: e.color, textAlign: 'right', paddingRight: '4px' }}>{e.label}:</div>
                   <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
                   <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
                 </React.Fragment>
