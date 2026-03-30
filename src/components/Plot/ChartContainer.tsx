@@ -295,7 +295,9 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   if (!snap) return null; // Only show when near a point
 
   const { xWorld, snapScreenX, entries } = snap;
-  const isTooltipOnRight = snapScreenX < width / 2;
+  const maxExpectedHeight = 30 + entries.length * 18; 
+  const isTooltipOnRight = pos.x + 320 + 20 < width; 
+  const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
 
   const xLabel = xMode === 'date'
     ? new Date(xWorld * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
@@ -310,7 +312,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         position: 'absolute',
         left: isTooltipOnRight ? snapScreenX + 12 : 'auto',
         right: isTooltipOnRight ? 'auto' : (width - snapScreenX) + 12,
-        top: padding.top + 12,
+        top: isTooltipBelow ? pos.y + 15 : 'auto',
+        bottom: isTooltipBelow ? 'auto' : (height - pos.y) + 15,
         backgroundColor: 'rgba(255,255,255,0.92)',
         color: '#333',
         padding: '6px 10px',
