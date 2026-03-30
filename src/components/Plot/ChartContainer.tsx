@@ -40,7 +40,6 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
 });
 
 const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: any) => {
-  const chartHeight = Math.max(0, height - padding.top - padding.bottom);
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>

@@ -39,8 +39,7 @@ export const Sidebar: React.FC = () => {
   const [width, setWidth] = useState(450);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [showImprint, setShowImprint] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const { importFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   useEffect(() => {
