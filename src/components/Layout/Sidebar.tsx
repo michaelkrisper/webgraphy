@@ -39,6 +39,8 @@ export const Sidebar: React.FC = () => {
   const [width, setWidth] = useState(450);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
+  const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
@@ -207,14 +209,15 @@ export const Sidebar: React.FC = () => {
           </div>
           
           <div className="section">
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="section-title" onClick={() => toggleSection('sources')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
+                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
                 <FilePlus size={14} style={{ marginRight: '5px' }} />
                 Data Sources
               </div>
-              <button 
+              <button
                 disabled={isImporting}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                 style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
               >
                 {isImporting ? '...' : 'Import'}
@@ -232,7 +235,7 @@ export const Sidebar: React.FC = () => {
                 accept=".csv,.json"
               />
             </div>
-            <div className="sources-list" style={{ marginBottom: '1rem' }}>
+            {openSections.sources && <div className="sources-list" style={{ marginBottom: '1rem' }}>
               {datasets.map(d => (
                 <div key={d.id} style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -293,12 +296,13 @@ export const Sidebar: React.FC = () => {
                   </details>
                 </div>
               ))}
-            </div>
+            </div>}
           </div>
 
           <div className="section">
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="section-title" onClick={() => toggleSection('series')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
+                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
                 <Layout size={14} style={{ marginRight: '5px' }} />
                 Data Series
               </div>
@@ -321,14 +325,14 @@ export const Sidebar: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="series-list">
+            {openSections.series && <div className="series-list" style={{ marginBottom: '1rem' }}>
               {series.length === 0 && <p style={{ fontSize: '0.8rem', color: '#666' }}>Click a column above to add a series.</p>}
               {[...series].reverse().map((s, i) => {
                 const dataset = datasets.find(d => d.id === s.sourceId);
                 return (
-                  <SeriesConfigUI 
-                    key={s.id} 
-                    series={s} 
+                  <SeriesConfigUI
+                    key={s.id}
+                    series={s}
                     dataset={dataset}
                     isFirst={i === 0}
                     isLast={i === series.length - 1}
@@ -336,15 +340,16 @@ export const Sidebar: React.FC = () => {
                   />
                 );
               })}
-            </div>
+            </div>}
           </div>
 
           <div className="section">
-            <div className="section-title" style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
+              <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
               <Eye size={14} style={{ marginRight: '5px' }} />
               Data Views
             </div>
-            <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
+            {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
                 <input
                   type="text"
@@ -424,7 +429,7 @@ export const Sidebar: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
 
           <div className="section" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid #dee2e6' }}>
