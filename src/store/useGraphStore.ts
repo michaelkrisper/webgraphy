@@ -243,27 +243,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const savedState = persistence.loadAppState();
     const allDatasets = await persistence.getAllDatasets();
     if (savedState) {
-      const views = savedState.views || [];
-      const defaultView = views.find(v => v.name === 'Default View');
-      if (defaultView) {
-        const loadedYAxes = createInitialYAxes().map(axis => {
-          const viewAxis = defaultView!.yAxes.find(va => va.id === axis.id);
-          return viewAxis ? { ...axis, min: viewAxis.min, max: viewAxis.max } : axis;
-        });
-        set({
-          viewportX: defaultView.viewportX,
-          yAxes: loadedYAxes,
-          series: savedState.series || [],
-          axisTitles: savedState.axisTitles || { x: 'X-Axis', y: 'Y-Axis' },
-          globalXColumn: savedState.globalXColumn || 'Timestamp',
-          views: views,
-          isLoaded: true,
-          xMode: savedState.xMode || 'date',
-          datasets: allDatasets
-        });
-      } else {
-        set({ ...savedState, datasets: allDatasets, isLoaded: true });
-      }
+      set({ ...savedState, datasets: allDatasets, isLoaded: true });
       debouncedSaveState();
     } else {
       set({ datasets: allDatasets, isLoaded: true, xMode: 'date' });
