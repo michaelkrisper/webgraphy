@@ -131,12 +131,27 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
 function parseCSV(text: string) {
   const lines = text.split(/\r?\n/);
   if (lines.length === 0) throw new Error('Empty CSV file');
-  const headers = lines[0].split(',').map(h => h.trim());
+  
+  // Detect delimiter
+  const firstLine = lines[0];
+  const delimiters = [',', ';', '\t'];
+  let bestDelimiter = ',';
+  let maxCount = 0;
+  
+  for (const delimiter of delimiters) {
+    const count = firstLine.split(delimiter).length;
+    if (count > maxCount) {
+      maxCount = count;
+      bestDelimiter = delimiter;
+    }
+  }
+
+  const headers = firstLine.split(bestDelimiter).map(h => h.trim());
   const data: number[][] = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    const values = line.split(',').map(v => {
+    const values = line.split(bestDelimiter).map(v => {
       const p = parseFloat(v.trim());
       return isNaN(p) ? 0 : p;
     });
