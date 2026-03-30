@@ -89,6 +89,62 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         })}
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}>
+        {isXDate && xTicks.step < 86400 && (() => {
+          const dayLabels = [];
+          const startTimestamp = viewportX.min;
+          const endTimestamp = viewportX.max;
+          
+          // Get start of the current day at the left edge
+          const leftDate = new Date(startTimestamp * 1000);
+          leftDate.setHours(0, 0, 0, 0);
+          let currentDayStart = leftDate.getTime() / 1000;
+          
+          // Sticky label for the day at the left edge
+          const nextDayStart = currentDayStart + 86400;
+          
+          dayLabels.push(
+            <div key="sticky-day" style={{ 
+              position: 'absolute', 
+              left: padding.left + 5, 
+              bottom: padding.bottom - 35, 
+              fontSize: '10px', 
+              fontWeight: 'bold', 
+              color: '#333',
+              backgroundColor: 'rgba(255,255,255,0.8)',
+              padding: '1px 4px',
+              borderRadius: '2px',
+              zIndex: 10
+            }}>
+              {leftDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </div>
+          );
+
+          // Labels for visible day transitions
+          let dayTransition = nextDayStart;
+          while (dayTransition <= endTimestamp) {
+            const { x } = worldToScreen(dayTransition, 0, viewportRef);
+            if (x > padding.left + 100) { // Avoid overlapping with sticky label
+              dayLabels.push(
+                <div key={`day-${dayTransition}`} style={{ 
+                  position: 'absolute', 
+                  left: x + 5, 
+                  bottom: padding.bottom - 35, 
+                  fontSize: '10px', 
+                  fontWeight: 'bold', 
+                  color: '#333',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  padding: '1px 4px',
+                  borderRadius: '2px',
+                  borderLeft: '2px solid #333'
+                }}>
+                  {new Date(dayTransition * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </div>
+              );
+            }
+            dayTransition += 86400;
+          }
+          return dayLabels;
+        })()}
         {xTicks.result.map((t: number) => {
           const { x } = worldToScreen(t, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
