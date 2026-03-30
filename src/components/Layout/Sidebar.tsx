@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, BookmarkPlus } from 'lucide-react';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -354,14 +354,13 @@ export const Sidebar: React.FC = () => {
                 />
                 <button 
                   onClick={() => {
-                    if (newViewName.trim()) {
-                      saveView(newViewName.trim());
-                      setNewViewName('');
-                    }
+                    const name = newViewName.trim() || `View ${views.filter(v => v.id !== 'default-view').length + 1}`;
+                    saveView(name);
+                    setNewViewName('');
                   }}
-                  style={{ padding: '4px 8px', fontSize: '12px', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '3px', cursor: 'pointer' }}
+                  style={{ padding: '4px 6px', fontSize: '12px', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
-                  Save
+                  <BookmarkPlus size={14} />
                 </button>
               </div>
               
