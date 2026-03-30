@@ -5,6 +5,16 @@ interface HelpModalProps {
   onClose: () => void;
 }
 
+const Section: React.FC<{ title: string; children: React.ReactNode; first?: boolean }> = ({ title, children, first }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '0 24px', marginBottom: '20px' }}>
+    {!first && <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #ddd', margin: '0 20px 16px' }} />}
+    <div style={{ fontSize: '1em', fontWeight: 600, color: '#111', paddingTop: '2px' }}>{title}</div>
+    <ul style={{ margin: 0, paddingLeft: '18px', color: '#444', lineHeight: '1.6' }}>
+      {children}
+    </ul>
+  </div>
+);
+
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
   return (
     <div style={{
@@ -24,14 +34,14 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         backgroundColor: '#fff',
         padding: '30px',
         borderRadius: '8px',
-        maxWidth: '550px',
+        maxWidth: '720px',
         width: '90%',
         position: 'relative',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
         maxHeight: '90vh',
         overflowY: 'auto'
       }}>
-        <button 
+        <button
           onClick={onClose}
           style={{
             position: 'absolute',
@@ -49,33 +59,38 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <X size={20} />
         </button>
 
-        <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>Help & Interactions</h2>
-        
-        <div style={{ lineHeight: '1.6', color: '#444' }}>
-          <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#111' }}>Plot Area</h3>
-          <ul style={{ paddingLeft: '20px', marginBottom: '20px' }}>
-            <li><strong>Mouse Wheel:</strong> Zoom in and out</li>
-            <li><strong>Click & Drag:</strong> Pan the chart (move the visible area)</li>
-            <li><strong>CTRL + Click & Drag:</strong> Draw a zoom selection box</li>
-            <li><strong>Hover:</strong> Show tooltips for the nearest data points</li>
-            <li><strong>Double Click:</strong> Auto-scale to fit all data</li>
-          </ul>
+        <h2 style={{ marginTop: 0, marginBottom: '24px', color: '#333' }}>Help & Interactions</h2>
 
-          <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#111' }}>Axes (X & Y)</h3>
-          <ul style={{ paddingLeft: '20px', marginBottom: '20px' }}>
-            <li><strong>Mouse Wheel on an axis:</strong> Zoom only this specific axis</li>
-            <li><strong>Drag on an axis:</strong> Pan this specific axis</li>
-            <li><strong>Double Click:</strong> Auto-scale this specific axis</li>
-            <li><strong>CTRL + Double Click (Y-Axis):</strong> Auto-scale focusing on the top or bottom half of the data (depending on click position)</li>
-          </ul>
+        <Section title="Plot Area" first>
+          <li><strong>Mouse Wheel:</strong> Zoom in and out</li>
+          <li><strong>Click & Drag:</strong> Pan the chart (move the visible area)</li>
+          <li><strong>CTRL + Drag:</strong> Draw a zoom selection box</li>
+          <li><strong>Hover:</strong> Show tooltips for the nearest data points</li>
+          <li><strong>Double Click:</strong> Auto-scale to fit all data</li>
+        </Section>
 
-          <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#111' }}>Sidebar Features</h3>
-          <ul style={{ paddingLeft: '20px', marginBottom: '20px' }}>
-            <li><strong>Data Sources:</strong> Import very large CSV or JSON files. They are parsed and heavily optimized (Level of Detail) for high performance.</li>
-            <li><strong>Data Series:</strong> After importing, map any columns to X/Y axes and style lines/points.</li>
-            <li><strong>Export:</strong> Save the current chart view as SVG or PNG.</li>
-          </ul>
-        </div>
+        <Section title="Axes (X & Y)">
+          <li><strong>Mouse Wheel:</strong> Zoom only this specific axis</li>
+          <li><strong>Drag:</strong> Pan this specific axis</li>
+          <li><strong>Double Click:</strong> Auto-scale this specific axis</li>
+          <li><strong>CTRL + Dbl Click (Y):</strong> Auto-scale to top or bottom half of data</li>
+          <li><strong>Click on title:</strong> Rename the axis</li>
+        </Section>
+
+        <Section title="Keyboard">
+          <li><strong>← →:</strong> Pan the X axis</li>
+          <li><strong>↑ ↓:</strong> Pan the Y axis (hovered axis, or all)</li>
+          <li><strong>+ / =:</strong> Zoom in on the X axis</li>
+          <li><strong>- / _:</strong> Zoom out on the X axis</li>
+          <li><strong>CTRL + + / -:</strong> Zoom the Y axis (while hovering an axis)</li>
+        </Section>
+
+        <Section title="Sidebar">
+          <li><strong>Data Sources:</strong> Import large CSV or JSON files — parsed with LTTB downsampling for high performance</li>
+          <li><strong>Data Series:</strong> Map columns to X/Y axes and style lines/points</li>
+          <li><strong>Multiple Y-Axes:</strong> Each series can have an independent Y-axis with its own scale, position, and color</li>
+          <li><strong>Export:</strong> Save the current chart view as SVG or PNG</li>
+        </Section>
       </div>
     </div>
   );
