@@ -340,7 +340,10 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <h2 className="section-title">Views</h2>
+            <div className="section-title" style={{ display: 'flex', alignItems: 'center' }}>
+              <Eye size={14} style={{ marginRight: '5px' }} />
+              Data Views
+            </div>
             <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
                 <input
