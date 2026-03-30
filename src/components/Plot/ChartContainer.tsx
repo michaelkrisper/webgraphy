@@ -40,7 +40,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
 });
 
 const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: any) => {
-  const chartWidth = Math.max(0, width - padding.left - padding.right), chartHeight = Math.max(0, height - padding.top - padding.bottom);
+  const chartHeight = Math.max(0, height - padding.top - padding.bottom);
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -120,6 +120,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           }
           const axisLineX = isLeft ? xPos + axisMetrics.total : xPos;
           const range = axis.max - axis.min;
+          const chartHeight = Math.max(0, height - padding.top - padding.bottom);
           if (range <= 0 || chartHeight <= 0) return null;
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
@@ -229,6 +230,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             xPos = width - padding.right + offset;
           }
           const range = axis.max - axis.min;
+          const chartHeight = Math.max(0, height - padding.top - padding.bottom);
           if (range <= 0 || chartHeight <= 0) return null;
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
@@ -430,7 +432,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded, globalXColumn, lastAppliedViewId, views } = useGraphStore();
+  const { series, yAxes, viewportX, isLoaded, lastAppliedViewId, views } = useGraphStore();
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [editingXTitle, setEditingXTitle] = useState(false);
@@ -603,7 +605,7 @@ const ChartContainer: React.FC = () => {
         const pad = range * 0.05; // 5% margin
         const nextX = { min: xMin - pad, max: xMax + pad };
         targetX.current = nextX;
-        setViewportX(nextX);
+        state.setViewportX(nextX);
         startAnimation();
       }
       
@@ -622,12 +624,12 @@ const ChartContainer: React.FC = () => {
           const pad = range * 0.05; // 5% margin
           const nextY = { min: yMin - pad, max: yMax + pad };
           targetYs.current[axis.id] = nextY;
-          updateYAxis(axis.id, nextY);
+          state.updateYAxis(axis.id, nextY);
           startAnimation();
         }
       });
     }
-  }, [isLoaded, startAnimation, series, datasets]);
+  }, [isLoaded, startAnimation, series, yAxes]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -667,11 +669,12 @@ const ChartContainer: React.FC = () => {
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
-    const axisSeries = series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
+    const state = useGraphStore.getState();
+    const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
     axisSeries.forEach(s => {
-      const ds = datasets.find(d => d.id === s.sourceId); if (!ds) return;
+      const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
       
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
@@ -742,7 +745,7 @@ const ChartContainer: React.FC = () => {
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
-  }, [series, datasets, viewportX, padding.top, chartHeight, startAnimation]);
+  }, [viewportX, padding.top, chartHeight, startAnimation]);
 
   const prevSeriesLenRef = useRef(series.length);
   useEffect(() => {
@@ -756,10 +759,11 @@ const ChartContainer: React.FC = () => {
   }, [series, isLoaded, handleAutoScaleY]);
 
   const handleAutoScaleX = useCallback(() => {
-    if (datasets.length === 0) return;
+    const state = useGraphStore.getState();
+    if (state.datasets.length === 0) return;
     let xMin = Infinity, xMax = -Infinity;
-    datasets.forEach(ds => {
-      const xIdx = ds.columns.findIndex(c => c === globalXColumn || c.endsWith(`: ${globalXColumn}`));
+    state.datasets.forEach(ds => {
+      const xIdx = ds.columns.findIndex(c => c === state.globalXColumn || c.endsWith(`: ${state.globalXColumn}`));
       if (xIdx !== -1) {
         const col = ds.data[xIdx];
         if (col.bounds.min < xMin) xMin = col.bounds.min;
@@ -777,7 +781,7 @@ const ChartContainer: React.FC = () => {
       const pad = (xMax - xMin || 1) * 0.05; // 5% margin
       targetX.current = { min: xMin - pad, max: xMax + pad }; startAnimation();
     }
-  }, [datasets, globalXColumn, startAnimation]);
+  }, [startAnimation]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {
@@ -933,7 +937,7 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, startAnimation]);
 
   const xTicks = useMemo(() => {
-    const isXDate = xMode === 'date', range = viewportX.max - viewportX.min;
+    const isXDate = useGraphStore.getState().xMode === 'date', range = viewportX.max - viewportX.min;
     if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate };
     const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
     let step = range / maxTicks;
@@ -952,7 +956,7 @@ const ChartContainer: React.FC = () => {
     const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
     for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
     return { result, step, precision, isXDate };
-  }, [viewportX.min, viewportX.max, chartWidth, xMode]);
+  }, [viewportX.min, viewportX.max, chartWidth]);
 
   const viewportRef = useMemo(() => ({ xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
   const formatDate = useCallback((val: number, step: number) => {
@@ -964,10 +968,10 @@ const ChartContainer: React.FC = () => {
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden' }}>
-      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
+      {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} viewportRef={viewportRef} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-        <WebGLRenderer datasets={datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
+        <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
       </div>
       <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} isXDate={xTicks.isXDate} formatDate={formatDate} series={series} axisLayout={axisLayout} />
       <div onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(); }} style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} />
@@ -984,12 +988,12 @@ const ChartContainer: React.FC = () => {
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={xMode} formatDate={formatDate} datasets={datasets} series={series} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} formatDate={formatDate} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {editingXTitle ? (
-        <input autoFocus defaultValue={axisTitles.x} onBlur={(e) => { setAxisTitles(e.target.value, axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { setAxisTitles(e.currentTarget.value, axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
+        <input autoFocus defaultValue={useGraphStore.getState().axisTitles.x} onBlur={(e) => { useGraphStore.getState().setAxisTitles(e.target.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { useGraphStore.getState().setAxisTitles(e.currentTarget.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
       ) : (
-        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{axisTitles.x}</div>
+        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{useGraphStore.getState().axisTitles.x}</div>
       )}
     </main>
   );

@@ -8,6 +8,7 @@ import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
 import { HelpModal } from './HelpModal';
+import { LicenseModal } from './LicenseModal';
 
 const COLOR_PALETTE = [
   '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
@@ -20,11 +21,13 @@ const COLOR_PALETTE = [
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, yAxes, axisTitles, setAxisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName } = useGraphStore();
+  const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName } = useGraphStore();
   const [newViewName, setNewViewName] = useState('');
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
-  const { importFile, isImporting } = useDataImport();
+  const [showImprint, setShowImprint] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showLicense, setShowLicense] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allColumns = useMemo(() => {
@@ -319,7 +322,6 @@ export const Sidebar: React.FC = () => {
               {series.length === 0 && <p style={{ fontSize: '0.8rem', color: '#666' }}>Click a column above to add a series.</p>}
               {[...series].reverse().map((s, i) => {
                 const dataset = datasets.find(d => d.id === s.sourceId);
-                const originalIndex = series.findIndex(ser => ser.id === s.id);
                 return (
                   <SeriesConfigUI 
                     key={s.id} 
@@ -457,6 +459,13 @@ export const Sidebar: React.FC = () => {
             >
               Imprint
             </button>
+            <span>|</span>
+            <button 
+              onClick={() => setShowLicense(true)} 
+              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '10px' }}
+            >
+              License
+            </button>
           </div>
         </div>
 
@@ -480,6 +489,7 @@ export const Sidebar: React.FC = () => {
       </aside>
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
     </>
   );
 };
