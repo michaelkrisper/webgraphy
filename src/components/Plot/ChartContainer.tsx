@@ -503,19 +503,15 @@ const ChartContainer: React.FC = () => {
 
   // Handle View Snapshots Lerp
   useEffect(() => {
-    if (!lastAppliedViewId || !views) return;
-    const view = views.find(v => v.id === lastAppliedViewId.id);
+    if (!lastAppliedViewId) return;
+    const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
     if (!view) return;
-    
-    // Update targets
     targetX.current = view.viewportX;
     view.yAxes.forEach(axis => {
       targetYs.current[axis.id] = { min: axis.min, max: axis.max };
     });
-    
-    // Kick off animation
     startAnimation();
-  }, [lastAppliedViewId, views, startAnimation]);
+  }, [lastAppliedViewId, startAnimation]);
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
