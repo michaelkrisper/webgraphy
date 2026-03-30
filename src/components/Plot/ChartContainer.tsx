@@ -815,10 +815,10 @@ const ChartContainer: React.FC = () => {
     hoveredAxisIdRef.current = foundHovered;
 
     if (zoomBoxStartRef.current && containerRef.current) {
-      x = Math.max(padding.left, Math.min(width - padding.right, x));
-      y = Math.max(padding.top, Math.min(height - padding.bottom, y));
-      const newBox = { ...zoomBoxStartRef.current, endX: x, endY: y };
-      zoomBoxStartRef.current = newBox; setZoomBoxState(newBox);
+      const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
+      const my = Math.max(padding.top, Math.min(height - padding.bottom, mouseY));
+      const newBox = { ...zoomBoxStartRef.current, endX: mx, endY: my };
+      setZoomBoxState(newBox);
       return;
     }
     if (!panTarget || !lastMousePos.current) return;
@@ -989,7 +989,7 @@ const ChartContainer: React.FC = () => {
       {editingXTitle ? (
         <input autoFocus defaultValue={axisTitles.x} onBlur={(e) => { setAxisTitles(e.target.value, axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { setAxisTitles(e.currentTarget.value, axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
       ) : (
-        <div onDoubleClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{axisTitles.x}</div>
+        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{axisTitles.x}</div>
       )}
     </main>
   );

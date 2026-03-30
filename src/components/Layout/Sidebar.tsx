@@ -20,8 +20,10 @@ const COLOR_PALETTE = [
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries } = useGraphStore();
+  const { datasets, series, yAxes, axisTitles, setAxisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName } = useGraphStore();
   const [newViewName, setNewViewName] = useState('');
+  const [editingViewId, setEditingViewId] = useState<string | null>(null);
+  const [tempViewName, setTempViewName] = useState('');
   const { importFile, isImporting } = useDataImport();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -364,7 +366,33 @@ export const Sidebar: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {views.filter(v => v.id !== 'default-view').map(v => (
                     <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8f9fa', borderRadius: '3px', border: '1px solid #e9ecef' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 'bold', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px' }} title={v.name}>{v.name}</span>
+                      {editingViewId === v.id ? (
+                        <input 
+                          autoFocus
+                          value={tempViewName}
+                          onChange={(e) => setTempViewName(e.target.value)}
+                          onBlur={() => {
+                            if (tempViewName.trim()) updateViewName(v.id, tempViewName.trim());
+                            setEditingViewId(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (tempViewName.trim()) updateViewName(v.id, tempViewName.trim());
+                              setEditingViewId(null);
+                            }
+                            if (e.key === 'Escape') setEditingViewId(null);
+                          }}
+                          style={{ flex: 1, fontSize: '12px', padding: '0 2px', height: '18px', marginRight: '8px' }}
+                        />
+                      ) : (
+                        <span 
+                          onClick={() => { setEditingViewId(v.id); setTempViewName(v.name); }}
+                          style={{ fontSize: '12px', fontWeight: 'bold', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'text' }} 
+                          title="Click to rename"
+                        >
+                          {v.name}
+                        </span>
+                      )}
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button 
                           onClick={() => applyView(v.id)}
