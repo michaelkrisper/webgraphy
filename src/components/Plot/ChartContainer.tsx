@@ -94,40 +94,38 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const startTimestamp = viewportX.min;
           const endTimestamp = viewportX.max;
           
-          // Get start of the current day at the left edge
-          const leftDate = new Date(startTimestamp * 1000);
-          leftDate.setHours(0, 0, 0, 0);
-          let currentDayStart = leftDate.getTime() / 1000;
+          // Find all day transitions relevant to the current view
+          // Start with the day containing the left edge
+          const firstDate = new Date(startTimestamp * 1000);
+          firstDate.setHours(0, 0, 0, 0);
+          let currentMidnight = firstDate.getTime() / 1000;
           
-          // Sticky label for the day at the left edge
-          const nextDayStart = currentDayStart + 86400;
-          
-          dayLabels.push(
-            <div key="sticky-day" style={{ 
-              position: 'absolute', 
-              left: padding.left + 5, 
-              bottom: padding.bottom - 35, 
-              fontSize: '10px', 
-              fontWeight: 'bold', 
-              color: '#333',
-              backgroundColor: 'rgba(255,255,255,0.8)',
-              padding: '1px 4px',
-              borderRadius: '2px',
-              zIndex: 10
-            }}>
-              {leftDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-            </div>
-          );
+          // We look at transitions from currentMidnight until we pass endTimestamp
+          // Plus one extra to "push" the last visible one if needed
+          while (currentMidnight <= endTimestamp) {
+            const nextMidnight = currentMidnight + 86400;
+            const { x: currentX } = worldToScreen(currentMidnight, 0, viewportRef);
+            const { x: nextX } = worldToScreen(nextMidnight, 0, viewportRef);
+            
+            const labelWidth = 70; // Approximate width of "DD.MM.YYYY" label
+            const paddingLeft = padding.left + 5;
+            
+            // This day's label should be at paddingLeft, UNLESS its midnight transition 
+            // is already to the right of paddingLeft.
+            // AND it should be pushed left by the next day's transition.
+            let x = Math.max(currentX + 5, paddingLeft);
+            
+            // If the next midnight is coming, push this label out
+            if (nextX < x + labelWidth) {
+              x = nextX - labelWidth;
+            }
 
-          // Labels for visible day transitions
-          let dayTransition = nextDayStart;
-          while (dayTransition <= endTimestamp) {
-            const { x } = worldToScreen(dayTransition, 0, viewportRef);
-            if (x > padding.left + 100) { // Avoid overlapping with sticky label
+            // Only render if some part of the label area is visible
+            if (x + labelWidth > padding.left && x < width - padding.right) {
               dayLabels.push(
-                <div key={`day-${dayTransition}`} style={{ 
+                <div key={`day-${currentMidnight}`} style={{ 
                   position: 'absolute', 
-                  left: x + 5, 
+                  left: x, 
                   bottom: padding.bottom - 35, 
                   fontSize: '10px', 
                   fontWeight: 'bold', 
@@ -135,13 +133,15 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
                   backgroundColor: 'rgba(255,255,255,0.8)',
                   padding: '1px 4px',
                   borderRadius: '2px',
-                  borderLeft: '2px solid #333'
+                  whiteSpace: 'nowrap',
+                  borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
+                  zIndex: 10
                 }}>
-                  {new Date(dayTransition * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  {new Date(currentMidnight * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </div>
               );
             }
-            dayTransition += 86400;
+            currentMidnight = nextMidnight;
           }
           return dayLabels;
         })()}
