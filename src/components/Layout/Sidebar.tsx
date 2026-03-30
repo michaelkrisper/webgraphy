@@ -219,15 +219,16 @@ export const Sidebar: React.FC = () => {
               >
                 {isImporting ? '...' : 'Import'}
               </button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
+              <input
+                type="file"
+                name="file-import"
+                ref={fileInputRef}
                 onChange={async (e) => {
                    if (e.target.files?.[0]) {
                      importFile(e.target.files[0]);
                    }
-                }} 
-                style={{ display: 'none' }} 
+                }}
+                style={{ display: 'none' }}
                 accept=".csv,.json"
               />
             </div>
@@ -254,23 +255,25 @@ export const Sidebar: React.FC = () => {
                     <summary style={{ fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#495057', display: 'flex', alignItems: 'center' }}>
                       <ChevronRight size={14} className="details-chevron" />
                       <span style={{ flex: 1 }}>Columns ({d.columns.length})</span>
-                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} onClick={e => e.preventDefault()}>
-                        <input 
-                          type="text" 
-                          placeholder="Filter..." 
-                          value={columnFilters[d.id] || ''}
-                          onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
-                          style={{ width: '130px', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
-                        />
-                        {columnFilters[d.id] && (
-                          <X 
-                            size={14} 
-                            style={{ position: 'absolute', right: '6px', cursor: 'pointer', color: '#999' }} 
-                            onClick={(e) => { e.preventDefault(); setColumnFilters({ ...columnFilters, [d.id]: '' }) }} 
-                          />
-                        )}
-                      </div>
                     </summary>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                      <input
+                        type="text"
+                        name={`column-filter-${d.id}`}
+                        autoComplete="off"
+                        placeholder="Filter..."
+                        value={columnFilters[d.id] || ''}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
+                        style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
+                      />
+                      {columnFilters[d.id] && (
+                        <X
+                          size={14}
+                          style={{ position: 'absolute', right: '6px', cursor: 'pointer', color: '#999' }}
+                          onClick={() => setColumnFilters({ ...columnFilters, [d.id]: '' })}
+                        />
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       {d.columns
                         .filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase()))
@@ -301,8 +304,9 @@ export const Sidebar: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontSize: '10px', color: '#666' }}>Global X:</span>
-                <select 
-                  value={globalXColumn} 
+                <select
+                  name="global-x-column"
+                  value={globalXColumn}
                   onChange={(e) => setGlobalXColumn(e.target.value)}
                   style={{ fontSize: '10px', padding: '1px', border: '1px solid #ced4da', borderRadius: '3px', width: '80px' }}
                 >
@@ -339,8 +343,10 @@ export const Sidebar: React.FC = () => {
             <h2 className="section-title">Views</h2>
             <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
+                  name="new-view-name"
+                  autoComplete="off"
                   value={newViewName}
                   onChange={(e) => setNewViewName(e.target.value)}
                   placeholder="View name..."
@@ -368,8 +374,10 @@ export const Sidebar: React.FC = () => {
                   {views.filter(v => v.id !== 'default-view').map(v => (
                     <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8f9fa', borderRadius: '3px', border: '1px solid #e9ecef' }}>
                       {editingViewId === v.id ? (
-                        <input 
+                        <input
                           autoFocus
+                          name="view-name"
+                          autoComplete="off"
                           value={tempViewName}
                           onChange={(e) => setTempViewName(e.target.value)}
                           onBlur={() => {

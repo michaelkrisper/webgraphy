@@ -62,15 +62,16 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   return (
     <div style={{ borderBottom: '1px solid #dee2e6', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
       {/* Color Picker */}
-      <input 
-        type="color" 
-        value={series.lineColor} 
+      <input
+        type="color"
+        name={`series-color-${series.id}`}
+        value={series.lineColor}
         onInput={(e) => {
           const color = (e.target as HTMLInputElement).value;
           handleUpdate({ lineColor: color, pointColor: color });
-        }} 
-        style={{ width: '18px', height: '18px', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '2px' }} 
-        title="Color" 
+        }}
+        style={{ width: '18px', height: '18px', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '2px' }}
+        title="Color"
       />
 
       {/* L/R Side Toggle */}
@@ -128,10 +129,11 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </button>
 
       {/* Y Column Selector */}
-      <select 
-        value={series.yColumn} 
-        onChange={(e) => handleUpdate({ yColumn: e.target.value })} 
-        style={{ width: '80px', fontSize: '9px', padding: '0', height: '18px', minWidth: 0, flexShrink: 1 }} 
+      <select
+        name={`series-y-column-${series.id}`}
+        value={series.yColumn}
+        onChange={(e) => handleUpdate({ yColumn: e.target.value })}
+        style={{ width: '80px', fontSize: '9px', padding: '0', height: '18px', minWidth: 0, flexShrink: 1 }}
         title="Y Column"
       >
         {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
@@ -151,8 +153,10 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {/* Editable Title */}
       <div style={{ flex: '2', minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
         {isEditingTitle ? (
-          <input 
+          <input
             autoFocus
+            name={`series-title-${series.id}`}
+            autoComplete="off"
             defaultValue={series.name || series.yColumn}
             onBlur={(e) => { handleUpdate({ name: e.target.value }); setIsEditingTitle(false); }}
             onKeyDown={(e) => { 
