@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
-import { Trash2, Circle, Square, X, Rows, Ban } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
   dataset: Dataset | undefined;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMove?: (delta: -1 | 1) => void;
 }
 
 /**
  * SeriesConfigUI Component
  * Provides an extremely compact UI for configuring an individual data series in a single row.
  */
-export const SeriesConfigUI: React.FC<Props> = ({ series, dataset }) => {
+export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
   const { updateSeries, removeSeries, yAxes, updateYAxis } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
@@ -74,10 +77,18 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset }) => {
       {currentAxis && (
         <button
           onClick={() => updateYAxis(currentAxis.id, { position: currentAxis.position === 'left' ? 'right' : 'left' })}
-          style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
-          title="Side (L/R)"
+          style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          title={currentAxis.position === 'left' ? "Left Axis" : "Right Axis"}
         >
-          {currentAxis.position === 'left' ? 'L' : 'R'}
+          {currentAxis.position === 'left' ? (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 13V2m-2 3l2-3 2 3M3 13h11m-3-2l3 2-3 2" />
+            </svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M13 13V2m-2 3l2-3 2 3M13 13H2m3-2l-3 2 3 2" />
+            </svg>
+          )}
         </button>
       )}
       
@@ -159,6 +170,26 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset }) => {
             {series.name || series.yColumn}
           </span>
         )}
+      </div>
+
+      {/* Reorder Buttons (UP/DOWN) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
+          disabled={isFirst}
+          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
+          title="Move Up (Layer Forward)"
+        >
+          <ChevronUp size={12} strokeWidth={3} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
+          disabled={isLast}
+          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
+          title="Move Down (Layer Backward)"
+        >
+          <ChevronDown size={12} strokeWidth={3} />
+        </button>
       </div>
 
       {/* Delete Button */}

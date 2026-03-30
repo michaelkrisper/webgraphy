@@ -44,7 +44,64 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
-        <rect x={padding.left} y={padding.top} width={chartWidth} height={chartHeight} fill="none" stroke="#333" strokeWidth="2" />
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#333" />
+          </marker>
+        </defs>
+        
+        {/* Main Chart Border (no bottom) */}
+        <path 
+          d={`M${padding.left},${height - padding.bottom} V${padding.top} H${width - padding.right} V${height - padding.bottom}`} 
+          fill="none" 
+          stroke="#333" 
+          strokeWidth="2" 
+        />
+        
+        {/* Bottom X-Axis Spine with Arrow */}
+        <line 
+          x1={padding.left} 
+          y1={height - padding.bottom} 
+          x2={width - padding.right + 8} 
+          y2={height - padding.bottom} 
+          stroke="#333" 
+          strokeWidth="2" 
+          markerEnd="url(#arrow)" 
+        />
+
+        {/* Coordinate Axes at 0 - More visible but still distinct */}
+        {viewportX.min <= 0 && viewportX.max >= 0 && (
+          <line 
+            x1={worldToScreen(0, 0, viewportRef).x} 
+            y1={height - padding.bottom} 
+            x2={worldToScreen(0, 0, viewportRef).x} 
+            y2={padding.top - 8} 
+            stroke="#666" 
+            strokeWidth="1" 
+            strokeDasharray="4 4"
+            markerEnd="url(#arrow)" 
+          />
+        )}
+        {yAxes.length > 0 && (() => {
+          const mainAxis = yAxes[0];
+          const axisVp = { ...viewportX, xMin: 0, xMax: 100, yMin: mainAxis.min, yMax: mainAxis.max, width, height, padding };
+          if (mainAxis.min <= 0 && mainAxis.max >= 0) {
+            return (
+              <line 
+                x1={padding.left} 
+                y1={worldToScreen(0, 0, axisVp).y} 
+                x2={width - padding.right + 8} 
+                y2={worldToScreen(0, 0, axisVp).y} 
+                stroke="#666" 
+                strokeWidth="1" 
+                strokeDasharray="4 4"
+                markerEnd="url(#arrow)" 
+              />
+            );
+          }
+          return null;
+        })()}
+
         {xTicks.result.map((t: number) => {
           const { x } = worldToScreen(t, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
@@ -77,7 +134,16 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           }
           return (
             <g key={axis.id}>
-              <line x1={axisLineX} y1={padding.top} x2={axisLineX} y2={height - padding.bottom} stroke="#333" strokeWidth="1" />
+              {/* Spine with Arrow */}
+              <line 
+                x1={axisLineX} 
+                y1={height - padding.bottom} 
+                x2={axisLineX} 
+                y2={padding.top - 8} 
+                stroke="#333" 
+                strokeWidth="1" 
+                markerEnd="url(#arrow)"
+              />
               {result.map(t => {
                 const { y } = worldToScreen(0, t, { ...viewportX, xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding });
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
@@ -148,7 +214,8 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         {xTicks.result.map((t: number) => {
           const { x } = worldToScreen(t, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
-          return <div key={`xl-${t}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{isXDate ? formatDate(t, xTicks.step) : t.toFixed(xTicks.precision)}</div>;
+          const label = isXDate ? formatDate(t, xTicks.step) : (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision));
+          return <div key={`xl-${t}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
         })}
         {yAxes.map((axis: any) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -182,9 +249,10 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             <React.Fragment key={axis.id}>
               {result.map(t => {
                 const { y } = worldToScreen(0, t, { ...viewportX, xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding });
-                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#333', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{t.toFixed(precision)}</div>;
+                const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(precision);
+                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#333', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '10px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -362,7 +430,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded, globalXColumn } = useGraphStore();
+  const { datasets, series, yAxes, axisTitles, setAxisTitles, viewportX, setViewportX, updateYAxis, xMode, isLoaded, globalXColumn, lastAppliedViewId, views } = useGraphStore();
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [editingXTitle, setEditingXTitle] = useState(false);
@@ -372,6 +440,7 @@ const ChartContainer: React.FC = () => {
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
+  const hoveredAxisIdRef = useRef<string | null>(null);
   const pressedKeys = useRef<Set<string>>(new Set());
   
   const targetX = useRef({ min: viewportX.min, max: viewportX.max });
@@ -430,6 +499,22 @@ const ChartContainer: React.FC = () => {
       startAnimation();
     }
   }, [isLoaded]);
+
+  // Handle View Snapshots Lerp
+  useEffect(() => {
+    if (!lastAppliedViewId || !views) return;
+    const view = views.find(v => v.id === lastAppliedViewId.id);
+    if (!view) return;
+    
+    // Update targets
+    targetX.current = view.viewportX;
+    view.yAxes.forEach(axis => {
+      targetYs.current[axis.id] = { min: axis.min, max: axis.max };
+    });
+    
+    // Kick off animation
+    startAnimation();
+  }, [lastAppliedViewId, views, startAnimation]);
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
@@ -659,6 +744,17 @@ const ChartContainer: React.FC = () => {
     }
   }, [series, datasets, viewportX, padding.top, chartHeight, startAnimation]);
 
+  const prevSeriesLenRef = useRef(series.length);
+  useEffect(() => {
+    if (isLoaded && series.length > prevSeriesLenRef.current) {
+      const addedSeries = series[series.length - 1];
+      if (addedSeries) {
+        handleAutoScaleY(addedSeries.yAxisId);
+      }
+    }
+    prevSeriesLenRef.current = series.length;
+  }, [series, isLoaded, handleAutoScaleY]);
+
   const handleAutoScaleX = useCallback(() => {
     if (datasets.length === 0) return;
     let xMin = Infinity, xMax = -Infinity;
@@ -695,9 +791,30 @@ const ChartContainer: React.FC = () => {
   };
 
   const handleMouseMoveRaw = useCallback((e: MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Detect Hovered Axis
+    let foundHovered = null;
+    leftAxes.forEach((axis, sideIdx) => {
+      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+      const axisMetrics = axisLayout[axis.id] || { total: 40 };
+      const leftBound = padding.left - offset - axisMetrics.total;
+      const rightBound = padding.left - offset;
+      if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
+    });
+    rightAxes.forEach((axis, sideIdx) => {
+      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+      const axisMetrics = axisLayout[axis.id] || { total: 40 };
+      const leftBound = width - padding.right + offset;
+      const rightBound = width - padding.right + offset + axisMetrics.total;
+      if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
+    });
+    hoveredAxisIdRef.current = foundHovered;
+
     if (zoomBoxStartRef.current && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      let x = e.clientX - rect.left, y = e.clientY - rect.top;
       x = Math.max(padding.left, Math.min(width - padding.right, x));
       y = Math.max(padding.top, Math.min(height - padding.bottom, y));
       const newBox = { ...zoomBoxStartRef.current, endX: x, endY: y };
@@ -714,11 +831,47 @@ const ChartContainer: React.FC = () => {
       state.setViewportX(nextX); targetX.current = nextX;
     }
     const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
+    const SNAP_THRESHOLD = 15;
+    const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
+
     axesToPan.forEach(axis => {
       if (!axis) return;
-      const yRange = axis.max - axis.min, yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      const nextY = { min: axis.min + yMove, max: axis.max + yMove };
-      state.updateYAxis(axis.id, nextY); targetYs.current[axis.id] = nextY;
+      const yRange = axis.max - axis.min;
+      const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
+      let nextMin = axis.min + yMove;
+      let nextMax = axis.max + yMove;
+
+      // Snapping Logic
+      if (chartHeight > 0) {
+        // Find screen pixel position of world 0 in the NEW range
+        const nextYRange = nextMax - nextMin;
+        const screenYZero = padding.top + (1 - (0 - nextMin) / nextYRange) * chartHeight;
+        
+        let bestTarget = null;
+        let bestDist = SNAP_THRESHOLD;
+        
+        for (const target of snapTargets) {
+          const d = Math.abs(screenYZero - target);
+          if (d < bestDist) {
+            bestDist = d;
+            bestTarget = target;
+          }
+        }
+        
+        if (bestTarget !== null) {
+          // Snap world 0 to bestTarget
+          // (bestTarget - padding.top) / chartHeight = 1 + nextMin / nextYRange
+          // nextMin / nextYRange = (bestTarget - padding.top) / chartHeight - 1
+          // -> nextMin = nextYRange * ((bestTarget - padding.top) / chartHeight - 1)
+          const ratio = (bestTarget - padding.top) / chartHeight - 1;
+          nextMin = nextYRange * ratio;
+          nextMax = nextMin + nextYRange;
+        }
+      }
+
+      const nextY = { min: nextMin, max: nextMax };
+      state.updateYAxis(axis.id, nextY); 
+      targetYs.current[axis.id] = nextY;
     });
   }, [panTarget, activeYAxes, chartWidth, chartHeight, padding, width, height]);
 
@@ -761,12 +914,14 @@ const ChartContainer: React.FC = () => {
         const range = targetX.current.max - targetX.current.min;
         targetX.current = { min: targetX.current.min + range * step, max: targetX.current.max + range * step }; startAnimation();
       } else if (e.key === 'ArrowUp') {
-        activeYAxes.forEach(axis => {
+        const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
         }); startAnimation();
       } else if (e.key === 'ArrowDown') {
-        activeYAxes.forEach(axis => {
+        const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
         }); startAnimation();

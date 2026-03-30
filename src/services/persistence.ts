@@ -31,6 +31,19 @@ export interface YAxisConfig {
   showGrid: boolean;
 }
 
+export interface ViewAxisSnapshot {
+  id: string;
+  min: number;
+  max: number;
+}
+
+export interface ViewSnapshot {
+  id: string;
+  name: string;
+  viewportX: { min: number; max: number };
+  yAxes: ViewAxisSnapshot[];
+}
+
 export interface SeriesConfig {
   id: string;
   sourceId: string;
@@ -51,6 +64,7 @@ export interface AppState {
   axisTitles: { x: string; y: string };
   globalXColumn: string;
   xMode: 'date' | 'numeric';
+  views?: ViewSnapshot[];
 }
 
 let db: IDBPDatabase | null = null;

@@ -254,7 +254,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.pointStyle !== 'none') {
         const c = hexToRgba(s.pointColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-        gl.uniform1f(locs.sizeLoc, 7.0);
+        gl.uniform1f(locs.sizeLoc, 5.0);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
         

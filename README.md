@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Webgraphy
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Webgraphy is a precision-focused, high-performance data visualization application designed to handle extremely large datasets (millions of points) with smooth interaction and visual integrity. It leverages custom WebGL rendering and advanced data management strategies to provide a responsive charting experience.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **High Performance:** Render millions of data points effortlessly using raw WebGL with custom shaders.
+- **Precision:** Ultra-precision and high-throughput drawing using relative offsets to handle large coordinate values without floating-point artifacts.
+- **Smart Data Handling:** Concurrency with Web Workers for heavy data parsing (CSV/JSON), coupled with Level of Detail (LOD) generation (Min/Max decimation).
+- **Persistence:** Local datasets and application state are persisted securely across sessions via IndexedDB and LocalStorage in the browser.
+- **Export:** Easily export charts into SVG or PNG formats.
+- **Flexibility:** Configure datasets flexibly, switch axes dynamically (e.g., date-based or numeric x-axis).
 
-## React Compiler
+## Core Technologies
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 19, TypeScript, Vite 8
+- **Rendering:** Raw WebGL
+- **State Management:** Zustand
+- **Persistence:** IndexedDB (`idb`), LocalStorage
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+First, ensure you have Node.js installed. Clone the repository and install dependencies:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Running Locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Deploy to GitHub Pages
+
+```bash
+npm run deploy
+```
+
+The application is configured to deploy to the `gh-pages` branch. The process is handled seamlessly by the deployment script.
+
+## License
+
+This project is licensed under the MIT License.

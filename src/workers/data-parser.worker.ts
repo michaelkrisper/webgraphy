@@ -26,7 +26,14 @@ self.onmessage = async (event) => {
 
     // 2. Prepare datasets with synchronized LOD
     const relativeData = columns.map((_, colIdx) => {
-      const refPoint = rowCount > 0 ? result.data[0][colIdx] : 0;
+      let refPoint = 0;
+      for (let i = 0; i < rowCount; i++) {
+        const val = result.data[i][colIdx];
+        if (!Number.isNaN(val)) {
+          refPoint = val;
+          break;
+        }
+      }
       const data = new Float32Array(rowCount);
       for (let i = 0; i < rowCount; i++) {
         data[i] = result.data[i][colIdx] - refPoint;
@@ -153,7 +160,7 @@ function parseCSV(text: string) {
     if (!line) continue;
     const values = line.split(bestDelimiter).map(v => {
       const p = parseFloat(v.trim());
-      return isNaN(p) ? 0 : p;
+      return isNaN(p) ? NaN : p;
     });
     data.push(values);
   }
@@ -167,7 +174,7 @@ function parseJSON(text: string) {
   const headers = Object.keys(raw[0]);
   const data = raw.map((row: any) => headers.map(h => {
     const p = parseFloat(row[h]);
-    return isNaN(p) ? 0 : p;
+    return isNaN(p) ? NaN : p;
   }));
   return { columns: headers, rowCount: data.length, data: data };
 }
