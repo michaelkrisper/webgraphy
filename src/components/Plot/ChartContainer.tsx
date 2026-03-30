@@ -281,16 +281,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const axis = yAxes.find((a: any) => a.id === s.yAxisId);
       const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
       const label = s.name || s.yColumn;
-      let decimals = 2;
-      const chartHeight = Math.max(1, height - padding.top - padding.bottom);
-      if (axis && chartHeight > 0) {
-        const range = axis.max - axis.min;
-        const resolution = range / chartHeight;
-        decimals = Math.min(6, Math.max(0, Math.ceil(-Math.log10(Math.abs(resolution) || 0.001))));
-      }
-
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
-      entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', decimals });
+      entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
     });
 
     // Screen position of the snapped point (use first series to get Y screen pos for crosshair)
@@ -307,7 +299,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
   const xLabel = xMode === 'date'
     ? new Date(xWorld * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
-    : xWorld.toFixed(6);
+    : parseFloat(xWorld.toPrecision(7)).toString();
 
   return (
     <>
@@ -340,10 +332,11 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         {entries.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '2px' }}>
             {entries.map((e: any, i: number) => {
-              // Format value with precision derived directly from visual axis resolution
-              const valStr = e.value.toLocaleString('de-DE', { 
+              // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
+              const cleanValue = parseFloat(e.value.toPrecision(7));
+              const valStr = cleanValue.toLocaleString('de-DE', { 
                 minimumFractionDigits: 0, 
-                maximumFractionDigits: e.decimals
+                maximumFractionDigits: 10
               });
               const idx = valStr.indexOf(',');
               const intPart = idx !== -1 ? valStr.substring(0, idx) : valStr;
