@@ -33,7 +33,6 @@ interface GraphState {
   lastAppliedViewId: { id: string, timestamp: number } | null;
   deleteView: (id: string) => void;
   updateViewName: (id: string, name: string) => void;
-  updateDefaultView: () => void;
 
   loadPersistedState: () => Promise<void>;
 }
@@ -216,29 +215,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     if (get().isLoaded) debouncedSaveState();
   },
 
-  updateDefaultView: () => {
-    let changed = false;
-    set((state) => {
-      let newViews = [...state.views];
-      const idx = newViews.findIndex(v => v.name === 'Default View');
-      const isSame = idx >= 0 && 
-        JSON.stringify(newViews[idx].viewportX) === JSON.stringify(state.viewportX) &&
-        JSON.stringify(newViews[idx].yAxes) === JSON.stringify(state.yAxes);
-      if (isSame) return state;
-      changed = true;
-      const updatedView = {
-        id: idx >= 0 ? newViews[idx].id : 'default-view',
-        name: 'Default View',
-        viewportX: state.viewportX,
-        yAxes: state.yAxes.map(a => ({ id: a.id, min: a.min, max: a.max }))
-      };
-      if (idx >= 0) newViews[idx] = updatedView;
-      else newViews.push(updatedView);
-      return { views: newViews };
-    });
-    if (changed) saveState(useGraphStore.getState());
-  },
-
   loadPersistedState: async () => {
     const savedState = persistence.loadAppState();
     const allDatasets = await persistence.getAllDatasets();
@@ -256,10 +232,7 @@ function debouncedSaveState() {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
     const curState = useGraphStore.getState();
-    if (curState.isLoaded) {
-      if (curState.updateDefaultView) curState.updateDefaultView();
-      saveState(curState);
-    }
+    if (curState.isLoaded) saveState(curState);
     saveTimeout = null;
   }, 1000);
 }
