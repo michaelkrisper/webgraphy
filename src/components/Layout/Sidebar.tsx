@@ -425,18 +425,20 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid #dee2e6' }}>
-            <button
-              onClick={handleExportSVG}
-              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <FileImage size={14} /> Export SVG
-            </button>
-            <button
-              onClick={handleExportPNG}
-              style={{ width: '100%', marginBottom: '0.5rem', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <Image size={14} /> Export PNG
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={handleExportSVG}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <FileImage size={14} /> Export SVG
+              </button>
+              <button
+                onClick={handleExportPNG}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <Image size={14} /> Export PNG
+              </button>
+            </div>
             <button
               onClick={async () => {
                 if (confirm('Delete all datasets and reset all settings?')) {
