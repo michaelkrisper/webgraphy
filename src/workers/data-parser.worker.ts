@@ -82,16 +82,19 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
   let currentIndices = new Uint32Array(rowCount);
   for (let i = 0; i < rowCount; i++) currentIndices[i] = i;
 
-  while (levels[0].length < 5 && currentIndices.length > factor * 2) {
-    const nextIndices: number[] = [];
+  while (levels[0].length < 8 && currentIndices.length > factor * 2) {
+    const nextIndicesSet = new Set<number>();
     
+    // Explicitly include global first and last indices for visual consistency
+    nextIndicesSet.add(0);
+    nextIndicesSet.add(rowCount - 1);
+
     for (let i = 0; i < currentIndices.length; i += factor) {
       const end = Math.min(i + factor, currentIndices.length);
-      const chunkIndices = new Set<number>();
       
       // Always include first and last of chunk
-      chunkIndices.add(currentIndices[i]);
-      chunkIndices.add(currentIndices[end - 1]);
+      nextIndicesSet.add(currentIndices[i]);
+      nextIndicesSet.add(currentIndices[end - 1]);
       
       // For each column, find min and max in this chunk
       for (let j = 0; j < numCols; j++) {
@@ -105,16 +108,14 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
           if (val < minVal) { minVal = val; minIdx = idx; }
           if (val > maxVal) { maxVal = val; maxIdx = idx; }
         }
-        chunkIndices.add(minIdx);
-        chunkIndices.add(maxIdx);
+        nextIndicesSet.add(minIdx);
+        nextIndicesSet.add(maxIdx);
       }
-      
-      // Add sorted unique indices from this chunk
-      const sorted = Array.from(chunkIndices).sort((a, b) => a - b);
-      nextIndices.push(...sorted);
     }
     
-    const nextIdxArray = new Uint32Array(nextIndices);
+    const sortedIndices = Array.from(nextIndicesSet).sort((a, b) => a - b);
+    const nextIdxArray = new Uint32Array(sortedIndices);
+
     // Create new data arrays for this level
     for (let j = 0; j < numCols; j++) {
       const colData = relativeData[j].data;
@@ -125,8 +126,10 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
       levels[j].push(levelData);
     }
     
+    const prevLength = currentIndices.length;
     currentIndices = nextIdxArray;
-    if (nextIndices.length >= currentIndices.length / 2 && nextIndices.length > 2000) {
+
+    if (currentIndices.length >= prevLength * 0.8 && currentIndices.length > 2000) {
       // If reduction is not significant, stop to prevent too many levels
       // (This can happen if there are many columns with different peaks)
       break;
