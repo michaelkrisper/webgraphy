@@ -44,6 +44,10 @@ export const Sidebar: React.FC = () => {
   const { importFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
+  const customViews = useMemo(() => {
+    return views ? views.filter(v => v.id !== 'default-view') : [];
+  }, [views]);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -362,7 +366,7 @@ export const Sidebar: React.FC = () => {
                 />
                 <button 
                   onClick={() => {
-                    const name = newViewName.trim() || `View ${views.filter(v => v.id !== 'default-view').length + 1}`;
+                    const name = newViewName.trim() || `View ${customViews.length + 1}`;
                     saveView(name);
                     setNewViewName('');
                   }}
@@ -372,13 +376,13 @@ export const Sidebar: React.FC = () => {
                 </button>
               </div>
               
-              {(!views || views.filter(v => v.id !== 'default-view').length === 0) && (
+              {customViews.length === 0 && (
                 <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '4px' }}>No saved views.</div>
               )}
               
-              {views && views.length > 0 && (
+              {customViews.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {views.filter(v => v.id !== 'default-view').map(v => (
+                  {customViews.map(v => (
                     <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8f9fa', borderRadius: '3px', border: '1px solid #e9ecef' }}>
                       {editingViewId === v.id ? (
                         <input
