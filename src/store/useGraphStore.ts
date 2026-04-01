@@ -227,7 +227,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   }
 }));
 
-let saveTimeout: any = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 function debouncedSaveState() {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
@@ -237,7 +237,7 @@ function debouncedSaveState() {
   }, 1000);
 }
 
-function saveState(state: any) {
+function saveState(state: GraphState) {
   const appState: AppState = {
     viewportX: state.viewportX,
     yAxes: state.yAxes,
