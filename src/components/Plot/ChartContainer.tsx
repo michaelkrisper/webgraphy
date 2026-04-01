@@ -678,7 +678,7 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   };
 
-  const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
+  const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState();
     const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
@@ -741,16 +741,19 @@ const ChartContainer: React.FC = () => {
       const range = yMax - yMin || 1;
       const pad = range * 0.05; // 5% margin
       
-      if (isCtrl && mouseY !== undefined) {
-        const chartCenterY = padding.top + chartHeight / 2;
-        if (mouseY < chartCenterY) { 
-          // TOP half click -> Show TOP half of data (extend min downwards)
-          nextMin = yMin - (yMax - yMin) - pad; 
+      if (mouseY !== undefined) {
+        if (mouseY < padding.top + chartHeight / 3) {
+          // UPPER third click -> Show data in UPPER half of screen (extend min downwards)
+          nextMin = yMin - range - pad;
           nextMax = yMax + pad; 
-        } else { 
-          // BOTTOM half click -> Show BOTTOM half of data (extend max upwards)
+        } else if (mouseY > padding.top + 2 * chartHeight / 3) {
+          // LOWER third click -> Show data in LOWER half of screen (extend max upwards)
           nextMin = yMin - pad; 
-          nextMax = yMax + (yMax - yMin) + pad; 
+          nextMax = yMax + range + pad;
+        } else {
+          // MIDDLE third click -> Full scale
+          nextMin = yMin - pad;
+          nextMax = yMax + pad;
         }
       } else {
         nextMin = yMin - pad; 
@@ -999,7 +1002,7 @@ const ChartContainer: React.FC = () => {
           let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
           xPos = width - padding.right + offset;
         }
-        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
+        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} formatDate={formatDate} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
