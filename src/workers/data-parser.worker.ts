@@ -129,6 +129,7 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
     if (nextIndices.length >= currentIndices.length / 2 && nextIndices.length > 2000) {
       // If reduction is not significant, stop to prevent too many levels
       // (This can happen if there are many columns with different peaks)
+      break;
     }
   }
   
