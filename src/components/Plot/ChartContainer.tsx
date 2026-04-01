@@ -325,6 +325,19 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     if (bestXWorld === null || bestDist > xSnapWorld) return null;
     const finalBestXWorld = bestXWorld as number;
 
+    // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
+    const seriesByAxis: Record<string, string[]> = {};
+    series.forEach((sr: any) => {
+      if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
+      seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
+    });
+    const axisTitleMap: Record<string, string> = {};
+    yAxes.forEach((axis: any) => {
+      if (seriesByAxis[axis.id]) {
+        axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
+      }
+    });
+
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
     series.forEach((s: any) => {
@@ -348,8 +361,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
 
       const yVal = yData[bestI] + refY;
-      const axis = yAxes.find((a: any) => a.id === s.yAxisId);
-      const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
+      const axisTitle = axisTitleMap[s.yAxisId] || '';
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
