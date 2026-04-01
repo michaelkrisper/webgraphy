@@ -2,27 +2,84 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
+import { type YAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
+interface XTicks {
+  result: number[];
+  step: number;
+  precision: number;
+  isXDate: boolean;
+}
+
+interface ViewportRef {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+}
+
+interface GridLinesProps {
+  xTicks: XTicks;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+  viewportRef: ViewportRef;
+}
+
+interface AxesLayerProps {
+  xTicks: XTicks;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+  leftAxes: YAxisConfig[];
+  rightAxes: YAxisConfig[];
+  viewportRef: ViewportRef;
+  isXDate: boolean;
+  formatDate: (val: number, step: number) => string;
+  series: SeriesConfig[];
+  axisLayout: Record<string, { total: number; label: number }>;
+}
+
+interface CrosshairProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  padding: { top: number; right: number; bottom: number; left: number };
+  width: number;
+  height: number;
+  isPanning: boolean;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  xMode: 'date' | 'numeric';
+  datasets: Dataset[];
+  series: SeriesConfig[];
+}
+
 type PanTarget = 'all' | 'x' | { yAxisId: string };
 
-const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: any) => {
+const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: GridLinesProps) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
       {xTicks.result.map((t: number) => {
         const { x } = worldToScreen(t, 0, viewportRef);
         return <line key={`gx-${t}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
       })}
-      {yAxes.map((axis: any) => {
+      {yAxes.map((axis: YAxisConfig) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
         const range = axis.max - axis.min;
         if (range <= 0) return null;
         const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
-        let step = range / maxTicks;
+        const step = range / maxTicks;
         const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
         const normalizedStep = step / magnitude;
-        let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
         const actualStep = finalStep * magnitude;
         if (actualStep <= 0) return null;
         const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -39,7 +96,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: any) => {
+const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: AxesLayerProps) => {
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -106,7 +163,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           if (x < padding.left || x > width - padding.right) return null;
           return <line key={`xt-${t}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
         })}
-        {yAxes.map((axis: any) => {
+        {yAxes.map((axis: YAxisConfig) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -124,7 +181,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -217,7 +274,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const label = isXDate ? formatDate(t, xTicks.step) : (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision));
           return <div key={`xl-${t}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
         })}
-        {yAxes.map((axis: any) => {
+        {yAxes.map((axis: YAxisConfig) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -234,7 +291,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -242,7 +299,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             if (result.length > 100) break;
             result.push(t);
           }
-          const axisSeries = series.filter((s: any) => s.yAxisId === axis.id), title = axisSeries.map((s: any) => s.name || s.yColumn).join(' / ');
+          const axisSeries = series.filter((s: SeriesConfig) => s.yAxisId === axis.id), title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
           const titleX = isLeft ? xPos + 7.5 : xPos + axisMetrics.total - 7.5;
@@ -264,7 +321,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
 
 const SNAP_PX = 30; // pixel radius for snapping to a point
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, datasets, series }: any) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, datasets, series }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -297,8 +354,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestDist = Infinity;
     let bestXWorld: number | null = null;
 
-    series.forEach((s: any) => {
-      const ds = datasets.find((d: any) => d.id === s.sourceId);
+    series.forEach((s: SeriesConfig) => {
+      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
       if (!ds) return;
       const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
       if (xIdx === -1) return;
@@ -326,8 +383,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
-    series.forEach((s: any) => {
-      const ds = datasets.find((d: any) => d.id === s.sourceId);
+    series.forEach((s: SeriesConfig) => {
+      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
       if (!ds) return;
       const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
       const yIdx = ds.columns.findIndex((c: string) => c === s.yColumn || c.endsWith(`: ${s.yColumn}`));
@@ -347,8 +404,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
 
       const yVal = yData[bestI] + refY;
-      const axis = yAxes.find((a: any) => a.id === s.yAxisId);
-      const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
+      const axis = yAxes.find((a: YAxisConfig) => a.id === s.yAxisId);
+      const axisTitle = axis ? (series.filter((sr: SeriesConfig) => sr.yAxisId === axis.id).map((sr: SeriesConfig) => sr.name || sr.yColumn).join('/')) : '';
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
@@ -403,7 +460,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         </div>
         {entries.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '2px' }}>
-            {entries.map((e: any, i: number) => {
+            {entries.map((e: { label: string, value: number, color: string }, i: number) => {
               // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
               const cleanValue = parseFloat(e.value.toPrecision(7));
               const valStr = cleanValue.toLocaleString('de-DE', { 
@@ -649,7 +706,7 @@ const ChartContainer: React.FC = () => {
     if (target === 'all' || typeof target === 'object') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseY = rect ? e.clientY - rect.top : height / 2;
-      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as any).yAxisId)!];
+      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as {yAxisId: string}).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -829,7 +886,7 @@ const ChartContainer: React.FC = () => {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
       state.setViewportX(nextX); targetX.current = nextX;
     }
-    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
+    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as {yAxisId: string}).yAxisId)!];
     const SNAP_THRESHOLD = 15;
     const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
 
@@ -940,7 +997,7 @@ const ChartContainer: React.FC = () => {
     if (!isXDate) {
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
-      let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+      const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));
@@ -983,7 +1040,7 @@ const ChartContainer: React.FC = () => {
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} formatDate={formatDate} datasets={useGraphStore.getState().datasets} series={series} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {editingXTitle ? (
         <input autoFocus name="x-axis-title" autoComplete="off" defaultValue={useGraphStore.getState().axisTitles.x} onBlur={(e) => { useGraphStore.getState().setAxisTitles(e.target.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { useGraphStore.getState().setAxisTitles(e.currentTarget.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />

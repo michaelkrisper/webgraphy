@@ -30,7 +30,7 @@ export const exportToSVG = (
     const step = range / Math.max(2, Math.floor(height / 30));
     const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
     const normalizedStep = step / magnitude;
-    let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+    const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
     const actualStep = finalStep * magnitude;
     const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
     
