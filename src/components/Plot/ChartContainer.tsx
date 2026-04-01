@@ -212,6 +212,54 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           }
           return dayLabels;
         })()}
+        {isXDate && xTicks.step >= 86400 && (() => {
+          const yearLabels = [];
+          const startTimestamp = viewportX.min;
+          const endTimestamp = viewportX.max;
+
+          const firstDate = new Date(startTimestamp * 1000);
+          firstDate.setMonth(0, 1);
+          firstDate.setHours(0, 0, 0, 0);
+          let currentYearStart = firstDate.getTime() / 1000;
+
+          while (currentYearStart <= endTimestamp) {
+            const nextDate = new Date(currentYearStart * 1000);
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
+            const nextYearStart = nextDate.getTime() / 1000;
+            const { x: currentX } = worldToScreen(currentYearStart, 0, viewportRef);
+            const { x: nextX } = worldToScreen(nextYearStart, 0, viewportRef);
+
+            const labelWidth = 40;
+            const paddingLeft = padding.left + 5;
+            let x = Math.max(currentX + 5, paddingLeft);
+            if (nextX < x + labelWidth) {
+              x = nextX - labelWidth;
+            }
+
+            if (x + labelWidth > padding.left && x < width - padding.right) {
+              yearLabels.push(
+                <div key={`year-${currentYearStart}`} style={{
+                  position: 'absolute',
+                  left: x,
+                  bottom: padding.bottom - 35,
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  color: '#333',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  padding: '1px 4px',
+                  borderRadius: '2px',
+                  whiteSpace: 'nowrap',
+                  borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
+                  zIndex: 10
+                }}>
+                  {new Date(currentYearStart * 1000).getFullYear()}
+                </div>
+              );
+            }
+            currentYearStart = nextYearStart;
+          }
+          return yearLabels;
+        })()}
         {xTicks.result.map((t: number) => {
           const { x } = worldToScreen(t, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
@@ -963,7 +1011,7 @@ const ChartContainer: React.FC = () => {
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));
     } else {
-      const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000];
+      const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000, 5184000, 7776000, 15552000, 31536000, 63072000, 157680000, 315360000];
       step = intervals.find(i => i > step) || intervals[intervals.length - 1];
     }
     const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
@@ -974,8 +1022,9 @@ const ChartContainer: React.FC = () => {
   const viewportRef = useMemo(() => ({ xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
   const formatDate = useCallback((val: number, step: number) => {
     const d = new Date(val * 1000);
-    if (step >= 86400) return d.getDate() + '.' + (d.getMonth()+1) + '.';
-    if (step >= 3600) return d.getHours() + ':00';
+    if (step >= 31536000) return String(d.getFullYear());
+    if (step >= 86400) return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.';
+    if (step >= 3600) return String(d.getHours()).padStart(2, '0') + ':00';
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   }, []);
 
