@@ -173,9 +173,18 @@ function parseJSON(text: string) {
   const raw = JSON.parse(text);
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format');
   const headers = Object.keys(raw[0]);
-  const data = raw.map((row: any) => headers.map(h => {
-    const p = parseFloat(row[h]);
-    return isNaN(p) ? NaN : p;
-  }));
+  const rowCount = raw.length;
+  const colCount = headers.length;
+
+  const data = new Array(rowCount);
+  for (let i = 0; i < rowCount; i++) {
+    const row = raw[i];
+    const rowData = new Array(colCount);
+    for (let j = 0; j < colCount; j++) {
+      const p = parseFloat(row[headers[j]]);
+      rowData[j] = isNaN(p) ? NaN : p;
+    }
+    data[i] = rowData;
+  }
   return { columns: headers, rowCount: data.length, data: data };
 }
