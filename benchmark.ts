@@ -1,77 +1,54 @@
-const series = [];
-const yAxes = [{ id: 'y1' }, { id: 'y2' }, { id: 'y3' }];
+import { performance } from 'perf_hooks';
 
-// Generate 5000 series
-for (let i = 0; i < 5000; i++) {
-  series.push({
-    name: `Series ${i}`,
-    yColumn: `Col ${i}`,
-    yAxisId: yAxes[i % 3].id,
-    lineColor: '#333'
-  });
+const numDatasets = 1000;
+const numSeries = 10000;
+
+interface Dataset {
+    id: string;
+    data: any;
 }
 
-function runOriginal() {
-  const start = performance.now();
-  const entries = [];
-  series.forEach((s) => {
-    // Simulated internal loop
-    const yVal = 0; // mocked
+interface Series {
+    sourceId: string;
+}
 
-    // The problematic code:
-    const axis = yAxes.find((a) => a.id === s.yAxisId);
-    const axisTitle = axis ? (series.filter((sr) => sr.yAxisId === axis.id).map((sr) => sr.name || sr.yColumn).join('/')) : '';
-    const label = s.name || s.yColumn;
-    const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
-    entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
-  });
-  const end = performance.now();
-  return end - start;
+const datasets: Dataset[] = [];
+for (let i = 0; i < numDatasets; i++) {
+    datasets.push({ id: `ds-${i}`, data: {} });
+}
+
+const axisSeries: Series[] = [];
+for (let i = 0; i < numSeries; i++) {
+    axisSeries.push({ sourceId: `ds-${Math.floor(Math.random() * numDatasets)}` });
+}
+
+function runBaseline() {
+    let count = 0;
+    axisSeries.forEach(s => {
+        const ds = datasets.find(d => d.id === s.sourceId);
+        if (ds) count++;
+    });
+    return count;
 }
 
 function runOptimized() {
-  const start = performance.now();
-  const entries = [];
+    let count = 0;
+    const datasetMap = new Map<string, Dataset>();
+    datasets.forEach(d => datasetMap.set(d.id, d));
 
-  // The optimized code:
-  const axisTitleMap = {};
-  const groupedSeriesNames = {};
-  series.forEach((s) => {
-    if (!groupedSeriesNames[s.yAxisId]) groupedSeriesNames[s.yAxisId] = [];
-    groupedSeriesNames[s.yAxisId].push(s.name || s.yColumn);
-  });
-  yAxes.forEach((a) => {
-    if (groupedSeriesNames[a.id]) {
-      axisTitleMap[a.id] = groupedSeriesNames[a.id].join('/');
-    }
-  });
-
-  series.forEach((s) => {
-    // Simulated internal loop
-    const yVal = 0; // mocked
-
-    const axisTitle = axisTitleMap[s.yAxisId] || '';
-    const label = s.name || s.yColumn;
-    const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
-    entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
-  });
-  const end = performance.now();
-  return end - start;
+    axisSeries.forEach(s => {
+        const ds = datasetMap.get(s.sourceId);
+        if (ds) count++;
+    });
+    return count;
 }
 
-// Warm up
-runOriginal();
+const t0 = performance.now();
+runBaseline();
+const t1 = performance.now();
+console.log(`Baseline: ${t1 - t0}ms`);
+
+const t2 = performance.now();
 runOptimized();
-
-let originalTime = 0;
-let optimizedTime = 0;
-const iterations = 5;
-
-for (let i = 0; i < iterations; i++) {
-  originalTime += runOriginal();
-  optimizedTime += runOptimized();
-}
-
-console.log(`Original Avg Time: ${(originalTime / iterations).toFixed(2)} ms`);
-console.log(`Optimized Avg Time: ${(optimizedTime / iterations).toFixed(2)} ms`);
-console.log(`Improvement: ${((originalTime - optimizedTime) / originalTime * 100).toFixed(2)}%`);
+const t3 = performance.now();
+console.log(`Optimized: ${t3 - t2}ms`);
