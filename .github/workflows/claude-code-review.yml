@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # Disable the code review action for now as it hits rate limits and fails CI
+    if: false
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||

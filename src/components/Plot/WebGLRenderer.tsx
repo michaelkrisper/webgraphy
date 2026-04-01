@@ -19,7 +19,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
   const [program, setProgram] = useState<WebGLProgram | null>(null);
-  const [locations, setLocations] = useState<Record<string, any>>({});
+  const [locations, setLocations] = useState<any>({});
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
 
   // Global shared buffer to avoid per-segment array allocations
