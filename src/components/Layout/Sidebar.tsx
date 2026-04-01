@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, BookmarkPlus } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -22,7 +22,6 @@ const COLOR_PALETTE = [
  */
 export const Sidebar: React.FC = () => {
   const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName } = useGraphStore();
-  const [newViewName, setNewViewName] = useState('');
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
@@ -348,33 +347,20 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
-              <Eye size={14} style={{ marginRight: '5px' }} />
-              Data Views
+            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
+                <Eye size={14} style={{ marginRight: '5px' }} />
+                Data Views
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); saveView(''); }}
+                style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
+              >
+                New View
+              </button>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                <input
-                  type="text"
-                  name="new-view-name"
-                  autoComplete="off"
-                  value={newViewName}
-                  onChange={(e) => setNewViewName(e.target.value)}
-                  placeholder="View name..."
-                  style={{ flex: 1, padding: '4px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px' }}
-                />
-                <button 
-                  onClick={() => {
-                    const name = newViewName.trim() || `View ${customViews.length + 1}`;
-                    saveView(name);
-                    setNewViewName('');
-                  }}
-                  style={{ padding: '4px 6px', fontSize: '12px', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                >
-                  <BookmarkPlus size={14} />
-                </button>
-              </div>
               
               {customViews.length === 0 && (
                 <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '4px' }}>No saved views.</div>
