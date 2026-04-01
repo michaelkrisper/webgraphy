@@ -1,0 +1,33 @@
+name: Jules AI Agent
+
+on:
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+jobs:
+  jules-trigger:
+    # Nur ausführen bei @jules Mention und Ausschluss von Bots
+    if: >
+      contains(github.event.comment.body, '@jules') &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Security Check (Allowlist)
+        # Ersetze die Platzhalter mit den tatsächlichen GitHub-Usernamen deines Teams
+        if: ${{ !contains(fromJson('["dein-username", "team-mitglied"]'), github.actor) }}
+        run: |
+          echo "Unauthorized user attempted to trigger Jules."
+          exit 1
+
+      - name: Invoke Jules Action
+        uses: google-labs-code/jules-action@v1
+        with:
+          jules-api-key: ${{ secrets.JULES_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
