@@ -1006,7 +1006,7 @@ const ChartContainer: React.FC = () => {
       {editingXTitle ? (
         <input autoFocus name="x-axis-title" autoComplete="off" defaultValue={useGraphStore.getState().axisTitles.x} onBlur={(e) => { useGraphStore.getState().setAxisTitles(e.target.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { useGraphStore.getState().setAxisTitles(e.currentTarget.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
       ) : (
-        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{useGraphStore.getState().axisTitles.x}</div>
+        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25, whiteSpace: 'nowrap' }}>{useGraphStore.getState().axisTitles.x}</div>
       )}
     </main>
   );
