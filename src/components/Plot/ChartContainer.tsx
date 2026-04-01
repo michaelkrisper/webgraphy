@@ -568,7 +568,6 @@ const ChartContainer: React.FC = () => {
        });
        
        if (!anyDataVisible) {
-         console.log("Dead zone detected! Auto-scaling to data...");
          shouldReset = true;
        }
     }
