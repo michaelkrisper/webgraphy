@@ -99,6 +99,15 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
 });
 
 const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: AxesLayerProps) => {
+  const seriesByYAxisId = useMemo(() => {
+    const grouped: Record<string, SeriesConfig[]> = {};
+    for (let i = 0; i < series.length; i++) {
+      const s = series[i];
+      if (!grouped[s.yAxisId]) grouped[s.yAxisId] = [];
+      grouped[s.yAxisId].push(s);
+    }
+    return grouped;
+  }, [series]);
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -281,7 +290,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             if (result.length > 100) break;
             result.push(t);
           }
-          const axisSeries = series.filter((s: SeriesConfig) => s.yAxisId === axis.id), title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
+          const axisSeries = seriesByYAxisId[axis.id] || [], title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
           const titleX = isLeft ? xPos + 7.5 : xPos + axisMetrics.total - 7.5;
