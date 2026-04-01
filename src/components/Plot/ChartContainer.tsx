@@ -3,6 +3,7 @@ import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset } from '../../services/persistence';
+import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate } from '../../utils/time';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
@@ -11,9 +12,10 @@ type PanTarget = 'all' | 'x' | { yAxisId: string };
 const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: any) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-      {xTicks.result.map((t: number) => {
-        const { x } = worldToScreen(t, 0, viewportRef);
-        return <line key={`gx-${t}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
+      {xTicks.result.map((t: any) => {
+        const timestamp = typeof t === 'number' ? t : t.timestamp;
+        const { x } = worldToScreen(timestamp, 0, viewportRef);
+        return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
       })}
       {yAxes.map((axis: any) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
@@ -40,7 +42,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: any) => {
+const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, series, axisLayout }: any) => {
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -102,10 +104,10 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           return null;
         })()}
 
-        {xTicks.result.map((t: number) => {
-          const { x } = worldToScreen(t, 0, viewportRef);
+        {xTicks.result.map((t: any) => {
+          const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
-          return <line key={`xt-${t}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
+          return <line key={`xt-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
         })}
         {yAxes.map((axis: any) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -156,67 +158,47 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         })}
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}>
-        {isXDate && xTicks.step < 86400 && (() => {
-          const dayLabels = [];
-          const startTimestamp = viewportX.min;
-          const endTimestamp = viewportX.max;
+        {xTicks.secondaryLabels && xTicks.secondaryLabels.map((sl: any, idx: number) => {
+          const nextSl = xTicks.secondaryLabels[idx + 1];
+          const { x: currentX } = worldToScreen(sl.timestamp, 0, viewportRef);
+          const { x: nextX } = nextSl ? worldToScreen(nextSl.timestamp, 0, viewportRef) : { x: width - padding.right + 200 };
           
-          // Find all day transitions relevant to the current view
-          // Start with the day containing the left edge
-          const firstDate = new Date(startTimestamp * 1000);
-          firstDate.setHours(0, 0, 0, 0);
-          let currentMidnight = firstDate.getTime() / 1000;
+          const labelWidth = sl.label.length * 7;
+          const paddingLeft = padding.left + 5;
           
-          // We look at transitions from currentMidnight until we pass endTimestamp
-          // Plus one extra to "push" the last visible one if needed
-          while (currentMidnight <= endTimestamp) {
-            const nextMidnight = currentMidnight + 86400;
-            const { x: currentX } = worldToScreen(currentMidnight, 0, viewportRef);
-            const { x: nextX } = worldToScreen(nextMidnight, 0, viewportRef);
-            
-            const labelWidth = 70; // Approximate width of "DD.MM.YYYY" label
-            const paddingLeft = padding.left + 5;
-            
-            // This day's label should be at paddingLeft, UNLESS its midnight transition 
-            // is already to the right of paddingLeft.
-            // AND it should be pushed left by the next day's transition.
-            let x = Math.max(currentX + 5, paddingLeft);
-            
-            // If the next midnight is coming, push this label out
-            if (nextX < x + labelWidth) {
-              x = nextX - labelWidth;
-            }
-
-            // Only render if some part of the label area is visible
-            if (x + labelWidth > padding.left && x < width - padding.right) {
-              dayLabels.push(
-                <div key={`day-${currentMidnight}`} style={{ 
-                  position: 'absolute', 
-                  left: x, 
-                  bottom: padding.bottom - 35, 
-                  fontSize: '10px', 
-                  fontWeight: 'bold', 
-                  color: '#333',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  whiteSpace: 'nowrap',
-                  borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
-                  zIndex: 10
-                }}>
-                  {new Date(currentMidnight * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </div>
-              );
-            }
-            currentMidnight = nextMidnight;
+          let x = Math.max(currentX + 5, paddingLeft);
+          if (nextX < x + labelWidth + 10) {
+            x = nextX - labelWidth - 10;
           }
-          return dayLabels;
-        })()}
-        {xTicks.result.map((t: number) => {
-          const { x } = worldToScreen(t, 0, viewportRef);
+
+          if (x + labelWidth > padding.left && x < width - padding.right) {
+            return (
+              <div key={`sl-${sl.timestamp}`} style={{
+                position: 'absolute',
+                left: x,
+                bottom: padding.bottom - 35,
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#333',
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                padding: '1px 4px',
+                borderRadius: '2px',
+                whiteSpace: 'nowrap',
+                borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
+                zIndex: 10
+              }}>
+                {sl.label}
+              </div>
+            );
+          }
+          return null;
+        })}
+        {xTicks.result.map((t: any) => {
+          const timestamp = typeof t === 'number' ? t : t.timestamp;
+          const { x } = worldToScreen(timestamp, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
-          const label = isXDate ? formatDate(t, xTicks.step) : (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision));
-          return <div key={`xl-${t}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
+          const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision)) : t.label;
+          return <div key={`xl-${timestamp}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
         })}
         {yAxes.map((axis: any) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -382,7 +364,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
 
   const xLabel = xMode === 'date'
-    ? new Date(xWorld * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+    ? formatFullDate(xWorld)
     : parseFloat(xWorld.toPrecision(7)).toString();
 
   return (
@@ -952,32 +934,28 @@ const ChartContainer: React.FC = () => {
   const xTicks = useMemo(() => {
     const isXDate = useGraphStore.getState().xMode === 'date', range = viewportX.max - viewportX.min;
     if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate };
-    const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
-    let step = range / maxTicks;
-    let precision = 0;
+
     if (!isXDate) {
+      const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
+      let step = range / maxTicks;
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
       const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
-      precision = Math.max(0, -Math.floor(Math.log10(step)));
+      const precision = Math.max(0, -Math.floor(Math.log10(step)));
+      const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
+      for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
+      return { result, step, precision, isXDate };
     } else {
-      const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000];
-      step = intervals.find(i => i > step) || intervals[intervals.length - 1];
+      const timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
+      const ticks = generateTimeTicks(viewportX.min, viewportX.max, timeStep);
+      const secondaryLabels = generateSecondaryLabels(viewportX.min, viewportX.max, timeStep);
+      return { result: ticks, isXDate, secondaryLabels };
     }
-    const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
-    for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
-    return { result, step, precision, isXDate };
   }, [viewportX.min, viewportX.max, chartWidth]);
 
   const viewportRef = useMemo(() => ({ xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
-  const formatDate = useCallback((val: number, step: number) => {
-    const d = new Date(val * 1000);
-    if (step >= 86400) return d.getDate() + '.' + (d.getMonth()+1) + '.';
-    if (step >= 3600) return d.getHours() + ':00';
-    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  }, []);
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden' }}>
@@ -986,7 +964,7 @@ const ChartContainer: React.FC = () => {
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
       </div>
-      <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} isXDate={xTicks.isXDate} formatDate={formatDate} series={series} axisLayout={axisLayout} />
+      <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} series={series} axisLayout={axisLayout} />
       <div onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(); }} style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} />
       {activeYAxes.map((axis) => {
         const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -1001,7 +979,7 @@ const ChartContainer: React.FC = () => {
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} formatDate={formatDate} datasets={useGraphStore.getState().datasets} series={series} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {editingXTitle ? (
         <input autoFocus name="x-axis-title" autoComplete="off" defaultValue={useGraphStore.getState().axisTitles.x} onBlur={(e) => { useGraphStore.getState().setAxisTitles(e.target.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { useGraphStore.getState().setAxisTitles(e.currentTarget.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
