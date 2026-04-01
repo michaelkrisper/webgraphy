@@ -542,7 +542,16 @@ const ChartContainer: React.FC = () => {
   useEffect(() => {
     if (!isLoaded) return;
     const state = useGraphStore.getState();
-    if (state.series.length === 0 && state.datasets.length === 0) { wasEmptyRef.current = true; return; }
+    if (state.series.length === 0 && state.datasets.length === 0) {
+      wasEmptyRef.current = true;
+      return;
+    }
+
+    // Check if we should skip the initial auto-scale because we loaded state
+    const isDefaultViewport = state.viewportX.min === 0 && state.viewportX.max === 100;
+    if (wasEmptyRef.current && !isDefaultViewport) {
+       wasEmptyRef.current = false;
+    }
 
     // AGGRESSIVE AUTO-SCALE: If current viewport is way off data bounds, reset it.
     let shouldReset = wasEmptyRef.current;
