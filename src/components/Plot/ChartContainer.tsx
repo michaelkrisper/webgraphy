@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
+import { type Dataset } from '../../services/persistence';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
@@ -19,10 +20,10 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         const range = axis.max - axis.min;
         if (range <= 0) return null;
         const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
-        let step = range / maxTicks;
+        const step = range / maxTicks;
         const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
         const normalizedStep = step / magnitude;
-        let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
         const actualStep = finalStep * magnitude;
         if (actualStep <= 0) return null;
         const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -124,7 +125,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -234,7 +235,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -604,12 +605,15 @@ const ChartContainer: React.FC = () => {
         startAnimation();
       }
       
+      const datasetsById = new Map<string, Dataset>();
+      state.datasets.forEach(d => datasetsById.set(d.id, d));
+
       activeYAxes.forEach(axis => {
         const axisSeries = state.series.filter(s => s.yAxisId === axis.id);
         if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
-          const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
+          const ds = datasetsById.get(s.sourceId); if (!ds) return;
           const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
           if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
           if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
@@ -668,13 +672,16 @@ const ChartContainer: React.FC = () => {
     const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
+    const datasetsById = new Map<string, Dataset>();
+    state.datasets.forEach(d => datasetsById.set(d.id, d));
+
     axisSeries.forEach(s => {
-      const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
+      const ds = datasetsById.get(s.sourceId); if (!ds) return;
       
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
         if (idx !== -1) return idx;
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
+        return ds.columns.findIndex((c: string) => c.endsWith(`: ${name}`) || c === name);
       };
 
       const xIdx = findColumn(s.xColumn);
@@ -940,7 +947,7 @@ const ChartContainer: React.FC = () => {
     if (!isXDate) {
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
-      let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+      const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));
