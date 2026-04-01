@@ -4,6 +4,20 @@ import { lttb } from '../utils/lttb';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#039;',
+  '=': '&#061;'
+};
+
+const escapeHTML = (str: string | undefined | null): string => {
+  if (!str) return '';
+  return String(str).replace(/[&<>"'=]/g, (s) => HTML_ESCAPE_MAP[s] || s);
+};
+
 /**
  * exportToSVG (v2.4 - Dynamic Spacing & Decimal Alignment)
  * Generates a high-quality SVG that matches the PlotArea visuals exactly.
@@ -108,13 +122,13 @@ export const exportToSVG = (
     if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
       let dashArray = ''; if (s.lineStyle === 'dashed') dashArray = 'stroke-dasharray="8,6"'; else if (s.lineStyle === 'dotted') dashArray = 'stroke-dasharray="2,4"';
-      svg += `<path d="${pathData}" fill="none" stroke="${s.lineColor}" stroke-width="1" ${dashArray} />`;
+      svg += `<path d="${pathData}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
     }
     if (s.pointStyle !== 'none') {
       screenPoints.forEach(p => {
-        if (s.pointStyle === 'circle') svg += `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${s.pointColor}" />`;
-        else if (s.pointStyle === 'square') svg += `<rect x="${p.x - 2.5}" y="${p.y - 2.5}" width="5" height="5" fill="${s.pointColor}" />`;
-        else if (s.pointStyle === 'cross') svg += `<path d="M ${p.x - 2.5} ${p.y - 2.5} L ${p.x + 2.5} ${p.y + 2.5} M ${p.x + 2.5} ${p.y - 2.5} L ${p.x - 2.5} ${p.y + 2.5}" stroke="${s.pointColor}" stroke-width="1" />`;
+        if (s.pointStyle === 'circle') svg += `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${escapeHTML(s.pointColor)}" />`;
+        else if (s.pointStyle === 'square') svg += `<rect x="${p.x - 2.5}" y="${p.y - 2.5}" width="5" height="5" fill="${escapeHTML(s.pointColor)}" />`;
+        else if (s.pointStyle === 'cross') svg += `<path d="M ${p.x - 2.5} ${p.y - 2.5} L ${p.x + 2.5} ${p.y + 2.5} M ${p.x + 2.5} ${p.y - 2.5} L ${p.x - 2.5} ${p.y + 2.5}" stroke="${escapeHTML(s.pointColor)}" stroke-width="1" />`;
       });
     }
   });
@@ -130,7 +144,7 @@ export const exportToSVG = (
     const label = xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
     svg += `<text x="${x}" y="${height - padding.bottom + 18}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
   }
-  svg += `<text x="${padding.left + chartWidth / 2}" y="${height - 5}" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${axisTitles.x}</text>`;
+  svg += `<text x="${padding.left + chartWidth / 2}" y="${height - 5}" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${escapeHTML(axisTitles.x)}</text>`;
 
   activeYAxes.forEach(axis => {
     const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -167,7 +181,7 @@ export const exportToSVG = (
     const estW = Math.min(chartHeight, title.length * 6 + 8);
     svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
     svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="rgba(255, 255, 255, 0.8)" rx="2" />`;
-    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${axisSeries[0]?.lineColor || '#333'}">${title}</text></g>`;
+    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(axisSeries[0]?.lineColor || '#333')}">${escapeHTML(title)}</text></g>`;
   });
 
   svg += `</svg>`; return svg;
