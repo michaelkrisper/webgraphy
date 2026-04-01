@@ -19,10 +19,10 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         const range = axis.max - axis.min;
         if (range <= 0) return null;
         const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
-        let step = range / maxTicks;
+        const step = range / maxTicks;
         const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
         const normalizedStep = step / magnitude;
-        let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
         const actualStep = finalStep * magnitude;
         if (actualStep <= 0) return null;
         const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -124,7 +124,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -234,7 +234,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -940,7 +940,7 @@ const ChartContainer: React.FC = () => {
     if (!isXDate) {
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
-      let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+      const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));

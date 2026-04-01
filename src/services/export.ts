@@ -2,6 +2,16 @@ import { type Dataset, type SeriesConfig, type YAxisConfig } from './persistence
 import { worldToScreen } from '../utils/coords';
 import { lttb } from '../utils/lttb';
 
+const escapeHTML = (str: string) => {
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag] || tag));
+};
+
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
 /**
@@ -30,7 +40,7 @@ export const exportToSVG = (
     const step = range / Math.max(2, Math.floor(height / 30));
     const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
     const normalizedStep = step / magnitude;
-    let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+    const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
     const actualStep = finalStep * magnitude;
     const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
     
@@ -162,12 +172,13 @@ export const exportToSVG = (
 
     const axisSeries = series.filter(s => s.yAxisId === axis.id);
     const title = axisSeries.map(s => s.name || s.yColumn).join(' / ');
+    const escapedTitle = escapeHTML(title);
     const titleX = isLeft ? (xPos + 5) : (xPos + axisWidth - 5);
     const titleY = padding.top + chartHeight / 2, rotate = isLeft ? -90 : 90;
     const estW = Math.min(chartHeight, title.length * 6 + 8);
     svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
     svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="rgba(255, 255, 255, 0.8)" rx="2" />`;
-    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${axisSeries[0]?.lineColor || '#333'}">${title}</text></g>`;
+    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(axisSeries[0]?.lineColor || '#333')}">${escapedTitle}</text></g>`;
   });
 
   svg += `</svg>`; return svg;
