@@ -19,10 +19,10 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         const range = axis.max - axis.min;
         if (range <= 0) return null;
         const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
-        let step = range / maxTicks;
+        const step = range / maxTicks;
         const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
         const normalizedStep = step / magnitude;
-        let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
         const actualStep = finalStep * magnitude;
         if (actualStep <= 0) return null;
         const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -124,7 +124,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -234,7 +234,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const step = range / Math.max(2, Math.floor(chartHeight / 30));
           const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
           const normalizedStep = step / magnitude;
-          let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
           const actualStep = finalStep * magnitude;
           if (actualStep <= 0) return null;
           const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
@@ -324,6 +324,19 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     if (bestXWorld === null || bestDist > xSnapWorld) return null;
     const finalBestXWorld = bestXWorld as number;
 
+    // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
+    const seriesByAxis: Record<string, string[]> = {};
+    series.forEach((sr: any) => {
+      if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
+      seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
+    });
+    const axisTitleMap: Record<string, string> = {};
+    yAxes.forEach((axis: any) => {
+      if (seriesByAxis[axis.id]) {
+        axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
+      }
+    });
+
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
     series.forEach((s: any) => {
@@ -347,8 +360,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
 
       const yVal = yData[bestI] + refY;
-      const axis = yAxes.find((a: any) => a.id === s.yAxisId);
-      const axisTitle = axis ? (series.filter((sr: any) => sr.yAxisId === axis.id).map((sr: any) => sr.name || sr.yColumn).join('/')) : '';
+      const axisTitle = axisTitleMap[s.yAxisId] || '';
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
@@ -940,7 +952,7 @@ const ChartContainer: React.FC = () => {
     if (!isXDate) {
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
-      let finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+      const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
       precision = Math.max(0, -Math.floor(Math.log10(step)));
