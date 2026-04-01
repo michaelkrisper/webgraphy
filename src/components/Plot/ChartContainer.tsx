@@ -604,12 +604,13 @@ const ChartContainer: React.FC = () => {
         startAnimation();
       }
       
+      const datasetMap = new Map(state.datasets.map(d => [d.id, d]));
       activeYAxes.forEach(axis => {
         const axisSeries = state.series.filter(s => s.yAxisId === axis.id);
         if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
-          const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
+          const ds = datasetMap.get(s.sourceId); if (!ds) return;
           const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
           if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
           if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
@@ -668,8 +669,9 @@ const ChartContainer: React.FC = () => {
     const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
+    const datasetMap = new Map(state.datasets.map(d => [d.id, d]));
     axisSeries.forEach(s => {
-      const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return;
+      const ds = datasetMap.get(s.sourceId); if (!ds) return;
       
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
