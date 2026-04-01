@@ -634,10 +634,11 @@ const ChartContainer: React.FC = () => {
 
   const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const state = useGraphStore.getState();
     if (target === 'all' || target === 'x') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseX = rect ? e.clientX - rect.left : width / 2;
-      const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+      const vp = { xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: 0, yMax: 100, width, height, padding };
       const worldMouse = screenToWorld(mouseX, 0, vp);
       const currentX = targetX.current, xRange = currentX.max - currentX.min, newXRange = xRange * zoomFactor;
       const weight = (mouseX - padding.left) / chartWidth;
@@ -646,7 +647,7 @@ const ChartContainer: React.FC = () => {
     if (target === 'all' || typeof target === 'object') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseY = rect ? e.clientY - rect.top : height / 2;
-      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as any).yAxisId)!];
+      const axesToZoom = target === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (target as any).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -829,19 +830,20 @@ const ChartContainer: React.FC = () => {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
       state.setViewportX(nextX); targetX.current = nextX;
     }
-    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
+    const axesToPan = panTarget === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (panTarget as any).yAxisId)!];
     const SNAP_THRESHOLD = 15;
     const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
 
     axesToPan.forEach(axis => {
       if (!axis) return;
-      const yRange = axis.max - axis.min;
+      const curAxis = state.yAxes.find(a => a.id === axis.id)!;
+      const yRange = curAxis.max - curAxis.min;
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      let nextMin = axis.min + yMove;
-      let nextMax = axis.max + yMove;
+      let nextMin = curAxis.min + yMove;
+      let nextMax = curAxis.max + yMove;
 
-      // Snapping Logic
-      if (chartHeight > 0) {
+      // Snapping Logic - only when dragging a SINGLE axis
+      if (chartHeight > 0 && panTarget !== 'all') {
         // Find screen pixel position of world 0 in the NEW range
         const nextYRange = nextMax - nextMin;
         const screenYZero = padding.top + (1 - (0 - nextMin) / nextYRange) * chartHeight;
@@ -859,9 +861,6 @@ const ChartContainer: React.FC = () => {
         
         if (bestTarget !== null) {
           // Snap world 0 to bestTarget
-          // (bestTarget - padding.top) / chartHeight = 1 + nextMin / nextYRange
-          // nextMin / nextYRange = (bestTarget - padding.top) / chartHeight - 1
-          // -> nextMin = nextYRange * ((bestTarget - padding.top) / chartHeight - 1)
           const ratio = (bestTarget - padding.top) / chartHeight - 1;
           nextMin = nextYRange * ratio;
           nextMax = nextMin + nextYRange;
