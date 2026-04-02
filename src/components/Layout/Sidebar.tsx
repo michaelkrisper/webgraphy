@@ -208,7 +208,7 @@ export const Sidebar: React.FC = () => {
                 <HelpCircle size={18} />
               </button>
             </div>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} aria-label="Collapse Menu">
               <ChevronRight size={18} />
             </button>
           </div>
@@ -254,6 +254,7 @@ export const Sidebar: React.FC = () => {
                         }} 
                         style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
                         title="Remove data source"
+                        aria-label="Remove data source"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -421,6 +422,7 @@ export const Sidebar: React.FC = () => {
                           onClick={() => applyView(v.id)}
                           style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#4CAF50', display: 'flex' }}
                           title="Apply view bounds"
+                          aria-label="Apply view bounds"
                         >
                           <Eye size={14} />
                         </button>
@@ -428,6 +430,7 @@ export const Sidebar: React.FC = () => {
                           onClick={() => deleteView(v.id)}
                           style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
                           title="Delete view"
+                          aria-label="Delete view"
                         >
                           <Trash2 size={14} />
                         </button>

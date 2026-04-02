@@ -118,7 +118,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>Import Settings: {fileName}</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer' }} aria-label="Close dialog"><X size={20} /></button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px', padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
