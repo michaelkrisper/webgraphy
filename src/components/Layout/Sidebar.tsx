@@ -4,6 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
 import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, BookmarkPlus } from 'lucide-react';
+import { ImportSettingsDialog } from './ImportSettingsDialog';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -41,7 +42,7 @@ export const Sidebar: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
-  const { importFile, isImporting } = useDataImport();
+  const { importFile, confirmImport, cancelImport, pendingFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   const customViews = useMemo(() => {
@@ -512,6 +513,15 @@ export const Sidebar: React.FC = () => {
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
+      {pendingFile && (
+        <ImportSettingsDialog
+          fileName={pendingFile.file.name}
+          fileContent={pendingFile.preview}
+          fileType={pendingFile.type}
+          onConfirm={confirmImport}
+          onCancel={cancelImport}
+        />
+      )}
     </>
   );
 };
