@@ -213,15 +213,15 @@ export const Sidebar: React.FC = () => {
           </div>
           
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('sources')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
                 <FilePlus size={14} style={{ marginRight: '5px' }} />
                 Data Sources
               </div>
               <button
                 disabled={isImporting}
-                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                onClick={() => fileInputRef.current?.click()}
                 style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
               >
                 {isImporting ? '...' : 'Import'}
@@ -304,8 +304,8 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('series')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('series')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
                 <Layout size={14} style={{ marginRight: '5px' }} />
                 Data Series
@@ -348,10 +348,12 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
-              <Eye size={14} style={{ marginRight: '5px' }} />
-              Data Views
+            <div className="section-title" style={{ display: 'flex', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
+                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
+                <Eye size={14} style={{ marginRight: '5px' }} />
+                Data Views
+              </div>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>

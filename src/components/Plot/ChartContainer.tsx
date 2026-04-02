@@ -3,6 +3,7 @@ import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset } from '../../services/persistence';
+import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate } from '../../utils/time';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
@@ -11,9 +12,10 @@ type PanTarget = 'all' | 'x' | { yAxisId: string };
 const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: any) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-      {xTicks.result.map((t: number) => {
-        const { x } = worldToScreen(t, 0, viewportRef);
-        return <line key={`gx-${t}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
+      {xTicks.result.map((t: any) => {
+        const timestamp = typeof t === 'number' ? t : t.timestamp;
+        const { x } = worldToScreen(timestamp, 0, viewportRef);
+        return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
       })}
       {yAxes.map((axis: any) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
@@ -40,7 +42,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: any) => {
+const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, series, axisLayout }: any) => {
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -102,10 +104,10 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           return null;
         })()}
 
-        {xTicks.result.map((t: number) => {
-          const { x } = worldToScreen(t, 0, viewportRef);
+        {xTicks.result.map((t: any) => {
+          const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
-          return <line key={`xt-${t}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
+          return <line key={`xt-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
         })}
         {yAxes.map((axis: any) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -156,115 +158,47 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         })}
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}>
-        {isXDate && xTicks.step < 86400 && (() => {
-          const dayLabels = [];
-          const startTimestamp = viewportX.min;
-          const endTimestamp = viewportX.max;
+        {xTicks.secondaryLabels && xTicks.secondaryLabels.map((sl: any, idx: number) => {
+          const nextSl = xTicks.secondaryLabels[idx + 1];
+          const { x: currentX } = worldToScreen(sl.timestamp, 0, viewportRef);
+          const { x: nextX } = nextSl ? worldToScreen(nextSl.timestamp, 0, viewportRef) : { x: width - padding.right + 200 };
           
-          // Find all day transitions relevant to the current view
-          // Start with the day containing the left edge
-          const firstDate = new Date(startTimestamp * 1000);
-          firstDate.setHours(0, 0, 0, 0);
-          let currentMidnight = firstDate.getTime() / 1000;
+          const labelWidth = sl.label.length * 7;
+          const paddingLeft = padding.left + 5;
           
-          // We look at transitions from currentMidnight until we pass endTimestamp
-          // Plus one extra to "push" the last visible one if needed
-          while (currentMidnight <= endTimestamp) {
-            const nextMidnight = currentMidnight + 86400;
-            const { x: currentX } = worldToScreen(currentMidnight, 0, viewportRef);
-            const { x: nextX } = worldToScreen(nextMidnight, 0, viewportRef);
-            
-            const labelWidth = 70; // Approximate width of "DD.MM.YYYY" label
-            const paddingLeft = padding.left + 5;
-            
-            // This day's label should be at paddingLeft, UNLESS its midnight transition 
-            // is already to the right of paddingLeft.
-            // AND it should be pushed left by the next day's transition.
-            let x = Math.max(currentX + 5, paddingLeft);
-            
-            // If the next midnight is coming, push this label out
-            if (nextX < x + labelWidth) {
-              x = nextX - labelWidth;
-            }
-
-            // Only render if some part of the label area is visible
-            if (x + labelWidth > padding.left && x < width - padding.right) {
-              dayLabels.push(
-                <div key={`day-${currentMidnight}`} style={{ 
-                  position: 'absolute', 
-                  left: x, 
-                  bottom: padding.bottom - 35, 
-                  fontSize: '10px', 
-                  fontWeight: 'bold', 
-                  color: '#333',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  whiteSpace: 'nowrap',
-                  borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
-                  zIndex: 10
-                }}>
-                  {new Date(currentMidnight * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </div>
-              );
-            }
-            currentMidnight = nextMidnight;
+          let x = Math.max(currentX + 5, paddingLeft);
+          if (nextX < x + labelWidth + 10) {
+            x = nextX - labelWidth - 10;
           }
-          return dayLabels;
-        })()}
-        {isXDate && xTicks.step >= 86400 && (() => {
-          const yearLabels = [];
-          const startTimestamp = viewportX.min;
-          const endTimestamp = viewportX.max;
 
-          const firstDate = new Date(startTimestamp * 1000);
-          firstDate.setMonth(0, 1);
-          firstDate.setHours(0, 0, 0, 0);
-          let currentYearStart = firstDate.getTime() / 1000;
-
-          while (currentYearStart <= endTimestamp) {
-            const nextDate = new Date(currentYearStart * 1000);
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
-            const nextYearStart = nextDate.getTime() / 1000;
-            const { x: currentX } = worldToScreen(currentYearStart, 0, viewportRef);
-            const { x: nextX } = worldToScreen(nextYearStart, 0, viewportRef);
-
-            const labelWidth = 40;
-            const paddingLeft = padding.left + 5;
-            let x = Math.max(currentX + 5, paddingLeft);
-            if (nextX < x + labelWidth) {
-              x = nextX - labelWidth;
-            }
-
-            if (x + labelWidth > padding.left && x < width - padding.right) {
-              yearLabels.push(
-                <div key={`year-${currentYearStart}`} style={{
-                  position: 'absolute',
-                  left: x,
-                  bottom: padding.bottom - 35,
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  color: '#333',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  whiteSpace: 'nowrap',
-                  borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
-                  zIndex: 10
-                }}>
-                  {new Date(currentYearStart * 1000).getFullYear()}
-                </div>
-              );
-            }
-            currentYearStart = nextYearStart;
+          if (x + labelWidth > padding.left && x < width - padding.right) {
+            return (
+              <div key={`sl-${sl.timestamp}`} style={{
+                position: 'absolute',
+                left: x,
+                bottom: padding.bottom - 35,
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#333',
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                padding: '1px 4px',
+                borderRadius: '2px',
+                whiteSpace: 'nowrap',
+                borderLeft: currentX > padding.left ? '2px solid #333' : 'none',
+                zIndex: 10
+              }}>
+                {sl.label}
+              </div>
+            );
           }
-          return yearLabels;
-        })()}
-        {xTicks.result.map((t: number) => {
-          const { x } = worldToScreen(t, 0, viewportRef);
+          return null;
+        })}
+        {xTicks.result.map((t: any) => {
+          const timestamp = typeof t === 'number' ? t : t.timestamp;
+          const { x } = worldToScreen(timestamp, 0, viewportRef);
           if (x < padding.left || x > width - padding.right) return null;
-          const label = isXDate ? formatDate(t, xTicks.step) : (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision));
-          return <div key={`xl-${t}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
+          const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision)) : t.label;
+          return <div key={`xl-${timestamp}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
         })}
         {yAxes.map((axis: any) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -430,7 +364,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
 
   const xLabel = xMode === 'date'
-    ? new Date(xWorld * 1000).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+    ? formatFullDate(xWorld)
     : parseFloat(xWorld.toPrecision(7)).toString();
 
   return (
@@ -608,7 +542,16 @@ const ChartContainer: React.FC = () => {
   useEffect(() => {
     if (!isLoaded) return;
     const state = useGraphStore.getState();
-    if (state.series.length === 0 && state.datasets.length === 0) { wasEmptyRef.current = true; return; }
+    if (state.series.length === 0 && state.datasets.length === 0) {
+      wasEmptyRef.current = true;
+      return;
+    }
+
+    // Check if we should skip the initial auto-scale because we loaded state
+    const isDefaultViewport = state.viewportX.min === 0 && state.viewportX.max === 100;
+    if (wasEmptyRef.current && !isDefaultViewport) {
+       wasEmptyRef.current = false;
+    }
 
     // AGGRESSIVE AUTO-SCALE: If current viewport is way off data bounds, reset it.
     let shouldReset = wasEmptyRef.current;
@@ -700,10 +643,11 @@ const ChartContainer: React.FC = () => {
 
   const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const state = useGraphStore.getState();
     if (target === 'all' || target === 'x') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseX = rect ? e.clientX - rect.left : width / 2;
-      const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
+      const vp = { xMin: state.viewportX.min, xMax: state.viewportX.max, yMin: 0, yMax: 100, width, height, padding };
       const worldMouse = screenToWorld(mouseX, 0, vp);
       const currentX = targetX.current, xRange = currentX.max - currentX.min, newXRange = xRange * zoomFactor;
       const weight = (mouseX - padding.left) / chartWidth;
@@ -712,7 +656,7 @@ const ChartContainer: React.FC = () => {
     if (target === 'all' || typeof target === 'object') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseY = rect ? e.clientY - rect.top : height / 2;
-      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as any).yAxisId)!];
+      const axesToZoom = target === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (target as any).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -726,7 +670,7 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   };
 
-  const handleAutoScaleY = useCallback((axisId: string, mouseY?: number, isCtrl?: boolean) => {
+  const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState();
     const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
@@ -789,16 +733,19 @@ const ChartContainer: React.FC = () => {
       const range = yMax - yMin || 1;
       const pad = range * 0.05; // 5% margin
       
-      if (isCtrl && mouseY !== undefined) {
-        const chartCenterY = padding.top + chartHeight / 2;
-        if (mouseY < chartCenterY) { 
-          // TOP half click -> Show TOP half of data (extend min downwards)
-          nextMin = yMin - (yMax - yMin) - pad; 
+      if (mouseY !== undefined) {
+        if (mouseY < padding.top + chartHeight / 3) {
+          // UPPER third click -> Show data in UPPER half of screen (extend min downwards)
+          nextMin = yMin - range - pad;
           nextMax = yMax + pad; 
-        } else { 
-          // BOTTOM half click -> Show BOTTOM half of data (extend max upwards)
+        } else if (mouseY > padding.top + 2 * chartHeight / 3) {
+          // LOWER third click -> Show data in LOWER half of screen (extend max upwards)
           nextMin = yMin - pad; 
-          nextMax = yMax + (yMax - yMin) + pad; 
+          nextMax = yMax + range + pad;
+        } else {
+          // MIDDLE third click -> Full scale
+          nextMin = yMin - pad;
+          nextMax = yMax + pad;
         }
       } else {
         nextMin = yMin - pad; 
@@ -882,8 +829,9 @@ const ChartContainer: React.FC = () => {
     if (zoomBoxStartRef.current && containerRef.current) {
       const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
       const my = Math.max(padding.top, Math.min(height - padding.bottom, mouseY));
-      const newBox = { ...zoomBoxStartRef.current, endX: mx, endY: my };
-      setZoomBoxState(newBox);
+      zoomBoxStartRef.current.endX = mx;
+      zoomBoxStartRef.current.endY = my;
+      setZoomBoxState({ ...zoomBoxStartRef.current });
       return;
     }
     if (!panTarget || !lastMousePos.current) return;
@@ -895,19 +843,20 @@ const ChartContainer: React.FC = () => {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
       state.setViewportX(nextX); targetX.current = nextX;
     }
-    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as any).yAxisId)!];
+    const axesToPan = panTarget === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (panTarget as any).yAxisId)!];
     const SNAP_THRESHOLD = 15;
     const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
 
     axesToPan.forEach(axis => {
       if (!axis) return;
-      const yRange = axis.max - axis.min;
+      const curAxis = state.yAxes.find(a => a.id === axis.id)!;
+      const yRange = curAxis.max - curAxis.min;
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      let nextMin = axis.min + yMove;
-      let nextMax = axis.max + yMove;
+      let nextMin = curAxis.min + yMove;
+      let nextMax = curAxis.max + yMove;
 
-      // Snapping Logic
-      if (chartHeight > 0) {
+      // Snapping Logic - only when dragging a SINGLE axis
+      if (chartHeight > 0 && panTarget !== 'all') {
         // Find screen pixel position of world 0 in the NEW range
         const nextYRange = nextMax - nextMin;
         const screenYZero = padding.top + (1 - (0 - nextMin) / nextYRange) * chartHeight;
@@ -925,9 +874,6 @@ const ChartContainer: React.FC = () => {
         
         if (bestTarget !== null) {
           // Snap world 0 to bestTarget
-          // (bestTarget - padding.top) / chartHeight = 1 + nextMin / nextYRange
-          // nextMin / nextYRange = (bestTarget - padding.top) / chartHeight - 1
-          // -> nextMin = nextYRange * ((bestTarget - padding.top) / chartHeight - 1)
           const ratio = (bestTarget - padding.top) / chartHeight - 1;
           nextMin = nextYRange * ratio;
           nextMax = nextMin + nextYRange;
@@ -1000,33 +946,28 @@ const ChartContainer: React.FC = () => {
   const xTicks = useMemo(() => {
     const isXDate = useGraphStore.getState().xMode === 'date', range = viewportX.max - viewportX.min;
     if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate };
-    const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
-    let step = range / maxTicks;
-    let precision = 0;
+
     if (!isXDate) {
+      const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
+      let step = range / maxTicks;
       const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
       const normalizedStep = step / magnitude;
       const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
       if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
-      precision = Math.max(0, -Math.floor(Math.log10(step)));
+      const precision = Math.max(0, -Math.floor(Math.log10(step)));
+      const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
+      for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
+      return { result, step, precision, isXDate };
     } else {
-      const intervals = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 1209600, 2592000, 5184000, 7776000, 15552000, 31536000, 63072000, 157680000, 315360000];
-      step = intervals.find(i => i > step) || intervals[intervals.length - 1];
+      const timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
+      const ticks = generateTimeTicks(viewportX.min, viewportX.max, timeStep);
+      const secondaryLabels = generateSecondaryLabels(viewportX.min, viewportX.max, timeStep);
+      return { result: ticks, isXDate, secondaryLabels };
     }
-    const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
-    for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
-    return { result, step, precision, isXDate };
   }, [viewportX.min, viewportX.max, chartWidth]);
 
   const viewportRef = useMemo(() => ({ xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding }), [viewportX, width, height, padding]);
-  const formatDate = useCallback((val: number, step: number) => {
-    const d = new Date(val * 1000);
-    if (step >= 31536000) return String(d.getFullYear());
-    if (step >= 86400) return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.';
-    if (step >= 3600) return String(d.getHours()).padStart(2, '0') + ':00';
-    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  }, []);
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden' }}>
@@ -1035,7 +976,7 @@ const ChartContainer: React.FC = () => {
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} yAxes={yAxes} viewportX={viewportX} width={width} height={height} padding={padding} />
       </div>
-      <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} isXDate={xTicks.isXDate} formatDate={formatDate} series={series} axisLayout={axisLayout} />
+      <AxesLayer xTicks={xTicks} yAxes={activeYAxes} viewportX={viewportX} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} viewportRef={viewportRef} series={series} axisLayout={axisLayout} />
       <div onWheel={(e) => { e.stopPropagation(); handleWheel(e, 'x'); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'x'); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(); }} style={{ position: 'absolute', bottom: 0, left: padding.left, right: padding.right, height: padding.bottom, cursor: 'ew-resize', zIndex: 20 }} />
       {activeYAxes.map((axis) => {
         const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -1048,14 +989,14 @@ const ChartContainer: React.FC = () => {
           let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
           xPos = width - padding.right + offset;
         }
-        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY, e.ctrlKey); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
+        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} formatDate={formatDate} datasets={useGraphStore.getState().datasets} series={series} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} yAxes={activeYAxes} viewportX={viewportX} xMode={useGraphStore.getState().xMode} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {editingXTitle ? (
         <input autoFocus name="x-axis-title" autoComplete="off" defaultValue={useGraphStore.getState().axisTitles.x} onBlur={(e) => { useGraphStore.getState().setAxisTitles(e.target.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); }} onKeyDown={(e) => { if (e.key === 'Enter') { useGraphStore.getState().setAxisTitles(e.currentTarget.value, useGraphStore.getState().axisTitles.y); setEditingXTitle(false); } }} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', zIndex: 30, textAlign: 'center', fontWeight: 'bold' }} />
       ) : (
-        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25 }}>{useGraphStore.getState().axisTitles.x}</div>
+        <div onClick={() => setEditingXTitle(true)} style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', cursor: 'text', fontWeight: 'bold', zIndex: 25, whiteSpace: 'nowrap' }}>{useGraphStore.getState().axisTitles.x}</div>
       )}
     </main>
   );
