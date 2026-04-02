@@ -179,7 +179,7 @@ function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
     case 'hour':
       return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     case 'day':
-      return `${d.getDate()}.`;
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
     case 'week':
       return `${d.getDate()}.${d.getMonth() + 1}.`;
     case 'month':
@@ -216,14 +216,14 @@ export function generateSecondaryLabels(min: number, max: number, step: TimeStep
   } else if (unit === 'day' || unit === 'week') {
     const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
-    d.setDate(1);
+    d.setMonth(0, 1);
     let current = d.getTime() / 1000;
     while (current <= max) {
       labels.push({
         timestamp: current,
-        label: new Date(current * 1000).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
+        label: String(new Date(current * 1000).getFullYear()),
       });
-      d.setMonth(d.getMonth() + 1);
+      d.setFullYear(d.getFullYear() + 1);
       current = d.getTime() / 1000;
       if (labels.length > 100) break;
     }
