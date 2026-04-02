@@ -829,8 +829,9 @@ const ChartContainer: React.FC = () => {
     if (zoomBoxStartRef.current && containerRef.current) {
       const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
       const my = Math.max(padding.top, Math.min(height - padding.bottom, mouseY));
-      const newBox = { ...zoomBoxStartRef.current, endX: mx, endY: my };
-      setZoomBoxState(newBox);
+      zoomBoxStartRef.current.endX = mx;
+      zoomBoxStartRef.current.endY = my;
+      setZoomBoxState({ ...zoomBoxStartRef.current });
       return;
     }
     if (!panTarget || !lastMousePos.current) return;
