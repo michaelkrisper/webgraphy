@@ -1,13 +1,13 @@
-// Data Parser Web Worker (v0.3.3 - Interleaved WebGL Buffers & Robust LOD)
+// Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
 
 self.onmessage = async (event) => {
-  const { file, type } = event.data;
+  const { file, type, settings } = event.data;
 
   try {
     const text = await file.text();
     let result;
-    if (type === 'csv') result = parseCSV(text);
-    else if (type === 'json') result = parseJSON(text);
+    if (type === 'csv') result = parseCSV(text, settings);
+    else if (type === 'json') result = parseJSON(text, settings);
     else throw new Error(`Unsupported file type: ${type}`);
 
     const rowCount = result.rowCount;
@@ -49,7 +49,8 @@ self.onmessage = async (event) => {
       columns: columns,
       rowCount: rowCount,
       data: columns.map((colName, colIdx) => {
-        const isPotentialX = colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
+        const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (settings.columnConfigs.filter((cc: any) => cc.type !== 'ignore')[colIdx]?.name === colName));
+        const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
         return {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
@@ -139,55 +140,137 @@ function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: n
   return levels;
 }
 
-function parseCSV(text: string) {
+function parseCSV(text: string, settings?: any) {
+  const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
+
   // Strip BOM if present
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   if (lines.length === 0) throw new Error('Empty CSV file');
 
-  // Detect delimiter from the first line
-  const firstLine = lines[0];
-  const delimiters = [',', ';', '\t'];
-  let bestDelimiter = ',';
-  let maxCount = 0;
-  for (const delimiter of delimiters) {
-    const count = firstLine.split(delimiter).length;
-    if (count > maxCount) {
-      maxCount = count;
-      bestDelimiter = delimiter;
-    }
-  }
-
-  const headers = firstLine.split(bestDelimiter).map(h => h.trim());
+  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
   const data: number[][] = [];
-  for (let i = 1; i < lines.length; i++) {
+
+  const categoricalMaps = new Array(headers.length).fill(null).map(() => new Map<string, number>());
+
+  for (let i = startRow; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    const values = line.split(bestDelimiter).map(v => {
-      const p = parseFloat(v.trim());
-      return isNaN(p) ? NaN : p;
-    });
-    data.push(values);
+
+    const rawValues = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+    const parsedRow: number[] = [];
+
+    for (let j = 0; j < headers.length; j++) {
+      const config = columnConfigs.find((c: any) => c.index === j);
+      if (config?.type === 'ignore') continue;
+
+      const val = rawValues[j];
+      parsedRow.push(parseValue(val, config, decimalPoint, categoricalMaps[j]));
+    }
+    data.push(parsedRow);
   }
-  return { columns: headers, rowCount: data.length, data: data };
+
+  const finalHeaders = headers.filter((_, i) => {
+    const config = columnConfigs.find((c: any) => c.index === i);
+    return config?.type !== 'ignore';
+  }).map((h, i) => {
+     // Re-find the original index to look up the correct config
+     const originalIdx = headers.indexOf(h);
+     const config = columnConfigs.find((c: any) => c.index === originalIdx);
+     return config?.name || h;
+  });
+
+  return { columns: finalHeaders, rowCount: data.length, data: data };
 }
 
 
-function parseJSON(text: string) {
+function parseJSON(text: string, settings?: any) {
+  const { decimalPoint = '.', columnConfigs = [] } = settings || {};
   const raw = JSON.parse(text);
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format');
-  const headers = Object.keys(raw[0]);
-  const rowCount = raw.length;
-  const colCount = headers.length;
 
-  const data = new Array(rowCount);
+  const allHeaders = Object.keys(raw[0]);
+  const rowCount = raw.length;
+
+  const categoricalMaps = new Array(allHeaders.length).fill(null).map(() => new Map<string, number>());
+  const data = [];
+
   for (let i = 0; i < rowCount; i++) {
     const row = raw[i];
-    const rowData = new Array(colCount);
-    for (let j = 0; j < colCount; j++) {
-      const p = parseFloat(row[headers[j]]);
-      rowData[j] = isNaN(p) ? NaN : p;
+    const parsedRow: number[] = [];
+
+    for (let j = 0; j < allHeaders.length; j++) {
+      const header = allHeaders[j];
+      const config = columnConfigs.find((c: any) => c.index === j);
+      if (config?.type === 'ignore') continue;
+
+      const val = String(row[header]);
+      parsedRow.push(parseValue(val, config, decimalPoint, categoricalMaps[j]));
     }
-    data[i] = rowData;
+    data.push(parsedRow);
   }
-  return { columns: headers, rowCount: data.length, data: data };
+
+  const finalHeaders = allHeaders.filter((_, i) => {
+    const config = columnConfigs.find((c: any) => c.index === i);
+    return config?.type !== 'ignore';
+  }).map((h, i) => {
+     const originalIdx = allHeaders.indexOf(h);
+     const config = columnConfigs.find((c: any) => c.index === originalIdx);
+     return config?.name || h;
+  });
+
+  return { columns: finalHeaders, rowCount: data.length, data: data };
+}
+
+function parseValue(val: string, config: any, decimalPoint: string, categoricalMap: Map<string, number>): number {
+  if (val === undefined || val === null || val === '') return NaN;
+
+  if (config?.type === 'date') {
+    return parseDate(val, config.dateFormat);
+  }
+
+  if (config?.type === 'categorical') {
+    if (!categoricalMap.has(val)) {
+      categoricalMap.set(val, categoricalMap.size);
+    }
+    return categoricalMap.get(val)!;
+  }
+
+  // Default: numeric
+  const normalized = decimalPoint === ',' ? val.replace(',', '.') : val;
+  const p = parseFloat(normalized);
+  return isNaN(p) ? NaN : p;
+}
+
+function parseDate(val: string, format?: string): number {
+  if (!format) {
+    const d = new Date(val);
+    return d.getTime() / 1000;
+  }
+
+  // Basic format parser (YYYY, MM, DD, HH, mm, ss)
+  try {
+    let year = 1970, month = 0, day = 1, hour = 0, min = 0, sec = 0;
+
+    const parts = {
+      YYYY: { idx: format.indexOf('YYYY'), len: 4 },
+      MM: { idx: format.indexOf('MM'), len: 2 },
+      DD: { idx: format.indexOf('DD'), len: 2 },
+      HH: { idx: format.indexOf('HH'), len: 2 },
+      mm: { idx: format.indexOf('mm'), len: 2 },
+      ss: { idx: format.indexOf('ss'), len: 2 }
+    };
+
+    if (parts.YYYY.idx !== -1) year = parseInt(val.substring(parts.YYYY.idx, parts.YYYY.idx + 4));
+    if (parts.MM.idx !== -1) month = parseInt(val.substring(parts.MM.idx, parts.MM.idx + 2)) - 1;
+    if (parts.DD.idx !== -1) day = parseInt(val.substring(parts.DD.idx, parts.DD.idx + 2));
+    if (parts.HH.idx !== -1) hour = parseInt(val.substring(parts.HH.idx, parts.HH.idx + 2));
+    if (parts.mm.idx !== -1) min = parseInt(val.substring(parts.mm.idx, parts.mm.idx + 2));
+    if (parts.ss.idx !== -1) sec = parseInt(val.substring(parts.ss.idx, parts.ss.idx + 2));
+
+    const d = new Date(year, month, day, hour, min, sec);
+    return d.getTime() / 1000;
+  } catch (e) {
+    const d = new Date(val);
+    return d.getTime() / 1000;
+  }
 }
