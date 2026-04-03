@@ -4,6 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
 import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, BookmarkPlus } from 'lucide-react';
+import { ImportSettingsDialog } from './ImportSettingsDialog';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -41,8 +42,12 @@ export const Sidebar: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
-  const { importFile, isImporting } = useDataImport();
+  const { importFile, confirmImport, cancelImport, pendingFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  const customViews = useMemo(() => {
+    return views ? views.filter(v => v.id !== 'default-view') : [];
+  }, [views]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -203,21 +208,21 @@ export const Sidebar: React.FC = () => {
                 <HelpCircle size={18} />
               </button>
             </div>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} aria-label="Collapse Menu">
               <ChevronRight size={18} />
             </button>
           </div>
           
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('sources')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
                 <FilePlus size={14} style={{ marginRight: '5px' }} />
                 Data Sources
               </div>
               <button
                 disabled={isImporting}
-                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                onClick={() => fileInputRef.current?.click()}
                 style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
               >
                 {isImporting ? '...' : 'Import'}
@@ -249,6 +254,7 @@ export const Sidebar: React.FC = () => {
                         }} 
                         style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
                         title="Remove data source"
+                        aria-label="Remove data source"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -300,8 +306,8 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('series')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('series')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
                 <Layout size={14} style={{ marginRight: '5px' }} />
                 Data Series
@@ -344,10 +350,12 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
-              <Eye size={14} style={{ marginRight: '5px' }} />
-              Data Views
+            <div className="section-title" style={{ display: 'flex', alignItems: 'center', userSelect: 'none' }}>
+              <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
+                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
+                <Eye size={14} style={{ marginRight: '5px' }} />
+                Data Views
+              </div>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
@@ -362,7 +370,7 @@ export const Sidebar: React.FC = () => {
                 />
                 <button 
                   onClick={() => {
-                    const name = newViewName.trim() || `View ${views.filter(v => v.id !== 'default-view').length + 1}`;
+                    const name = newViewName.trim() || `View ${customViews.length + 1}`;
                     saveView(name);
                     setNewViewName('');
                   }}
@@ -372,13 +380,13 @@ export const Sidebar: React.FC = () => {
                 </button>
               </div>
               
-              {(!views || views.filter(v => v.id !== 'default-view').length === 0) && (
+              {customViews.length === 0 && (
                 <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '4px' }}>No saved views.</div>
               )}
               
-              {views && views.length > 0 && (
+              {customViews.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {views.filter(v => v.id !== 'default-view').map(v => (
+                  {customViews.map(v => (
                     <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8f9fa', borderRadius: '3px', border: '1px solid #e9ecef' }}>
                       {editingViewId === v.id ? (
                         <input
@@ -414,6 +422,7 @@ export const Sidebar: React.FC = () => {
                           onClick={() => applyView(v.id)}
                           style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#4CAF50', display: 'flex' }}
                           title="Apply view bounds"
+                          aria-label="Apply view bounds"
                         >
                           <Eye size={14} />
                         </button>
@@ -421,6 +430,7 @@ export const Sidebar: React.FC = () => {
                           onClick={() => deleteView(v.id)}
                           style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
                           title="Delete view"
+                          aria-label="Delete view"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -506,6 +516,15 @@ export const Sidebar: React.FC = () => {
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
+      {pendingFile && (
+        <ImportSettingsDialog
+          fileName={pendingFile.file.name}
+          fileContent={pendingFile.preview}
+          fileType={pendingFile.type}
+          onConfirm={confirmImport}
+          onCancel={cancelImport}
+        />
+      )}
     </>
   );
 };

@@ -186,7 +186,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       const density = (ds.rowCount * (viewportRangeX / dataRangeX)) / (chartWidth || 1);
       
       let lodLevel = 0;
-      if (density > 50) lodLevel = 3;
+      if (density > 200) lodLevel = 5;
+      else if (density > 100) lodLevel = 4;
+      else if (density > 50) lodLevel = 3;
       else if (density > 10) lodLevel = 2;
       else if (density > 2) lodLevel = 1;
       
