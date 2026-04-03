@@ -2,14 +2,69 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
-import { type Dataset } from '../../services/persistence';
-import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate } from '../../utils/time';
+import { type YAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
+interface XTicks {
+  result: number[];
+  step: number;
+  precision: number;
+  isXDate: boolean;
+}
+
+interface ViewportRef {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+}
+
+interface GridLinesProps {
+  xTicks: XTicks;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+  viewportRef: ViewportRef;
+}
+
+interface AxesLayerProps {
+  xTicks: XTicks;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  width: number;
+  height: number;
+  padding: { top: number; right: number; bottom: number; left: number };
+  leftAxes: YAxisConfig[];
+  rightAxes: YAxisConfig[];
+  viewportRef: ViewportRef;
+  isXDate: boolean;
+  formatDate: (val: number, step: number) => string;
+  series: SeriesConfig[];
+  axisLayout: Record<string, { total: number; label: number }>;
+}
+
+interface CrosshairProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  padding: { top: number; right: number; bottom: number; left: number };
+  width: number;
+  height: number;
+  isPanning: boolean;
+  yAxes: YAxisConfig[];
+  viewportX: { min: number; max: number };
+  xMode: 'date' | 'numeric';
+  datasets: Dataset[];
+  series: SeriesConfig[];
+}
+
 type PanTarget = 'all' | 'x' | { yAxisId: string };
 
-const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: any) => {
+const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, viewportRef }: GridLinesProps) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
       {xTicks.result.map((t: any) => {
@@ -17,7 +72,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
         const { x } = worldToScreen(timestamp, 0, viewportRef);
         return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
       })}
-      {yAxes.map((axis: any) => {
+      {yAxes.map((axis: YAxisConfig) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
         const range = axis.max - axis.min;
         if (range <= 0) return null;
@@ -42,7 +97,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, series, axisLayout }: any) => {
+const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: AxesLayerProps) => {
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -109,7 +164,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           if (x < padding.left || x > width - padding.right) return null;
           return <line key={`xt-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={height - padding.bottom} x2={x} y2={height - padding.bottom + 6} stroke="#333" strokeWidth="1" />;
         })}
-        {yAxes.map((axis: any) => {
+        {yAxes.map((axis: YAxisConfig) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -200,7 +255,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
           const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(xTicks.precision)) : t.label;
           return <div key={`xl-${timestamp}`} style={{ position: 'absolute', left: x, bottom: padding.bottom - 20, transform: 'translateX(-50%)', fontSize: '9px', color: '#666' }}>{label}</div>;
         })}
-        {yAxes.map((axis: any) => {
+        {yAxes.map((axis: YAxisConfig) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -225,7 +280,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
             if (result.length > 100) break;
             result.push(t);
           }
-          const axisSeries = series.filter((s: any) => s.yAxisId === axis.id), title = axisSeries.map((s: any) => s.name || s.yColumn).join(' / ');
+          const axisSeries = series.filter((s: SeriesConfig) => s.yAxisId === axis.id), title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
           const titleX = isLeft ? xPos + 7.5 : xPos + axisMetrics.total - 7.5;
@@ -247,7 +302,7 @@ const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
 
 const SNAP_PX = 30; // pixel radius for snapping to a point
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, datasets, series }: any) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, yAxes, viewportX, xMode, datasets, series }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -280,8 +335,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestDist = Infinity;
     let bestXWorld: number | null = null;
 
-    series.forEach((s: any) => {
-      const ds = datasets.find((d: any) => d.id === s.sourceId);
+    series.forEach((s: SeriesConfig) => {
+      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
       if (!ds) return;
       const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
       if (xIdx === -1) return;
@@ -322,8 +377,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
-    series.forEach((s: any) => {
-      const ds = datasets.find((d: any) => d.id === s.sourceId);
+    series.forEach((s: SeriesConfig) => {
+      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
       if (!ds) return;
       const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
       const yIdx = ds.columns.findIndex((c: string) => c === s.yColumn || c.endsWith(`: ${s.yColumn}`));
@@ -343,7 +398,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
 
       const yVal = yData[bestI] + refY;
-      const axisTitle = axisTitleMap[s.yAxisId] || '';
+      const axis = yAxes.find((a: YAxisConfig) => a.id === s.yAxisId);
+      const axisTitle = axis ? (series.filter((sr: SeriesConfig) => sr.yAxisId === axis.id).map((sr: SeriesConfig) => sr.name || sr.yColumn).join('/')) : '';
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
@@ -398,7 +454,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         </div>
         {entries.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '2px' }}>
-            {entries.map((e: any, i: number) => {
+            {entries.map((e: { label: string, value: number, color: string }, i: number) => {
               // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
               const cleanValue = parseFloat(e.value.toPrecision(7));
               const valStr = cleanValue.toLocaleString('de-DE', { 
@@ -656,7 +712,7 @@ const ChartContainer: React.FC = () => {
     if (target === 'all' || typeof target === 'object') {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseY = rect ? e.clientY - rect.top : height / 2;
-      const axesToZoom = target === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (target as any).yAxisId)!];
+      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as {yAxisId: string}).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -843,7 +899,7 @@ const ChartContainer: React.FC = () => {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
       state.setViewportX(nextX); targetX.current = nextX;
     }
-    const axesToPan = panTarget === 'all' ? state.yAxes : [state.yAxes.find(a => a.id === (panTarget as any).yAxisId)!];
+    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as {yAxisId: string}).yAxisId)!];
     const SNAP_THRESHOLD = 15;
     const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
 
