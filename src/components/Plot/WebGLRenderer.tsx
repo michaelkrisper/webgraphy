@@ -19,8 +19,21 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
   const [program, setProgram] = useState<WebGLProgram | null>(null);
-  const [locations, setLocations] = useState<any>(null);
+  const [locations, setLocations] = useState<any>({});
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
+
+  // Global shared buffer to avoid per-segment array allocations
+  // Using module-level variable to persist across renders and components
+  const getSharedBuffer = (size: number) => {
+    let sharedBuffer = (window as unknown as { __webgraphySharedBuffer: Float32Array }).__webgraphySharedBuffer;
+    if (!sharedBuffer || sharedBuffer.length < size) {
+      let newSize = sharedBuffer ? sharedBuffer.length : 1024;
+      while (newSize < size) newSize *= 2;
+      sharedBuffer = new Float32Array(newSize);
+      (window as unknown as { __webgraphySharedBuffer: Float32Array }).__webgraphySharedBuffer = sharedBuffer;
+    }
+    return sharedBuffer;
+  };
 
   // Reactive Init
   useEffect(() => {
@@ -101,6 +114,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     const pg = createProgram(gl, vsSource, fsSource);
     if (!pg) return;
     setProgram(pg);
+
     setLocations({
       xRelLoc: gl.getUniformLocation(pg, 'u_rel_viewport_x'),
       yRelLoc: gl.getUniformLocation(pg, 'u_rel_viewport_y'),
@@ -172,7 +186,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       const density = (ds.rowCount * (viewportRangeX / dataRangeX)) / (chartWidth || 1);
       
       let lodLevel = 0;
-      if (density > 50) lodLevel = 3;
+      if (density > 200) lodLevel = 5;
+      else if (density > 100) lodLevel = 4;
+      else if (density > 50) lodLevel = 3;
       else if (density > 10) lodLevel = 2;
       else if (density > 2) lodLevel = 1;
       
@@ -190,13 +206,14 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       let buffer = buffersRef.current.get(bufferKey);
       if (!buffer) {
         buffer = gl.createBuffer()!;
-        const interleavedData = new Float32Array(numPoints * 2);
+        const reqSize = numPoints * 2;
+        const sharedArr = getSharedBuffer(reqSize);
         for (let i = 0; i < numPoints; i++) {
-          interleavedData[i * 2] = xLOD[i];
-          interleavedData[i * 2 + 1] = yLOD[i];
+          sharedArr[i * 2] = xLOD[i];
+          sharedArr[i * 2 + 1] = yLOD[i];
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, interleavedData, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
         buffersRef.current.set(bufferKey, buffer);
       } else gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 
@@ -226,18 +243,19 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
             // Each segment: 2 points * (pos(2) + other(2) + t(1)) = 10 floats per segment
-            const segData = new Float32Array((numPoints - 1) * 10);
+            const reqSize = (numPoints - 1) * 10;
+            const sharedArr = getSharedBuffer(reqSize);
             for (let i = 0; i < numPoints - 1; i++) {
               const ax = xLOD[i], ay = yLOD[i];
               const bx = xLOD[i + 1], by = yLOD[i + 1];
               const off = i * 10;
               // P1
-              segData[off] = ax; segData[off + 1] = ay; segData[off + 2] = bx; segData[off + 3] = by; segData[off + 4] = 0;
+              sharedArr[off] = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0;
               // P2
-              segData[off + 5] = bx; segData[off + 6] = by; segData[off + 7] = ax; segData[off + 8] = ay; segData[off + 9] = 1;
+              sharedArr[off + 5] = bx; sharedArr[off + 6] = by; sharedArr[off + 7] = ax; sharedArr[off + 8] = ay; sharedArr[off + 9] = 1;
             }
             gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, segData, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
             buffersRef.current.set(segBufferKey, segBuffer);
           } else gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 

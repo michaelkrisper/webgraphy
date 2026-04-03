@@ -80,7 +80,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           onClick={() => updateYAxis(currentAxis.id, { position: currentAxis.position === 'left' ? 'right' : 'left' })}
           style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           title={currentAxis.position === 'left' ? "Left Axis" : "Right Axis"}
-        >
+         aria-label="Toggle Left/Right Axis">
           {currentAxis.position === 'left' ? (
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 13V2m-2 3l2-3 2 3M3 13h11m-3-2l3 2-3 2" />
@@ -102,7 +102,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         }}
         style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0 }}
         title="Point Style"
-      >
+       aria-label="Cycle Point Style">
         {renderPointStyleIcon()}
       </button>
 
@@ -115,7 +115,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         }}
         style={{ padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0 }}
         title={`Line Style: ${series.lineStyle}`}
-      >
+       aria-label="Cycle Line Style">
         {renderLineStyleIcon()}
       </button>
 
@@ -124,7 +124,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         onClick={cycleAxis}
         style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
         title="Cycle Y-Axis (1-9)"
-      >
+       aria-label="Cycle Y-Axis">
         {currentAxisIndex}
       </button>
 
@@ -145,7 +145,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           onClick={() => updateYAxis(currentAxis.id, { showGrid: !currentAxis.showGrid })}
           style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           title="Toggle Grid"
-        >
+         aria-label="Toggle Grid">
           {currentAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
         </button>
       )}
@@ -183,7 +183,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           disabled={isFirst}
           style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
           title="Move Up (Layer Forward)"
-        >
+         aria-label="Move Up">
           <ChevronUp size={12} strokeWidth={3} />
         </button>
         <button
@@ -191,13 +191,13 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           disabled={isLast}
           style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
           title="Move Down (Layer Backward)"
-        >
+         aria-label="Move Down">
           <ChevronDown size={12} strokeWidth={3} />
         </button>
       </div>
 
       {/* Delete Button */}
-      <button onClick={() => removeSeries(series.id)} style={{ padding: '2px', cursor: 'pointer', color: '#dc3545', border: 'none', background: 'none', flexShrink: 0 }} title="Delete">
+      <button onClick={() => removeSeries(series.id)} style={{ padding: '2px', cursor: 'pointer', color: '#dc3545', border: 'none', background: 'none', flexShrink: 0 }} title="Delete" aria-label="Delete Series">
         <Trash2 size={12} />
       </button>
     </div>
