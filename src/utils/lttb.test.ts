@@ -64,5 +64,50 @@ describe('LTTB (Largest-Triangle-Three-Buckets)', () => {
       expect(result[0]).toEqual(sampleData[0]);
       expect(result[result.length - 1]).toEqual(sampleData[sampleData.length - 1]);
     });
+
+    it('selects data points that maximize the effective area (preserves peaks)', () => {
+      // Data with a sharp peak in the first bucket
+      const peakData = [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 10 }, // Sharp peak
+        { x: 3, y: 0 },
+        { x: 4, y: 0 },
+        { x: 5, y: 0 },
+      ];
+
+      // Threshold 4 means 2 middle buckets of size 2.
+      // Bucket 1: indices 1, 2
+      // Bucket 2: indices 3, 4
+      const result = lttb(peakData, 4);
+
+      expect(result).toEqual([
+        { x: 0, y: 0 },   // First point
+        { x: 2, y: 10 },  // Peak from Bucket 1
+        { x: 3, y: 0 },   // Selected from Bucket 2
+        { x: 5, y: 0 },   // Last point
+      ]);
+    });
+
+    it('selects data points that maximize the effective area (preserves valleys)', () => {
+      // Data with a sharp valley in the first bucket
+      const valleyData = [
+        { x: 0, y: 10 },
+        { x: 1, y: 9 },
+        { x: 2, y: 0 },  // Sharp valley
+        { x: 3, y: 10 },
+        { x: 4, y: 10 },
+        { x: 5, y: 10 },
+      ];
+
+      const result = lttb(valleyData, 4);
+
+      expect(result).toEqual([
+        { x: 0, y: 10 },  // First point
+        { x: 2, y: 0 },   // Valley from Bucket 1
+        { x: 3, y: 10 },  // Selected from Bucket 2
+        { x: 5, y: 10 },  // Last point
+      ]);
+    });
   });
 });
