@@ -188,7 +188,7 @@ export const exportToSVG = (
   svg += `</svg>`; return svg;
 };
 
-const formatDate = (val: number, step: number) => {
+export const formatDate = (val: number, step: number) => {
   const d = new Date(val * 1000);
   if (step >= 86400) return d.getDate() + '.' + (d.getMonth() + 1) + '.';
   if (step >= 3600) return d.getHours() + ':00';
