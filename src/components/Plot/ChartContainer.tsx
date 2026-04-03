@@ -3,6 +3,7 @@ import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
+import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 

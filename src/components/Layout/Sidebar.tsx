@@ -426,7 +426,7 @@ export const Sidebar: React.FC = () => {
             </div>}
           </div>
 
-          <div className="section" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid #dee2e6' }}>
+          <div className="section" style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <button
                 onClick={handleExportSVG}
@@ -460,7 +460,7 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#999', paddingBottom: '1rem' }}>
+          <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#999', paddingBottom: '0.5rem' }}>
             <span>v0.3.4</span>
             <span>|</span>
             <button 
