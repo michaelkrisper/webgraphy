@@ -39,4 +39,31 @@ describe('persistence error handling', () => {
 
     await expect(persistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
   });
+
+  it('should propagate errors if db.get fails', async () => {
+    const mockDb = {
+      get: vi.fn().mockRejectedValueOnce(new Error('Read failed')),
+    };
+    openDBMock.mockResolvedValueOnce(mockDb);
+
+    await expect(persistence.loadDataset('1')).rejects.toThrow('Read failed');
+  });
+
+  it('should propagate errors if db.getAll fails', async () => {
+    const mockDb = {
+      getAll: vi.fn().mockRejectedValueOnce(new Error('Read all failed')),
+    };
+    openDBMock.mockResolvedValueOnce(mockDb);
+
+    await expect(persistence.getAllDatasets()).rejects.toThrow('Read all failed');
+  });
+
+  it('should propagate errors if db.delete fails', async () => {
+    const mockDb = {
+      delete: vi.fn().mockRejectedValueOnce(new Error('Delete failed')),
+    };
+    openDBMock.mockResolvedValueOnce(mockDb);
+
+    await expect(persistence.deleteDataset('1')).rejects.toThrow('Delete failed');
+  });
 });
