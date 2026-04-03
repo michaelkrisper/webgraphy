@@ -33,6 +33,7 @@ export const ImprintModal: React.FC<ImprintModalProps> = ({ onClose }) => {
       }}>
         <button 
           onClick={onClose}
+          aria-label="Close Imprint"
           style={{
             position: 'absolute',
             top: '16px',

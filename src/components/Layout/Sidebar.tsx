@@ -202,6 +202,7 @@ export const Sidebar: React.FC = () => {
               <button 
                 onClick={() => setShowHelp(true)}
                 title="Help & Interactions"
+                aria-label="Help & Interactions"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#007bff' }}
               >
                 <HelpCircle size={18} />
@@ -325,6 +326,7 @@ export const Sidebar: React.FC = () => {
                   onClick={() => setXMode(xMode === 'date' ? 'numeric' : 'date')}
                   style={{ padding: '2px', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   title={`X-Mode: ${xMode === 'date' ? 'Date/Time' : 'Numeric'}`}
+                  aria-label="Toggle X-Mode"
                 >
                   {xMode === 'date' ? <Clock size={12} /> : <Hash size={12} />}
                 </button>

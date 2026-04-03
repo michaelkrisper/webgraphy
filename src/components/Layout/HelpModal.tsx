@@ -43,6 +43,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       }}>
         <button
           onClick={onClose}
+          aria-label="Close Help"
           style={{
             position: 'absolute',
             top: '16px',
