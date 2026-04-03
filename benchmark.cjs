@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 const fs = require('fs');
 const { performance } = require('perf_hooks');
 
@@ -68,7 +67,6 @@ const optimizedTime = performance.now() - start;
 console.log(`Original: ${(originalTime / 10).toFixed(2)} ms`);
 console.log(`Optimized: ${(optimizedTime / 10).toFixed(2)} ms`);
 console.log(`Improvement: ${((originalTime - optimizedTime) / originalTime * 100).toFixed(2)}%`);
-=======
 const { performance } = require('perf_hooks');
 
 function testAllocation(iterations, numPoints) {
@@ -133,5 +131,3 @@ console.log(`Allocation took: ${allocRes.time.toFixed(2)}ms`);
 console.log("Running Reusable benchmark...");
 const reuseRes = testReusable(iterations, numPoints);
 console.log(`Reusable took: ${reuseRes.time.toFixed(2)}ms`);
-
->>>>>>> Stashed changes
