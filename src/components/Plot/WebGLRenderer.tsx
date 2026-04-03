@@ -138,6 +138,30 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     buffersRef.current.clear();
   }, [datasets]);
 
+  // ⚡ Bolt Optimization: Pre-calculate series metadata to avoid O(N) array/string operations inside the render loop
+  const seriesMetadata = useMemo(() => {
+    return series.map(s => {
+      const ds = datasets.find(d => d.id === s.sourceId);
+      const axis = yAxes.find(a => a.id === s.yAxisId);
+      if (!ds || !axis) return null;
+
+      const findColumn = (name: string) => {
+        const idx = ds.columns.indexOf(name);
+        if (idx !== -1) return idx;
+        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
+      };
+
+      const xIdx = findColumn(s.xColumn);
+      const yIdx = findColumn(s.yColumn);
+
+      if (xIdx === -1 || yIdx === -1) {
+        return null;
+      }
+
+      return { series: s, ds, axis, xIdx, yIdx };
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number }[];
+  }, [datasets, series, yAxes]);
+
   useEffect(() => {
     const gl = glRef.current;
     if (!gl || !program || !locations || !glReady) return;
@@ -157,26 +181,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     gl.uniform4f(locs.padLoc, padding.top, padding.right, padding.bottom, padding.left);
     gl.uniform2f(locs.resLoc, width, height);
 
-    series.forEach(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      const axis = yAxes.find(a => a.id === s.yAxisId);
-      if (!ds || !axis) return;
-
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        // Try fuzzy match (suffix match for prefixed columns)
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(s.xColumn);
-      const yIdx = findColumn(s.yColumn);
-      
-      if (xIdx === -1 || yIdx === -1) {
-        console.warn(`Column not found for series ${s.name}: x=${s.xColumn} (${xIdx}), y=${s.yColumn} (${yIdx})`);
-        return;
-      }
-
+    seriesMetadata.forEach(({ series: s, ds, axis, xIdx, yIdx }) => {
       const colX = ds.data[xIdx];
       const colY = ds.data[yIdx];
       if (!colX || !colY) return;
@@ -286,7 +291,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       }
     });
     gl.disable(gl.SCISSOR_TEST);
-  }, [datasets, series, yAxes, viewportX, width, height, padding, program, locations, glReady]);
+  }, [seriesMetadata, viewportX, width, height, padding, program, locations, glReady]);
 
   return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
 });
