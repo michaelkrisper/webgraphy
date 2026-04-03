@@ -178,7 +178,7 @@ function parseCSV(text: string, settings?: any) {
   const finalHeaders = headers.filter((_, i) => {
     const config = columnConfigs.find((c: any) => c.index === i);
     return config?.type !== 'ignore';
-  }).map((h, i) => {
+  }).map((h) => {
      // Re-find the original index to look up the correct config
      const originalIdx = headers.indexOf(h);
      const config = columnConfigs.find((c: any) => c.index === originalIdx);
@@ -224,7 +224,7 @@ function parseJSON(text: string, settings?: any) {
   const finalHeaders = allHeaders.filter((_, i) => {
     const config = columnConfigs.find((c: any) => c.index === i);
     return config?.type !== 'ignore';
-  }).map((h, i) => {
+  }).map((h) => {
      const originalIdx = allHeaders.indexOf(h);
      const config = columnConfigs.find((c: any) => c.index === originalIdx);
      return config?.name || h;
