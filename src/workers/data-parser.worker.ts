@@ -152,6 +152,12 @@ function parseCSV(text: string, settings?: any) {
 
   const categoricalMaps = new Array(headers.length).fill(null).map(() => new Map<string, number>());
 
+  // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
+  const configsByIndex = new Array(headers.length);
+  for (let j = 0; j < headers.length; j++) {
+    configsByIndex[j] = columnConfigs.find((c: any) => c.index === j);
+  }
+
   for (let i = startRow; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -160,7 +166,7 @@ function parseCSV(text: string, settings?: any) {
     const parsedRow: number[] = [];
 
     for (let j = 0; j < headers.length; j++) {
-      const config = columnConfigs.find((c: any) => c.index === j);
+      const config = configsByIndex[j];
       if (config?.type === 'ignore') continue;
 
       const val = rawValues[j];
@@ -194,13 +200,19 @@ function parseJSON(text: string, settings?: any) {
   const categoricalMaps = new Array(allHeaders.length).fill(null).map(() => new Map<string, number>());
   const data = [];
 
+  // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
+  const configsByIndex = new Array(allHeaders.length);
+  for (let j = 0; j < allHeaders.length; j++) {
+    configsByIndex[j] = columnConfigs.find((c: any) => c.index === j);
+  }
+
   for (let i = 0; i < rowCount; i++) {
     const row = raw[i];
     const parsedRow: number[] = [];
 
     for (let j = 0; j < allHeaders.length; j++) {
       const header = allHeaders[j];
-      const config = columnConfigs.find((c: any) => c.index === j);
+      const config = configsByIndex[j];
       if (config?.type === 'ignore') continue;
 
       const val = String(row[header]);
