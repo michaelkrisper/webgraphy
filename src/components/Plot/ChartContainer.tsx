@@ -1083,7 +1083,7 @@ const ChartContainer: React.FC = () => {
       const touch = e.touches[0];
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+      const y = touch.clientY - rect.top;
 
       if (isDoubleTap) {
         if (target === 'all') {
