@@ -16,7 +16,7 @@ interface Props {
  * Provides an extremely compact UI for configuring an individual data series in a single row.
  */
 export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
-  const { updateSeries, removeSeries, xAxes, yAxes, updateXAxis, updateYAxis } = useGraphStore();
+  const { updateSeries, removeSeries, yAxes, updateYAxis } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
@@ -24,7 +24,6 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   const currentXAxisIndex = parseInt(series.xAxisId?.split('-')[1]) || 1;
-  const currentXAxis = xAxes.find(a => a.id === (series.xAxisId || 'axis-1'));
 
   const currentYAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
   const currentYAxis = yAxes.find(a => a.id === series.yAxisId);

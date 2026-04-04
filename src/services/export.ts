@@ -27,7 +27,7 @@ export const exportToSVG = (
   series: SeriesConfig[], 
   xAxes: XAxisConfig[],
   yAxes: YAxisConfig[],
-  axisTitles: { x: string, y: string },
+  _axisTitles: { x: string, y: string },
   width: number,
   height: number
 ): string => {

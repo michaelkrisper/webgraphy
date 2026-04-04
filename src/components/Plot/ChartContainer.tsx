@@ -18,15 +18,6 @@ interface XAxisLayout {
   color: string;
 }
 
-interface ViewportRef {
-  xMin: number;
-  xMax: number;
-  yMin: number;
-  yMax: number;
-  width: number;
-  height: number;
-  padding: { top: number; right: number; bottom: number; left: number };
-}
 
 interface GridLinesProps {
   xAxes: XAxisLayout[];
@@ -403,9 +394,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const xAxisConf = xAxes.find(a => a.id === firstUsedXAxisId);
     if (!xAxisConf) return null;
 
-    const vp = { xMin: xAxisConf.min, xMax: xAxisConf.max, yMin: 0, yMax: 100, width, height, padding };
-    const mouseWorld = screenToWorld(pos.x, pos.y, vp);
-
     // Convert SNAP_PX radius to world-x distance
     const xWorldPerPx = (xAxisConf.max - xAxisConf.min) / Math.max(1, width - padding.left - padding.right);
     const xSnapWorld = SNAP_PX * xWorldPerPx;
@@ -445,7 +433,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     if (bestXWorld === null || !bestSeriesXConf || bestDist > xSnapWorld) return null;
     const finalBestXWorld = bestXWorld as number;
-    const finalXConf = bestSeriesXConf;
+    const finalXConf = bestSeriesXConf as XAxisConfig;
 
     // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
     const seriesByAxis: Record<string, string[]> = {};
@@ -568,7 +556,6 @@ const ChartContainer: React.FC = () => {
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets } = useGraphStore();
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
-  const [editingXTitle, setEditingXTitle] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const lastMousePos = useRef<{ x: number, y: number } | null>(null);
   const zoomBoxStartRef = useRef<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
@@ -680,11 +667,6 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, height]);
 
   const activeXAxesUsed = useMemo(() => {
-    const usedIds = new Set(series.map(s => s.xAxisId || 'axis-1'));
-    // Sort by dataset order
-    const orderedIds: string[] = [];
-    const idToDatasetOrder = new Map<string, number>();
-
     // Mapping: which datasets use which X axes?
     // This is a bit complex. The prompt says "the order of data sources ... should define the order in which the x-axes are drawn".
     // Let's find unique xAxisIds and associate each with the minimum dataset index that uses it.
@@ -816,7 +798,6 @@ const ChartContainer: React.FC = () => {
 
   const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
       const rect = containerRef.current?.getBoundingClientRect();
       const mouseX = rect ? e.clientX - rect.left : width / 2;
@@ -934,7 +915,7 @@ const ChartContainer: React.FC = () => {
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
-  }, [viewportX, padding.top, chartHeight, startAnimation]);
+  }, [xAxes, padding.top, chartHeight, startAnimation]);
 
   const prevSeriesLenRef = useRef(series.length);
   useEffect(() => {
@@ -1034,7 +1015,7 @@ const ChartContainer: React.FC = () => {
         state.updateXAxis(axis.id, nextX); targetXAxes.current[axis.id] = nextX;
       });
     }
-    const draggedAxisId = panTarget !== 'all' && panTarget !== 'x' ? (panTarget as {yAxisId: string}).yAxisId : null;
+    const draggedAxisId = typeof panTarget === 'object' && 'yAxisId' in panTarget ? panTarget.yAxisId : null;
     const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
     const SNAP_THRESHOLD = 15;
 

@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 
@@ -32,11 +32,6 @@ export const Sidebar: React.FC = () => {
   const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allColumns = useMemo(() => {
-    const cols = new Set<string>();
-    datasets.forEach(d => d.columns.forEach(c => cols.add(c)));
-    return Array.from(cols);
-  }, [datasets]);
 
   const [width, setWidth] = useState(450);
   const [isCollapsed, setIsCollapsed] = useState(false);
