@@ -517,6 +517,7 @@ const ChartContainer: React.FC = () => {
   const targetYs = useRef<Record<string, { min: number, max: number }>>({});
   const wasEmptyRef = useRef(true);
   const isAnimating = useRef(false);
+  const isPanningRef = useRef(false);
 
   const startAnimation = useCallback(() => {
     if (isAnimating.current) return;
@@ -524,7 +525,7 @@ const ChartContainer: React.FC = () => {
     const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
     const loop = () => {
       const state = useGraphStore.getState();
-      const factor = 0.4;
+      const factor = isPanningRef.current ? 1 : 0.4;
       const keys = pressedKeys.current;
       let needsNextFrame = false;
       if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
@@ -873,7 +874,7 @@ const ChartContainer: React.FC = () => {
         const initialBox = { startX: x, startY: y, endX: x, endY: y };
         zoomBoxStartRef.current = initialBox; setZoomBoxState(initialBox);
       }
-    } else { setPanTarget(target); lastMousePos.current = { x: e.clientX, y: e.clientY }; }
+    } else { isPanningRef.current = true; setPanTarget(target); lastMousePos.current = { x: e.clientX, y: e.clientY }; }
   };
 
   const handleMouseMoveRaw = useCallback((e: MouseEvent) => {
@@ -979,6 +980,7 @@ const ChartContainer: React.FC = () => {
           startAnimation();
         }
       }
+      isPanningRef.current = false;
       setPanTarget(null);
     };
     window.addEventListener('mousemove', handleMouseMoveRaw); window.addEventListener('mouseup', handleMouseUp);
