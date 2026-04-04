@@ -1006,13 +1006,13 @@ const ChartContainer: React.FC = () => {
         const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
         axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
         }); startAnimation();
       } else if (e.key === 'ArrowDown') {
         const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
         axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
         }); startAnimation();
       } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) startAnimation();
     };
