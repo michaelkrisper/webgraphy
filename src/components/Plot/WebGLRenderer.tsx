@@ -200,27 +200,29 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let startIdx = 0;
       let endIdx = xData.length - 1;
 
-      // Find first point in viewport
+      // Find last point <= xAxis.min (to include segment crossing left boundary)
       let low = 0, high = xData.length - 1;
+      startIdx = 0;
       while (low <= high) {
         const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef >= xAxis.min) {
+        if (xData[mid] + xRef <= xAxis.min) {
           startIdx = mid;
-          high = mid - 1;
-        } else {
           low = mid + 1;
+        } else {
+          high = mid - 1;
         }
       }
-      
-      // Find last point in viewport
+
+      // Find first point >= xAxis.max (to include segment crossing right boundary)
       low = 0; high = xData.length - 1;
+      endIdx = xData.length - 1;
       while (low <= high) {
         const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef <= xAxis.max) {
+        if (xData[mid] + xRef >= xAxis.max) {
           endIdx = mid;
-          low = mid + 1;
-        } else {
           high = mid - 1;
+        } else {
+          low = mid + 1;
         }
       }
 
