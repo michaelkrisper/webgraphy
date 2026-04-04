@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type ViewSnapshot } from '../services/persistence';
+import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 
 interface GraphState {
   datasets: Dataset[];
@@ -35,6 +36,7 @@ interface GraphState {
   updateViewName: (id: string, name: string) => void;
 
   loadPersistedState: () => Promise<void>;
+  loadDemoData: () => Promise<void>;
 }
 
 const createInitialYAxes = (): YAxisConfig[] => {
@@ -218,12 +220,32 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   loadPersistedState: async () => {
     const savedState = persistence.loadAppState();
     const allDatasets = await persistence.getAllDatasets();
+
     if (savedState) {
       set({ ...savedState, datasets: allDatasets, isLoaded: true });
       debouncedSaveState();
-    } else {
+    } else if (allDatasets.length > 0) {
       set({ datasets: allDatasets, isLoaded: true, xMode: 'date' });
+    } else {
+      // First time open: Load demo data
+      const { loadDemoData } = get();
+      await loadDemoData();
     }
+  },
+
+  loadDemoData: async () => {
+    const demoDataset = generateDemoDataset();
+    const demoState = getDemoAppState(demoDataset);
+
+    await persistence.saveDataset(demoDataset);
+    // Force immediate save to avoid race conditions with window.location.reload()
+    persistence.saveAppState(demoState);
+
+    set({
+      ...demoState,
+      datasets: [demoDataset],
+      isLoaded: true
+    });
   }
 }));
 
