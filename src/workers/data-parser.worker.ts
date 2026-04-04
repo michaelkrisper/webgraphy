@@ -43,13 +43,16 @@ self.onmessage = async (event) => {
 
     const lodLevels = generateSynchronizedLOD(relativeData, rowCount);
 
+    // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
+    const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: any) => cc.type !== 'ignore') : [];
+
     const dataset = {
       id: crypto.randomUUID(),
       name: file.name,
       columns: columns,
       rowCount: rowCount,
       data: columns.map((colName, colIdx) => {
-        const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (settings.columnConfigs.filter((cc: any) => cc.type !== 'ignore')[colIdx]?.name === colName));
+        const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
         return {
           isFloat64: isPotentialX,

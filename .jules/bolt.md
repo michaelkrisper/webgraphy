@@ -1,3 +1,6 @@
 ## 2025-04-03 - O(N) Array Operations in High-Frequency Loops
 **Learning:** `Array.find` and `Array.indexOf` inside React render hooks (like `useEffect` in `WebGLRenderer`) and high-frequency event handlers (like `mousemove` snapping in `ChartContainer`) cause noticeable overhead when interacting with the chart.
 **Action:** Always pre-calculate and cache dependency data (like mapping Series to Datasets/Axes and resolving column indices) using `useMemo` before these high-frequency loops execute.
+## 2025-04-04 - [Optimize Array.find and fix hidden bug in data parser worker]
+**Learning:** In `data-parser.worker.ts`, an inner loop had an `Array.find` call that included an `Array.filter` operation. This caused O(N * M^2) time complexity. Additionally, the condition `settings.columnConfigs.filter(...)[colIdx]?.name === colName` was loop invariant and implicitly broken - it always matched on the first iteration of the find loop if the index matched, meaning only the first config was returned.
+**Action:** Always extract static array operations (like filtering non-ignored configs) out of loop conditions, both for O(N^2) performance wins and to prevent subtle variable shadowing/invariant bugs. Ensure the loop predicate strictly compares the current iterated item (e.g. `c.name`).
