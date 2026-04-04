@@ -1048,7 +1048,7 @@ const ChartContainer: React.FC = () => {
     if (mouseX < padding.left || mouseX > width - padding.right) return null;
     let foundHovered = null;
     activeXAxesUsed.forEach((axis, idx) => {
-      const baseY = height - padding.bottom + (activeXAxesUsed.length - 1 - idx) * xAxisHeight;
+      const baseY = height - padding.bottom + idx * xAxisHeight;
       if (mouseY >= baseY && mouseY <= baseY + xAxisHeight) {
         foundHovered = axis.id;
       }
