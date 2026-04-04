@@ -1,0 +1,3 @@
+## 2024-04-04 - Accessible Collapsible Sections in Sidebar
+**Learning:** By wrapping the chevron and title text of accordion sections (like Data Sources, Data Series, Data Views) in a native `<button aria-expanded="...">` instead of relying on an `onClick` attached to a semantic `div`, we dramatically improve keyboard accessibility and screen reader support without changing visual layout or behavior.
+**Action:** When creating or modifying collapsible UI sections, always ensure the toggle area is a `<button>` tag with `aria-expanded` reflecting the state, and use standard styling resets (`background: none`, `border: none`, `font: inherit`) to preserve the intended design system appearance.

@@ -215,11 +215,11 @@ export const Sidebar: React.FC = () => {
           
           <div className="section">
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
+              <button onClick={() => toggleSection('sources')} aria-expanded={openSections.sources} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
                 <FilePlus size={14} style={{ marginRight: '5px' }} />
                 Data Sources
-              </div>
+              </button>
               <button
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
@@ -269,6 +269,7 @@ export const Sidebar: React.FC = () => {
                       <input
                         type="text"
                         name={`column-filter-${d.id}`}
+                        aria-label={`Filter columns for ${d.name}`}
                         autoComplete="off"
                         placeholder="Filter..."
                         value={columnFilters[d.id] || ''}
@@ -276,11 +277,13 @@ export const Sidebar: React.FC = () => {
                         style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
                       />
                       {columnFilters[d.id] && (
-                        <X
-                          size={14}
-                          style={{ position: 'absolute', right: '6px', cursor: 'pointer', color: '#999' }}
+                        <button
                           onClick={() => setColumnFilters({ ...columnFilters, [d.id]: '' })}
-                        />
+                          aria-label="Clear filter"
+                          style={{ position: 'absolute', right: '4px', background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <X size={14} style={{ color: '#999' }} />
+                        </button>
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -307,15 +310,16 @@ export const Sidebar: React.FC = () => {
 
           <div className="section">
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <div onClick={() => toggleSection('series')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}>
+              <button onClick={() => toggleSection('series')} aria-expanded={openSections.series} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
                 <Layout size={14} style={{ marginRight: '5px' }} />
                 Data Series
-              </div>
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontSize: '10px', color: '#666' }}>Global X:</span>
                 <select
                   name="global-x-column"
+                  aria-label="Global X Column"
                   value={globalXColumn}
                   onChange={(e) => setGlobalXColumn(e.target.value)}
                   style={{ fontSize: '10px', padding: '1px', border: '1px solid #ced4da', borderRadius: '3px', width: '80px' }}
@@ -351,12 +355,12 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="section">
-            <div className="section-title" onClick={() => toggleSection('views')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+              <button onClick={() => toggleSection('views')} aria-expanded={openSections.views} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
                 <Eye size={14} style={{ marginRight: '5px' }} />
                 Data Views
-              </div>
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
                 style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
@@ -378,6 +382,7 @@ export const Sidebar: React.FC = () => {
                         <input
                           autoFocus
                           name="view-name"
+                          aria-label="Rename view"
                           autoComplete="off"
                           value={tempViewName}
                           onChange={(e) => setTempViewName(e.target.value)}

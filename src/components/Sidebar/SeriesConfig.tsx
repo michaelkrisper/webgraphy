@@ -65,6 +65,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       <input
         type="color"
         name={`series-color-${series.id}`}
+        aria-label={`Color for ${series.name || series.yColumn}`}
         value={series.lineColor}
         onInput={(e) => {
           const color = (e.target as HTMLInputElement).value;
@@ -131,6 +132,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {/* Y Column Selector */}
       <select
         name={`series-y-column-${series.id}`}
+        aria-label={`Y Column for ${series.name || series.yColumn}`}
         value={series.yColumn}
         onChange={(e) => handleUpdate({ yColumn: e.target.value })}
         style={{ width: '80px', fontSize: '9px', padding: '0', height: '18px', minWidth: 0, flexShrink: 1 }}
@@ -156,6 +158,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           <input
             autoFocus
             name={`series-title-${series.id}`}
+            aria-label="Rename series"
             autoComplete="off"
             defaultValue={series.name || series.yColumn}
             onBlur={(e) => { handleUpdate({ name: e.target.value }); setIsEditingTitle(false); }}
