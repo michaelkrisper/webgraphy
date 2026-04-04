@@ -1,3 +1,35 @@
+const TREE_BRANCHING_FACTOR = 64;
+
+export function buildMinMaxTrees(data: Float32Array): { minTree: Uint32Array[], maxTree: Uint32Array[] } {
+  const minTree: Uint32Array[] = [];
+  const maxTree: Uint32Array[] = [];
+  let currentMinIndices = new Uint32Array(data.length);
+  let currentMaxIndices = new Uint32Array(data.length);
+  for (let i = 0; i < data.length; i++) { currentMinIndices[i] = i; currentMaxIndices[i] = i; }
+  let currentLen = data.length;
+  while (currentLen > TREE_BRANCHING_FACTOR) {
+    const nextLen = Math.ceil(currentLen / TREE_BRANCHING_FACTOR);
+    const nextMinIndices = new Uint32Array(nextLen);
+    const nextMaxIndices = new Uint32Array(nextLen);
+    for (let i = 0; i < nextLen; i++) {
+      const start = i * TREE_BRANCHING_FACTOR, end = Math.min(start + TREE_BRANCHING_FACTOR, currentLen);
+      let minIdx = currentMinIndices[start], maxIdx = currentMaxIndices[start];
+      let minVal = data[minIdx], maxVal = data[maxIdx];
+      for (let j = start + 1; j < end; j++) {
+        const idxMin = currentMinIndices[j], valMin = data[idxMin];
+        if (valMin < minVal) { minVal = valMin; minIdx = idxMin; }
+        const idxMax = currentMaxIndices[j], valMax = data[idxMax];
+        if (valMax > maxVal) { maxVal = valMax; maxIdx = idxMax; }
+      }
+      nextMinIndices[i] = minIdx; nextMaxIndices[i] = maxIdx;
+    }
+    minTree.push(nextMinIndices); maxTree.push(nextMaxIndices);
+    currentMinIndices = nextMinIndices; currentMaxIndices = nextMaxIndices;
+    currentLen = nextLen;
+  }
+  return { minTree, maxTree };
+}
+
 /**
  * Fast Min-Max downsampling using pre-built Min-Max trees.
  * For each bucket, it finds the first, last, min, and max points.
@@ -61,9 +93,6 @@ function findInTree(data: Float32Array, tree: Uint32Array[], start: number, end:
   // Find the highest level that is fully contained within [start, end]
   let bestIdx = -1;
   let bestVal = isMin ? Infinity : -Infinity;
-
-  let currentStart = start;
-  let currentEnd = end;
 
   // This is a simplified version of range query.
   // For a truly optimal one, we'd traverse the tree.

@@ -1,63 +1,6 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig } from './persistence';
+import { buildMinMaxTrees } from '../utils/downsampling';
 
-/**
- * Generates LOD levels where all columns use the same sampled row indices.
- * Ported from data-parser.worker.ts for demo data generation.
- */
-function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: number }[], rowCount: number): Float32Array[][] {
-  const numCols = relativeData.length;
-  const levels: Float32Array[][] = relativeData.map(col => [col.data]);
-
-  const factor = 8;
-  let currentIndices = new Uint32Array(rowCount);
-  for (let i = 0; i < rowCount; i++) currentIndices[i] = i;
-
-  while (levels[0].length < 8 && currentIndices.length > factor * 2) {
-    const nextIndicesSet = new Set<number>();
-
-    nextIndicesSet.add(0);
-    nextIndicesSet.add(rowCount - 1);
-
-    for (let i = 0; i < currentIndices.length; i += factor) {
-      const end = Math.min(i + factor, currentIndices.length);
-      nextIndicesSet.add(currentIndices[i]);
-      nextIndicesSet.add(currentIndices[end - 1]);
-
-      for (let j = 0; j < numCols; j++) {
-        const colData = relativeData[j].data;
-        let minVal = Infinity, maxVal = -Infinity;
-        let minIdx = currentIndices[i], maxIdx = currentIndices[i];
-
-        for (let k = i; k < end; k++) {
-          const idx = currentIndices[k];
-          const val = colData[idx];
-          if (val < minVal) { minVal = val; minIdx = idx; }
-          if (val > maxVal) { maxVal = val; maxIdx = idx; }
-        }
-        nextIndicesSet.add(minIdx);
-        nextIndicesSet.add(maxIdx);
-      }
-    }
-
-    const sortedIndices = Array.from(nextIndicesSet).sort((a, b) => a - b);
-    const nextIdxArray = new Uint32Array(sortedIndices);
-
-    for (let j = 0; j < numCols; j++) {
-      const colData = relativeData[j].data;
-      const levelData = new Float32Array(nextIdxArray.length);
-      for (let k = 0; k < nextIdxArray.length; k++) {
-        levelData[k] = colData[nextIdxArray[k]];
-      }
-      levels[j].push(levelData);
-    }
-
-    const prevLength = currentIndices.length;
-    currentIndices = nextIdxArray;
-    if (currentIndices.length >= prevLength * 0.8 && currentIndices.length > 2000) break;
-  }
-
-  return levels;
-}
 
 export function generateDemoDataset(): Dataset {
   const rowCount = 10000;
@@ -99,14 +42,18 @@ export function generateDemoDataset(): Dataset {
     return { data, refPoint };
   });
 
-  const lodLevels = generateSynchronizedLOD(relativeData, rowCount);
-
-  const data: DataColumn[] = columns.map((colName, colIdx) => ({
-    isFloat64: colName === 'Timestamp',
-    refPoint: relativeData[colIdx].refPoint,
-    bounds: colBounds[colIdx],
-    levels: lodLevels[colIdx]
-  }));
+  const data: DataColumn[] = columns.map((colName, colIdx) => {
+    const col = relativeData[colIdx];
+    const { minTree, maxTree } = buildMinMaxTrees(col.data);
+    return {
+      isFloat64: colName === 'Timestamp',
+      refPoint: col.refPoint,
+      bounds: colBounds[colIdx],
+      data: col.data,
+      minTree,
+      maxTree,
+    };
+  });
 
   const prefix = 'A: ';
   return {

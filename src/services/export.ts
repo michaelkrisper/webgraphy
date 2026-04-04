@@ -110,7 +110,7 @@ export const exportToSVG = (
     if (xIdx === -1 || yIdx === -1) return;
 
     const xCol = ds.data[xIdx], yCol = ds.data[yIdx], visibleData = [];
-    const xData = xCol.levels[0], yData = yCol.levels[0];
+    const xData = xCol.data, yData = yCol.data;
     for (let i = 0; i < ds.rowCount; i++) {
       const vx = xData[i] + xCol.refPoint;
       const vy = yData[i] + yCol.refPoint;
