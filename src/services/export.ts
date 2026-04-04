@@ -176,7 +176,6 @@ export const exportToSVG = (
 
     const axisSeries = series.filter(s => s.yAxisId === axis.id);
     const title = axisSeries.map(s => s.name || s.yColumn).join(' / ');
-    const escapedTitle = escapeHTML(title);
     const titleX = isLeft ? (xPos + 5) : (xPos + axisWidth - 5);
     const titleY = padding.top + chartHeight / 2, rotate = isLeft ? -90 : 90;
     const estW = Math.min(chartHeight, title.length * 6 + 8);

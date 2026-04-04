@@ -3,16 +3,13 @@ import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
-import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
+import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
 
 const BASE_PADDING = { top: 20, right: 20, bottom: 50, left: 20 };
 
-interface XTicks {
-  result: number[];
-  step: number;
-  precision: number;
-  isXDate: boolean;
-}
+type XTicks =
+  | { result: number[]; step: number; precision: number; isXDate: false; secondaryLabels?: undefined }
+  | { result: TimeTick[]; isXDate: true; secondaryLabels: SecondaryLabel[]; step?: undefined; precision?: undefined }
 
 interface ViewportRef {
   xMin: number;
@@ -44,8 +41,6 @@ interface AxesLayerProps {
   leftAxes: YAxisConfig[];
   rightAxes: YAxisConfig[];
   viewportRef: ViewportRef;
-  isXDate: boolean;
-  formatDate: (val: number, step: number) => string;
   series: SeriesConfig[];
   axisLayout: Record<string, { total: number; label: number }>;
 }
@@ -98,7 +93,7 @@ const GridLines = React.memo(({ xTicks, yAxes, viewportX, width, height, padding
   );
 });
 
-const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, isXDate, formatDate, series, axisLayout }: AxesLayerProps) => {
+const AxesLayer = React.memo(({ xTicks, yAxes, viewportX, width, height, padding, leftAxes, rightAxes, viewportRef, series, axisLayout }: AxesLayerProps) => {
   const seriesByYAxisId = useMemo(() => {
     const grouped: Record<string, SeriesConfig[]> = {};
     for (let i = 0; i < series.length; i++) {
@@ -1024,7 +1019,7 @@ const ChartContainer: React.FC = () => {
 
   const xTicks = useMemo(() => {
     const isXDate = useGraphStore.getState().xMode === 'date', range = viewportX.max - viewportX.min;
-    if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate };
+    if (range <= 0 || chartWidth <= 0) return { result: [], step: 1, precision: 0, isXDate: false as const };
 
     if (!isXDate) {
       const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
@@ -1033,16 +1028,16 @@ const ChartContainer: React.FC = () => {
       const normalizedStep = step / magnitude;
       const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
       step = finalStep * magnitude;
-      if (step <= 0) return { result: [], step: 1, precision: 0, isXDate };
+      if (step <= 0) return { result: [], step: 1, precision: 0, isXDate: false as const };
       const precision = Math.max(0, -Math.floor(Math.log10(step)));
-      const firstTick = Math.ceil(viewportX.min / step) * step, result = [];
+      const firstTick = Math.ceil(viewportX.min / step) * step, result: number[] = [];
       for (let t = firstTick; t <= viewportX.max; t += step) { if (result.length > 100) break; result.push(t); }
-      return { result, step, precision, isXDate };
+      return { result, step, precision, isXDate: false as const };
     } else {
       const timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
       const ticks = generateTimeTicks(viewportX.min, viewportX.max, timeStep);
       const secondaryLabels = generateSecondaryLabels(viewportX.min, viewportX.max, timeStep);
-      return { result: ticks, isXDate, secondaryLabels };
+      return { result: ticks, isXDate: true as const, secondaryLabels };
     }
   }, [viewportX.min, viewportX.max, chartWidth]);
 
