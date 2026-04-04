@@ -465,8 +465,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       }
     });
 
-    // Collect all Y values from all series at this X
-    const entries: { label: string, value: number, color: string, xLabel: string }[] = [];
+    // Collect all Y values from all series at this X, grouped by X-label
+    const entries: { xLabel: string, items: { label: string, value: number, color: string }[] }[] = [];
     seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
       const sXConf = xAxes.find(a => a.id === ds.xAxisId);
       if (!sXConf) return;
@@ -496,7 +496,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toString();
 
-      entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xLabel: xLab });
+      let group = entries.find(g => g.xLabel === xLab);
+      if (!group) {
+        group = { xLabel: xLab, items: [] };
+        entries.push(group);
+      }
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
     });
 
     // Screen position of the snapped point
@@ -509,7 +514,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   if (!snap) return null; // Only show when near a point
 
   const { snapScreenX, entries } = snap;
-  const maxExpectedHeight = 30 + entries.length * 24;
+  const totalItems = entries.reduce((sum, g) => sum + g.items.length, 0);
+  const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 320 + 20 < width; 
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
 
@@ -541,26 +547,31 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       }}>
         {entries.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '4px' }}>
-            {entries.map((e, i: number) => {
-              // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
-              const cleanValue = parseFloat(e.value.toPrecision(7));
-              const valStr = cleanValue.toLocaleString('de-DE', { 
-                minimumFractionDigits: 0, 
-                maximumFractionDigits: 10
-              });
-              const idx = valStr.indexOf(',');
-              const intPart = idx !== -1 ? valStr.substring(0, idx) : valStr;
-              const decPart = idx !== -1 ? valStr.substring(idx) : '';
+            {entries.map((group, groupIdx) => (
+              <React.Fragment key={`group-${groupIdx}`}>
+                <div style={{ color: '#666', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
+                {group.items.map((item, itemIdx) => {
+                  // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
+                  const cleanValue = parseFloat(item.value.toPrecision(7));
+                  const valStr = cleanValue.toLocaleString('de-DE', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 10
+                  });
+                  const idx = valStr.indexOf(',');
+                  const intPart = idx !== -1 ? valStr.substring(0, idx) : valStr;
+                  const decPart = idx !== -1 ? valStr.substring(idx) : '';
 
-              return (
-                <React.Fragment key={i}>
-                  <div style={{ color: e.color, textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>X: {e.xLabel}</div>
-                  <div style={{ color: e.color, textAlign: 'right' }}>{e.label}:</div>
-                  <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
-                  <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
-                </React.Fragment>
-              );
-            })}
+                  return (
+                    <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
+                      <div style={{ color: item.color, textAlign: 'right' }}>{item.label}:</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
+                      <div></div> {/* empty grid cell for the 4th column */}
+                    </React.Fragment>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
         )}
       </div>
