@@ -71,6 +71,40 @@ describe('useDataImport hook', () => {
     expect(result.current.pendingFile).toBe(null);
   });
 
+  it('should set pending file on initiateImport for json', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const fileContent = '{"data": [1, 2]}';
+    const file = new File([fileContent], 'test.json', { type: 'application/json' });
+
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: any;
+      readAsText(blob: Blob) {
+        setTimeout(() => {
+          this.onload({ target: { result: 'preview data json' } });
+        }, 10);
+      }
+    }
+    global.FileReader = MockFileReader as any;
+
+    act(() => {
+      result.current.importFile(file);
+    });
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 20));
+    });
+
+    expect(result.current.pendingFile).not.toBeNull();
+    expect(result.current.pendingFile?.file).toBe(file);
+    expect(result.current.pendingFile?.type).toBe('json');
+    expect(result.current.pendingFile?.preview).toBe('preview data json');
+
+    global.FileReader = originalFileReader;
+  });
+
+
   it('should set pending file on initiateImport', async () => {
     const { result } = renderHook(() => useDataImport());
 
@@ -136,6 +170,16 @@ describe('useDataImport hook', () => {
 
     expect(result.current.pendingFile).toBeNull();
     global.FileReader = originalFileReader;
+  });
+
+  it('should do nothing on confirmImport if no pending file', async () => {
+      const { result } = renderHook(() => useDataImport());
+
+      act(() => {
+          result.current.confirmImport({} as any);
+      });
+
+      expect(result.current.isImporting).toBe(false);
   });
 
   it('should process import with worker successfully', async () => {
@@ -249,3 +293,36 @@ describe('useDataImport hook', () => {
     global.FileReader = originalFileReader;
   });
 });
+
+  it('should handle non-csv files correctly', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const fileContent = '{"data": [1, 2]}';
+    const file = new File([fileContent], 'test.txt', { type: 'text/plain' });
+
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: any;
+      readAsText(blob: Blob) {
+        setTimeout(() => {
+          this.onload({ target: { result: 'preview data txt' } });
+        }, 10);
+      }
+    }
+    global.FileReader = MockFileReader as any;
+
+    act(() => {
+      result.current.importFile(file);
+    });
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 20));
+    });
+
+    expect(result.current.pendingFile).not.toBeNull();
+    expect(result.current.pendingFile?.file).toBe(file);
+    expect(result.current.pendingFile?.type).toBe('json'); // Default fallback
+    expect(result.current.pendingFile?.preview).toBe('preview data txt');
+
+    global.FileReader = originalFileReader;
+  });

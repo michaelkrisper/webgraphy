@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Dataset } from '../persistence';
+import type { Dataset, AppState } from '../persistence';
 
 vi.mock('idb', () => ({
   openDB: vi.fn(),
 }));
 
-describe('persistence error handling', () => {
+describe('persistence', () => {
   let persistence: typeof import('../persistence').persistence;
   let openDBMock: any;
 
@@ -21,49 +21,264 @@ describe('persistence error handling', () => {
     persistence = persistenceModule.persistence;
   });
 
-  it('should propagate error when openDB fails', async () => {
-    openDBMock.mockRejectedValueOnce(new Error('Failed to open IndexedDB'));
+  describe('success path', () => {
+    it('should initialize and upgrade db correctly', async () => {
+        const mockDb = {
+            objectStoreNames: {
+                contains: vi.fn().mockReturnValue(false)
+            },
+            createObjectStore: vi.fn(),
+            getAll: vi.fn().mockResolvedValue([])
+        };
 
-    const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+        openDBMock.mockImplementationOnce((name: string, version: number, options: any) => {
+            options.upgrade(mockDb);
+            return Promise.resolve(mockDb);
+        });
 
-    await expect(persistence.saveDataset(dataset)).rejects.toThrow('Failed to open IndexedDB');
+        // Trigger getDB
+        await persistence.getAllDatasets();
+
+        expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('datasets');
+        expect(mockDb.createObjectStore).toHaveBeenCalledWith('datasets', { keyPath: 'id' });
+    });
+
+    it('should not upgrade db if store exists', async () => {
+        const mockDb = {
+            objectStoreNames: {
+                contains: vi.fn().mockReturnValue(true)
+            },
+            createObjectStore: vi.fn(),
+            getAll: vi.fn().mockResolvedValue([])
+        };
+
+        openDBMock.mockImplementationOnce((name: string, version: number, options: any) => {
+            options.upgrade(mockDb);
+            return Promise.resolve(mockDb);
+        });
+
+        // Trigger getDB
+        await persistence.getAllDatasets();
+
+        expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('datasets');
+        expect(mockDb.createObjectStore).not.toHaveBeenCalled();
+    });
+
+    it('should save a dataset', async () => {
+      const mockDb = {
+        put: vi.fn().mockResolvedValueOnce(undefined),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+      await persistence.saveDataset(dataset);
+
+      expect(mockDb.put).toHaveBeenCalledWith('datasets', dataset);
+    });
+
+    it('should load a dataset and fix types', async () => {
+      const storedDataset = {
+        id: '1',
+        name: 'test',
+        columns: [],
+        data: [
+            { levels: [{ 0: 1, 1: 2, 2: 3 }] }, // missing bounds, level is object
+            { levels: [new Float32Array([1, 2, 3])], bounds: {min: 0, max: 1}, refPoint: 5 }, // valid level
+            { levels: ['invalid'] } // invalid level
+        ],
+        rowCount: 0
+      };
+
+      const mockDb = {
+        get: vi.fn().mockResolvedValueOnce(storedDataset),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const dataset = await persistence.loadDataset('1');
+
+      expect(mockDb.get).toHaveBeenCalledWith('datasets', '1');
+      expect(dataset).toBeDefined();
+      expect(dataset!.data[0].bounds).toEqual({min: 0, max: 0});
+      expect(dataset!.data[0].levels[0]).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[0].levels[0].length).toBe(3);
+      expect(dataset!.data[0].refPoint).toBe(0);
+
+      expect(dataset!.data[1].bounds).toEqual({min: 0, max: 1});
+      expect(dataset!.data[1].levels[0]).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[1].refPoint).toBe(5);
+
+      expect(dataset!.data[2].levels[0]).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[2].levels[0].length).toBe(0);
+    });
+
+    it('should load a dataset that has no data or is not an array', async () => {
+      const storedDataset = {
+        id: '1',
+        name: 'test',
+        columns: [],
+        data: null,
+        rowCount: 0
+      };
+
+      const mockDb = {
+        get: vi.fn().mockResolvedValueOnce(storedDataset),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const dataset = await persistence.loadDataset('1');
+
+      expect(dataset).toEqual(storedDataset);
+    });
+
+    it('should return undefined if dataset not found', async () => {
+      const mockDb = {
+        get: vi.fn().mockResolvedValueOnce(undefined),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const dataset = await persistence.loadDataset('1');
+      expect(dataset).toBeUndefined();
+    });
+
+    it('should get all datasets', async () => {
+      const storedDatasets = [
+        { id: '1', name: 'test1', columns: [], data: [], rowCount: 0 },
+        { id: '2', name: 'test2', columns: [], data: [], rowCount: 0 }
+      ];
+
+      const mockDb = {
+        getAll: vi.fn().mockResolvedValueOnce(storedDatasets),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const datasets = await persistence.getAllDatasets();
+
+      expect(mockDb.getAll).toHaveBeenCalledWith('datasets');
+      expect(datasets.length).toBe(2);
+    });
+
+    it('should delete a dataset', async () => {
+      const mockDb = {
+        delete: vi.fn().mockResolvedValueOnce(undefined),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      await persistence.deleteDataset('1');
+
+      expect(mockDb.delete).toHaveBeenCalledWith('datasets', '1');
+    });
+
+    it('should load a dataset and handle existing refPoint', async () => {
+      const storedDataset = {
+        id: '1',
+        name: 'test',
+        columns: [],
+        data: [
+            { levels: [new Float32Array([1, 2, 3])], bounds: {min: 0, max: 1}, refPoint: 10 }
+        ],
+        rowCount: 0
+      };
+
+      const mockDb = {
+        get: vi.fn().mockResolvedValueOnce(storedDataset),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      const dataset = await persistence.loadDataset('1');
+
+      expect(mockDb.get).toHaveBeenCalledWith('datasets', '1');
+      expect(dataset).toBeDefined();
+      expect(dataset!.data[0].refPoint).toBe(10);
+    });
   });
 
-  it('should propagate error when quota exceeded', async () => {
-    const mockDb = {
-      put: vi.fn().mockRejectedValueOnce(new DOMException('QuotaExceededError')),
-    };
-    openDBMock.mockResolvedValueOnce(mockDb);
+  describe('AppState persistence', () => {
+    it('should save app state to local storage', () => {
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+        const state = {
+            viewportX: { min: 0, max: 100 },
+            yAxes: [],
+            series: [],
+            axisTitles: { x: '', y: '' },
+            globalXColumn: '',
+            xMode: 'numeric' as const
+        };
+        persistence.saveAppState(state);
+        expect(setItemSpy).toHaveBeenCalledWith('webgraphy-state', JSON.stringify(state));
+        setItemSpy.mockRestore();
+    });
 
-    const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+    it('should load app state from local storage', () => {
+        const state = {
+            viewportX: { min: 0, max: 100 },
+            yAxes: [],
+            series: [],
+            axisTitles: { x: '', y: '' },
+            globalXColumn: '',
+            xMode: 'numeric' as const
+        };
+        const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValueOnce(JSON.stringify(state));
 
-    await expect(persistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
+        const loadedState = persistence.loadAppState();
+        expect(getItemSpy).toHaveBeenCalledWith('webgraphy-state');
+        expect(loadedState).toEqual(state);
+        getItemSpy.mockRestore();
+    });
+
+    it('should return null if no app state in local storage', () => {
+        const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValueOnce(null);
+
+        const loadedState = persistence.loadAppState();
+        expect(loadedState).toBeNull();
+        getItemSpy.mockRestore();
+    });
   });
 
-  it('should propagate errors if db.get fails', async () => {
-    const mockDb = {
-      get: vi.fn().mockRejectedValueOnce(new Error('Read failed')),
-    };
-    openDBMock.mockResolvedValueOnce(mockDb);
+  describe('persistence error handling', () => {
+    it('should propagate error when openDB fails', async () => {
+      openDBMock.mockRejectedValueOnce(new Error('Failed to open IndexedDB'));
 
-    await expect(persistence.loadDataset('1')).rejects.toThrow('Read failed');
-  });
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
 
-  it('should propagate errors if db.getAll fails', async () => {
-    const mockDb = {
-      getAll: vi.fn().mockRejectedValueOnce(new Error('Read all failed')),
-    };
-    openDBMock.mockResolvedValueOnce(mockDb);
+      await expect(persistence.saveDataset(dataset)).rejects.toThrow('Failed to open IndexedDB');
+    });
 
-    await expect(persistence.getAllDatasets()).rejects.toThrow('Read all failed');
-  });
+    it('should propagate error when quota exceeded', async () => {
+      const mockDb = {
+        put: vi.fn().mockRejectedValueOnce(new DOMException('QuotaExceededError')),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
 
-  it('should propagate errors if db.delete fails', async () => {
-    const mockDb = {
-      delete: vi.fn().mockRejectedValueOnce(new Error('Delete failed')),
-    };
-    openDBMock.mockResolvedValueOnce(mockDb);
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
 
-    await expect(persistence.deleteDataset('1')).rejects.toThrow('Delete failed');
+      await expect(persistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
+    });
+
+    it('should propagate errors if db.get fails', async () => {
+      const mockDb = {
+        get: vi.fn().mockRejectedValueOnce(new Error('Read failed')),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      await expect(persistence.loadDataset('1')).rejects.toThrow('Read failed');
+    });
+
+    it('should propagate errors if db.getAll fails', async () => {
+      const mockDb = {
+        getAll: vi.fn().mockRejectedValueOnce(new Error('Read all failed')),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      await expect(persistence.getAllDatasets()).rejects.toThrow('Read all failed');
+    });
+
+    it('should propagate errors if db.delete fails', async () => {
+      const mockDb = {
+        delete: vi.fn().mockRejectedValueOnce(new Error('Delete failed')),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      await expect(persistence.deleteDataset('1')).rejects.toThrow('Delete failed');
+    });
   });
 });
