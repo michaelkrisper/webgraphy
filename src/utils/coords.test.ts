@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { worldToScreen, screenToWorld, Viewport } from './coords';
+import { worldToScreen, screenToWorld, type Viewport } from './coords';
 
 describe('Coordinate Conversions', () => {
   describe('worldToScreen', () => {
