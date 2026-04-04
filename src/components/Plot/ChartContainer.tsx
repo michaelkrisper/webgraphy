@@ -343,10 +343,19 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
-    const handleMove = (e: MouseEvent) => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
       if (isPanning) { setPos(null); return; }
       const rect = el.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      let clientX, clientY;
+      if ('touches' in e) {
+        if (e.touches.length !== 1) { setPos(null); return; }
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      const x = clientX - rect.left, y = clientY - rect.top;
       if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
         setPos({ x, y });
       } else {
@@ -355,8 +364,15 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     };
     const handleLeave = () => setPos(null);
     window.addEventListener('mousemove', handleMove);
+    window.addEventListener('touchstart', handleMove);
+    window.addEventListener('touchmove', handleMove);
     el.addEventListener('mouseleave', handleLeave);
-    return () => { window.removeEventListener('mousemove', handleMove); el.removeEventListener('mouseleave', handleLeave); };
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('touchstart', handleMove);
+      window.removeEventListener('touchmove', handleMove);
+      el.removeEventListener('mouseleave', handleLeave);
+    };
   }, [containerRef, padding, width, height, isPanning]);
 
   // ⚡ Bolt Optimization: Pre-calculate series metadata to avoid O(N) array/string operations inside the high-frequency mouse move `snap` calculation
@@ -558,6 +574,9 @@ const ChartContainer: React.FC = () => {
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const lastTouchPos = useRef<{ x: number, y: number } | null>(null);
+  const lastPinchDist = useRef<number | null>(null);
+  const lastTouchTime = useRef<number>(0);
   const lastMousePos = useRef<{ x: number, y: number } | null>(null);
   const zoomBoxStartRef = useRef<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
@@ -799,12 +818,9 @@ const ChartContainer: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
-    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+  const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all') => {
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const mouseX = rect ? e.clientX - rect.left : width / 2;
-      const axesToZoom = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as {xAxisId: string}).xAxisId)!];
+      const axesToZoom = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
 
       axesToZoom.forEach(axis => {
         if (!axis) return;
@@ -816,10 +832,8 @@ const ChartContainer: React.FC = () => {
         targetXAxes.current[axis.id] = { min: worldMouse.x - weight * newXRange, max: worldMouse.x + (1 - weight) * newXRange };
       });
     }
-    if (target === 'all' || typeof target === 'object') {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const mouseY = rect ? e.clientY - rect.top : height / 2;
-      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as {yAxisId: string}).yAxisId)!];
+    if (target === 'all' || (typeof target === 'object' && 'yAxisId' in target)) {
+      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as { yAxisId: string }).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -831,6 +845,14 @@ const ChartContainer: React.FC = () => {
       });
     }
     startAnimation();
+  }, [activeXAxesUsed, activeYAxes, width, height, padding, chartWidth, chartHeight, startAnimation]);
+
+  const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
+    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const rect = containerRef.current?.getBoundingClientRect();
+    const mouseX = rect ? e.clientX - rect.left : width / 2;
+    const mouseY = rect ? e.clientY - rect.top : height / 2;
+    performZoom(zoomFactor, mouseX, mouseY, target);
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
@@ -961,56 +983,30 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   }, [startAnimation, activeXAxesUsed]);
 
-  const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
-    if (e.ctrlKey && target === 'all' && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
-        const initialBox = { startX: x, startY: y, endX: x, endY: y };
-        zoomBoxStartRef.current = initialBox; setZoomBoxState(initialBox);
-      }
-    } else { isPanningRef.current = true; setPanTarget(target); lastMousePos.current = { x: e.clientX, y: e.clientY }; }
-  };
-
-  const handleMouseMoveRaw = useCallback((e: MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Detect Hovered Axis
+  const getHoveredAxis = useCallback((mouseX: number) => {
     let foundHovered = null;
     leftAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
       const leftBound = padding.left - offset - axisMetrics.total;
       const rightBound = padding.left - offset;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
     rightAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
       const leftBound = width - padding.right + offset;
       const rightBound = width - padding.right + offset + axisMetrics.total;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
-    hoveredAxisIdRef.current = foundHovered;
+    return foundHovered;
+  }, [leftAxes, rightAxes, axisLayout, padding, width]);
 
-    if (zoomBoxStartRef.current && containerRef.current) {
-      const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
-      const my = Math.max(padding.top, Math.min(height - padding.bottom, mouseY));
-      zoomBoxStartRef.current.endX = mx;
-      zoomBoxStartRef.current.endY = my;
-      setZoomBoxState({ ...zoomBoxStartRef.current });
-      return;
-    }
-    if (!panTarget || !lastMousePos.current) return;
-    const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false) => {
     const state = useGraphStore.getState();
 
-    if (panTarget === 'all' || (typeof panTarget === 'object' && 'xAxisId' in panTarget)) {
-      const axesToPan = panTarget === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (panTarget as {xAxisId: string}).xAxisId)!];
+    if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
+      const axesToPan = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
       axesToPan.forEach(axis => {
         if (!axis) return;
         const xRange = axis.max - axis.min, xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
@@ -1018,13 +1014,14 @@ const ChartContainer: React.FC = () => {
         state.updateXAxis(axis.id, nextX); targetXAxes.current[axis.id] = nextX;
       });
     }
-    const draggedAxisId = typeof panTarget === 'object' && 'yAxisId' in panTarget ? panTarget.yAxisId : null;
-    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
+
+    const draggedAxisId = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
+    const axesToPan = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
     const SNAP_THRESHOLD = 15;
 
     // Snap targets: screen-Y positions of y=0 on every OTHER visible axis
     const snapTargets: number[] = [];
-    if (!e.altKey && draggedAxisId && chartHeight > 0) {
+    if (!altKey && draggedAxisId && chartHeight > 0) {
       state.yAxes.forEach(otherAxis => {
         if (otherAxis.id === draggedAxisId) return;
         if (otherAxis.min > 0 || otherAxis.max < 0) return; // 0 not in range
@@ -1061,10 +1058,102 @@ const ChartContainer: React.FC = () => {
       }
 
       const nextY = { min: nextMin, max: nextMax };
-      state.updateYAxis(axis.id, nextY); 
+      state.updateYAxis(axis.id, nextY);
       targetYs.current[axis.id] = nextY;
     });
-  }, [panTarget, activeYAxes, chartWidth, chartHeight, padding, width, height]);
+  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight, padding]);
+
+  const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
+    if (e.ctrlKey && target === 'all' && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
+        const initialBox = { startX: x, startY: y, endX: x, endY: y };
+        zoomBoxStartRef.current = initialBox; setZoomBoxState(initialBox);
+      }
+    } else { isPanningRef.current = true; setPanTarget(target); lastMousePos.current = { x: e.clientX, y: e.clientY }; }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, target: PanTarget = 'all') => {
+    const now = Date.now();
+    const isDoubleTap = now - lastTouchTime.current < 300;
+    lastTouchTime.current = now;
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+
+      if (isDoubleTap) {
+        if (target === 'all') {
+          handleAutoScaleX();
+          activeYAxes.forEach(a => handleAutoScaleY(a.id));
+        } else if (typeof target === 'object') {
+          if ('xAxisId' in target) handleAutoScaleX(target.xAxisId);
+          else if ('yAxisId' in target) handleAutoScaleY(target.yAxisId, y);
+        }
+        return;
+      }
+
+      isPanningRef.current = true;
+      setPanTarget(target);
+      lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+    } else if (e.touches.length === 2) {
+      isPanningRef.current = false;
+      setPanTarget(null);
+      const t1 = e.touches[0], t2 = e.touches[1];
+      lastPinchDist.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    }
+  };
+
+  const handleTouchMoveRaw = useCallback((e: TouchEvent) => {
+    if (!containerRef.current) return;
+
+    if (e.touches.length === 1 && panTarget && lastTouchPos.current) {
+      if (e.cancelable) e.preventDefault();
+      const touch = e.touches[0];
+      const dx = touch.clientX - lastTouchPos.current.x;
+      const dy = touch.clientY - lastTouchPos.current.y;
+      lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+      performPan(dx, dy, panTarget, false);
+    } else if (e.touches.length === 2 && lastPinchDist.current) {
+      if (e.cancelable) e.preventDefault();
+      const rect = containerRef.current.getBoundingClientRect();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      if (dist === 0) return;
+      const zoomFactor = lastPinchDist.current / dist;
+      lastPinchDist.current = dist;
+
+      const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
+      const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
+      performZoom(zoomFactor, centerX, centerY, 'all');
+    }
+  }, [panTarget, performPan, performZoom]);
+
+  const handleMouseMoveRaw = useCallback((e: MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Detect Hovered Axis
+    hoveredAxisIdRef.current = getHoveredAxis(mouseX);
+
+    if (zoomBoxStartRef.current && containerRef.current) {
+      const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
+      const my = Math.max(padding.top, Math.min(height - padding.bottom, mouseY));
+      zoomBoxStartRef.current.endX = mx;
+      zoomBoxStartRef.current.endY = my;
+      setZoomBoxState({ ...zoomBoxStartRef.current });
+      return;
+    }
+    if (!panTarget || !lastMousePos.current) return;
+    const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
+    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    performPan(dx, dy, panTarget, e.altKey);
+  }, [panTarget, padding, width, height, getHoveredAxis, performPan]);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -1090,9 +1179,24 @@ const ChartContainer: React.FC = () => {
       isPanningRef.current = false;
       setPanTarget(null);
     };
-    window.addEventListener('mousemove', handleMouseMoveRaw); window.addEventListener('mouseup', handleMouseUp);
-    return () => { window.removeEventListener('mousemove', handleMouseMoveRaw); window.removeEventListener('mouseup', handleMouseUp); };
-  }, [handleMouseMoveRaw, activeYAxes, width, height, padding, startAnimation]);
+    const handleTouchEnd = () => {
+      isPanningRef.current = false;
+      setPanTarget(null);
+      lastTouchPos.current = null;
+      lastPinchDist.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMoveRaw);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMoveRaw, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMoveRaw);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMoveRaw);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleMouseMoveRaw, handleTouchMoveRaw, activeYAxes, width, height, padding, startAnimation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1171,7 +1275,7 @@ const ChartContainer: React.FC = () => {
   }, [activeXAxesUsed, chartWidth, series]);
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden' }}>
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
@@ -1181,7 +1285,7 @@ const ChartContainer: React.FC = () => {
 
       {activeXAxesUsed.map((axis, idx) => {
         const baseY = (activeXAxesUsed.length - 1 - idx) * 60;
-        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 60, cursor: 'ew-resize', zIndex: 20 }} />;
+        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 60, cursor: 'ew-resize', zIndex: 20 }} />;
       })}
 
       {activeYAxes.map((axis) => {
@@ -1189,13 +1293,13 @@ const ChartContainer: React.FC = () => {
         const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
         let xPos = 0;
         if (isLeft) {
-          let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
           xPos = padding.left - offset - axisMetrics.total;
         } else {
-          let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
           xPos = width - padding.right + offset;
         }
-        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
+        return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={useGraphStore.getState().datasets} series={series} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
