@@ -55,7 +55,7 @@ const createInitialYAxes = (): YAxisConfig[] => {
     min: 0,
     max: 100,
     position: i % 2 === 0 ? 'left' : 'right',
-    color: '#333',
+    color: '#475569',
     showGrid: i === 0
   }));
 };
