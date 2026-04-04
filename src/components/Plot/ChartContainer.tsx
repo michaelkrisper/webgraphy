@@ -322,8 +322,35 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => { window.removeEventListener('mousemove', handleMove); el.removeEventListener('mouseleave', handleLeave); };
   }, [containerRef, padding, width, height, isPanning]);
 
+  // ⚡ Bolt Optimization: Pre-calculate series metadata to avoid O(N) array/string operations inside the high-frequency mouse move `snap` calculation
+  const seriesMetadata = useMemo(() => {
+    return series.map(s => {
+      const ds = datasets.find(d => d.id === s.sourceId);
+      const axis = yAxes.find(a => a.id === s.yAxisId);
+      if (!ds || !axis) return null;
+
+      const findColumn = (name: string) => {
+        const idx = ds.columns.indexOf(name);
+        if (idx !== -1) return idx;
+        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
+      };
+
+      const xIdx = findColumn(s.xColumn);
+      const yIdx = findColumn(s.yColumn);
+
+      if (xIdx === -1 || yIdx === -1) return null;
+
+      const xCol = ds.data[xIdx];
+      const yCol = ds.data[yIdx];
+
+      if (!xCol?.levels?.[0] || !yCol?.levels?.[0]) return null;
+
+      return { series: s, ds, axis, xIdx, yIdx, xCol, yCol };
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { levels: Float32Array[], refPoint: number, bounds: {min: number, max: number} }, yCol: { levels: Float32Array[], refPoint: number, bounds: {min: number, max: number} } }[];
+  }, [datasets, series, yAxes]);
+
   const snap = useMemo(() => {
-    if (!pos || !datasets || !series || series.length === 0) return null;
+    if (!pos || seriesMetadata.length === 0) return null;
     const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
     const mouseWorld = screenToWorld(pos.x, pos.y, vp);
 
@@ -335,13 +362,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestDist = Infinity;
     let bestXWorld: number | null = null;
 
-    series.forEach((s: SeriesConfig) => {
-      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
-      if (!ds) return;
-      const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
-      if (xIdx === -1) return;
-      const xCol = ds.data[xIdx];
-      if (!xCol || !xCol.levels || !xCol.levels[0]) return;
+    seriesMetadata.forEach(({ xCol }) => {
       const xData = xCol.levels[0];
       const refX = xCol.refPoint;
 
@@ -364,7 +385,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
     const seriesByAxis: Record<string, string[]> = {};
-    series.forEach((sr: any) => {
+    seriesMetadata.forEach(({ series: sr }) => {
       if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
       seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
     });
@@ -377,14 +398,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
-    series.forEach((s: SeriesConfig) => {
-      const ds = datasets.find((d: Dataset) => d.id === s.sourceId);
-      if (!ds) return;
-      const xIdx = ds.columns.findIndex((c: string) => c === s.xColumn || c.endsWith(`: ${s.xColumn}`));
-      const yIdx = ds.columns.findIndex((c: string) => c === s.yColumn || c.endsWith(`: ${s.yColumn}`));
-      if (xIdx === -1 || yIdx === -1) return;
-      const xCol = ds.data[xIdx], yCol = ds.data[yIdx];
-      if (!xCol?.levels?.[0] || !yCol?.levels?.[0]) return;
+    seriesMetadata.forEach(({ series: s, axis, xCol, yCol }) => {
       const xData = xCol.levels[0], yData = yCol.levels[0];
       const refX = xCol.refPoint, refY = yCol.refPoint;
 
@@ -398,8 +412,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (lo > 0 && Math.abs(xData[lo-1]+refX-finalBestXWorld) < Math.abs(xData[lo]+refX-finalBestXWorld)) bestI = lo-1;
 
       const yVal = yData[bestI] + refY;
-      const axis = yAxes.find((a: YAxisConfig) => a.id === s.yAxisId);
-      const axisTitle = axis ? (series.filter((sr: SeriesConfig) => sr.yAxisId === axis.id).map((sr: SeriesConfig) => sr.name || sr.yColumn).join('/')) : '';
+      const axisTitle = axisTitleMap[axis.id] || '';
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       entries.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
@@ -409,7 +422,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const snapScreenX = worldToScreen(finalBestXWorld, 0, vp).x;
 
     return { xWorld: finalBestXWorld, snapScreenX, entries };
-  }, [pos, datasets, series, yAxes, viewportX, width, height, padding]);
+  }, [pos, seriesMetadata, yAxes, viewportX, width, height, padding]);
 
   if (!pos) return null;
   if (!snap) return null; // Only show when near a point
