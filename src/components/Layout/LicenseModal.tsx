@@ -33,6 +33,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
       }}>
         <button 
           onClick={onClose}
+          aria-label="Close License"
           style={{
             position: 'absolute',
             top: '16px',
