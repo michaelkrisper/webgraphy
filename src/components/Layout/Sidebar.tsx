@@ -23,7 +23,7 @@ const COLOR_PALETTE = [
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName } = useGraphStore();
+  const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
@@ -462,23 +462,44 @@ export const Sidebar: React.FC = () => {
                 <Image size={14} /> Export PNG
               </button>
             </div>
-            <button
-              onClick={async () => {
-                if (confirm('Delete all datasets and reset all settings?')) {
-                  localStorage.removeItem('webgraphy-state');
-                  const db = await indexedDB.open('webgraphy-db');
-                  db.onsuccess = () => {
-                    const database = db.result;
-                    const transaction = database.transaction(['datasets'], 'readwrite');
-                    transaction.objectStore('datasets').clear();
-                    transaction.oncomplete = () => window.location.reload();
-                  };
-                }
-              }}
-              style={{ width: '100%', padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <RotateCcw size={14} /> Reset
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={async () => {
+                  if (confirm('Restore demo data? Current settings will be cleared.')) {
+                    localStorage.removeItem('webgraphy-state');
+                    const db = await indexedDB.open('webgraphy-db');
+                    db.onsuccess = () => {
+                      const database = db.result;
+                      const transaction = database.transaction(['datasets'], 'readwrite');
+                      transaction.objectStore('datasets').clear();
+                      transaction.oncomplete = () => {
+                        loadDemoData().then(() => window.location.reload());
+                      };
+                    };
+                  }
+                }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#007bff', border: '1px solid #007bff', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <RotateCcw size={14} /> Demo
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm('Delete all datasets and reset all settings?')) {
+                    localStorage.removeItem('webgraphy-state');
+                    const db = await indexedDB.open('webgraphy-db');
+                    db.onsuccess = () => {
+                      const database = db.result;
+                      const transaction = database.transaction(['datasets'], 'readwrite');
+                      transaction.objectStore('datasets').clear();
+                      transaction.oncomplete = () => window.location.reload();
+                    };
+                  }
+                }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <RotateCcw size={14} /> Reset
+              </button>
+            </div>
           </div>
 
           <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#999', paddingBottom: '0.5rem' }}>
