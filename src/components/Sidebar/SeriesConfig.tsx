@@ -61,19 +61,34 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
 
   return (
     <div style={{ borderBottom: '1px solid #dee2e6', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-      {/* Color Picker */}
-      <input
-        type="color"
-        name={`series-color-${series.id}`}
-        aria-label={`Color for ${series.name || series.yColumn}`}
-        value={series.lineColor}
-        onInput={(e) => {
-          const color = (e.target as HTMLInputElement).value;
-          handleUpdate({ lineColor: color, pointColor: color });
-        }}
-        style={{ width: '18px', height: '18px', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '2px' }}
-        title="Color"
-      />
+      {/* Reorder Buttons (UP/DOWN) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
+          disabled={isFirst}
+          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
+          title="Move Up (Layer Forward)"
+         aria-label="Move Up">
+          <ChevronUp size={12} strokeWidth={3} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
+          disabled={isLast}
+          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
+          title="Move Down (Layer Backward)"
+         aria-label="Move Down">
+          <ChevronDown size={12} strokeWidth={3} />
+        </button>
+      </div>
+
+      {/* Y Axis Cycle Button (1-9) */}
+      <button
+        onClick={cycleAxis}
+        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
+        title="Cycle Y-Axis (1-9)"
+       aria-label="Cycle Y-Axis">
+        {currentAxisIndex}
+      </button>
 
       {/* L/R Side Toggle */}
       {currentAxis && (
@@ -93,22 +108,20 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           )}
         </button>
       )}
-      
-      {/* Point Style Cycle */}
-      <button 
-        onClick={() => {
-          const styles = ['circle', 'square', 'cross', 'none'] as const;
-          const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
-          handleUpdate({ pointStyle: next });
-        }}
-        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0 }}
-        title="Point Style"
-       aria-label="Cycle Point Style">
-        {renderPointStyleIcon()}
-      </button>
+
+      {/* Grid Toggle */}
+      {currentAxis && (
+        <button
+          onClick={() => updateYAxis(currentAxis.id, { showGrid: !currentAxis.showGrid })}
+          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          title="Toggle Grid"
+         aria-label="Toggle Grid">
+          {currentAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
+        </button>
+      )}
 
       {/* Line Style Cycle */}
-      <button 
+      <button
         onClick={() => {
           const styles = ['solid', 'dashed', 'dotted', 'none'] as const;
           const next = styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
@@ -120,14 +133,32 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         {renderLineStyleIcon()}
       </button>
 
-      {/* Y Axis Cycle Button (1-9) */}
+      {/* Point Style Cycle */}
       <button
-        onClick={cycleAxis}
-        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
-        title="Cycle Y-Axis (1-9)"
-       aria-label="Cycle Y-Axis">
-        {currentAxisIndex}
+        onClick={() => {
+          const styles = ['circle', 'square', 'cross', 'none'] as const;
+          const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
+          handleUpdate({ pointStyle: next });
+        }}
+        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0 }}
+        title="Point Style"
+       aria-label="Cycle Point Style">
+        {renderPointStyleIcon()}
       </button>
+
+      {/* Color Picker */}
+      <input
+        type="color"
+        name={`series-color-${series.id}`}
+        aria-label={`Color for ${series.name || series.yColumn}`}
+        value={series.lineColor}
+        onInput={(e) => {
+          const color = (e.target as HTMLInputElement).value;
+          handleUpdate({ lineColor: color, pointColor: color });
+        }}
+        style={{ width: '18px', height: '18px', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '2px' }}
+        title="Color"
+      />
 
       {/* Y Column Selector */}
       <select
@@ -141,17 +172,6 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
 
-      {/* Grid Toggle */}
-      {currentAxis && (
-        <button
-          onClick={() => updateYAxis(currentAxis.id, { showGrid: !currentAxis.showGrid })}
-          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          title="Toggle Grid"
-         aria-label="Toggle Grid">
-          {currentAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
-        </button>
-      )}
-
       {/* Editable Title */}
       <div style={{ flex: '2', minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
         {isEditingTitle ? (
@@ -163,14 +183,14 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
             maxLength={100}
             defaultValue={series.name || series.yColumn}
             onBlur={(e) => { handleUpdate({ name: e.target.value }); setIsEditingTitle(false); }}
-            onKeyDown={(e) => { 
+            onKeyDown={(e) => {
               if (e.key === 'Enter') { handleUpdate({ name: e.currentTarget.value }); setIsEditingTitle(false); }
               if (e.key === 'Escape') { setIsEditingTitle(false); }
             }}
             style={{ width: '100%', fontSize: '10px', padding: '0 2px', height: '16px' }}
           />
         ) : (
-          <span 
+          <span
             onClick={() => setIsEditingTitle(true)}
             style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', color: series.lineColor, fontSize: '10px', cursor: 'text', width: '100%' }}
             title="Click to rename"
@@ -178,26 +198,6 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
             {series.name || series.yColumn}
           </span>
         )}
-      </div>
-
-      {/* Reorder Buttons (UP/DOWN) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
-          disabled={isFirst}
-          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
-          title="Move Up (Layer Forward)"
-         aria-label="Move Up">
-          <ChevronUp size={12} strokeWidth={3} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
-          disabled={isLast}
-          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
-          title="Move Down (Layer Backward)"
-         aria-label="Move Down">
-          <ChevronDown size={12} strokeWidth={3} />
-        </button>
       </div>
 
       {/* Delete Button */}
