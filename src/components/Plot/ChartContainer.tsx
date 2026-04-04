@@ -19,10 +19,16 @@ interface XAxisLayout {
   color: string;
 }
 
+interface YAxisLayout extends YAxisConfig {
+  ticks: number[];
+  precision: number;
+  actualStep: number;
+}
+
 
 interface GridLinesProps {
   xAxes: XAxisLayout[];
-  yAxes: YAxisConfig[];
+  yAxes: YAxisLayout[];
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
@@ -30,12 +36,12 @@ interface GridLinesProps {
 
 interface AxesLayerProps {
   xAxes: XAxisLayout[];
-  yAxes: YAxisConfig[];
+  yAxes: YAxisLayout[];
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
-  leftAxes: YAxisConfig[];
-  rightAxes: YAxisConfig[];
+  leftAxes: YAxisLayout[];
+  rightAxes: YAxisLayout[];
   series: SeriesConfig[];
   axisLayout: Record<string, { total: number; label: number }>;
   allXAxes: XAxisConfig[];
@@ -67,28 +73,16 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         return axis.ticks.result.map((t: any) => {
           const timestamp = typeof t === 'number' ? t : t.timestamp;
           const { x } = worldToScreen(timestamp, 0, vp);
+          if (x < padding.left || x > width - padding.right) return null;
           return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })()}
-      {yAxes.map((axis: YAxisConfig) => {
+      {yAxes.map((axis) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
-        const range = axis.max - axis.min;
-        if (range <= 0) return null;
-        const approxHeight = 20, maxTicks = Math.max(2, Math.floor((height - padding.top - padding.bottom) / (approxHeight + 10)));
-        const step = range / maxTicks;
-        const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
-        const normalizedStep = step / magnitude;
-        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-        const actualStep = finalStep * magnitude;
-        if (actualStep <= 0) return null;
-        const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-        for (let t = firstTick; t <= axis.max; t += actualStep) {
-          if (result.length > 100) break;
-          result.push(t);
-        }
         const mainXConf = useGraphStore.getState().xAxes[0];
-        return result.map(t => {
+        return axis.ticks.map(t => {
           const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
+          if (y < padding.top || y > height - padding.bottom) return null;
           return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })}
@@ -187,7 +181,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           }
           return null;
         })()}
-        {yAxes.map((axis: YAxisConfig) => {
+        {yAxes.map((axis) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -202,17 +196,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           const range = axis.max - axis.min;
           const chartHeight = Math.max(0, height - padding.top - padding.bottom);
           if (range <= 0 || chartHeight <= 0) return null;
-          const step = range / Math.max(2, Math.floor(chartHeight / 30));
-          const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
-          const normalizedStep = step / magnitude;
-          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-          const actualStep = finalStep * magnitude;
-          if (actualStep <= 0) return null;
-          const firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-          for (let t = firstTick; t <= axis.max; t += actualStep) {
-            if (result.length > 100) break;
-            result.push(t);
-          }
+
           return (
             <g key={axis.id}>
               {/* Spine with Arrow */}
@@ -225,9 +209,10 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 strokeWidth="1" 
                 markerEnd="url(#arrow)"
               />
-              {result.map(t => {
+              {axis.ticks.map(t => {
                 const mainXConf = allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!;
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
+                if (y < padding.top || y > height - padding.bottom) return null;
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
                 const x2 = isLeft ? axisLineX : axisLineX + 5;
                 return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#475569" strokeWidth="1" />;
@@ -294,7 +279,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
             </React.Fragment>
           );
         })}
-        {yAxes.map((axis: YAxisConfig) => {
+        {yAxes.map((axis) => {
           const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
@@ -308,17 +293,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           const range = axis.max - axis.min;
           const chartHeight = Math.max(0, height - padding.top - padding.bottom);
           if (range <= 0 || chartHeight <= 0) return null;
-          const step = range / Math.max(2, Math.floor(chartHeight / 30));
-          const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
-          const normalizedStep = step / magnitude;
-          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-          const actualStep = finalStep * magnitude;
-          if (actualStep <= 0) return null;
-          const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1))), firstTick = Math.ceil(axis.min / actualStep) * actualStep, result = [];
-          for (let t = firstTick; t <= axis.max; t += actualStep) {
-            if (result.length > 100) break;
-            result.push(t);
-          }
+
           const axisSeries = seriesByYAxisId[axis.id] || [], title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
@@ -328,9 +303,10 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
           return (
             <React.Fragment key={axis.id}>
-              {result.map(t => {
+              {axis.ticks.map(t => {
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
-                const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(precision);
+                if (y < padding.top || y > height - padding.bottom) return null;
+                const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
                 return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
               <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
@@ -609,6 +585,9 @@ const ChartContainer: React.FC = () => {
   const isAnimating = useRef(false);
   const isPanningRef = useRef(false);
 
+  const lockedXSteps = useRef<Record<string, any>>({});
+  const lockedYSteps = useRef<Record<string, number>>({});
+
   const startAnimation = useCallback(() => {
     if (isAnimating.current) return;
     isAnimating.current = true;
@@ -683,12 +662,50 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   }, [lastAppliedViewId, startAnimation]);
 
+  const activeYAxesLayout = useMemo(() => {
+    const usedIds = new Set(series.map(s => s.yAxisId));
+    const isInteracting = isPanningRef.current;
+
+    return yAxes.filter(a => usedIds.has(a.id)).map(axis => {
+      const range = axis.max - axis.min;
+      const chartHeight = Math.max(0, height - (width < 768 || height < 500 ? 40 : 60) - 20); // rough est
+      let actualStep: number;
+
+      if (isInteracting && lockedYSteps.current[axis.id]) {
+        actualStep = lockedYSteps.current[axis.id];
+      } else {
+        const step = range / Math.max(2, Math.floor(chartHeight / 30));
+        const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
+        const normalizedStep = step / magnitude;
+        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+        actualStep = finalStep * magnitude;
+        lockedYSteps.current[axis.id] = actualStep;
+      }
+
+      if (actualStep <= 0) return { ...axis, ticks: [], precision: 0, actualStep: 1 };
+      const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
+      const firstTick = Math.ceil((axis.min - actualStep) / actualStep) * actualStep;
+      const ticks = [];
+      for (let t = firstTick; t <= axis.max + actualStep; t += actualStep) {
+        if (ticks.length > 200) break;
+        ticks.push(t);
+      }
+      return { ...axis, ticks, precision, actualStep };
+    });
+  }, [yAxes, series, height, width]);
+
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
     return yAxes.filter(a => usedIds.has(a.id));
   }, [yAxes, series]);
 
+  const lastAxisLayout = useRef<Record<string, { total: number, label: number }>>({});
   const axisLayout = useMemo(() => {
+    const isInteracting = isPanningRef.current;
+    if (isInteracting && Object.keys(lastAxisLayout.current).length > 0) {
+      return lastAxisLayout.current;
+    }
+
     const layout: Record<string, { total: number, label: number }> = {};
     activeYAxes.forEach(axis => {
       const range = axis.max - axis.min, approxHeight = 20, maxTicks = Math.max(2, Math.floor(height / (approxHeight + 10)));
@@ -701,6 +718,7 @@ const ChartContainer: React.FC = () => {
       const labelWidth = widestValChars * 6;
       layout[axis.id] = { label: labelWidth, total: labelWidth + 24 };
     });
+    lastAxisLayout.current = layout;
     return layout;
   }, [activeYAxes, height]);
 
@@ -1254,6 +1272,9 @@ const ChartContainer: React.FC = () => {
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
       const step = 0.15;
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        isPanningRef.current = true;
+      }
       if (e.key === 'ArrowLeft') {
         const onXAxis = !!hoveredXAxisIdRef.current;
         const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
@@ -1294,6 +1315,9 @@ const ChartContainer: React.FC = () => {
       if (e.key === 'Control') setIsCtrlPressed(false);
       if (e.key === 'Shift') setIsShiftPressed(false);
       pressedKeys.current.delete(e.key);
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        isPanningRef.current = false;
+      }
     };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
@@ -1310,20 +1334,39 @@ const ChartContainer: React.FC = () => {
 
       if (range <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
+      const isInteracting = isPanningRef.current;
+
       if (!isXDate) {
-        const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
-        let step = range / maxTicks;
-        const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
-        const normalizedStep = step / magnitude;
-        const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
-        step = finalStep * magnitude;
-        if (step <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
-        const precision = Math.max(0, -Math.floor(Math.log10(step)));
-        const firstTick = Math.ceil(axis.min / step) * step, result: number[] = [];
-        for (let t = firstTick; t <= axis.max; t += step) { if (result.length > 100) break; result.push(t); }
-        return { id: axis.id, ticks: { result, step, precision, isXDate: false as const }, title, color };
+        let actualStep: number;
+        if (isInteracting && lockedXSteps.current[axis.id]?.step) {
+          actualStep = lockedXSteps.current[axis.id].step;
+        } else {
+          const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
+          const step = range / maxTicks;
+          const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(step) || 1)));
+          const normalizedStep = step / magnitude;
+          const finalStep = normalizedStep < 1.5 ? 1 : normalizedStep < 3 ? 2 : normalizedStep < 7 ? 5 : 10;
+          actualStep = finalStep * magnitude;
+          lockedXSteps.current[axis.id] = { step: actualStep };
+        }
+
+        if (actualStep <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+        const precision = Math.max(0, -Math.floor(Math.log10(actualStep)));
+        const firstTick = Math.ceil((axis.min - actualStep) / actualStep) * actualStep;
+        const result: number[] = [];
+        for (let t = firstTick; t <= axis.max + actualStep; t += actualStep) {
+          if (result.length > 200) break;
+          result.push(t);
+        }
+        return { id: axis.id, ticks: { result, step: actualStep, precision, isXDate: false as const }, title, color };
       } else {
-        const timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
+        let timeStep;
+        if (isInteracting && lockedXSteps.current[axis.id]?.timeStep) {
+          timeStep = lockedXSteps.current[axis.id].timeStep;
+        } else {
+          timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
+          lockedXSteps.current[axis.id] = { timeStep };
+        }
         const ticks = generateTimeTicks(axis.min, axis.max, timeStep);
         const secondaryLabels = generateSecondaryLabels(axis.min, axis.max, timeStep);
         return { id: axis.id, ticks: { result: ticks, isXDate: true as const, secondaryLabels }, title, color };
@@ -1331,14 +1374,17 @@ const ChartContainer: React.FC = () => {
     });
   }, [activeXAxesUsed, chartWidth, series]);
 
+  const leftAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'left'), [activeYAxesLayout]);
+  const rightAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'right'), [activeYAxesLayout]);
+
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
-      <GridLines xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} />
+      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} />
       </div>
-      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} series={series} axisLayout={axisLayout} allXAxes={xAxes} />
+      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={leftAxesLayout} rightAxes={rightAxesLayout} series={series} axisLayout={axisLayout} allXAxes={xAxes} />
 
       {activeXAxesUsed.map((axis, idx) => {
         const isMobile = width < 768 || height < 500;
