@@ -1,9 +1,9 @@
 :root {
   --sidebar-width: 300px;
   --bg-color: #ffffff;
-  --sidebar-bg: #f8f9fa;
-  --border-color: #dee2e6;
-  --text-color: #212529;
+  --sidebar-bg: #f8fafc;
+  --border-color: #e2e8f0;
+  --text-color: #1e293b;
 }
 
 * {
@@ -40,6 +40,7 @@ body, html, #root {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+  transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
 }
 
 .sidebar-content {
@@ -74,6 +75,13 @@ body, html, #root {
   border-bottom: 2px solid var(--text-color);
 }
 
+@media (max-width: 768px) {
+  .sidebar h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
 .section-title {
   font-weight: bold;
   font-size: 0.9rem;
@@ -81,6 +89,14 @@ body, html, #root {
   margin-top: 0.8rem;
   margin-bottom: 0.5rem;
   color: #495057;
+}
+
+@media (max-width: 768px) {
+  .section-title {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.3rem;
+  }
 }
 
 details > summary {

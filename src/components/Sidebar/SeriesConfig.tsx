@@ -60,13 +60,13 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   return (
-    <div style={{ borderBottom: '1px solid #dee2e6', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
       {/* Reorder Buttons (UP/DOWN) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
         <button
           onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
           disabled={isFirst}
-          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
+          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? '#cbd5e1' : '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: isFirst ? 0.3 : 1 }}
           title="Move Up (Layer Forward)"
          aria-label="Move Up">
           <ChevronUp size={12} strokeWidth={3} />
@@ -74,7 +74,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         <button
           onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
           disabled={isLast}
-          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#ccc' : '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
+          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? '#cbd5e1' : '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: isLast ? 0.3 : 1 }}
           title="Move Down (Layer Backward)"
          aria-label="Move Down">
           <ChevronDown size={12} strokeWidth={3} />
@@ -84,7 +84,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {/* Y Axis Cycle Button (1-9) */}
       <button
         onClick={cycleYAxis}
-        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
+        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
         title="Cycle Y-Axis (1-9)"
        aria-label="Cycle Y-Axis">
         {currentYAxisIndex}
@@ -94,7 +94,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {currentYAxis && (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { position: currentYAxis.position === 'left' ? 'right' : 'left' })}
-          style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '2px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
           title={currentYAxis.position === 'left' ? "Left Axis" : "Right Axis"}
          aria-label="Toggle Left/Right Axis">
           {currentYAxis.position === 'left' ? (
@@ -113,7 +113,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {currentYAxis && (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })}
-          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#f1f5f9' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#475569' }}
           title="Toggle Grid"
          aria-label="Toggle Grid">
           {currentYAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
@@ -127,7 +127,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
           handleUpdate({ lineStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0 }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0, color: '#475569' }}
         title={`Line Style: ${series.lineStyle}`}
        aria-label="Cycle Line Style">
         {renderLineStyleIcon()}
@@ -140,7 +140,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
           handleUpdate({ pointStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0 }}
+        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', flexShrink: 0, color: '#475569' }}
         title="Point Style"
        aria-label="Cycle Point Style">
         {renderPointStyleIcon()}
@@ -167,7 +167,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           aria-label={`Y Column for ${series.name || series.yColumn}`}
           value={series.yColumn}
           onChange={(e) => handleUpdate({ yColumn: e.target.value })}
-          style={{ width: '70px', fontSize: '8px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, borderRadius: '2px', border: '1px solid #ced4da' }}
+          style={{ width: '70px', fontSize: '8px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, borderRadius: '2px', border: '1px solid #cbd5e1', color: '#475569', background: '#f8fafc' }}
           title="Y Column"
         >
           {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
@@ -203,7 +203,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </div>
 
       {/* Delete Button */}
-      <button onClick={() => removeSeries(series.id)} style={{ padding: '2px', cursor: 'pointer', color: '#dc3545', border: 'none', background: 'none', flexShrink: 0 }} title="Delete" aria-label="Delete Series">
+      <button onClick={() => removeSeries(series.id)} style={{ padding: '2px', cursor: 'pointer', color: '#ef4444', border: 'none', background: 'none', flexShrink: 0 }} title="Delete" aria-label="Delete Series">
         <Trash2 size={12} />
       </button>
     </div>
