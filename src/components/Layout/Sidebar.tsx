@@ -367,7 +367,7 @@ export const Sidebar: React.FC = () => {
             </div>}
           </div>
 
-          <div className="section">
+          <div className="section" style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
               <button onClick={() => toggleSection('views')} aria-expanded={openSections.views} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
                 <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
@@ -447,7 +447,7 @@ export const Sidebar: React.FC = () => {
             </div>}
           </div>
 
-          <div className="section" style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
+          <div className="section" style={{ paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <button
                 onClick={handleExportSVG}
