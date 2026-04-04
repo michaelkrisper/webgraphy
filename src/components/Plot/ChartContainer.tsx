@@ -590,6 +590,7 @@ const ChartContainer: React.FC = () => {
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const lastTouchPos = useRef<{ x: number, y: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
   const lastTouchTime = useRef<number>(0);
@@ -840,9 +841,9 @@ const ChartContainer: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all') => {
+  const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToZoom = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
+      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
 
       axesToZoom.forEach(axis => {
         if (!axis) return;
@@ -854,7 +855,7 @@ const ChartContainer: React.FC = () => {
         targetXAxes.current[axis.id] = { min: worldMouse.x - weight * newXRange, max: worldMouse.x + (1 - weight) * newXRange };
       });
     }
-    if (target === 'all' || (typeof target === 'object' && 'yAxisId' in target)) {
+    if ((target === 'all' && !shiftKey) || (typeof target === 'object' && 'yAxisId' in target)) {
       const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as { yAxisId: string }).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
@@ -874,7 +875,7 @@ const ChartContainer: React.FC = () => {
     const rect = containerRef.current?.getBoundingClientRect();
     const mouseX = rect ? e.clientX - rect.left : width / 2;
     const mouseY = rect ? e.clientY - rect.top : height / 2;
-    performZoom(zoomFactor, mouseX, mouseY, target);
+    performZoom(zoomFactor, mouseX, mouseY, target, e.shiftKey);
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
@@ -1037,11 +1038,11 @@ const ChartContainer: React.FC = () => {
     return foundHovered;
   }, [activeXAxesUsed, padding, width, height, xAxisHeight]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false) => {
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false, shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToPan = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
+      const axesToPan = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
       axesToPan.forEach(axis => {
         if (!axis) return;
         const xRange = axis.max - axis.min, xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
@@ -1051,7 +1052,7 @@ const ChartContainer: React.FC = () => {
     }
 
     const draggedAxisId = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
-    const axesToPan = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
+    const axesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedAxisId ? [activeYAxes.find(a => a.id === draggedAxisId)!] : []);
     const SNAP_THRESHOLD = 15;
 
     // Snap targets: screen-Y positions of y=0 on every OTHER visible axis
@@ -1151,7 +1152,7 @@ const ChartContainer: React.FC = () => {
       const dx = touch.clientX - lastTouchPos.current.x;
       const dy = touch.clientY - lastTouchPos.current.y;
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-      performPan(dx, dy, panTarget, false);
+      performPan(dx, dy, panTarget, false, e.shiftKey);
     } else if (e.touches.length === 2 && lastPinchDist.current) {
       if (e.cancelable) e.preventDefault();
       const rect = containerRef.current.getBoundingClientRect();
@@ -1163,7 +1164,7 @@ const ChartContainer: React.FC = () => {
 
       const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
       const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
-      performZoom(zoomFactor, centerX, centerY, panTarget || 'all');
+      performZoom(zoomFactor, centerX, centerY, panTarget || 'all', e.shiftKey);
     }
   }, [panTarget, performPan, performZoom]);
 
@@ -1188,7 +1189,7 @@ const ChartContainer: React.FC = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    performPan(dx, dy, panTarget, e.altKey);
+    performPan(dx, dy, panTarget, e.altKey, e.shiftKey);
   }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
@@ -1218,12 +1219,14 @@ const ChartContainer: React.FC = () => {
             const w1 = screenToWorld(minX, maxY, vp), w2 = screenToWorld(maxX, minY, vp);
             targetXAxes.current[axis.id] = { min: w1.x, max: w2.x };
           });
-          activeYAxes.forEach(axis => {
-             const mainXConf = activeXAxesUsed[0] || xAxes[0];
-             const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding };
-             const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
-             targetYs.current[axis.id] = { min: a1.y, max: a2.y };  
-          });
+          if (!isShiftPressed) {
+            activeYAxes.forEach(axis => {
+               const mainXConf = activeXAxesUsed[0] || xAxes[0];
+               const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding };
+               const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
+               targetYs.current[axis.id] = { min: a1.y, max: a2.y };
+            });
+          }
           startAnimation();
         }
       }
@@ -1246,13 +1249,14 @@ const ChartContainer: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control') setIsCtrlPressed(true);
+      if (e.key === 'Shift') setIsShiftPressed(true);
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
       const step = 0.15;
       if (e.key === 'ArrowLeft') {
         const onXAxis = !!hoveredXAxisIdRef.current;
-        const axesToMove = onXAxis ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
         axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
@@ -1261,7 +1265,7 @@ const ChartContainer: React.FC = () => {
         startAnimation();
       } else if (e.key === 'ArrowRight') {
         const onXAxis = !!hoveredXAxisIdRef.current;
-        const axesToMove = onXAxis ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
         axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
@@ -1286,7 +1290,11 @@ const ChartContainer: React.FC = () => {
         }); startAnimation();
       } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) startAnimation();
     };
-    const handleKeyUp = (e: KeyboardEvent) => { if (e.key === 'Control') setIsCtrlPressed(false); pressedKeys.current.delete(e.key); };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') setIsCtrlPressed(false);
+      if (e.key === 'Shift') setIsShiftPressed(false);
+      pressedKeys.current.delete(e.key);
+    };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [activeYAxes, activeXAxesUsed, startAnimation]);
@@ -1324,7 +1332,7 @@ const ChartContainer: React.FC = () => {
   }, [activeXAxesUsed, chartWidth, series]);
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
