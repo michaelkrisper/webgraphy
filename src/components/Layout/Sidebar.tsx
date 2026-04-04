@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 
@@ -23,7 +23,7 @@ const COLOR_PALETTE = [
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, yAxes, axisTitles, removeDataset, viewportX, globalXColumn, setGlobalXColumn, xMode, setXMode, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
+  const { datasets, series, xAxes, yAxes, axisTitles, removeDataset, moveDataset, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
@@ -88,10 +88,9 @@ export const Sidebar: React.FC = () => {
     const svgContent = exportToSVG(
       datasets, 
       series, 
+      xAxes,
       yAxes,
-      { min: viewportX.min, max: viewportX.max },
       axisTitles,
-      xMode,
       plotContainer.clientWidth, 
       plotContainer.clientHeight
     );
@@ -106,10 +105,9 @@ export const Sidebar: React.FC = () => {
     const pngData = await exportToPNG(
       datasets, 
       series, 
+      xAxes,
       yAxes,
-      { min: viewportX.min, max: viewportX.max },
       axisTitles,
-      xMode,
       plotContainer.clientWidth, 
       plotContainer.clientHeight
     );
@@ -140,12 +138,15 @@ export const Sidebar: React.FC = () => {
 
     const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
     
+    const xColumn = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+
     addSeries({
       id: crypto.randomUUID(),
       sourceId: datasetId,
       name: columnName,
-      xColumn: globalXColumn || dataset.columns[0],
+      xColumn: xColumn,
       yColumn: columnName,
+      xAxisId: 'axis-1',
       yAxisId: nextAxisId,
       pointStyle: 'circle',
       pointColor: color,
@@ -229,9 +230,9 @@ export const Sidebar: React.FC = () => {
               <button
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                {isImporting ? '...' : 'Import'}
+                {isImporting ? '...' : <Upload size={14} />}
               </button>
               <input
                 type="file"
@@ -259,6 +260,24 @@ export const Sidebar: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
+                        <button
+                          onClick={() => moveDataset(d.id, -1)}
+                          disabled={datasets.indexOf(d) === 0}
+                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
+                          title="Move Up"
+                        >
+                          <ChevronUp size={12} strokeWidth={3} />
+                        </button>
+                        <button
+                          onClick={() => moveDataset(d.id, 1)}
+                          disabled={datasets.indexOf(d) === datasets.length - 1}
+                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
+                          title="Move Down"
+                        >
+                          <ChevronDown size={12} strokeWidth={3} />
+                        </button>
+                      </div>
                       <button 
                         onClick={async () => {
                           await persistence.deleteDataset(d.id);
@@ -328,26 +347,6 @@ export const Sidebar: React.FC = () => {
                 <Layout size={14} style={{ marginRight: '5px' }} />
                 Data Series
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ fontSize: '10px', color: '#666' }}>Global X:</span>
-                <select
-                  name="global-x-column"
-                  aria-label="Global X Column"
-                  value={globalXColumn}
-                  onChange={(e) => setGlobalXColumn(e.target.value)}
-                  style={{ fontSize: '10px', padding: '1px', border: '1px solid #ced4da', borderRadius: '3px', width: '80px' }}
-                >
-                  {allColumns.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button
-                  onClick={() => setXMode(xMode === 'date' ? 'numeric' : 'date')}
-                  style={{ padding: '2px', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title={`X-Mode: ${xMode === 'date' ? 'Date/Time' : 'Numeric'}`}
-                  aria-label="Toggle X-Mode"
-                >
-                  {xMode === 'date' ? <Clock size={12} /> : <Hash size={12} />}
-                </button>
-              </div>
             </div>
             {openSections.series && <div className="series-list" style={{ marginBottom: '1rem' }}>
               {series.length === 0 && <p style={{ fontSize: '0.8rem', color: '#666' }}>Click a column above to add a series.</p>}
@@ -376,9 +375,9 @@ export const Sidebar: React.FC = () => {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
-                style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                New View
+                <Bookmark size={14} />
               </button>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
@@ -486,6 +485,7 @@ export const Sidebar: React.FC = () => {
                 onClick={async () => {
                   if (confirm('Delete all datasets and reset all settings?')) {
                     localStorage.removeItem('webgraphy-state');
+                    localStorage.setItem('webgraphy-cleared', '1');
                     const db = await indexedDB.open('webgraphy-db');
                     db.onsuccess = () => {
                       const database = db.result;

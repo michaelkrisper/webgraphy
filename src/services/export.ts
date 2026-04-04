@@ -1,4 +1,4 @@
-import { type Dataset, type SeriesConfig, type YAxisConfig } from './persistence';
+import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { worldToScreen } from '../utils/coords';
 import { lttb } from '../utils/lttb';
 
@@ -25,14 +25,27 @@ const escapeHTML = (str: string | undefined | null): string => {
 export const exportToSVG = (
   datasets: Dataset[], 
   series: SeriesConfig[], 
+  xAxes: XAxisConfig[],
   yAxes: YAxisConfig[],
-  viewportX: { min: number, max: number },
   axisTitles: { x: string, y: string },
-  xMode: 'date' | 'numeric',
   width: number,
   height: number
 ): string => {
   // 1. Determine active axes and layout
+  const usedXAxisIds = Array.from(new Set(series.map(s => s.xAxisId || 'axis-1')));
+  // Sort X axes by dataset order
+  const axisToMinDsIdx = new Map<string, number>();
+  series.forEach(s => {
+    const dsIdx = datasets.findIndex(d => d.id === s.sourceId);
+    const xId = s.xAxisId || 'axis-1';
+    if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
+      axisToMinDsIdx.set(xId, dsIdx);
+    }
+  });
+  const activeXAxes = xAxes
+    .filter(a => usedXAxisIds.includes(a.id))
+    .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
+
   const usedAxisIds = new Set(series.map(s => s.yAxisId));
   const activeYAxes = yAxes.filter(a => usedAxisIds.has(a.id));
   const leftAxes = activeYAxes.filter(a => a.position === 'left');
@@ -61,7 +74,7 @@ export const exportToSVG = (
   const padding = {
     top: 20,
     right: 20 + rightSum,
-    bottom: 50,
+    bottom: 30 + (activeXAxes.length - 1) * 40,
     left: 20 + leftSum
   };
 
@@ -71,33 +84,35 @@ export const exportToSVG = (
   let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: white; font-family: sans-serif;">`;
   
   svg += `<rect width="100%" height="100%" fill="white" />`;
-  const vp = { xMin: viewportX.min, xMax: viewportX.max, yMin: 0, yMax: 100, width, height, padding };
 
   // 2. Draw Grid
   const gridAxis = activeYAxes.find(a => a.showGrid) || activeYAxes[0];
-  if (gridAxis) {
-    const range = gridAxis.max - gridAxis.min;
-    const step = range / Math.max(2, Math.floor(chartHeight / 30));
-    const firstTick = Math.ceil(gridAxis.min / step) * step;
-    for (let t = firstTick; t <= gridAxis.max; t += step) {
-      const { y } = worldToScreen(0, t, { ...vp, yMin: gridAxis.min, yMax: gridAxis.max });
+  const gridXAxis = activeXAxes[0];
+  if (gridAxis && gridXAxis) {
+    const yRange = gridAxis.max - gridAxis.min;
+    const yStep = yRange / Math.max(2, Math.floor(chartHeight / 30));
+    const firstYTick = Math.ceil(gridAxis.min / yStep) * yStep;
+    const vp = { xMin: gridXAxis.min, xMax: gridXAxis.max, yMin: gridAxis.min, yMax: gridAxis.max, width, height, padding };
+    for (let t = firstYTick; t <= gridAxis.max; t += yStep) {
+      const { y } = worldToScreen(gridXAxis.min, t, vp);
       svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="#f0f0f0" stroke-width="1" />`;
     }
-  }
 
-  const xRange = viewportX.max - viewportX.min;
-  const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
-  const firstXTick = Math.ceil(viewportX.min / xStep) * xStep;
-  for (let t = firstXTick; t <= viewportX.max; t += xStep) {
-    const { x } = worldToScreen(t, 0, vp);
-    svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="#f0f0f0" stroke-width="1" />`;
+    const xRange = gridXAxis.max - gridXAxis.min;
+    const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
+    const firstXTick = Math.ceil(gridXAxis.min / xStep) * xStep;
+    for (let t = firstXTick; t <= gridXAxis.max; t += xStep) {
+      const { x } = worldToScreen(t, gridAxis.min, vp);
+      svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="#f0f0f0" stroke-width="1" />`;
+    }
   }
 
   // 3. Draw Series Data
   series.forEach(s => {
     const ds = datasets.find(d => d.id === s.sourceId);
-    const axis = yAxes.find(a => a.id === s.yAxisId);
-    if (!ds || !axis) return;
+    const xAxis = xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+    const yAxis = yAxes.find(a => a.id === s.yAxisId);
+    if (!ds || !xAxis || !yAxis) return;
 
     const findColumn = (name: string) => {
       const idx = ds.columns.indexOf(name);
@@ -114,10 +129,10 @@ export const exportToSVG = (
     for (let i = 0; i < ds.rowCount; i++) {
       const vx = xData[i] + xCol.refPoint;
       const vy = yData[i] + yCol.refPoint;
-      if (vx >= viewportX.min && vx <= viewportX.max) visibleData.push({ x: vx, y: vy });
+      if (vx >= xAxis.min && vx <= xAxis.max) visibleData.push({ x: vx, y: vy });
     }
     const sampledData = visibleData.length > 5000 ? lttb(visibleData, 5000) : visibleData;
-    const seriesVp = { ...vp, yMin: axis.min, yMax: axis.max };
+    const seriesVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: yAxis.min, yMax: yAxis.max, width, height, padding };
     const screenPoints = sampledData.map(p => worldToScreen(p.x, p.y, seriesVp));
     if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -136,15 +151,28 @@ export const exportToSVG = (
   // 4. Draw Axes
   svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="#333" stroke-width="2" />`;
 
-  const xPrecision = Math.max(0, -Math.floor(Math.log10(xStep || 1)));
-  for (let t = firstXTick; t <= viewportX.max; t += xStep) {
-    const { x } = worldToScreen(t, 0, vp);
-    if (x < padding.left || x > width - padding.right) continue;
-    svg += `<line x1="${x}" y1="${height - padding.bottom}" x2="${x}" y2="${height - padding.bottom + 6}" stroke="#333" stroke-width="1" />`;
-    const label = xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
-    svg += `<text x="${x}" y="${height - padding.bottom + 18}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
-  }
-  svg += `<text x="${padding.left + chartWidth / 2}" y="${height - 5}" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${escapeHTML(axisTitles.x)}</text>`;
+  activeXAxes.forEach((axis, idx) => {
+    const xRange = axis.max - axis.min;
+    const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
+    const firstXTick = Math.ceil(axis.min / xStep) * xStep;
+    const xPrecision = Math.max(0, -Math.floor(Math.log10(xStep || 1)));
+    const vp = { xMin: axis.min, xMax: axis.max, yMin: 0, yMax: 100, width, height, padding };
+    const baseY = height - padding.bottom + idx * 40;
+
+    svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="#333" stroke-width="1" />`;
+
+    for (let t = firstXTick; t <= axis.max; t += xStep) {
+      const { x } = worldToScreen(t, 0, vp);
+      if (x < padding.left || x > width - padding.right) continue;
+      svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="#333" stroke-width="1" />`;
+      const label = axis.xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
+      svg += `<text x="${x}" y="${baseY + 18}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
+    }
+
+    const seriesForThisAxis = series.filter(s => (s.xAxisId || 'axis-1') === axis.id);
+    const title = Array.from(new Set(seriesForThisAxis.map(s => s.xColumn))).join(' / ');
+    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 32}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || '#333')}">${escapeHTML(title)}</text>`;
+  });
 
   activeYAxes.forEach(axis => {
     const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
@@ -167,8 +195,9 @@ export const exportToSVG = (
     svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="#333" stroke-width="1" />`;
 
     // Ticks and Labels (Right-Aligned)
+    const mainXConf = activeXAxes[0] || xAxes[0];
     for (let t = firstTick; t <= axis.max; t += step) {
-      const { y } = worldToScreen(0, t, { ...vp, yMin: axis.min, yMax: axis.max });
+      const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
       svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="#333" stroke-width="1" />`;
       const labelX = xPos + axisWidth - 8;
       svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="#333">${t.toFixed(precision)}</text>`;
@@ -194,8 +223,8 @@ export const formatDate = (val: number, step: number) => {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 };
 
-export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], yAxes: YAxisConfig[], viewportX: { min: number, max: number }, axisTitles: { x: string, y: string }, xMode: 'date' | 'numeric', width: number, height: number): Promise<string> => {
-  const svgString = exportToSVG(datasets, series, yAxes, viewportX, axisTitles, xMode, width, height);
+export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number): Promise<string> => {
+  const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height);
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr; canvas.height = height * dpr;
