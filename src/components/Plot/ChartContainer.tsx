@@ -482,7 +482,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         group = { xLabel: xLab, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#475569' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
     });
 
     // Screen position of the snapped point
@@ -527,10 +527,10 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         maxWidth: 320
       }}>
         {entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#64748b', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
+                <div style={{ color: '#666', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
                 {group.items.map((item, itemIdx) => {
                   // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
                   const cleanValue = parseFloat(item.value.toPrecision(7));
@@ -544,10 +544,10 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
                   return (
                     <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
-                      <div style={{ color: item.color, textAlign: 'right', paddingRight: '12px' }}>{item.label}:</div>
-                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
-                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
-                      <div style={{ width: '12px' }}></div> {/* spacer for right alignment padding */}
+                      <div style={{ color: item.color, textAlign: 'right' }}>{item.label}:</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
+                      <div></div> {/* empty grid cell for the 4th column */}
                     </React.Fragment>
                   );
                 })}
