@@ -3,7 +3,7 @@ import { buildMinMaxTrees } from '../utils/downsampling';
 
 
 export function generateDemoDataset(): Dataset {
-  const rowCount = 10000;
+  const rowCount = 100000;
   const columns = ['Timestamp', 'Sine Wave', 'Random Walk', 'Linear Trend', 'Step Function'];
   const datasetId = 'demo-dataset';
 

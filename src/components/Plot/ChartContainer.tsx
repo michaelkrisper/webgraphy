@@ -1008,16 +1008,20 @@ const ChartContainer: React.FC = () => {
         const range = targetX.current.max - targetX.current.min;
         targetX.current = { min: targetX.current.min + range * step, max: targetX.current.max + range * step }; startAnimation();
       } else if (e.key === 'ArrowUp') {
-        const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        const onAxis = !!hoveredAxisIdRef.current;
+        const axesToMove = onAxis ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        const dir = onAxis ? -1 : 1;
         axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + dir * range * step, max: t.max + dir * range * step };
         }); startAnimation();
       } else if (e.key === 'ArrowDown') {
-        const axesToMove = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        const onAxis = !!hoveredAxisIdRef.current;
+        const axesToMove = onAxis ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
+        const dir = onAxis ? -1 : 1;
         axesToMove.forEach(axis => {
           const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
+          const range = t.max - t.min; targetYs.current[axis.id] = { min: t.min - dir * range * step, max: t.max - dir * range * step };
         }); startAnimation();
       } else if (pressedKeys.current.has('+') || pressedKeys.current.has('-')) startAnimation();
     };

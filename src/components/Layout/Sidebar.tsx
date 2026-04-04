@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 
@@ -229,9 +229,9 @@ export const Sidebar: React.FC = () => {
               <button
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                {isImporting ? '...' : 'Import'}
+                {isImporting ? '...' : <Upload size={14} />}
               </button>
               <input
                 type="file"
@@ -376,9 +376,9 @@ export const Sidebar: React.FC = () => {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
-                style={{ padding: '4px 12px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                New View
+                <Bookmark size={14} />
               </button>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
@@ -486,6 +486,7 @@ export const Sidebar: React.FC = () => {
                 onClick={async () => {
                   if (confirm('Delete all datasets and reset all settings?')) {
                     localStorage.removeItem('webgraphy-state');
+                    localStorage.setItem('webgraphy-cleared', '1');
                     const db = await indexedDB.open('webgraphy-db');
                     db.onsuccess = () => {
                       const database = db.result;

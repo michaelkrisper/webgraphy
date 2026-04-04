@@ -226,6 +226,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       debouncedSaveState();
     } else if (allDatasets.length > 0) {
       set({ datasets: allDatasets, isLoaded: true, xMode: 'date' });
+    } else if (localStorage.getItem('webgraphy-cleared')) {
+      localStorage.removeItem('webgraphy-cleared');
+      set({ isLoaded: true });
     } else {
       // First time open: Load demo data
       const { loadDemoData } = get();
