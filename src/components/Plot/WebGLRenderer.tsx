@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig } from '../../services/persistence';
+import { downsampleMinMax } from '../../utils/downsampling';
 
 interface Props {
   datasets: Dataset[];
@@ -188,41 +189,63 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       const colY = ds.data[yIdx];
       if (!colX || !colY) return;
 
-      const viewportRangeX = Math.abs(viewportX.max - viewportX.min) || 1;
-      const dataRangeX = (colX.bounds.max - colX.bounds.min) || 1;
-      const density = (ds.rowCount * (viewportRangeX / dataRangeX)) / (chartWidth || 1);
+      // 1. Determine Visible Range using binary search on X (assume monotonic)
+      const xData = colX.data;
+      const xRef = colX.refPoint;
+      let startIdx = 0;
+      let endIdx = xData.length - 1;
+
+      // Find first point in viewport
+      let low = 0, high = xData.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >>> 1;
+        if (xData[mid] + xRef >= viewportX.min) {
+          startIdx = mid;
+          high = mid - 1;
+        } else {
+          low = mid + 1;
+        }
+      }
       
-      let lodLevel = 0;
-      if (density > 200) lodLevel = 5;
-      else if (density > 100) lodLevel = 4;
-      else if (density > 50) lodLevel = 3;
-      else if (density > 10) lodLevel = 2;
-      else if (density > 2) lodLevel = 1;
-      
-      lodLevel = Math.min(lodLevel, colX.levels.length - 1, colY.levels.length - 1);
-      
-      const xLOD = colX.levels[lodLevel];
-      const yLOD = colY.levels[lodLevel];
-      const numPoints = xLOD.length;
+      // Find last point in viewport
+      low = 0; high = xData.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >>> 1;
+        if (xData[mid] + xRef <= viewportX.max) {
+          endIdx = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      // 2. Perform Dynamic Downsampling
+      // We want ~2 points per pixel for smooth lines
+      const targetBuckets = Math.min(endIdx - startIdx + 1, Math.floor(chartWidth * 2));
+      const indices = downsampleMinMax(colY.data, colY.minTree, colY.maxTree, startIdx, endIdx, targetBuckets);
+      const numPoints = indices.length;
 
       // Pass Viewport relative to this specific column's reference point
       gl.uniform2f(locs.xRelLoc, viewportX.min - colX.refPoint, viewportX.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, axis.min - colY.refPoint, axis.max - colY.refPoint);
 
-      const bufferKey = `buf-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
+      const bufferKey = `buf-${ds.id}-${xIdx}-${yIdx}-dyn`;
       let buffer = buffersRef.current.get(bufferKey);
       if (!buffer) {
         buffer = gl.createBuffer()!;
-        const reqSize = numPoints * 2;
-        const sharedArr = getSharedBuffer(reqSize);
-        for (let i = 0; i < numPoints; i++) {
-          sharedArr[i * 2] = xLOD[i];
-          sharedArr[i * 2 + 1] = yLOD[i];
-        }
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
         buffersRef.current.set(bufferKey, buffer);
-      } else gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+      const reqSize = numPoints * 2;
+      const sharedArr = getSharedBuffer(reqSize);
+      const yData = colY.data;
+      for (let i = 0; i < numPoints; i++) {
+        const idx = indices[i];
+        sharedArr[i * 2] = xData[idx];
+        sharedArr[i * 2 + 1] = yData[idx];
+      }
+      gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
 
       gl.enableVertexAttribArray(locs.posLoc);
       gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 0, 0);
@@ -243,31 +266,36 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
           gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
           gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
         } else {
-          const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
+          const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
           let segBuffer = buffersRef.current.get(segBufferKey);
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
-            // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
-            const reqSize = (numPoints - 1) * 12;
-            const sharedArr = getSharedBuffer(reqSize);
-            // Compute screen-space cumulative arc length so dash phase is in pixels
-            const xRange = (viewportX.max - viewportX.min) || 1;
-            const yRange = (axis.max - axis.min) || 1;
-            let cumDist = 0;
-            for (let i = 0; i < numPoints - 1; i++) {
-              const ax = xLOD[i], ay = yLOD[i], bx = xLOD[i + 1], by = yLOD[i + 1];
-              const screenDx = (bx - ax) / xRange * chartWidth;
-              const screenDy = (by - ay) / yRange * chartHeight;
-              const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
-              const off = i * 12;
-              sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = cumDist;
-              sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = cumDist;
-              cumDist += segScreenLen;
-            }
-            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
             buffersRef.current.set(segBufferKey, segBuffer);
-          } else gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+          }
+          gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+
+          // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
+          const reqSize = (numPoints - 1) * 12;
+          const sharedArr = getSharedBuffer(reqSize);
+          const yData = colY.data;
+
+          // Compute screen-space cumulative arc length so dash phase is in pixels
+          const xRange = (viewportX.max - viewportX.min) || 1;
+          const yRange = (axis.max - axis.min) || 1;
+          let cumDist = 0;
+          for (let i = 0; i < numPoints - 1; i++) {
+            const idxA = indices[i];
+            const idxB = indices[i + 1];
+            const ax = xData[idxA], ay = yData[idxA], bx = xData[idxB], by = yData[idxB];
+            const screenDx = (bx - ax) / xRange * chartWidth;
+            const screenDy = (by - ay) / yRange * chartHeight;
+            const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
+            const off = i * 12;
+            sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = cumDist;
+            sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = cumDist;
+            cumDist += segScreenLen;
+          }
+          gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
 
           gl.enableVertexAttribArray(locs.posLoc);
           gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 24, 0);

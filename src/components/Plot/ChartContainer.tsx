@@ -348,10 +348,10 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xCol = ds.data[xIdx];
       const yCol = ds.data[yIdx];
 
-      if (!xCol?.levels?.[0] || !yCol?.levels?.[0]) return null;
+      if (!xCol?.data || !yCol?.data) return null;
 
       return { series: s, ds, axis, xIdx, yIdx, xCol, yCol };
-    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { levels: Float32Array[], refPoint: number, bounds: {min: number, max: number} }, yCol: { levels: Float32Array[], refPoint: number, bounds: {min: number, max: number} } }[];
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
   }, [datasets, series, yAxes]);
 
   const snap = useMemo(() => {
@@ -368,7 +368,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestXWorld: number | null = null;
 
     seriesMetadata.forEach(({ xCol }) => {
-      const xData = xCol.levels[0];
+      const xData = xCol.data;
       const refX = xCol.refPoint;
 
       // Binary search for the closest point
@@ -404,7 +404,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string }[] = [];
     seriesMetadata.forEach(({ series: s, axis, xCol, yCol }) => {
-      const xData = xCol.levels[0], yData = yCol.levels[0];
+      const xData = xCol.data, yData = yCol.data;
       const refX = xCol.refPoint, refY = yCol.refPoint;
 
       // Find closest index to bestXWorld
@@ -770,10 +770,10 @@ const ChartContainer: React.FC = () => {
 
       const colX = ds.data[xIdx];
       const colY = ds.data[yIdx];
-      if (!colX || !colY || !colX.levels[0] || !colY.levels[0]) return;
+      if (!colX || !colY || !colX.data || !colY.data) return;
 
-      const xData = colX.levels[0];
-      const yData = colY.levels[0];
+      const xData = colX.data;
+      const yData = colY.data;
       const refX = colX.refPoint;
       const refY = colY.refPoint;
       

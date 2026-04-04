@@ -53,7 +53,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
               {rows.map(rowIndex => (
                 <tr key={rowIndex} style={{ borderBottom: '1px solid #eee' }}>
                   {dataset.data.map((colData, colIndex) => {
-                    const rawValue = colData.levels[0][rowIndex];
+                    const rawValue = colData.data[rowIndex];
                     const absoluteValue = rawValue + colData.refPoint;
 
                     let displayValue: string;
