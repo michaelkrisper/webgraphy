@@ -157,6 +157,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
             autoFocus
             name={`series-title-${series.id}`}
             autoComplete="off"
+            maxLength={100}
             defaultValue={series.name || series.yColumn}
             onBlur={(e) => { handleUpdate({ name: e.target.value }); setIsEditingTitle(false); }}
             onKeyDown={(e) => { 

@@ -169,6 +169,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                   <th key={i} style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
                     <input
                       type="text"
+                      maxLength={100}
                       value={config.name}
                       onChange={e => handleUpdateColumn(i, { name: e.target.value })}
                       style={{ width: '100%', marginBottom: '4px', fontWeight: 'bold', border: '1px solid transparent', background: 'transparent' }}
@@ -187,6 +188,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       <input
                         type="text"
                         placeholder="Format (e.g. YYYY-MM-DD)"
+                        maxLength={50}
                         value={config.dateFormat || ''}
                         onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
                         style={{ width: '100%', fontSize: '11px', padding: '2px' }}
