@@ -247,7 +247,7 @@ export function generateSecondaryLabels(min: number, max: number, step: TimeStep
 }
 
 export function formatFullDate(ts: number): string {
-    return new Date(ts * 1000).toLocaleString('de-DE', {
+    const s = new Date(ts * 1000).toLocaleString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -256,4 +256,6 @@ export function formatFullDate(ts: number): string {
         second: '2-digit',
         fractionalSecondDigits: 3
     });
+    // Remove trailing zeros from fractional seconds, and the comma if all zeros
+    return s.replace(/,(\d*?[1-9])0+$/, ',$1').replace(/,0+$/, '');
 }
