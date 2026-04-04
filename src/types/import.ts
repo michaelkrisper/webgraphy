@@ -12,4 +12,5 @@ export interface ImportSettings {
   decimalPoint: string;
   startRow: number;
   columnConfigs: ColumnConfig[];
+  xAxisColumn?: string;
 }

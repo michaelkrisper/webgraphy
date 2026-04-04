@@ -47,6 +47,9 @@ export const useDataImport = () => {
         const prefix = `${letter}: `;
         ds.name = `${letter} - ${ds.name}`;
         ds.columns = ds.columns.map(c => `${prefix}${c}`);
+        if (ds.xAxisColumn) {
+          ds.xAxisColumn = `${prefix}${ds.xAxisColumn}`;
+        }
 
         await persistence.saveDataset(ds);
         addDataset(ds);

@@ -1180,7 +1180,7 @@ const ChartContainer: React.FC = () => {
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} series={series} axisLayout={axisLayout} allXAxes={xAxes} />
 
       {activeXAxesUsed.map((axis, idx) => {
-        const baseY = idx * 60;
+        const baseY = (activeXAxesUsed.length - 1 - idx) * 60;
         return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 60, cursor: 'ew-resize', zIndex: 20 }} />;
       })}
 
