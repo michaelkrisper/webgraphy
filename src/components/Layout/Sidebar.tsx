@@ -13,9 +13,7 @@ import { HelpModal } from './HelpModal';
 import { LicenseModal } from './LicenseModal';
 
 const COLOR_PALETTE = [
-  '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-  '#aec6e7', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5', '#c49c94'
+  '#2563eb', '#e11d48', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c'
 ];
 
 /**
@@ -202,7 +200,7 @@ export const Sidebar: React.FC = () => {
         }}
       >
         <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #212529', paddingBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--text-color)', paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <img src="./favicon.svg" alt="logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
               <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
@@ -210,7 +208,7 @@ export const Sidebar: React.FC = () => {
                 onClick={() => setShowHelp(true)}
                 title="Help & Interactions"
                 aria-label="Help & Interactions"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#007bff' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}
               >
                 <HelpCircle size={18} />
               </button>
@@ -230,7 +228,7 @@ export const Sidebar: React.FC = () => {
               <button
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 {isImporting ? '...' : <Upload size={14} />}
               </button>
@@ -249,7 +247,7 @@ export const Sidebar: React.FC = () => {
             </div>
             {openSections.sources && <div className="sources-list" style={{ marginBottom: '1rem' }}>
               {datasets.map(d => (
-                <div key={d.id} style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
+                <div key={d.id} style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div
                       onDoubleClick={() => setViewingDatasetId(d.id)}
@@ -266,7 +264,7 @@ export const Sidebar: React.FC = () => {
                           aria-label={`X Column for ${d.name}`}
                           value={d.xAxisColumn}
                           onChange={(e) => updateDataset(d.id, { xAxisColumn: e.target.value })}
-                          style={{ width: '70px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2', borderRadius: '2px' }}
+                          style={{ width: '70px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '2px', background: '#f8fafc' }}
                           title="X Column (Source Wide)"
                         >
                           {d.columns.map(c => <option key={c} value={c}>{c}</option>)}
@@ -277,7 +275,7 @@ export const Sidebar: React.FC = () => {
                             const nextXIdx = (currentXIdx % 9) + 1;
                             updateDataset(d.id, { xAxisId: `axis-${nextXIdx}` });
                           }}
-                          style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#1976d2' }}
+                          style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
                           title="Cycle X-Axis (1-9)"
                           aria-label="Cycle X-Axis">
                           {parseInt(d.xAxisId?.split('-')[1]) || 1}
@@ -291,7 +289,7 @@ export const Sidebar: React.FC = () => {
                             const { updateXAxis } = useGraphStore.getState();
                             updateXAxis(axisId, { xMode: e.target.value as 'date' | 'numeric' });
                           }}
-                          style={{ width: '45px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2', borderRadius: '2px' }}
+                          style={{ width: '45px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '2px', background: '#f8fafc' }}
                           title="X-Axis Mode (Time / Decimal)"
                         >
                           <option value="date">Time</option>
@@ -300,11 +298,11 @@ export const Sidebar: React.FC = () => {
                       </div>
 
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
                         <button
                           onClick={() => moveDataset(d.id, -1)}
                           disabled={datasets.indexOf(d) === 0}
-                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
+                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
                           title="Move Up"
                         >
                           <ChevronUp size={12} strokeWidth={3} />
@@ -312,7 +310,7 @@ export const Sidebar: React.FC = () => {
                         <button
                           onClick={() => moveDataset(d.id, 1)}
                           disabled={datasets.indexOf(d) === datasets.length - 1}
-                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#444', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
+                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
                           title="Move Down"
                         >
                           <ChevronDown size={12} strokeWidth={3} />
@@ -323,7 +321,7 @@ export const Sidebar: React.FC = () => {
                           await persistence.deleteDataset(d.id);
                           removeDataset(d.id);
                         }} 
-                        style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
+                        style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex' }}
                         title="Remove data source"
                         aria-label="Remove data source"
                       >
@@ -332,7 +330,7 @@ export const Sidebar: React.FC = () => {
                     </div>
                   </div>
                   <details>
-                    <summary style={{ fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#495057', display: 'flex', alignItems: 'center' }}>
+                    <summary style={{ fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#64748b', display: 'flex', alignItems: 'center' }}>
                       <ChevronRight size={14} className="details-chevron" />
                       <span style={{ flex: 1 }}>Columns ({d.columns.length})</span>
                     </summary>
@@ -365,7 +363,7 @@ export const Sidebar: React.FC = () => {
                         <button 
                           key={col} 
                           onClick={() => createSeries(d.id, col)}
-                          style={{ fontSize: '10px', padding: '2px 4px', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '3px' }}
+                          style={{ fontSize: '10px', padding: '2px 4px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '3px', color: '#475569' }}
                         >
                           {col}
                         </button>
@@ -415,21 +413,21 @@ export const Sidebar: React.FC = () => {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
-                style={{ padding: '4px 8px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Bookmark size={14} />
               </button>
             </div>
-            {openSections.views && <div style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
+            {openSections.views && <div style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               
               {customViews.length === 0 && (
-                <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '4px' }}>No saved views.</div>
+                <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '4px' }}>No saved views.</div>
               )}
               
               {customViews.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {customViews.map(v => (
-                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8f9fa', borderRadius: '3px', border: '1px solid #e9ecef' }}>
+                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8fafc', borderRadius: '3px', border: '1px solid #e2e8f0' }}>
                       {editingViewId === v.id ? (
                         <input
                           autoFocus
@@ -464,7 +462,7 @@ export const Sidebar: React.FC = () => {
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button 
                           onClick={() => applyView(v.id)}
-                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#4CAF50', display: 'flex' }}
+                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#10b981', display: 'flex' }}
                           title="Apply view bounds"
                           aria-label="Apply view bounds"
                         >
@@ -472,7 +470,7 @@ export const Sidebar: React.FC = () => {
                         </button>
                         <button 
                           onClick={() => deleteView(v.id)}
-                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc3545', display: 'flex' }}
+                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex' }}
                           title="Delete view"
                           aria-label="Delete view"
                         >
@@ -490,13 +488,13 @@ export const Sidebar: React.FC = () => {
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <button
                 onClick={handleExportSVG}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: '12px' }}
               >
                 <FileImage size={14} /> Export SVG
               </button>
               <button
                 onClick={handleExportPNG}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: '12px' }}
               >
                 <Image size={14} /> Export PNG
               </button>
@@ -517,7 +515,7 @@ export const Sidebar: React.FC = () => {
                     };
                   }
                 }}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#007bff', border: '1px solid #007bff', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
               >
                 <RotateCcw size={14} /> Demo
               </button>
@@ -535,7 +533,7 @@ export const Sidebar: React.FC = () => {
                     };
                   }
                 }}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
               >
                 <RotateCcw size={14} /> Reset
               </button>
@@ -572,7 +570,7 @@ export const Sidebar: React.FC = () => {
               bottom: 0,
               width: '5px',
               cursor: 'col-resize',
-              background: isResizing ? '#007bff' : 'transparent',
+              background: isResizing ? '#3b82f6' : 'transparent',
               zIndex: 10,
               transition: 'background 0.2s'
             }}

@@ -85,7 +85,7 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
     min: 0,
     max: 100,
     position: i % 2 === 0 ? 'left' : 'right',
-    color: '#333',
+    color: '#475569',
     showGrid: i === 0
   }));
 
@@ -97,9 +97,9 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       yColumn: dataset.columns[1],
       yAxisId: 'axis-1',
       pointStyle: 'none',
-      pointColor: '#1f77b4',
+      pointColor: '#2563eb',
       lineStyle: 'solid',
-      lineColor: '#1f77b4'
+      lineColor: '#2563eb'
     },
     {
       id: crypto.randomUUID(),
@@ -108,9 +108,9 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       yColumn: dataset.columns[2],
       yAxisId: 'axis-2',
       pointStyle: 'none',
-      pointColor: '#ff7f0e',
+      pointColor: '#e11d48',
       lineStyle: 'solid',
-      lineColor: '#ff7f0e'
+      lineColor: '#e11d48'
     }
   ];
 

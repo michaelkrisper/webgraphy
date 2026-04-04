@@ -67,7 +67,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         return axis.ticks.result.map((t: any) => {
           const timestamp = typeof t === 'number' ? t : t.timestamp;
           const { x } = worldToScreen(timestamp, 0, vp);
-          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
+          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })()}
       {yAxes.map((axis: YAxisConfig) => {
@@ -89,7 +89,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         const mainXConf = useGraphStore.getState().xAxes[0];
         return result.map(t => {
           const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
-          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f0f0f0" strokeWidth="1" />;
+          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })}
     </svg>
@@ -111,7 +111,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#333" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
           </marker>
         </defs>
         
@@ -119,7 +119,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         <path 
           d={`M${padding.left},${height - padding.bottom} V${padding.top} H${width - padding.right} V${height - padding.bottom}`} 
           fill="none" 
-          stroke="#333" 
+          stroke="#475569"
           strokeWidth="2" 
         />
         
@@ -138,7 +138,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={y}
                 x2={width - padding.right + 8}
                 y2={y}
-                stroke="#333"
+                stroke="#475569"
                 strokeWidth="1"
                 markerEnd="url(#arrow)"
               />
@@ -147,7 +147,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
               {axis.ticks.result.map((t: any) => {
                 const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
-                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#333" strokeWidth="1" />;
+                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#475569" strokeWidth="1" />;
               })}
 
               {/* 0 line if visible */}
@@ -157,7 +157,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                   y1={height - padding.bottom}
                   x2={worldToScreen(0, 0, vp).x}
                   y2={padding.top - 8}
-                  stroke="#666"
+                  stroke="#94a3b8"
                   strokeWidth="1"
                   strokeDasharray="4 4"
                   markerEnd="url(#arrow)"
@@ -178,7 +178,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={worldToScreen(mainXConf.min, 0, axisVp).y}
                 x2={width - padding.right + 8} 
                 y2={worldToScreen(mainXConf.min, 0, axisVp).y}
-                stroke="#666" 
+                stroke="#94a3b8"
                 strokeWidth="1" 
                 strokeDasharray="4 4"
                 markerEnd="url(#arrow)" 
@@ -221,7 +221,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={height - padding.bottom} 
                 x2={axisLineX} 
                 y2={padding.top - 8} 
-                stroke="#333" 
+                stroke="#475569"
                 strokeWidth="1" 
                 markerEnd="url(#arrow)"
               />
@@ -230,7 +230,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
                 const x2 = isLeft ? axisLineX : axisLineX + 5;
-                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#333" strokeWidth="1" />;
+                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#475569" strokeWidth="1" />;
               })}
             </g>
           );
@@ -331,9 +331,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
               {result.map(t => {
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(precision);
-                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#333', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
+                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -506,7 +506,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         group = { xLabel: xLab, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#475569' });
     });
 
     // Screen position of the snapped point
@@ -527,7 +527,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-        <line x1={snapScreenX} y1={padding.top} x2={snapScreenX} y2={height - padding.bottom} stroke="#aaa" strokeWidth="1" strokeDasharray="3 3" />
+        <line x1={snapScreenX} y1={padding.top} x2={snapScreenX} y2={height - padding.bottom} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
       </svg>
       <div style={{
         position: 'absolute',
@@ -535,26 +535,26 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         right: isTooltipOnRight ? 'auto' : (width - snapScreenX) + 12,
         top: isTooltipBelow ? pos.y + 15 : 'auto',
         bottom: isTooltipBelow ? 'auto' : (height - pos.y) + 15,
-        backgroundColor: 'rgba(255,255,255,0.92)',
-        color: '#333',
-        padding: '6px 10px',
-        borderRadius: '5px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        color: '#1e293b',
+        padding: '8px 12px',
+        borderRadius: '8px',
         fontSize: '10px',
         fontFamily: 'monospace',
         pointerEvents: 'none',
         zIndex: 100,
-        boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         backdropFilter: 'blur(4px)',
-        border: '1px solid rgba(0,0,0,0.08)',
+        border: '1px solid #e2e8f0',
         whiteSpace: 'pre',
         lineHeight: '1.2',
         maxWidth: 320
       }}>
         {entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '12px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#666', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
+                <div style={{ color: '#64748b', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
                 {group.items.map((item, itemIdx) => {
                   // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
                   const cleanValue = parseFloat(item.value.toPrecision(7));
@@ -569,8 +569,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
                   return (
                     <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
                       <div style={{ color: item.color, textAlign: 'right' }}>{item.label}:</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
+                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
+                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
                       <div></div> {/* empty grid cell for the 4th column */}
                     </React.Fragment>
                   );
@@ -1298,7 +1298,7 @@ const ChartContainer: React.FC = () => {
       const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
       const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
       const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
-      const color = seriesForThisAxis[0]?.lineColor || '#333';
+      const color = seriesForThisAxis[0]?.lineColor || '#475569';
 
       if (range <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
