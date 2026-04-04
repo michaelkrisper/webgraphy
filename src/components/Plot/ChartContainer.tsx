@@ -74,7 +74,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
           const timestamp = typeof t === 'number' ? t : t.timestamp;
           const { x } = worldToScreen(timestamp, 0, vp);
           if (x < padding.left || x > width - padding.right) return null;
-          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f0f0f0" strokeWidth="1" />;
+          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })()}
       {yAxes.map((axis) => {
@@ -83,7 +83,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         return axis.ticks.map(t => {
           const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
           if (y < padding.top || y > height - padding.bottom) return null;
-          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f0f0f0" strokeWidth="1" />;
+          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f5f9" strokeWidth="1" />;
         });
       })}
     </svg>
@@ -105,7 +105,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#333" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
           </marker>
         </defs>
         
@@ -113,7 +113,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         <path 
           d={`M${padding.left},${height - padding.bottom} V${padding.top} H${width - padding.right} V${height - padding.bottom}`} 
           fill="none" 
-          stroke="#333" 
+          stroke="#475569"
           strokeWidth="2" 
         />
         
@@ -132,7 +132,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={y}
                 x2={width - padding.right + 8}
                 y2={y}
-                stroke="#333"
+                stroke="#475569"
                 strokeWidth="1"
                 markerEnd="url(#arrow)"
               />
@@ -141,7 +141,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
               {axis.ticks.result.map((t: any) => {
                 const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
-                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#333" strokeWidth="1" />;
+                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#475569" strokeWidth="1" />;
               })}
 
               {/* 0 line if visible */}
@@ -151,7 +151,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                   y1={height - padding.bottom}
                   x2={worldToScreen(0, 0, vp).x}
                   y2={padding.top - 8}
-                  stroke="#666"
+                  stroke="#94a3b8"
                   strokeWidth="1"
                   strokeDasharray="4 4"
                   markerEnd="url(#arrow)"
@@ -172,7 +172,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={worldToScreen(mainXConf.min, 0, axisVp).y}
                 x2={width - padding.right + 8} 
                 y2={worldToScreen(mainXConf.min, 0, axisVp).y}
-                stroke="#666" 
+                stroke="#94a3b8"
                 strokeWidth="1" 
                 strokeDasharray="4 4"
                 markerEnd="url(#arrow)" 
@@ -205,7 +205,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 y1={height - padding.bottom} 
                 x2={axisLineX} 
                 y2={padding.top - 8} 
-                stroke="#333" 
+                stroke="#475569"
                 strokeWidth="1" 
                 markerEnd="url(#arrow)"
               />
@@ -215,7 +215,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
                 const x2 = isLeft ? axisLineX : axisLineX + 5;
-                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#333" strokeWidth="1" />;
+                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#475569" strokeWidth="1" />;
               })}
             </g>
           );
@@ -307,9 +307,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
-                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#333', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
+                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#333', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -482,7 +482,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         group = { xLabel: xLab, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#475569' });
     });
 
     // Screen position of the snapped point
@@ -503,7 +503,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-        <line x1={snapScreenX} y1={padding.top} x2={snapScreenX} y2={height - padding.bottom} stroke="#aaa" strokeWidth="1" strokeDasharray="3 3" />
+        <line x1={snapScreenX} y1={padding.top} x2={snapScreenX} y2={height - padding.bottom} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
       </svg>
       <div style={{
         position: 'absolute',
@@ -511,26 +511,26 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         right: isTooltipOnRight ? 'auto' : (width - snapScreenX) + 12,
         top: isTooltipBelow ? pos.y + 15 : 'auto',
         bottom: isTooltipBelow ? 'auto' : (height - pos.y) + 15,
-        backgroundColor: 'rgba(255,255,255,0.92)',
-        color: '#333',
-        padding: '6px 10px',
-        borderRadius: '5px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        color: '#1e293b',
+        padding: '8px 12px',
+        borderRadius: '8px',
         fontSize: '10px',
         fontFamily: 'monospace',
         pointerEvents: 'none',
         zIndex: 100,
-        boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         backdropFilter: 'blur(4px)',
-        border: '1px solid rgba(0,0,0,0.08)',
+        border: '1px solid #e2e8f0',
         whiteSpace: 'pre',
         lineHeight: '1.2',
         maxWidth: 320
       }}>
         {entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '0px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#666', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
+                <div style={{ color: '#64748b', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
                 {group.items.map((item, itemIdx) => {
                   // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
                   const cleanValue = parseFloat(item.value.toPrecision(7));
@@ -544,10 +544,10 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
                   return (
                     <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
-                      <div style={{ color: item.color, textAlign: 'right' }}>{item.label}:</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
-                      <div></div> {/* empty grid cell for the 4th column */}
+                      <div style={{ color: item.color, textAlign: 'right', paddingRight: '12px' }}>{item.label}:</div>
+                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
+                      <div style={{ color: '#1e293b', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
+                      <div style={{ width: '12px' }}></div> {/* spacer for right alignment padding */}
                     </React.Fragment>
                   );
                 })}
@@ -566,6 +566,7 @@ const ChartContainer: React.FC = () => {
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const lastTouchPos = useRef<{ x: number, y: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
   const lastTouchTime = useRef<number>(0);
@@ -575,6 +576,7 @@ const ChartContainer: React.FC = () => {
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
   const hoveredAxisIdRef = useRef<string | null>(null);
+  const hoveredXAxisIdRef = useRef<string | null>(null);
   const pressedKeys = useRef<Set<string>>(new Set());
   
   const targetXAxes = useRef<Record<string, { min: number, max: number }>>({});
@@ -857,9 +859,9 @@ const ChartContainer: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all') => {
+  const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToZoom = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
+      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
 
       axesToZoom.forEach(axis => {
         if (!axis) return;
@@ -871,7 +873,7 @@ const ChartContainer: React.FC = () => {
         targetXAxes.current[axis.id] = { min: worldMouse.x - weight * newXRange, max: worldMouse.x + (1 - weight) * newXRange };
       });
     }
-    if (target === 'all' || (typeof target === 'object' && 'yAxisId' in target)) {
+    if ((target === 'all' && !shiftKey) || (typeof target === 'object' && 'yAxisId' in target)) {
       const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as { yAxisId: string }).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
@@ -891,7 +893,7 @@ const ChartContainer: React.FC = () => {
     const rect = containerRef.current?.getBoundingClientRect();
     const mouseX = rect ? e.clientX - rect.left : width / 2;
     const mouseY = rect ? e.clientY - rect.top : height / 2;
-    performZoom(zoomFactor, mouseX, mouseY, target);
+    performZoom(zoomFactor, mouseX, mouseY, target, e.shiftKey);
   };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
@@ -1022,7 +1024,8 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   }, [startAnimation, activeXAxesUsed]);
 
-  const getHoveredAxis = useCallback((mouseX: number) => {
+  const getHoveredYAxis = useCallback((mouseX: number, mouseY: number) => {
+    if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
     let foundHovered = null;
     leftAxes.forEach((axis, sideIdx) => {
       let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
@@ -1039,13 +1042,25 @@ const ChartContainer: React.FC = () => {
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
     return foundHovered;
-  }, [leftAxes, rightAxes, axisLayout, padding, width]);
+  }, [leftAxes, rightAxes, axisLayout, padding, width, height]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false) => {
+  const getHoveredXAxis = useCallback((mouseX: number, mouseY: number) => {
+    if (mouseX < padding.left || mouseX > width - padding.right) return null;
+    let foundHovered = null;
+    activeXAxesUsed.forEach((axis, idx) => {
+      const baseY = height - padding.bottom + (activeXAxesUsed.length - 1 - idx) * xAxisHeight;
+      if (mouseY >= baseY && mouseY <= baseY + xAxisHeight) {
+        foundHovered = axis.id;
+      }
+    });
+    return foundHovered;
+  }, [activeXAxesUsed, padding, width, height, xAxisHeight]);
+
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false, shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToPan = target === 'all' ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
+      const axesToPan = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
       axesToPan.forEach(axis => {
         if (!axis) return;
         const xRange = axis.max - axis.min, xMove = chartWidth > 0 ? (dx / chartWidth) * xRange : 0;
@@ -1055,7 +1070,7 @@ const ChartContainer: React.FC = () => {
     }
 
     const draggedAxisId = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
-    const axesToPan = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
+    const axesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedAxisId ? [activeYAxes.find(a => a.id === draggedAxisId)!] : []);
     const SNAP_THRESHOLD = 15;
 
     // Snap targets: screen-Y positions of y=0 on every OTHER visible axis
@@ -1140,7 +1155,7 @@ const ChartContainer: React.FC = () => {
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     } else if (e.touches.length === 2) {
       isPanningRef.current = false;
-      setPanTarget(null);
+      setPanTarget(prev => (prev && prev !== 'all') ? prev : target);
       const t1 = e.touches[0], t2 = e.touches[1];
       lastPinchDist.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     }
@@ -1155,7 +1170,7 @@ const ChartContainer: React.FC = () => {
       const dx = touch.clientX - lastTouchPos.current.x;
       const dy = touch.clientY - lastTouchPos.current.y;
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-      performPan(dx, dy, panTarget, false);
+      performPan(dx, dy, panTarget, false, e.shiftKey);
     } else if (e.touches.length === 2 && lastPinchDist.current) {
       if (e.cancelable) e.preventDefault();
       const rect = containerRef.current.getBoundingClientRect();
@@ -1167,7 +1182,7 @@ const ChartContainer: React.FC = () => {
 
       const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
       const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
-      performZoom(zoomFactor, centerX, centerY, 'all');
+      performZoom(zoomFactor, centerX, centerY, panTarget || 'all', e.shiftKey);
     }
   }, [panTarget, performPan, performZoom]);
 
@@ -1178,7 +1193,8 @@ const ChartContainer: React.FC = () => {
     const mouseY = e.clientY - rect.top;
 
     // Detect Hovered Axis
-    hoveredAxisIdRef.current = getHoveredAxis(mouseX);
+    hoveredAxisIdRef.current = getHoveredYAxis(mouseX, mouseY);
+    hoveredXAxisIdRef.current = getHoveredXAxis(mouseX, mouseY);
 
     if (zoomBoxStartRef.current && containerRef.current) {
       const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
@@ -1191,8 +1207,23 @@ const ChartContainer: React.FC = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    performPan(dx, dy, panTarget, e.altKey);
-  }, [panTarget, padding, width, height, getHoveredAxis, performPan]);
+    performPan(dx, dy, panTarget, e.altKey, e.shiftKey);
+  }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
+
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (e.touches.length === 0) {
+      isPanningRef.current = false;
+      setPanTarget(null);
+      lastTouchPos.current = null;
+      lastPinchDist.current = null;
+    } else if (e.touches.length === 1) {
+      // Transition from pinch to pan
+      const touch = e.touches[0];
+      lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+      isPanningRef.current = true;
+      lastPinchDist.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -1206,23 +1237,19 @@ const ChartContainer: React.FC = () => {
             const w1 = screenToWorld(minX, maxY, vp), w2 = screenToWorld(maxX, minY, vp);
             targetXAxes.current[axis.id] = { min: w1.x, max: w2.x };
           });
-          activeYAxes.forEach(axis => {
-             const mainXConf = activeXAxesUsed[0] || xAxes[0];
-             const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding };
-             const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
-             targetYs.current[axis.id] = { min: a1.y, max: a2.y };  
-          });
+          if (!isShiftPressed) {
+            activeYAxes.forEach(axis => {
+               const mainXConf = activeXAxesUsed[0] || xAxes[0];
+               const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding };
+               const a1 = screenToWorld(minX, maxY, axisVp), a2 = screenToWorld(maxX, minY, axisVp);
+               targetYs.current[axis.id] = { min: a1.y, max: a2.y };
+            });
+          }
           startAnimation();
         }
       }
       isPanningRef.current = false;
       setPanTarget(null);
-    };
-    const handleTouchEnd = () => {
-      isPanningRef.current = false;
-      setPanTarget(null);
-      lastTouchPos.current = null;
-      lastPinchDist.current = null;
     };
 
     window.addEventListener('mousemove', handleMouseMoveRaw);
@@ -1235,11 +1262,12 @@ const ChartContainer: React.FC = () => {
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [handleMouseMoveRaw, handleTouchMoveRaw, activeYAxes, width, height, padding, startAnimation]);
+  }, [handleMouseMoveRaw, handleTouchMoveRaw, handleTouchEnd, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control') setIsCtrlPressed(true);
+      if (e.key === 'Shift') setIsShiftPressed(true);
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
@@ -1248,14 +1276,18 @@ const ChartContainer: React.FC = () => {
         isPanningRef.current = true;
       }
       if (e.key === 'ArrowLeft') {
-        activeXAxesUsed.forEach(axis => {
+        const onXAxis = !!hoveredXAxisIdRef.current;
+        const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetXAxes.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
         });
         startAnimation();
       } else if (e.key === 'ArrowRight') {
-        activeXAxesUsed.forEach(axis => {
+        const onXAxis = !!hoveredXAxisIdRef.current;
+        const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetXAxes.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
@@ -1281,6 +1313,7 @@ const ChartContainer: React.FC = () => {
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Control') setIsCtrlPressed(false);
+      if (e.key === 'Shift') setIsShiftPressed(false);
       pressedKeys.current.delete(e.key);
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
         isPanningRef.current = false;
@@ -1288,7 +1321,7 @@ const ChartContainer: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, [activeYAxes, startAnimation]);
+  }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
     return activeXAxesUsed.map(axis => {
@@ -1297,7 +1330,7 @@ const ChartContainer: React.FC = () => {
       const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
       const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
       const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
-      const color = seriesForThisAxis[0]?.lineColor || '#333';
+      const color = seriesForThisAxis[0]?.lineColor || '#475569';
 
       if (range <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
@@ -1345,7 +1378,7 @@ const ChartContainer: React.FC = () => {
   const rightAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'right'), [activeYAxesLayout]);
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : 'crosshair'), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>

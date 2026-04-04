@@ -1,9 +1,9 @@
 :root {
   --sidebar-width: 300px;
   --bg-color: #ffffff;
-  --sidebar-bg: #f8f9fa;
-  --border-color: #dee2e6;
-  --text-color: #212529;
+  --sidebar-bg: #f8fafc;
+  --border-color: #e2e8f0;
+  --text-color: #1e293b;
 }
 
 * {
