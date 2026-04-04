@@ -41,8 +41,6 @@ self.onmessage = async (event) => {
       return { data, refPoint };
     });
 
-    const lodLevels = generateSynchronizedLOD(relativeData, rowCount);
-
     // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
     const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: any) => cc.type !== 'ignore') : [];
 
@@ -54,18 +52,25 @@ self.onmessage = async (event) => {
       data: columns.map((colName, colIdx) => {
         const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
+
+        const { minTree, maxTree } = buildMinMaxTrees(relativeData[colIdx].data);
+
         return {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: colBounds[colIdx],
-          levels: lodLevels[colIdx]
+          data: relativeData[colIdx].data,
+          minTree,
+          maxTree
         };
       })
     };
 
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
-      col.levels.forEach(level => transferList.push(level.buffer as ArrayBuffer));
+      transferList.push(col.data.buffer as ArrayBuffer);
+      col.minTree.forEach(level => transferList.push(level.buffer as ArrayBuffer));
+      col.maxTree.forEach(level => transferList.push(level.buffer as ArrayBuffer));
     });
 
     (self as any).postMessage({ type: 'success', dataset }, transferList);
@@ -75,72 +80,65 @@ self.onmessage = async (event) => {
 };
 
 /**
- * Generates LOD levels where all columns use the same sampled row indices.
- * This preserves X-Y pairing and ensures visual integrity.
+ * Builds multi-level Min-Max trees (storing indices) for a given data column.
+ * Branching factor is 64.
  */
-function generateSynchronizedLOD(relativeData: { data: Float32Array, refPoint: number }[], rowCount: number): Float32Array[][] {
-  const numCols = relativeData.length;
-  const levels: Float32Array[][] = relativeData.map(col => [col.data]);
-  
-  const factor = 8;
-  let currentIndices = new Uint32Array(rowCount);
-  for (let i = 0; i < rowCount; i++) currentIndices[i] = i;
+function buildMinMaxTrees(data: Float32Array): { minTree: Uint32Array[], maxTree: Uint32Array[] } {
+  const minTree: Uint32Array[] = [];
+  const maxTree: Uint32Array[] = [];
+  const branchingFactor = 64;
 
-  while (levels[0].length < 8 && currentIndices.length > factor * 2) {
-    const nextIndicesSet = new Set<number>();
-    
-    // Explicitly include global first and last indices for visual consistency
-    nextIndicesSet.add(0);
-    nextIndicesSet.add(rowCount - 1);
-
-    for (let i = 0; i < currentIndices.length; i += factor) {
-      const end = Math.min(i + factor, currentIndices.length);
-      
-      // Always include first and last of chunk
-      nextIndicesSet.add(currentIndices[i]);
-      nextIndicesSet.add(currentIndices[end - 1]);
-      
-      // For each column, find min and max in this chunk
-      for (let j = 0; j < numCols; j++) {
-        const colData = relativeData[j].data;
-        let minVal = Infinity, maxVal = -Infinity;
-        let minIdx = currentIndices[i], maxIdx = currentIndices[i];
-        
-        for (let k = i; k < end; k++) {
-          const idx = currentIndices[k];
-          const val = colData[idx];
-          if (val < minVal) { minVal = val; minIdx = idx; }
-          if (val > maxVal) { maxVal = val; maxIdx = idx; }
-        }
-        nextIndicesSet.add(minIdx);
-        nextIndicesSet.add(maxIdx);
-      }
-    }
-    
-    const sortedIndices = Array.from(nextIndicesSet).sort((a, b) => a - b);
-    const nextIdxArray = new Uint32Array(sortedIndices);
-
-    // Create new data arrays for this level
-    for (let j = 0; j < numCols; j++) {
-      const colData = relativeData[j].data;
-      const levelData = new Float32Array(nextIdxArray.length);
-      for (let k = 0; k < nextIdxArray.length; k++) {
-        levelData[k] = colData[nextIdxArray[k]];
-      }
-      levels[j].push(levelData);
-    }
-    
-    const prevLength = currentIndices.length;
-    currentIndices = nextIdxArray;
-
-    if (currentIndices.length >= prevLength * 0.8 && currentIndices.length > 2000) {
-      // If reduction is not significant, stop to prevent too many levels
-      // (This can happen if there are many columns with different peaks)
-      break;
-    }
+  let currentMinIndices = new Uint32Array(data.length);
+  let currentMaxIndices = new Uint32Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    currentMinIndices[i] = i;
+    currentMaxIndices[i] = i;
   }
+
+  // Level 0 is the raw data indices (redundant but simplifies downsampling logic)
+  // Actually, we can start with Level 1 which aggregates chunks of Level 0
   
-  return levels;
+  let currentLen = data.length;
+  while (currentLen > branchingFactor) {
+    const nextLen = Math.ceil(currentLen / branchingFactor);
+    const nextMinIndices = new Uint32Array(nextLen);
+    const nextMaxIndices = new Uint32Array(nextLen);
+
+    for (let i = 0; i < nextLen; i++) {
+      const start = i * branchingFactor;
+      const end = Math.min(start + branchingFactor, currentLen);
+
+      let minIdx = currentMinIndices[start];
+      let maxIdx = currentMaxIndices[start];
+      let minVal = data[minIdx];
+      let maxVal = data[maxIdx];
+
+      for (let j = start + 1; j < end; j++) {
+        const idxMin = currentMinIndices[j];
+        const valMin = data[idxMin];
+        if (valMin < minVal) {
+          minVal = valMin;
+          minIdx = idxMin;
+        }
+
+        const idxMax = currentMaxIndices[j];
+        const valMax = data[idxMax];
+        if (valMax > maxVal) {
+          maxVal = valMax;
+          maxIdx = idxMax;
+        }
+      }
+      nextMinIndices[i] = minIdx;
+      nextMaxIndices[i] = maxIdx;
+    }
+    minTree.push(nextMinIndices);
+    maxTree.push(nextMaxIndices);
+    currentMinIndices = nextMinIndices;
+    currentMaxIndices = nextMaxIndices;
+    currentLen = nextLen;
+  }
+
+  return { minTree, maxTree };
 }
 
 function parseCSV(text: string, settings?: any) {

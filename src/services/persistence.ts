@@ -8,7 +8,10 @@ export interface DataColumn {
   isFloat64: boolean;
   refPoint: number;
   bounds: { min: number; max: number };
-  levels: Float32Array[];
+  data: Float32Array;
+  minTree: Uint32Array[];
+  maxTree: Uint32Array[];
+  levels?: Float32Array[]; // For backward compatibility
 }
 
 export interface Dataset {
@@ -87,25 +90,56 @@ async function getDB() {
 function fixDatasetTypes(dataset: Dataset): Dataset {
   if (!dataset.data || !Array.isArray(dataset.data)) return dataset;
 
+  const restoreUint32Array = (arr: any) => {
+    if (arr instanceof Uint32Array) return arr;
+    if (typeof arr === 'object' && arr !== null) {
+      return new Uint32Array(Object.values(arr) as number[]);
+    }
+    return new Uint32Array(0);
+  };
+
+  const restoreFloat32Array = (arr: any) => {
+    if (arr instanceof Float32Array) return arr;
+    if (typeof arr === 'object' && arr !== null) {
+      return new Float32Array(Object.values(arr) as number[]);
+    }
+    return new Float32Array(0);
+  };
+
   dataset.data = dataset.data.map((col: any) => {
     // Migration: ensure bounds exist
     if (!col.bounds) {
       col.bounds = { min: 0, max: 0 };
     }
-    
-    // Restoration of TypedArrays for new format
-    if (col && col.levels) {
-      col.levels = col.levels.map((level: any) => {
-        if (level instanceof Float32Array) return level;
-        // Handle cases where IndexedDB de-types TypedArrays into Objects
-        if (typeof level === 'object' && level !== null) {
-          const values = Object.values(level) as number[];
-          return new Float32Array(values);
-        }
-        return new Float32Array(0);
-      });
-      if (col.refPoint === undefined) col.refPoint = 0;
+
+    // Migration: levels -> data
+    if (col.levels && col.levels.length > 0 && !col.data) {
+      col.data = restoreFloat32Array(col.levels[0]);
+    } else if (col.data) {
+      col.data = restoreFloat32Array(col.data);
+    } else {
+      col.data = new Float32Array(0);
     }
+
+    if (col.minTree) {
+      col.minTree = col.minTree.map(restoreUint32Array);
+    } else {
+      col.minTree = [];
+    }
+
+    if (col.maxTree) {
+      col.maxTree = col.maxTree.map(restoreUint32Array);
+    } else {
+      col.maxTree = [];
+    }
+    
+    // Cleanup legacy levels
+    if (col.levels) {
+      delete col.levels;
+    }
+
+    if (col.refPoint === undefined) col.refPoint = 0;
+
     return col;
   });
   

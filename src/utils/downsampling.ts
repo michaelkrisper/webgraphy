@@ -1,0 +1,125 @@
+/**
+ * Fast Min-Max downsampling using pre-built Min-Max trees.
+ * For each bucket, it finds the first, last, min, and max points.
+ */
+export function downsampleMinMax(
+  data: Float32Array,
+  minTree: Uint32Array[],
+  maxTree: Uint32Array[],
+  startIndex: number,
+  endIndex: number,
+  targetBuckets: number
+): Uint32Array {
+  const rowCount = endIndex - startIndex + 1;
+  if (rowCount <= targetBuckets * 4) {
+    const result = new Uint32Array(rowCount);
+    for (let i = 0; i < rowCount; i++) {
+      result[i] = startIndex + i;
+    }
+    return result;
+  }
+
+  const bucketSize = rowCount / targetBuckets;
+  const resultIndices = new Set<number>();
+
+  for (let i = 0; i < targetBuckets; i++) {
+    const bucketStart = Math.floor(startIndex + i * bucketSize);
+    const bucketEnd = Math.floor(startIndex + (i + 1) * bucketSize) - 1;
+
+    if (bucketStart > bucketEnd) continue;
+
+    // 1. Add first and last of bucket
+    resultIndices.add(bucketStart);
+    resultIndices.add(bucketEnd);
+
+    // 2. Find min and max in bucket using trees
+    const minIdx = findMinIndex(data, minTree, bucketStart, bucketEnd);
+    const maxIdx = findMaxIndex(data, maxTree, bucketStart, bucketEnd);
+
+    resultIndices.add(minIdx);
+    resultIndices.add(maxIdx);
+  }
+
+  return new Uint32Array(Array.from(resultIndices).sort((a, b) => a - b));
+}
+
+function findMinIndex(data: Float32Array, tree: Uint32Array[], start: number, end: number): number {
+  return findInTree(data, tree, start, end, true);
+}
+
+function findMaxIndex(data: Float32Array, tree: Uint32Array[], start: number, end: number): number {
+  return findInTree(data, tree, start, end, false);
+}
+
+const BRANCHING_FACTOR = 64;
+
+function findInTree(data: Float32Array, tree: Uint32Array[], start: number, end: number, isMin: boolean): number {
+  if (tree.length === 0 || (end - start) < BRANCHING_FACTOR) {
+    return scanRaw(data, start, end, isMin);
+  }
+
+  // Find the highest level that is fully contained within [start, end]
+  let bestIdx = -1;
+  let bestVal = isMin ? Infinity : -Infinity;
+
+  let currentStart = start;
+  let currentEnd = end;
+
+  // This is a simplified version of range query.
+  // For a truly optimal one, we'd traverse the tree.
+  // Given the bucket approach, we can just scan the range.
+  // But to be fast, we use the trees to skip chunks.
+
+  for (let i = start; i <= end; ) {
+    let level = -1;
+    let factor = 1;
+
+    // Check how large a chunk we can skip using trees
+    for (let l = 0; l < tree.length; l++) {
+      const f = Math.pow(BRANCHING_FACTOR, l + 1);
+      if (i % f === 0 && i + f - 1 <= end) {
+        level = l;
+        factor = f;
+      } else {
+        break;
+      }
+    }
+
+    if (level !== -1) {
+      const treeIdx = i / factor;
+      const valIdx = tree[level][treeIdx];
+      const val = data[valIdx];
+      if (isMin) {
+        if (val < bestVal) { bestVal = val; bestIdx = valIdx; }
+      } else {
+        if (val > bestVal) { bestVal = val; bestIdx = valIdx; }
+      }
+      i += factor;
+    } else {
+      // Fallback to lower level or raw
+      const val = data[i];
+      if (isMin) {
+        if (val < bestVal) { bestVal = val; bestIdx = i; }
+      } else {
+        if (val > bestVal) { bestVal = val; bestIdx = i; }
+      }
+      i++;
+    }
+  }
+
+  return bestIdx;
+}
+
+function scanRaw(data: Float32Array, start: number, end: number, isMin: boolean): number {
+  let bestIdx = start;
+  let bestVal = data[start];
+  for (let i = start + 1; i <= end; i++) {
+    const val = data[i];
+    if (isMin) {
+      if (val < bestVal) { bestVal = val; bestIdx = i; }
+    } else {
+      if (val > bestVal) { bestVal = val; bestIdx = i; }
+    }
+  }
+  return bestIdx;
+}
