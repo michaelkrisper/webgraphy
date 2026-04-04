@@ -5,6 +5,7 @@ import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
 import { FilePlus, Layout, Trash2, ChevronRight, Clock, Hash, HelpCircle, X, Eye, FileImage, Image, RotateCcw } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
+import { DataViewModal } from './DataViewModal';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -28,6 +29,7 @@ export const Sidebar: React.FC = () => {
   const [showImprint, setShowImprint] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
+  const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allColumns = useMemo(() => {
@@ -43,6 +45,10 @@ export const Sidebar: React.FC = () => {
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  const selectedDatasetForView = useMemo(() => {
+    return datasets.find(d => d.id === viewingDatasetId);
+  }, [datasets, viewingDatasetId]);
 
   const customViews = useMemo(() => {
     return views ? views.filter(v => v.id !== 'default-view') : [];
@@ -244,7 +250,13 @@ export const Sidebar: React.FC = () => {
               {datasets.map(d => (
                 <div key={d.id} style={{ padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px' }} title={d.name}>{d.name}</div>
+                    <div
+                      onDoubleClick={() => setViewingDatasetId(d.id)}
+                      style={{ fontWeight: 'bold', fontSize: '0.9rem', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'pointer', userSelect: 'none' }}
+                      title={`${d.name} (Double-click to view data table)`}
+                    >
+                      {d.name}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
                       <button 
@@ -516,6 +528,12 @@ export const Sidebar: React.FC = () => {
           fileType={pendingFile.type}
           onConfirm={confirmImport}
           onCancel={cancelImport}
+        />
+      )}
+      {selectedDatasetForView && (
+        <DataViewModal
+          dataset={selectedDatasetForView}
+          onClose={() => setViewingDatasetId(null)}
         />
       )}
     </>
