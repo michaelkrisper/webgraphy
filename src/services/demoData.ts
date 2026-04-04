@@ -61,7 +61,9 @@ export function generateDemoDataset(): Dataset {
     name: 'A - Demo Weather Data',
     columns: columns.map(c => `${prefix}${c}`),
     data,
-    rowCount
+    rowCount,
+    xAxisColumn: `${prefix}${columns[0]}`,
+    xAxisId: 'axis-1'
   };
 }
 
@@ -92,9 +94,7 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       id: crypto.randomUUID(),
       sourceId: dataset.id,
       name: 'Sine Wave',
-      xColumn: dataset.columns[0],
       yColumn: dataset.columns[1],
-      xAxisId: 'axis-1',
       yAxisId: 'axis-1',
       pointStyle: 'none',
       pointColor: '#1f77b4',
@@ -105,9 +105,7 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       id: crypto.randomUUID(),
       sourceId: dataset.id,
       name: 'Random Walk',
-      xColumn: dataset.columns[0],
       yColumn: dataset.columns[2],
-      xAxisId: 'axis-1',
       yAxisId: 'axis-2',
       pointStyle: 'none',
       pointColor: '#ff7f0e',

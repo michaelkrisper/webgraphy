@@ -23,7 +23,7 @@ const COLOR_PALETTE = [
  * Manages data imports, dataset listing, global X-axis settings, and series configuration.
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, xAxes, yAxes, axisTitles, removeDataset, moveDataset, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
+  const { datasets, series, xAxes, yAxes, axisTitles, removeDataset, updateDataset, moveDataset, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
@@ -133,15 +133,11 @@ export const Sidebar: React.FC = () => {
 
     const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
     
-    const xColumn = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
-
     addSeries({
       id: crypto.randomUUID(),
       sourceId: datasetId,
       name: columnName,
-      xColumn: xColumn,
       yColumn: columnName,
-      xAxisId: 'axis-1',
       yAxisId: nextAxisId,
       pointStyle: 'circle',
       pointColor: color,
@@ -254,6 +250,31 @@ export const Sidebar: React.FC = () => {
                       {d.name}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {/* X Axis selection */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <select
+                          name={`dataset-x-column-${d.id}`}
+                          aria-label={`X Column for ${d.name}`}
+                          value={d.xAxisColumn}
+                          onChange={(e) => updateDataset(d.id, { xAxisColumn: e.target.value })}
+                          style={{ width: '70px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2', borderRadius: '2px' }}
+                          title="X Column (Source Wide)"
+                        >
+                          {d.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button
+                          onClick={() => {
+                            const currentXIdx = parseInt(d.xAxisId?.split('-')[1]) || 1;
+                            const nextXIdx = (currentXIdx % 9) + 1;
+                            updateDataset(d.id, { xAxisId: `axis-${nextXIdx}` });
+                          }}
+                          style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#1976d2' }}
+                          title="Cycle X-Axis (1-9)"
+                          aria-label="Cycle X-Axis">
+                          {parseInt(d.xAxisId?.split('-')[1]) || 1}
+                        </button>
+                      </div>
+
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#eef1f4', borderRadius: '3px', padding: '1px' }}>
                         <button

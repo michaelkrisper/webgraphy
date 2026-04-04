@@ -23,15 +23,8 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
     updateSeries(series.id, updates);
   };
 
-  const currentXAxisIndex = parseInt(series.xAxisId?.split('-')[1]) || 1;
-
   const currentYAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
   const currentYAxis = yAxes.find(a => a.id === series.yAxisId);
-
-  const cycleXAxis = () => {
-    const nextIndex = (currentXAxisIndex % 9) + 1;
-    handleUpdate({ xAxisId: `axis-${nextIndex}` });
-  };
 
   const cycleYAxis = () => {
     const nextIndex = (currentYAxisIndex % 9) + 1;
@@ -87,15 +80,6 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           <ChevronDown size={12} strokeWidth={3} />
         </button>
       </div>
-
-      {/* X Axis Cycle Button (1-9) */}
-      <button
-        onClick={cycleXAxis}
-        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#1976d2' }}
-        title="Cycle X-Axis (1-9)"
-       aria-label="Cycle X-Axis">
-        {currentXAxisIndex}
-      </button>
 
       {/* Y Axis Cycle Button (1-9) */}
       <button
@@ -176,24 +160,14 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         title="Color"
       />
 
-      {/* X/Y Column Selector */}
+      {/* Y Column Selector */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-        <select
-          name={`series-x-column-${series.id}`}
-          aria-label={`X Column for ${series.name || series.yColumn}`}
-          value={series.xColumn}
-          onChange={(e) => handleUpdate({ xColumn: e.target.value })}
-          style={{ width: '70px', fontSize: '8px', padding: '0', height: '12px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2' }}
-          title="X Column"
-        >
-          {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
         <select
           name={`series-y-column-${series.id}`}
           aria-label={`Y Column for ${series.name || series.yColumn}`}
           value={series.yColumn}
           onChange={(e) => handleUpdate({ yColumn: e.target.value })}
-          style={{ width: '70px', fontSize: '8px', padding: '0', height: '12px', minWidth: 0, flexShrink: 1 }}
+          style={{ width: '70px', fontSize: '8px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, borderRadius: '2px', border: '1px solid #ced4da' }}
           title="Y Column"
         >
           {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}

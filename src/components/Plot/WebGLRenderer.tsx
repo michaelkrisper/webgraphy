@@ -146,7 +146,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const seriesMetadata = useMemo(() => {
     return series.map(s => {
       const ds = datasets.find(d => d.id === s.sourceId);
-      const xAxis = xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+      const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
       const yAxis = yAxes.find(a => a.id === s.yAxisId);
       if (!ds || !xAxis || !yAxis) return null;
 
@@ -156,7 +156,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
       };
 
-      const xIdx = findColumn(s.xColumn);
+      const xIdx = findColumn(ds.xAxisColumn);
       const yIdx = findColumn(s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) {

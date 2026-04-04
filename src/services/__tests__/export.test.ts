@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { downloadFile, formatDate, exportToSVG, exportToPNG } from '../export';
-import type { Dataset, SeriesConfig, YAxisConfig } from '../persistence';
+import type { Dataset, SeriesConfig, YAxisConfig, XAxisConfig } from '../persistence';
 
 describe('exportToSVG', () => {
     const mockDatasets: Dataset[] = [
@@ -9,16 +9,18 @@ describe('exportToSVG', () => {
             name: 'Dataset 1',
             columns: ['Time', 'Value', 'OtherValue'],
             rowCount: 3,
+            xAxisColumn: 'Time',
+            xAxisId: 'axis-1',
             data: [
-                { levels: [new Float32Array([0, 1, 2])], bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0 },
-                { levels: [new Float32Array([10, 20, 30])], bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0 },
-                { levels: [new Float32Array([100, 200, 300])], bounds: { min: 100, max: 300 }, isFloat64: false, refPoint: 0 }
+                { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                { data: new Float32Array([100, 200, 300]), bounds: { min: 100, max: 300 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
             ]
         }
     ];
 
     const mockSeries: SeriesConfig[] = [
-        { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+        { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
     ];
 
     const mockYAxes: YAxisConfig[] = [
@@ -27,20 +29,24 @@ describe('exportToSVG', () => {
         { id: 'y3', name: 'Y Axis 3', min: 0, max: 10, position: 'left', color: '#00ff00', showGrid: false }
     ];
 
+    const mockXAxes: XAxisConfig[] = [
+        { id: 'axis-1', name: 'X Axis 1', min: 0, max: 10, showGrid: true, xMode: 'numeric' }
+    ];
+
     it('should generate valid SVG string', () => {
-        const svg = exportToSVG(mockDatasets, mockSeries, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svg = exportToSVG(mockDatasets, mockSeries, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svg).toContain('<svg width="800" height="600"');
-        expect(svg).toContain('X Axis');
+        expect(svg).toContain('Time');
         expect(svg).toContain('Series 1');
     });
 
     it('should handle multiple left and right axes', () => {
         const multiLeftSeries: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' },
-            { id: 's2', sourceId: 'ds1', name: 'Series 2', xColumn: 'Time', yColumn: 'OtherValue', yAxisId: 'y3', pointStyle: 'circle', pointColor: '#00ff00', lineStyle: 'solid', lineColor: '#00ff00' },
-            { id: 's3', sourceId: 'ds1', name: 'Series 3', xColumn: 'Time', yColumn: 'OtherValue', yAxisId: 'y2', pointStyle: 'circle', pointColor: '#0000ff', lineStyle: 'solid', lineColor: '#0000ff' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' },
+            { id: 's2', sourceId: 'ds1', name: 'Series 2', yColumn: 'OtherValue', yAxisId: 'y3', pointStyle: 'circle', pointColor: '#00ff00', lineStyle: 'solid', lineColor: '#00ff00' },
+            { id: 's3', sourceId: 'ds1', name: 'Series 3', yColumn: 'OtherValue', yAxisId: 'y2', pointStyle: 'circle', pointColor: '#0000ff', lineStyle: 'solid', lineColor: '#0000ff' }
         ];
-        const svg = exportToSVG(mockDatasets, multiLeftSeries, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svg = exportToSVG(mockDatasets, multiLeftSeries, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svg).toContain('Series 1');
         expect(svg).toContain('Series 2');
         expect(svg).toContain('Series 3');
@@ -48,29 +54,30 @@ describe('exportToSVG', () => {
 
     it('should handle missing dataset or axis', () => {
         const seriesMissingDS: SeriesConfig[] = [
-            { id: 's1', sourceId: 'missing', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'missing', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgMissingDS = exportToSVG(mockDatasets, seriesMissingDS, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgMissingDS = exportToSVG(mockDatasets, seriesMissingDS, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgMissingDS).not.toContain('<path d="M');
 
         const seriesMissingAxis: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'missing', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'missing', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgMissingAxis = exportToSVG(mockDatasets, seriesMissingAxis, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgMissingAxis = exportToSVG(mockDatasets, seriesMissingAxis, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgMissingAxis).not.toContain('<path d="M');
     });
 
     it('should handle missing columns', () => {
-         const seriesMissingCol: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'MissingX', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
-        ];
-        const svgMissingCol = exportToSVG(mockDatasets, seriesMissingCol, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+         const datasetsMissingCol: Dataset[] = [{
+             ...mockDatasets[0],
+             xAxisColumn: 'MissingX'
+         }];
+         const svgMissingCol = exportToSVG(datasetsMissingCol, mockSeries, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgMissingCol).not.toContain('<path d="M');
 
         const seriesMissingYCol: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'MissingY', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'MissingY', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgMissingYCol = exportToSVG(mockDatasets, seriesMissingYCol, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgMissingYCol = exportToSVG(mockDatasets, seriesMissingYCol, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgMissingYCol).not.toContain('<path d="M');
     });
 
@@ -81,47 +88,52 @@ describe('exportToSVG', () => {
                 name: 'Dataset 1',
                 columns: ['A: Time', 'A: Value'],
                 rowCount: 3,
+                xAxisColumn: 'A: Time',
+                xAxisId: 'axis-1',
                 data: [
-                    { levels: [new Float32Array([0, 1, 2])], bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0 },
-                    { levels: [new Float32Array([10, 20, 30])], bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0 }
+                    { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                    { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
                 ]
             }
         ];
-        const svg = exportToSVG(datasetsWithPrefix, mockSeries, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svg = exportToSVG(datasetsWithPrefix, mockSeries, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svg).toContain('<path d="M');
     });
 
 
     it('should handle different point styles', () => {
         const seriesSquare: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'square', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'square', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgSquare = exportToSVG(mockDatasets, seriesSquare, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgSquare = exportToSVG(mockDatasets, seriesSquare, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgSquare).toContain('<rect x="');
 
         const seriesCross: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'cross', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'cross', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgCross = exportToSVG(mockDatasets, seriesCross, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgCross = exportToSVG(mockDatasets, seriesCross, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgCross).toContain('<path d="M');
     });
 
     it('should handle different line styles', () => {
          const seriesDashed: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'none', pointColor: '#ff0000', lineStyle: 'dashed', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'none', pointColor: '#ff0000', lineStyle: 'dashed', lineColor: '#ff0000' }
         ];
-        const svgDashed = exportToSVG(mockDatasets, seriesDashed, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgDashed = exportToSVG(mockDatasets, seriesDashed, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgDashed).toContain('stroke-dasharray="8,6"');
 
         const seriesDotted: SeriesConfig[] = [
-            { id: 's1', sourceId: 'ds1', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'none', pointColor: '#ff0000', lineStyle: 'dotted', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'ds1', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'none', pointColor: '#ff0000', lineStyle: 'dotted', lineColor: '#ff0000' }
         ];
-        const svgDotted = exportToSVG(mockDatasets, seriesDotted, mockYAxes, { min: 0, max: 10 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgDotted = exportToSVG(mockDatasets, seriesDotted, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgDotted).toContain('stroke-dasharray="2,4"');
     });
 
     it('should format date x-axis', () => {
-        const svgDate = exportToSVG(mockDatasets, mockSeries, mockYAxes, { min: 1672531200, max: 1672617600 }, { x: 'Time', y: 'Y Axis' }, 'date', 800, 600);
+        const mockXAxesDate: XAxisConfig[] = [
+            { id: 'axis-1', name: 'X Axis 1', min: 1672531200, max: 1672617600, showGrid: true, xMode: 'date' }
+        ];
+        const svgDate = exportToSVG(mockDatasets, mockSeries, mockXAxesDate, mockYAxes, { x: 'Time', y: 'Y Axis' }, 800, 600);
         expect(svgDate).toContain('Time');
     });
 
@@ -131,15 +143,17 @@ describe('exportToSVG', () => {
             name: 'Dataset Large',
             columns: ['Time', 'Value'],
             rowCount: 6000,
+            xAxisColumn: 'Time',
+            xAxisId: 'axis-1',
             data: [
-                { levels: [new Float32Array(6000).fill(1).map((_, i) => i)], bounds: { min: 0, max: 6000 }, isFloat64: false, refPoint: 0 },
-                { levels: [new Float32Array(6000).fill(1).map((_, i) => i * 2)], bounds: { min: 0, max: 12000 }, isFloat64: false, refPoint: 0 },
+                { data: new Float32Array(6000).fill(1).map((_, i) => i), bounds: { min: 0, max: 6000 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                { data: new Float32Array(6000).fill(1).map((_, i) => i * 2), bounds: { min: 0, max: 12000 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
             ]
         };
         const seriesLarge: SeriesConfig[] = [
-            { id: 's1', sourceId: 'dsLarge', name: 'Series 1', xColumn: 'Time', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
+            { id: 's1', sourceId: 'dsLarge', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
         ];
-        const svgLarge = exportToSVG([largeDataset], seriesLarge, mockYAxes, { min: 0, max: 6000 }, { x: 'X Axis', y: 'Y Axis' }, 'numeric', 800, 600);
+        const svgLarge = exportToSVG([largeDataset], seriesLarge, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600);
         expect(svgLarge).toContain('<svg width="800" height="600"');
     });
 });
@@ -193,9 +207,10 @@ describe('exportToPNG', () => {
     it('should generate PNG data URL', async () => {
          const mockDatasets: Dataset[] = [];
          const mockSeries: SeriesConfig[] = [];
+         const mockXAxes: XAxisConfig[] = [];
          const mockYAxes: YAxisConfig[] = [];
 
-         const result = await exportToPNG(mockDatasets, mockSeries, mockYAxes, { min: 0, max: 10 }, { x: 'X', y: 'Y' }, 'numeric', 800, 600);
+         const result = await exportToPNG(mockDatasets, mockSeries, mockXAxes, mockYAxes, { x: 'X', y: 'Y' }, 800, 600);
          expect(result).toBe('data:image/png;base64,mock');
          expect(mockCanvas.getContext).toHaveBeenCalledWith('2d');
          expect(mockCtx.drawImage).toHaveBeenCalled();
@@ -284,43 +299,46 @@ describe('formatDate', () => {
 describe('exportToSVG edge cases', () => {
     it('should calculate final step based on magnitude correctly', () => {
         const datasets: Dataset[] = [{
-            id: 'ds1', name: 'Test', columns: ['X', 'Y'], rowCount: 1, data: [
-                { levels: [new Float32Array([0])], bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0 },
-                { levels: [new Float32Array([0])], bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0 }
+            id: 'ds1', name: 'Test', columns: ['X', 'Y'], rowCount: 1, xAxisColumn: 'X', xAxisId: 'axis-1', data: [
+                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
             ]
         }];
-        const series: SeriesConfig[] = [{ id: 's1', sourceId: 'ds1', name: 'S1', xColumn: 'X', yColumn: 'Y', yAxisId: 'y1', pointStyle: 'none', pointColor: '', lineStyle: 'none', lineColor: '' }];
+        const series: SeriesConfig[] = [{ id: 's1', sourceId: 'ds1', name: 'S1', yColumn: 'Y', yAxisId: 'y1', pointStyle: 'none', pointColor: '', lineStyle: 'none', lineColor: '' }];
+        const xAxes: XAxisConfig[] = [{ id: 'axis-1', name: 'X', min: 0, max: 1, showGrid: true, xMode: 'numeric' }];
 
         // < 1.5
         const axes1: YAxisConfig[] = [{ id: 'y1', name: 'Y1', min: 0, max: 1.2, position: 'left', color: '', showGrid: true }];
-        expect(exportToSVG(datasets, series, axes1, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', 800, 600)).toContain('svg');
+        expect(exportToSVG(datasets, series, xAxes, axes1, { x: 'X', y: 'Y' }, 800, 600)).toContain('svg');
 
         // < 3
         const axes2: YAxisConfig[] = [{ id: 'y1', name: 'Y1', min: 0, max: 2.5, position: 'left', color: '', showGrid: true }];
-        expect(exportToSVG(datasets, series, axes2, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', 800, 600)).toContain('svg');
+        expect(exportToSVG(datasets, series, xAxes, axes2, { x: 'X', y: 'Y' }, 800, 600)).toContain('svg');
 
         // < 7
         const axes3: YAxisConfig[] = [{ id: 'y1', name: 'Y1', min: 0, max: 6.5, position: 'left', color: '', showGrid: true }];
-        expect(exportToSVG(datasets, series, axes3, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', 800, 600)).toContain('svg');
+        expect(exportToSVG(datasets, series, xAxes, axes3, { x: 'X', y: 'Y' }, 800, 600)).toContain('svg');
 
         // >= 7
         const axes4: YAxisConfig[] = [{ id: 'y1', name: 'Y1', min: 0, max: 8.5, position: 'left', color: '', showGrid: true }];
-        expect(exportToSVG(datasets, series, axes4, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', 800, 600)).toContain('svg');
+        expect(exportToSVG(datasets, series, xAxes, axes4, { x: 'X', y: 'Y' }, 800, 600)).toContain('svg');
     });
 
     it('should handle negative width and height gracefully', () => {
         const datasets: Dataset[] = [];
         const series: SeriesConfig[] = [];
-        const axes: YAxisConfig[] = [];
-        const svg = exportToSVG(datasets, series, axes, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', -100, -100);
+        const xAxes: XAxisConfig[] = [];
+        const yAxes: YAxisConfig[] = [];
+        const svg = exportToSVG(datasets, series, xAxes, yAxes, { x: 'X', y: 'Y' }, -100, -100);
         expect(svg).toContain('<svg width="-100" height="-100"');
     });
 
     it('should handle zero width and height gracefully', () => {
         const datasets: Dataset[] = [];
         const series: SeriesConfig[] = [];
-        const axes: YAxisConfig[] = [];
-        const svg = exportToSVG(datasets, series, axes, { min: 0, max: 1 }, { x: 'X', y: 'Y' }, 'numeric', 0, 0);
+        const xAxes: XAxisConfig[] = [];
+        const yAxes: YAxisConfig[] = [];
+        const svg = exportToSVG(datasets, series, xAxes, yAxes, { x: 'X', y: 'Y' }, 0, 0);
         expect(svg).toContain('<svg width="0" height="0"');
     });
 });
