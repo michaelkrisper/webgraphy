@@ -70,7 +70,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         const conf = state.xAxes.find(a => a.id === axis.id);
         if (!conf) return null;
         const vp = { xMin: conf.min, xMax: conf.max, yMin: 0, yMax: 100, width, height, padding };
-        return axis.ticks.result.map((t: any) => {
+        return axis.ticks.result.map((t: number | TimeTick) => {
           const timestamp = typeof t === 'number' ? t : t.timestamp;
           const { x } = worldToScreen(timestamp, 0, vp);
           if (x < padding.left || x > width - padding.right) return null;
@@ -138,7 +138,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
               />
 
               {/* Ticks */}
-              {axis.ticks.result.map((t: any) => {
+              {axis.ticks.result.map((t: number | TimeTick) => {
                 const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
                 return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#475569" strokeWidth="1" />;
@@ -231,7 +231,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           
           return (
             <React.Fragment key={`x-labels-${axis.id}`}>
-              {axis.ticks.secondaryLabels && axis.ticks.secondaryLabels.map((sl: any, idx: number) => {
+              {axis.ticks.secondaryLabels && axis.ticks.secondaryLabels.map((sl: SecondaryLabel, idx: number) => {
                 const nextSl = axis.ticks.secondaryLabels![idx + 1];
                 const { x: currentX } = worldToScreen(sl.timestamp, 0, vp);
                 const { x: nextX } = nextSl ? worldToScreen(nextSl.timestamp, 0, vp) : { x: width - padding.right + 200 };
@@ -266,7 +266,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 }
                 return null;
               })}
-              {axis.ticks.result.map((t: any) => {
+              {axis.ticks.result.map((t: number | TimeTick) => {
                 const timestamp = typeof t === 'number' ? t : t.timestamp;
                 const { x } = worldToScreen(timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
@@ -440,7 +440,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
     });
     const axisTitleMap: Record<string, string> = {};
-    yAxes.forEach((axis: any) => {
+    yAxes.forEach((axis: YAxisConfig) => {
       if (seriesByAxis[axis.id]) {
         axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
       }
@@ -489,7 +489,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;
 
     return { snapScreenX, entries };
-  }, [pos, seriesMetadata, yAxes, xAxes, width, height, padding]);
+  }, [pos, seriesMetadata, yAxes, xAxes, width, height, padding, datasets, series]);
 
   if (!pos) return null;
   if (!snap) return null; // Only show when near a point
@@ -585,7 +585,7 @@ const ChartContainer: React.FC = () => {
   const isAnimating = useRef(false);
   const isPanningRef = useRef(false);
 
-  const lockedXSteps = useRef<Record<string, any>>({});
+  const lockedXSteps = useRef<Record<string, { step?: number; timeStep?: ReturnType<typeof getTimeStep> }>>({});
   const lockedYSteps = useRef<Record<string, number>>({});
 
   const startAnimation = useCallback(() => {
@@ -1339,7 +1339,7 @@ const ChartContainer: React.FC = () => {
       if (!isXDate) {
         let actualStep: number;
         if (isInteracting && lockedXSteps.current[axis.id]?.step) {
-          actualStep = lockedXSteps.current[axis.id].step;
+          actualStep = lockedXSteps.current[axis.id].step!;
         } else {
           const maxTicks = Math.max(2, Math.floor(chartWidth / 60));
           const step = range / maxTicks;
@@ -1362,7 +1362,7 @@ const ChartContainer: React.FC = () => {
       } else {
         let timeStep;
         if (isInteracting && lockedXSteps.current[axis.id]?.timeStep) {
-          timeStep = lockedXSteps.current[axis.id].timeStep;
+          timeStep = lockedXSteps.current[axis.id].timeStep!;
         } else {
           timeStep = getTimeStep(range, Math.max(2, Math.floor(chartWidth / 80)));
           lockedXSteps.current[axis.id] = { timeStep };

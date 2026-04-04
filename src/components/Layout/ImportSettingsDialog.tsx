@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Check } from 'lucide-react';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
 
@@ -10,6 +10,19 @@ interface ImportSettingsDialogProps {
   onCancel: () => void;
 }
 
+function detectDelimiter(fileContent: string, fileType: 'csv' | 'json'): string {
+  if (fileType !== 'csv') return ',';
+  const firstLine = fileContent.split('\n')[0];
+  const candidates = [',', ';', '\t', '|'];
+  let best = ',';
+  let maxCount = -1;
+  for (const d of candidates) {
+    const count = firstLine.split(d).length;
+    if (count > maxCount) { maxCount = count; best = d; }
+  }
+  return best;
+}
+
 export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   fileName,
   fileContent,
@@ -17,101 +30,78 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   onConfirm,
   onCancel
 }) => {
-  const [delimiter, setDelimiter] = useState<string>(',');
+  const [delimiter, setDelimiter] = useState<string>(() => detectDelimiter(fileContent, fileType));
   const [decimalPoint, setDecimalPoint] = useState<string>('.');
   const [startRow, setStartRow] = useState<number>(1);
-  const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>([]);
-  const [xAxisColumn, setXAxisColumn] = useState<string>('');
-
-  // Auto-detect delimiter on mount
-  useEffect(() => {
-    if (fileType === 'csv') {
-      const firstLine = fileContent.split('\n')[0];
-      const delimiters = [',', ';', '\t', '|'];
-      let best = ',';
-      let maxCount = -1;
-      for (const d of delimiters) {
-        const count = firstLine.split(d).length;
-        if (count > maxCount) {
-          maxCount = count;
-          best = d;
-        }
-      }
-      setDelimiter(best);
-    }
-  }, [fileContent, fileType]);
+  // Stores per-column user overrides, keyed by column name
+  const [columnOverrides, setColumnOverrides] = useState<Record<string, Partial<ColumnConfig>>>({});
+  // null = auto-select best X axis column
+  const [xAxisColumnOverride, setXAxisColumnOverride] = useState<string | null>(null);
 
   const previewData = useMemo(() => {
     if (fileType === 'json') {
       try {
-        const parsed = JSON.parse(fileContent);
+        const parsed = JSON.parse(fileContent) as unknown;
         const rows = Array.isArray(parsed) ? parsed : [parsed];
-        const headers = Object.keys(rows[0] || {});
-        return { headers, rows: rows.slice(0, 10) };
-      } catch (e) {
-        return { headers: [], rows: [] };
+        const headers = Object.keys((rows[0] as Record<string, unknown>) || {});
+        return { headers, rows: (rows as Record<string, string>[]).slice(0, 10) };
+      } catch {
+        return { headers: [], rows: [] as Record<string, string>[] };
       }
     }
 
     const lines = fileContent.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length === 0) return { headers: [], rows: [] };
+    if (lines.length === 0) return { headers: [], rows: [] as string[][] };
 
     const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
     const rows = lines.slice(1, 11).map(line =>
       line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
     );
-
     return { headers, rows };
   }, [fileContent, fileType, delimiter]);
 
-  // Initialize column configs when previewData headers change
-  useEffect(() => {
-    if (previewData.headers.length > 0) {
-      // Preserve existing manual changes if possible
-      const newConfigs: ColumnConfig[] = previewData.headers.map((name, index) => {
-        const existing = columnConfigs[index];
-        if (existing && existing.name === name) return existing;
+  // Derived column configs: auto-detected type + user overrides (keyed by column name)
+  const columnConfigs = useMemo<ColumnConfig[]>(() => {
+    return previewData.headers.map((name, index) => {
+      const override = columnOverrides[name];
+      if (override) return { index, name, type: 'numeric' as ColumnType, ...override };
 
-        // Try to guess type from first few rows
-        let type: ColumnType = 'numeric';
-        let dateFormat: string | undefined = undefined;
+      let type: ColumnType = 'numeric';
+      let dateFormat: string | undefined;
 
-        const firstVal = fileType === 'json'
-          ? previewData.rows.find(row => (row as any)[name])?.[name as any]
-          : previewData.rows.find(row => row[index])?.[index];
-        if (firstVal) {
-          const normalized = firstVal.replace(decimalPoint, '.');
-          const asNum = Number(normalized);
-          if (isNaN(asNum) || (normalized.split('.').length > 2)) {
-            // Check if it looks like a date
-            if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
-              type = 'date';
-              // Simple heuristic for common formats
-              if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
-              else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
-              else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
-            } else {
-              type = 'categorical';
-            }
+      const firstVal = fileType === 'json'
+        ? (previewData.rows as Record<string, string>[]).find(row => row[name])?.[name]
+        : (previewData.rows as string[][])[0]?.[index];
+
+      if (firstVal) {
+        const normalized = firstVal.replace(decimalPoint, '.');
+        if (isNaN(Number(normalized)) || normalized.split('.').length > 2) {
+          if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
+            type = 'date';
+            if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
+            else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
+            else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
+          } else {
+            type = 'categorical';
           }
         }
-
-        return { index, name, type, dateFormat };
-      });
-      setColumnConfigs(newConfigs);
-
-      // Auto-set default X-axis if not already set or no longer valid
-      const nonIgnored = newConfigs.filter(c => c.type !== 'ignore');
-      if (nonIgnored.length > 0 && (!xAxisColumn || !nonIgnored.find(c => c.name === xAxisColumn))) {
-        // Prefer 'date' columns
-        const dateCol = nonIgnored.find(c => c.type === 'date');
-        setXAxisColumn(dateCol?.name || nonIgnored[0].name);
       }
+      return { index, name, type, dateFormat };
+    });
+  }, [previewData, columnOverrides, decimalPoint, fileType]);
+
+  // Derived X axis column: user override if still valid, otherwise auto-select date col or first col
+  const xAxisColumn = useMemo(() => {
+    const nonIgnored = columnConfigs.filter(c => c.type !== 'ignore');
+    if (xAxisColumnOverride && nonIgnored.find(c => c.name === xAxisColumnOverride)) {
+      return xAxisColumnOverride;
     }
-  }, [previewData.headers]); // Only re-run if headers (structure) change
+    return nonIgnored.find(c => c.type === 'date')?.name || nonIgnored[0]?.name || '';
+  }, [columnConfigs, xAxisColumnOverride]);
 
   const handleUpdateColumn = (index: number, updates: Partial<ColumnConfig>) => {
-    setColumnConfigs(prev => prev.map(c => c.index === index ? { ...c, ...updates } : c));
+    const name = columnConfigs[index].name;
+    setColumnOverrides(prev => ({ ...prev, [name]: { ...prev[name], ...updates } }));
   };
 
   return (
@@ -171,7 +161,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>X-Axis Column</label>
             <select
               value={xAxisColumn}
-              onChange={e => setXAxisColumn(e.target.value)}
+              onChange={e => setXAxisColumnOverride(e.target.value)}
               style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
             >
               {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
@@ -229,7 +219,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       color: config.type === 'ignore' ? '#adb5bd' : '#212529',
                       backgroundColor: config.type === 'ignore' ? '#f8f9fa' : 'transparent'
                     }}>
-                      {fileType === 'json' ? (row as any)[previewData.headers[colIndex]] : row[colIndex]}
+                      {fileType === 'json'
+                        ? (row as Record<string, string>)[previewData.headers[colIndex]]
+                        : (row as string[])[colIndex]}
                     </td>
                   ))}
                 </tr>

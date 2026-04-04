@@ -158,9 +158,22 @@ describe('exportToSVG', () => {
     });
 });
 
+interface MockCtx {
+    scale: ReturnType<typeof vi.fn>;
+    fillRect: ReturnType<typeof vi.fn>;
+    drawImage: ReturnType<typeof vi.fn>;
+    fillStyle: string;
+}
+interface MockCanvas {
+    getContext: ReturnType<typeof vi.fn>;
+    width: number;
+    height: number;
+    toDataURL: ReturnType<typeof vi.fn>;
+}
+
 describe('exportToPNG', () => {
-    let mockCanvas: any;
-    let mockCtx: any;
+    let mockCanvas: MockCanvas;
+    let mockCtx: MockCtx;
 
     beforeEach(() => {
         mockCtx = {
@@ -195,7 +208,7 @@ describe('exportToPNG', () => {
             createObjectURL: vi.fn(() => 'blob:mock'),
             revokeObjectURL: vi.fn()
         });
-        class MockBlob { constructor(public content: any[], public options: any) {} }
+        class MockBlob { constructor(public content: unknown[], public options: Record<string, string>) {} }
         vi.stubGlobal('Blob', MockBlob);
     });
 
@@ -235,7 +248,7 @@ describe('downloadFile', () => {
     };
     vi.stubGlobal('document', documentMock);
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:mock-url'), revokeObjectURL: vi.fn() });
-    class MockBlob { constructor(public content: any[], public options: any) {} }
+    class MockBlob { constructor(public content: unknown[], public options: Record<string, string>) {} }
     vi.stubGlobal('Blob', MockBlob);
   });
 
@@ -248,9 +261,9 @@ describe('downloadFile', () => {
     const content = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
     downloadFile(content, 'test.png', 'image/png');
 
-    const doc = document as any;
-    expect(doc.createElement).toHaveBeenCalledWith('a');
-    const a = doc.createElement('a');
+    const mockedCreate = document.createElement as unknown as ReturnType<typeof vi.fn>;
+    expect(mockedCreate).toHaveBeenCalledWith('a');
+    const a = mockedCreate('a') as { href: string; download: string; click: () => void };
     expect(a.href).toBe(content);
     expect(a.download).toBe('test.png');
     expect(mockClick).toHaveBeenCalled();
@@ -260,10 +273,10 @@ describe('downloadFile', () => {
   it('should handle normal strings using Blob correctly', () => {
     downloadFile('Hello, world!', 'test.txt', 'text/plain');
 
-    const doc = document as any;
-    expect(doc.createElement).toHaveBeenCalledWith('a');
+    const mockedCreate = document.createElement as unknown as ReturnType<typeof vi.fn>;
+    expect(mockedCreate).toHaveBeenCalledWith('a');
     expect(URL.createObjectURL).toHaveBeenCalled();
-    const a = doc.createElement('a');
+    const a = mockedCreate('a') as { href: string; download: string; click: () => void };
     expect(a.href).toBe('blob:mock-url');
     expect(a.download).toBe('test.txt');
     expect(mockClick).toHaveBeenCalled();

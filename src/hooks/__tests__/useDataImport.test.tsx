@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useDataImport } from '../useDataImport';
 import { useGraphStore } from '../../store/useGraphStore';
 import { persistence } from '../../services/persistence';
+import type { ImportSettings } from '../../types/import';
 
 // Mock the graph store
 vi.mock('../../store/useGraphStore', () => ({
@@ -30,38 +31,43 @@ if (typeof URL.createObjectURL === 'undefined') {
   URL.createObjectURL = vi.fn(() => 'blob:test-url');
 }
 
-// Global variable to keep track of the mock worker instance
-let mockWorkerInstance: any = null;
+interface MockWorkerInstance {
+  postMessage: ReturnType<typeof vi.fn>;
+  terminate: ReturnType<typeof vi.fn>;
+  onmessage?: (event: MessageEvent) => void;
+}
+
+type MockWorkerConstructor = ReturnType<typeof vi.fn> & { mock: { instances: MockWorkerInstance[] } };
 
 describe('useDataImport hook', () => {
   let originalWorker: typeof Worker;
   const mockAddDataset = vi.fn();
+  let MockWorkerCtor: MockWorkerConstructor;
+
+  const getMockWorker = () => MockWorkerCtor.mock.instances[MockWorkerCtor.mock.instances.length - 1] as MockWorkerInstance;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     // Setup store mock
-    (useGraphStore as any).mockImplementation(() => ({
+    vi.mocked(useGraphStore).mockImplementation(() => ({
       addDataset: mockAddDataset,
     }));
-    (useGraphStore.getState as any).mockReturnValue({
+    vi.mocked(useGraphStore.getState).mockReturnValue({
       datasets: [],
-    });
+    } as ReturnType<typeof useGraphStore.getState>);
 
     // Mock Worker
     originalWorker = global.Worker;
-    const MockWorker = vi.fn().mockImplementation(function(this: any) {
+    MockWorkerCtor = vi.fn().mockImplementation(function(this: MockWorkerInstance) {
       this.postMessage = vi.fn();
       this.terminate = vi.fn();
-      mockWorkerInstance = this;
-      return this;
-    });
-    global.Worker = MockWorker as any;
+    }) as MockWorkerConstructor;
+    global.Worker = MockWorkerCtor as unknown as typeof Worker;
   });
 
   afterEach(() => {
     global.Worker = originalWorker;
-    mockWorkerInstance = null;
   });
 
   it('should initialize correctly', () => {
@@ -79,14 +85,14 @@ describe('useDataImport hook', () => {
 
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
-      readAsText(blob: Blob) {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
         setTimeout(() => {
-          this.onload({ target: { result: 'preview data json' } });
+          this.onload?.({ target: { result: 'preview data json' } });
         }, 10);
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
@@ -108,28 +114,24 @@ describe('useDataImport hook', () => {
   it('should set pending file on initiateImport', async () => {
     const { result } = renderHook(() => useDataImport());
 
-    // Create a mock file
     const fileContent = 'A,B\n1,2';
     const file = new File([fileContent], 'test.csv', { type: 'text/csv' });
 
-    // Override readAsText directly since FileReader in JSDOM handles slices fine
-    // but just to make it fast and synchronous in act
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
-      readAsText(blob: Blob) {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
         setTimeout(() => {
-          this.onload({ target: { result: 'preview data' } });
+          this.onload?.({ target: { result: 'preview data' } });
         }, 10);
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
     });
 
-    // Wait for the mock reader to finish
     await act(async () => {
       await new Promise(r => setTimeout(r, 20));
     });
@@ -145,18 +147,16 @@ describe('useDataImport hook', () => {
   it('should cancel import correctly', () => {
     const { result } = renderHook(() => useDataImport());
 
-    // Directly inject a pending file state using act by forcing a re-render or mocking initial state isn't easy here,
-    // so let's call the actual hook method but mock the file reader synchronous
     const file = new File([''], 'test.csv', { type: 'text/csv' });
 
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
+      onload: ((event: { target: { result: string } }) => void) | null = null;
       readAsText() {
-        this.onload({ target: { result: 'data' } });
+        this.onload?.({ target: { result: 'data' } });
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
@@ -174,9 +174,10 @@ describe('useDataImport hook', () => {
 
   it('should do nothing on confirmImport if no pending file', async () => {
       const { result } = renderHook(() => useDataImport());
+      const emptySettings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [], xAxisColumn: '' };
 
       act(() => {
-          result.current.confirmImport({} as any);
+          result.current.confirmImport(emptySettings);
       });
 
       expect(result.current.isImporting).toBe(false);
@@ -185,16 +186,15 @@ describe('useDataImport hook', () => {
   it('should process import with worker successfully', async () => {
     const { result } = renderHook(() => useDataImport());
 
-    // Setup pending file
     const file = new File([''], 'test.csv', { type: 'text/csv' });
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
+      onload: ((event: { target: { result: string } }) => void) | null = null;
       readAsText() {
-        this.onload({ target: { result: 'data' } });
+        this.onload?.({ target: { result: 'data' } });
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
@@ -202,22 +202,16 @@ describe('useDataImport hook', () => {
 
     expect(result.current.pendingFile).not.toBeNull();
 
-    // Call confirmImport
-    const settings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
 
     act(() => {
-      result.current.confirmImport(settings as any);
+      result.current.confirmImport(settings);
     });
 
     expect(result.current.isImporting).toBe(true);
     expect(global.Worker).toHaveBeenCalled();
-    expect(mockWorkerInstance.postMessage).toHaveBeenCalledWith({
-      file,
-      type: 'csv',
-      settings
-    });
+    expect(getMockWorker().postMessage).toHaveBeenCalledWith({ file, type: 'csv', settings });
 
-    // Simulate worker success message
     const mockDataset = {
       id: 'ds-1',
       name: 'test.csv',
@@ -229,11 +223,8 @@ describe('useDataImport hook', () => {
     };
 
     await act(async () => {
-      await mockWorkerInstance.onmessage({
-        data: {
-          type: 'success',
-          dataset: mockDataset
-        }
+      await getMockWorker().onmessage?.({
+        data: { type: 'success', dataset: mockDataset }
       } as MessageEvent);
     });
 
@@ -243,7 +234,7 @@ describe('useDataImport hook', () => {
     expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe('A: Col1');
     expect(result.current.isImporting).toBe(false);
     expect(result.current.pendingFile).toBeNull();
-    expect(mockWorkerInstance.terminate).toHaveBeenCalled();
+    expect(getMockWorker().terminate).toHaveBeenCalled();
 
     global.FileReader = originalFileReader;
   });
@@ -254,47 +245,42 @@ describe('useDataImport hook', () => {
     const file = new File([''], 'test.json', { type: 'application/json' });
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
+      onload: ((event: { target: { result: string } }) => void) | null = null;
       readAsText() {
-        this.onload({ target: { result: 'data' } });
+        this.onload?.({ target: { result: 'data' } });
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
     });
 
-    const settings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
 
     act(() => {
-      result.current.confirmImport(settings as any);
+      result.current.confirmImport(settings);
     });
 
     expect(result.current.isImporting).toBe(true);
     expect(result.current.error).toBeNull();
 
-    // Simulate worker error message
     const errorMessage = 'Failed to parse JSON';
 
     await act(async () => {
-      await mockWorkerInstance.onmessage({
-        data: {
-          type: 'error',
-          error: errorMessage
-        }
+      await getMockWorker().onmessage?.({
+        data: { type: 'error', error: errorMessage }
       } as MessageEvent);
     });
 
     expect(result.current.isImporting).toBe(false);
     expect(result.current.error).toBe(errorMessage);
-    expect(mockWorkerInstance.terminate).toHaveBeenCalled();
+    expect(getMockWorker().terminate).toHaveBeenCalled();
     expect(persistence.saveDataset).not.toHaveBeenCalled();
     expect(mockAddDataset).not.toHaveBeenCalled();
 
     global.FileReader = originalFileReader;
   });
-});
 
   it('should handle non-csv files correctly', async () => {
     const { result } = renderHook(() => useDataImport());
@@ -304,14 +290,14 @@ describe('useDataImport hook', () => {
 
     const originalFileReader = global.FileReader;
     class MockFileReader {
-      onload: any;
-      readAsText(blob: Blob) {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
         setTimeout(() => {
-          this.onload({ target: { result: 'preview data txt' } });
+          this.onload?.({ target: { result: 'preview data txt' } });
         }, 10);
       }
     }
-    global.FileReader = MockFileReader as any;
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
 
     act(() => {
       result.current.importFile(file);
@@ -328,3 +314,4 @@ describe('useDataImport hook', () => {
 
     global.FileReader = originalFileReader;
   });
+});

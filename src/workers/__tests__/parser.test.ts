@@ -3,7 +3,12 @@ import { describe, it, expect } from 'vitest';
 // Re-implement or import the parser logic
 // Since it's in a worker, we'll extract the core functions for testing
 
-function parseValue(val: string, config: any, decimalPoint: string, categoricalMap: Map<string, number>): number {
+interface ParseConfig {
+  type?: 'date' | 'categorical' | 'numeric' | 'ignore';
+  dateFormat?: string;
+}
+
+function parseValue(val: string, config: ParseConfig | null, decimalPoint: string, categoricalMap: Map<string, number>): number {
   if (val === undefined || val === null || val === '') return NaN;
 
   if (config?.type === 'date') {
@@ -50,7 +55,7 @@ function parseDate(val: string, format?: string): number {
 
     const d = new Date(year, month, day, hour, min, sec);
     return d.getTime() / 1000;
-  } catch (e) {
+  } catch {
     const d = new Date(val);
     return d.getTime() / 1000;
   }

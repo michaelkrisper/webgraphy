@@ -67,7 +67,6 @@ const optimizedTime = performance.now() - start;
 console.log(`Original: ${(originalTime / 10).toFixed(2)} ms`);
 console.log(`Optimized: ${(optimizedTime / 10).toFixed(2)} ms`);
 console.log(`Improvement: ${((originalTime - optimizedTime) / originalTime * 100).toFixed(2)}%`);
-const { performance } = require('perf_hooks');
 
 function testAllocation(iterations, numPoints) {
   const start = performance.now();

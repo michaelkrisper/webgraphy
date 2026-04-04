@@ -5,7 +5,7 @@ const numSeries = 10000;
 
 interface Dataset {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
 }
 
 interface Series {

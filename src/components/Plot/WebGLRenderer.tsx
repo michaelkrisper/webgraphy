@@ -2,6 +2,22 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { downsampleMinMax } from '../../utils/downsampling';
 
+interface WebGLLocations {
+  posLoc: number;
+  otherLoc: number;
+  tLoc: number;
+  distStartLoc: number;
+  xRelLoc: WebGLUniformLocation | null;
+  yRelLoc: WebGLUniformLocation | null;
+  padLoc: WebGLUniformLocation | null;
+  resLoc: WebGLUniformLocation | null;
+  colorLoc: WebGLUniformLocation | null;
+  styleLoc: WebGLUniformLocation | null;
+  lineStyleLoc: WebGLUniformLocation | null;
+  dprLoc: WebGLUniformLocation | null;
+  sizeLoc: WebGLUniformLocation | null;
+}
+
 interface Props {
   datasets: Dataset[];
   series: SeriesConfig[];
@@ -20,7 +36,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
   const [program, setProgram] = useState<WebGLProgram | null>(null);
-  const [locations, setLocations] = useState<any>({});
+  const [locations, setLocations] = useState<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
 

@@ -98,7 +98,7 @@ async function getDB() {
 function fixDatasetTypes(dataset: Dataset): Dataset {
   if (!dataset.data || !Array.isArray(dataset.data)) return dataset;
 
-  const restoreUint32Array = (arr: any) => {
+  const restoreUint32Array = (arr: unknown) => {
     if (arr instanceof Uint32Array) return arr;
     if (typeof arr === 'object' && arr !== null) {
       return new Uint32Array(Object.values(arr) as number[]);
@@ -106,7 +106,7 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
     return new Uint32Array(0);
   };
 
-  const restoreFloat32Array = (arr: any) => {
+  const restoreFloat32Array = (arr: unknown) => {
     if (arr instanceof Float32Array) return arr;
     if (typeof arr === 'object' && arr !== null) {
       return new Float32Array(Object.values(arr) as number[]);
@@ -114,7 +114,7 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
     return new Float32Array(0);
   };
 
-  dataset.data = dataset.data.map((col: any) => {
+  dataset.data = dataset.data.map((col: DataColumn) => {
     // Migration: ensure bounds exist
     if (!col.bounds) {
       col.bounds = { min: 0, max: 0 };
