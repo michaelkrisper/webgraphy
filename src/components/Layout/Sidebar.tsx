@@ -33,8 +33,8 @@ export const Sidebar: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const [width, setWidth] = useState(450);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [width, setWidth] = useState(() => Math.min(450, window.innerWidth * 0.85));
+  const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768 || window.innerHeight < 500);
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
@@ -75,6 +75,15 @@ export const Sidebar: React.FC = () => {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
+
+  // Handle auto-resize on window resize (especially orientation change)
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth(prev => Math.min(prev, window.innerWidth * 0.9));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleExportSVG = () => {
     const plotContainer = document.querySelector('.plot-area') as HTMLElement;

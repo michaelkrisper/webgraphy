@@ -5,7 +5,8 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
 
-const BASE_PADDING = { top: 20, right: 20, bottom: 60, left: 20 };
+const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
+const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
 
 type XTicks =
   | { result: number[]; step: number; precision: number; isXDate: false; secondaryLabels?: undefined }
@@ -125,7 +126,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         {xAxes.map((axis, idx) => {
           const axisConf = allXAxes.find(a => a.id === axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
-          const y = height - padding.bottom + idx * 60;
+          const isMobile = width < 768 || height < 500;
+          const xAxisHeight = isMobile ? 40 : 60;
+          const y = height - padding.bottom + idx * xAxisHeight;
 
           return (
             <g key={`x-axis-spine-${axis.id}`}>
@@ -237,7 +240,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         {xAxes.map((axis, axisIdx) => {
           const axisConf = allXAxes.find(a => a.id === axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
-          const baseY = padding.bottom - axisIdx * 60;
+          const isMobile = width < 768 || height < 500;
+          const xAxisHeight = isMobile ? 40 : 60;
+          const baseY = padding.bottom - axisIdx * xAxisHeight;
           
           return (
             <React.Fragment key={`x-labels-${axis.id}`}>
@@ -259,8 +264,8 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                     <div key={`sl-${axis.id}-${sl.timestamp}`} style={{
                       position: 'absolute',
                       left: x,
-                      bottom: baseY - 38,
-                      fontSize: '10px',
+                      bottom: isMobile ? baseY - 28 : baseY - 38,
+                      fontSize: isMobile ? '8px' : '10px',
                       fontWeight: 'bold',
                       color: axis.color,
                       backgroundColor: 'rgba(255,255,255,0.8)',
@@ -281,9 +286,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { x } = worldToScreen(timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
                 const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.ticks.precision)) : t.label;
-                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - 22, transform: 'translateX(-50%)', fontSize: '9px', color: axis.color }}>{label}</div>;
+                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: isMobile ? baseY - 16 : baseY - 22, transform: 'translateX(-50%)', fontSize: isMobile ? '8px' : '9px', color: axis.color }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', bottom: baseY - 52, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ position: 'absolute', bottom: isMobile ? baseY - 34 : baseY - 52, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: isMobile ? '8px' : '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {axis.title}
               </div>
             </React.Fragment>
@@ -719,12 +724,17 @@ const ChartContainer: React.FC = () => {
 
   const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
   const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
+
+  const isMobile = width < 768 || height < 500;
+  const xAxisHeight = isMobile ? 40 : 60;
+
   const padding = useMemo(() => {
+    const base = isMobile ? BASE_PADDING_MOBILE : BASE_PADDING_DESKTOP;
     const leftSum = leftAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
     const rightSum = rightAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
-    const bottomExtra = Math.max(0, (activeXAxesUsed.length - 1) * 60);
-    return { ...BASE_PADDING, left: BASE_PADDING.left + leftSum, right: BASE_PADDING.right + rightSum, bottom: BASE_PADDING.bottom + bottomExtra };
-  }, [leftAxes, rightAxes, axisLayout, activeXAxesUsed]);
+    const bottomExtra = Math.max(0, (activeXAxesUsed.length - 1) * xAxisHeight);
+    return { ...base, left: base.left + leftSum, right: base.right + rightSum, bottom: base.bottom + bottomExtra };
+  }, [leftAxes, rightAxes, axisLayout, activeXAxesUsed, isMobile, xAxisHeight]);
 
   const chartWidth = Math.max(0, width - padding.left - padding.right), chartHeight = Math.max(0, height - padding.top - padding.bottom);
 
@@ -1295,8 +1305,10 @@ const ChartContainer: React.FC = () => {
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} series={series} axisLayout={axisLayout} allXAxes={xAxes} />
 
       {activeXAxesUsed.map((axis, idx) => {
-        const baseY = (activeXAxesUsed.length - 1 - idx) * 60;
-        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 60, cursor: 'ew-resize', zIndex: 20 }} />;
+        const isMobile = width < 768 || height < 500;
+        const xAxisHeight = isMobile ? 40 : 60;
+        const baseY = (activeXAxesUsed.length - 1 - idx) * xAxisHeight;
+        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: xAxisHeight, cursor: 'ew-resize', zIndex: 20 }} />;
       })}
 
       {activeYAxes.map((axis) => {
