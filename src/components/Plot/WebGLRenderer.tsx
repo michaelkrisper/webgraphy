@@ -170,16 +170,18 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     const chartHeight = height - padding.top - padding.bottom;
     if (chartWidth <= 0 || chartHeight <= 0) return;
 
-    gl.viewport(0, 0, width, height);
+    const dpr = window.devicePixelRatio || 1;
+    const pw = width * dpr, ph = height * dpr;
+    gl.viewport(0, 0, pw, ph);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(padding.left, padding.bottom, chartWidth, chartHeight);
+    gl.scissor(padding.left * dpr, padding.bottom * dpr, chartWidth * dpr, chartHeight * dpr);
     gl.useProgram(program);
-    
+
     const locs = locations;
-    gl.uniform4f(locs.padLoc, padding.top, padding.right, padding.bottom, padding.left);
-    gl.uniform2f(locs.resLoc, width, height);
+    gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
+    gl.uniform2f(locs.resLoc, pw, ph);
 
     seriesMetadata.forEach(({ series: s, ds, axis, xIdx, yIdx }) => {
       const colX = ds.data[xIdx];
@@ -228,7 +230,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = hexToRgba(s.lineColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-        gl.uniform1f(locs.sizeLoc, 4.0);
+        gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
         const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
         gl.uniform1i(locs.lineStyleLoc, lStyle);
         gl.uniform1i(locs.styleLoc, -1);
@@ -277,7 +279,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       if (s.pointStyle !== 'none') {
         const c = hexToRgba(s.pointColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-        gl.uniform1f(locs.sizeLoc, 5.0);
+        gl.uniform1f(locs.sizeLoc, 5.0 * dpr);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
         
@@ -293,7 +295,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     gl.disable(gl.SCISSOR_TEST);
   }, [seriesMetadata, viewportX, width, height, padding, program, locations, glReady]);
 
-  return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
+  const dpr = window.devicePixelRatio || 1;
+  return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
 });
 
 function createProgram(gl: WebGLRenderingContext, vsSource: string, fsSource: string) {
