@@ -47,13 +47,11 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       attribute vec2 a_position;
       attribute vec2 a_other;
       attribute float a_t;
-      attribute float a_side;
       uniform vec2 u_rel_viewport_x;
       uniform vec2 u_rel_viewport_y;
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
       uniform float u_point_size;
-      uniform float u_line_width;
       varying float v_t;
       varying float v_len;
 
@@ -72,11 +70,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
         vec2 other = toScreen(a_other);
         v_t = a_t;
         v_len = length(other - p);
-        if (u_line_width > 0.0 && v_len > 0.001) {
-          vec2 dir = normalize(other - p);
-          vec2 perp = vec2(-dir.y, dir.x);
-          p += perp * a_side * u_line_width * 0.5;
-        }
         gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
         gl_PointSize = u_point_size;
       }
@@ -131,11 +124,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       styleLoc: gl.getUniformLocation(pg, 'u_point_style'),
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
       sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
-      lineWidthLoc: gl.getUniformLocation(pg, 'u_line_width'),
       posLoc: gl.getAttribLocation(pg, 'a_position'),
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
-      tLoc: gl.getAttribLocation(pg, 'a_t'),
-      sideLoc: gl.getAttribLocation(pg, 'a_side')
+      tLoc: gl.getAttribLocation(pg, 'a_t')
     });
     setGlReady(true);
   }, []);
@@ -240,65 +231,54 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
         const c = hexToRgba(s.lineColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
-        gl.uniform1f(locs.lineWidthLoc, 2.0 * dpr);
         const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
         gl.uniform1i(locs.lineStyleLoc, lStyle);
         gl.uniform1i(locs.styleLoc, -1);
 
-        // All line styles use quad geometry (6 verts/segment) for thick lines.
-        // Each vertex: pos(2) + other(2) + t(1) + side(1) = 6 floats, stride 24.
-        const quadKey = `quad-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
-        let quadBuffer = buffersRef.current.get(quadKey);
-        if (!quadBuffer) {
-          quadBuffer = gl.createBuffer()!;
-          const vertsPerSeg = 6, floatsPerVert = 6;
-          const reqSize = (numPoints - 1) * vertsPerSeg * floatsPerVert;
-          const arr = getSharedBuffer(reqSize);
-          for (let i = 0; i < numPoints - 1; i++) {
-            const ax = xLOD[i], ay = yLOD[i], bx = xLOD[i + 1], by = yLOD[i + 1];
-            const off = i * vertsPerSeg * floatsPerVert;
-            // Triangle 1: (A,-1), (A,+1), (B,+1)
-            arr[off +  0] = ax; arr[off +  1] = ay; arr[off +  2] = bx; arr[off +  3] = by; arr[off +  4] = 0; arr[off +  5] = -1;
-            arr[off +  6] = ax; arr[off +  7] = ay; arr[off +  8] = bx; arr[off +  9] = by; arr[off + 10] = 0; arr[off + 11] = +1;
-            arr[off + 12] = bx; arr[off + 13] = by; arr[off + 14] = ax; arr[off + 15] = ay; arr[off + 16] = 1; arr[off + 17] = +1;
-            // Triangle 2: (A,-1), (B,+1), (B,-1)
-            arr[off + 18] = ax; arr[off + 19] = ay; arr[off + 20] = bx; arr[off + 21] = by; arr[off + 22] = 0; arr[off + 23] = -1;
-            arr[off + 24] = bx; arr[off + 25] = by; arr[off + 26] = ax; arr[off + 27] = ay; arr[off + 28] = 1; arr[off + 29] = +1;
-            arr[off + 30] = bx; arr[off + 31] = by; arr[off + 32] = ax; arr[off + 33] = ay; arr[off + 34] = 1; arr[off + 35] = -1;
-          }
-          gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-          gl.bufferData(gl.ARRAY_BUFFER, arr.subarray(0, reqSize), gl.STATIC_DRAW);
-          buffersRef.current.set(quadKey, quadBuffer);
+        if (lStyle === 0) {
+          gl.disableVertexAttribArray(locs.otherLoc);
+          gl.disableVertexAttribArray(locs.tLoc);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
+          gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
         } else {
-          gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-        }
+          const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
+          let segBuffer = buffersRef.current.get(segBufferKey);
+          if (!segBuffer) {
+            segBuffer = gl.createBuffer()!;
+            const reqSize = (numPoints - 1) * 10;
+            const sharedArr = getSharedBuffer(reqSize);
+            for (let i = 0; i < numPoints - 1; i++) {
+              const ax = xLOD[i], ay = yLOD[i], bx = xLOD[i + 1], by = yLOD[i + 1];
+              const off = i * 10;
+              sharedArr[off] = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0;
+              sharedArr[off + 5] = bx; sharedArr[off + 6] = by; sharedArr[off + 7] = ax; sharedArr[off + 8] = ay; sharedArr[off + 9] = 1;
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
+            buffersRef.current.set(segBufferKey, segBuffer);
+          } else gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 
-        const stride = 24; // 6 floats * 4 bytes
-        gl.enableVertexAttribArray(locs.posLoc);
-        gl.vertexAttribPointer(locs.posLoc,   2, gl.FLOAT, false, stride, 0);
-        gl.enableVertexAttribArray(locs.otherLoc);
-        gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, stride, 8);
-        gl.enableVertexAttribArray(locs.tLoc);
-        gl.vertexAttribPointer(locs.tLoc,     1, gl.FLOAT, false, stride, 16);
-        gl.enableVertexAttribArray(locs.sideLoc);
-        gl.vertexAttribPointer(locs.sideLoc,  1, gl.FLOAT, false, stride, 20);
-        gl.drawArrays(gl.TRIANGLES, 0, (numPoints - 1) * 6);
+          gl.enableVertexAttribArray(locs.posLoc);
+          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 20, 0);
+          gl.enableVertexAttribArray(locs.otherLoc);
+          gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 20, 8);
+          gl.enableVertexAttribArray(locs.tLoc);
+          gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 20, 16);
+          gl.drawArrays(gl.LINES, 0, (numPoints - 1) * 2);
+        }
       }
 
       if (s.pointStyle !== 'none') {
         const c = hexToRgba(s.pointColor);
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         gl.uniform1f(locs.sizeLoc, 5.0 * dpr);
-        gl.uniform1f(locs.lineWidthLoc, 0.0);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
         gl.disableVertexAttribArray(locs.otherLoc);
         gl.disableVertexAttribArray(locs.tLoc);
-        gl.disableVertexAttribArray(locs.sideLoc);
-
         gl.drawArrays(gl.POINTS, 0, numPoints);
       }
     });
