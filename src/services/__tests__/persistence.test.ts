@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Dataset, AppState } from '../persistence';
+import type { Dataset } from '../persistence';
 
 vi.mock('idb', () => ({
   openDB: vi.fn(),
@@ -7,7 +7,7 @@ vi.mock('idb', () => ({
 
 describe('persistence', () => {
   let persistence: typeof import('../persistence').persistence;
-  let openDBMock: any;
+  let openDBMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -31,7 +31,7 @@ describe('persistence', () => {
             getAll: vi.fn().mockResolvedValue([])
         };
 
-        openDBMock.mockImplementationOnce((name: string, version: number, options: any) => {
+        openDBMock.mockImplementationOnce((name: string, version: number, options: { upgrade: (db: unknown) => void }) => {
             options.upgrade(mockDb);
             return Promise.resolve(mockDb);
         });
@@ -52,7 +52,7 @@ describe('persistence', () => {
             getAll: vi.fn().mockResolvedValue([])
         };
 
-        openDBMock.mockImplementationOnce((name: string, version: number, options: any) => {
+        openDBMock.mockImplementationOnce((name: string, version: number, options: { upgrade: (db: unknown) => void }) => {
             options.upgrade(mockDb);
             return Promise.resolve(mockDb);
         });

@@ -1,5 +1,25 @@
 // Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
 
+interface ColumnConfigEntry {
+  index: number;
+  name?: string;
+  type?: 'numeric' | 'date' | 'categorical' | 'ignore';
+  dateFormat?: string;
+}
+
+interface ParseSettings {
+  delimiter?: string;
+  decimalPoint?: string;
+  startRow?: number;
+  columnConfigs?: ColumnConfigEntry[];
+  xAxisColumn?: string;
+}
+
+interface ParseConfig {
+  type?: string;
+  dateFormat?: string;
+}
+
 self.onmessage = async (event) => {
   const { file, type, settings } = event.data;
 
@@ -42,7 +62,7 @@ self.onmessage = async (event) => {
     });
 
     // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
-    const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: any) => cc.type !== 'ignore') : [];
+    const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: { type: string }) => cc.type !== 'ignore') : [];
 
     const dataset = {
       id: crypto.randomUUID(),
@@ -51,7 +71,7 @@ self.onmessage = async (event) => {
       rowCount: rowCount,
       xAxisColumn: settings?.xAxisColumn,
       data: columns.map((colName, colIdx) => {
-        const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
+        const config = settings?.columnConfigs?.find((c: { name: string; type: string }) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
 
         const { minTree, maxTree } = buildMinMaxTrees(relativeData[colIdx].data);
@@ -74,9 +94,9 @@ self.onmessage = async (event) => {
       col.maxTree.forEach(level => transferList.push(level.buffer as ArrayBuffer));
     });
 
-    (self as any).postMessage({ type: 'success', dataset }, transferList);
-  } catch (error: any) {
-    self.postMessage({ type: 'error', error: error.message });
+    (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);
+  } catch (error: unknown) {
+    self.postMessage({ type: 'error', error: error instanceof Error ? error.message : String(error) });
   }
 };
 
@@ -142,7 +162,7 @@ function buildMinMaxTrees(data: Float32Array): { minTree: Uint32Array[], maxTree
   return { minTree, maxTree };
 }
 
-function parseCSV(text: string, settings?: any) {
+function parseCSV(text: string, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
 
   // Strip BOM if present
@@ -157,7 +177,7 @@ function parseCSV(text: string, settings?: any) {
   // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
   const configsByIndex = new Array(headers.length);
   for (let j = 0; j < headers.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: any) => c.index === j);
+    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
   }
 
   for (let i = startRow; i < lines.length; i++) {
@@ -178,12 +198,12 @@ function parseCSV(text: string, settings?: any) {
   }
 
   const finalHeaders = headers.filter((_, i) => {
-    const config = columnConfigs.find((c: any) => c.index === i);
+    const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === i);
     return config?.type !== 'ignore';
   }).map((h) => {
      // Re-find the original index to look up the correct config
      const originalIdx = headers.indexOf(h);
-     const config = columnConfigs.find((c: any) => c.index === originalIdx);
+     const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === originalIdx);
      return config?.name || h;
   });
 
@@ -191,7 +211,7 @@ function parseCSV(text: string, settings?: any) {
 }
 
 
-function parseJSON(text: string, settings?: any) {
+function parseJSON(text: string, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
   const raw = JSON.parse(text);
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format');
@@ -205,7 +225,7 @@ function parseJSON(text: string, settings?: any) {
   // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
   const configsByIndex = new Array(allHeaders.length);
   for (let j = 0; j < allHeaders.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: any) => c.index === j);
+    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
   }
 
   for (let i = 0; i < rowCount; i++) {
@@ -224,18 +244,18 @@ function parseJSON(text: string, settings?: any) {
   }
 
   const finalHeaders = allHeaders.filter((_, i) => {
-    const config = columnConfigs.find((c: any) => c.index === i);
+    const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === i);
     return config?.type !== 'ignore';
   }).map((h) => {
      const originalIdx = allHeaders.indexOf(h);
-     const config = columnConfigs.find((c: any) => c.index === originalIdx);
+     const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === originalIdx);
      return config?.name || h;
   });
 
   return { columns: finalHeaders, rowCount: data.length, data: data };
 }
 
-function parseValue(val: string, config: any, decimalPoint: string, categoricalMap: Map<string, number>): number {
+function parseValue(val: string, config: ParseConfig | null | undefined, decimalPoint: string, categoricalMap: Map<string, number>): number {
   if (val === undefined || val === null || val === '') return NaN;
 
   if (config?.type === 'date') {
@@ -283,7 +303,7 @@ function parseDate(val: string, format?: string): number {
 
     const d = new Date(year, month, day, hour, min, sec);
     return d.getTime() / 1000;
-  } catch (e) {
+  } catch {
     const d = new Date(val);
     return d.getTime() / 1000;
   }
