@@ -90,7 +90,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
       const nextXAxes = state.xAxes.map(a =>
         a.id === dataset.xAxisId
-          ? { ...a, min: bounds.min, max: bounds.max, xMode: isDate ? 'date' : 'numeric' as const }
+          ? { ...a, min: bounds.min, max: bounds.max, xMode: (isDate ? 'date' : 'numeric') as 'date' | 'numeric' }
           : a
       );
 
