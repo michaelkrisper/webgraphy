@@ -565,6 +565,8 @@ const ChartContainer: React.FC = () => {
 
   useEffect(() => {
     if (isLoaded) {
+      // If datasets are already present from persistence, don't auto-scale on load
+      if (useGraphStore.getState().datasets.length > 0) wasEmptyRef.current = false;
       targetX.current = { min: viewportX.min, max: viewportX.max };
       yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
       startAnimation();
