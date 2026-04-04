@@ -21,6 +21,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   const [decimalPoint, setDecimalPoint] = useState<string>('.');
   const [startRow, setStartRow] = useState<number>(1);
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>([]);
+  const [xAxisColumn, setXAxisColumn] = useState<string>('');
 
   // Auto-detect delimiter on mount
   useEffect(() => {
@@ -98,6 +99,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
         return { index, name, type, dateFormat };
       });
       setColumnConfigs(newConfigs);
+
+      // Auto-set default X-axis if not already set or no longer valid
+      const nonIgnored = newConfigs.filter(c => c.type !== 'ignore');
+      if (nonIgnored.length > 0 && (!xAxisColumn || !nonIgnored.find(c => c.name === xAxisColumn))) {
+        // Prefer 'date' columns
+        const dateCol = nonIgnored.find(c => c.type === 'date');
+        setXAxisColumn(dateCol?.name || nonIgnored[0].name);
+      }
     }
   }, [previewData.headers]); // Only re-run if headers (structure) change
 
@@ -157,6 +166,18 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               onChange={e => setStartRow(parseInt(e.target.value) || 1)}
               style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>X-Axis Column</label>
+            <select
+              value={xAxisColumn}
+              onChange={e => setXAxisColumn(e.target.value)}
+              style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
+            >
+              {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
+                <option key={c.index} value={c.name}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -225,7 +246,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             Cancel
           </button>
           <button
-            onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs })}
+            onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs, xAxisColumn })}
             style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#007bff', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Check size={16} /> Import Data

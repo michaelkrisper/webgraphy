@@ -49,6 +49,7 @@ self.onmessage = async (event) => {
       name: file.name,
       columns: columns,
       rowCount: rowCount,
+      xAxisColumn: settings?.xAxisColumn,
       data: columns.map((colName, colIdx) => {
         const config = settings?.columnConfigs?.find((c: any) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');

@@ -273,6 +273,21 @@ export const Sidebar: React.FC = () => {
                           aria-label="Cycle X-Axis">
                           {parseInt(d.xAxisId?.split('-')[1]) || 1}
                         </button>
+                        <select
+                          name={`dataset-x-mode-${d.id}`}
+                          aria-label={`X Axis Mode for ${d.name}`}
+                          value={xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode || 'date'}
+                          onChange={(e) => {
+                            const axisId = d.xAxisId || 'axis-1';
+                            const { updateXAxis } = useGraphStore.getState();
+                            updateXAxis(axisId, { xMode: e.target.value as 'date' | 'numeric' });
+                          }}
+                          style={{ width: '45px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2', borderRadius: '2px' }}
+                          title="X-Axis Mode (Time / Decimal)"
+                        >
+                          <option value="date">Time</option>
+                          <option value="numeric">Dec.</option>
+                        </select>
                       </div>
 
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
