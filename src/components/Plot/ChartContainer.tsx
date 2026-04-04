@@ -920,9 +920,20 @@ const ChartContainer: React.FC = () => {
       const nextX = { min: state.viewportX.min - xMove, max: state.viewportX.max - xMove };
       state.setViewportX(nextX); targetX.current = nextX;
     }
-    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (panTarget as {yAxisId: string}).yAxisId)!];
+    const draggedAxisId = panTarget !== 'all' && panTarget !== 'x' ? (panTarget as {yAxisId: string}).yAxisId : null;
+    const axesToPan = panTarget === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === draggedAxisId)!];
     const SNAP_THRESHOLD = 15;
-    const snapTargets = [padding.top, padding.top + chartHeight / 2, height - padding.bottom];
+
+    // Snap targets: screen-Y positions of y=0 on every OTHER visible axis
+    const snapTargets: number[] = [];
+    if (!e.altKey && draggedAxisId && chartHeight > 0) {
+      state.yAxes.forEach(otherAxis => {
+        if (otherAxis.id === draggedAxisId) return;
+        if (otherAxis.min > 0 || otherAxis.max < 0) return; // 0 not in range
+        const screenYZero = padding.top + (1 - (0 - otherAxis.min) / (otherAxis.max - otherAxis.min)) * chartHeight;
+        snapTargets.push(screenYZero);
+      });
+    }
 
     axesToPan.forEach(axis => {
       if (!axis) return;
@@ -932,25 +943,19 @@ const ChartContainer: React.FC = () => {
       let nextMin = curAxis.min + yMove;
       let nextMax = curAxis.max + yMove;
 
-      // Snapping Logic - only when dragging a SINGLE axis
-      if (chartHeight > 0 && panTarget !== 'all') {
-        // Find screen pixel position of world 0 in the NEW range
+      // Snapping Logic - only when dragging a SINGLE axis and ALT is not held
+      if (snapTargets.length > 0 && chartHeight > 0) {
         const nextYRange = nextMax - nextMin;
         const screenYZero = padding.top + (1 - (0 - nextMin) / nextYRange) * chartHeight;
-        
+
         let bestTarget = null;
         let bestDist = SNAP_THRESHOLD;
-        
         for (const target of snapTargets) {
           const d = Math.abs(screenYZero - target);
-          if (d < bestDist) {
-            bestDist = d;
-            bestTarget = target;
-          }
+          if (d < bestDist) { bestDist = d; bestTarget = target; }
         }
-        
+
         if (bestTarget !== null) {
-          // Snap world 0 to bestTarget
           const ratio = (bestTarget - padding.top) / chartHeight - 1;
           nextMin = nextYRange * ratio;
           nextMax = nextMin + nextYRange;
