@@ -1,12 +1,12 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { type Dataset, type SeriesConfig, type YAxisConfig } from '../../services/persistence';
+import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { downsampleMinMax } from '../../utils/downsampling';
 
 interface Props {
   datasets: Dataset[];
   series: SeriesConfig[];
+  xAxes: XAxisConfig[];
   yAxes: YAxisConfig[];
-  viewportX: { min: number; max: number };
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
@@ -15,7 +15,7 @@ interface Props {
 /**
  * WebGLRenderer Component (v0.3.4 - Ultra-Precision Shader)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yAxes, viewportX, width, height, padding }) => {
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -146,8 +146,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
   const seriesMetadata = useMemo(() => {
     return series.map(s => {
       const ds = datasets.find(d => d.id === s.sourceId);
-      const axis = yAxes.find(a => a.id === s.yAxisId);
-      if (!ds || !axis) return null;
+      const xAxis = xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+      const yAxis = yAxes.find(a => a.id === s.yAxisId);
+      if (!ds || !xAxis || !yAxis) return null;
 
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
@@ -162,9 +163,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
         return null;
       }
 
-      return { series: s, ds, axis, xIdx, yIdx };
-    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number }[];
-  }, [datasets, series, yAxes]);
+      return { series: s, ds, xAxis, yAxis, xIdx, yIdx };
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, xAxis: XAxisConfig, yAxis: YAxisConfig, xIdx: number, yIdx: number }[];
+  }, [datasets, series, xAxes, yAxes]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -188,7 +189,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     gl.uniform2f(locs.resLoc, pw, ph);
     gl.uniform1f(locs.dprLoc, dpr);
 
-    seriesMetadata.forEach(({ series: s, ds, axis, xIdx, yIdx }) => {
+    seriesMetadata.forEach(({ series: s, ds, xAxis, yAxis, xIdx, yIdx }) => {
       const colX = ds.data[xIdx];
       const colY = ds.data[yIdx];
       if (!colX || !colY) return;
@@ -203,7 +204,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       let low = 0, high = xData.length - 1;
       while (low <= high) {
         const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef >= viewportX.min) {
+        if (xData[mid] + xRef >= xAxis.min) {
           startIdx = mid;
           high = mid - 1;
         } else {
@@ -215,7 +216,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       low = 0; high = xData.length - 1;
       while (low <= high) {
         const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef <= viewportX.max) {
+        if (xData[mid] + xRef <= xAxis.max) {
           endIdx = mid;
           low = mid + 1;
         } else {
@@ -230,8 +231,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       const numPoints = indices.length;
 
       // Pass Viewport relative to this specific column's reference point
-      gl.uniform2f(locs.xRelLoc, viewportX.min - colX.refPoint, viewportX.max - colX.refPoint);
-      gl.uniform2f(locs.yRelLoc, axis.min - colY.refPoint, axis.max - colY.refPoint);
+      gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
+      gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
 
       const bufferKey = `buf-${ds.id}-${xIdx}-${yIdx}-dyn`;
       let buffer = buffersRef.current.get(bufferKey);
@@ -271,7 +272,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
           gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-          const paramKey = `${viewportX.min}-${viewportX.max}-${axis.min}-${axis.max}-${chartWidth}-${chartHeight}-${dpr}`;
+          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
           let segBuffer = buffersRef.current.get(segBufferKey);
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
@@ -285,8 +286,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
             const yData = colY.data;
 
             // Compute screen-space cumulative arc length in physical pixels
-            const xRange = (viewportX.max - viewportX.min) || 1;
-            const yRange = (axis.max - axis.min) || 1;
+            const xRange = (xAxis.max - xAxis.min) || 1;
+            const yRange = (yAxis.max - yAxis.min) || 1;
             const pChartWidth = chartWidth * dpr;
             const pChartHeight = chartHeight * dpr;
             const dashLen = ((lStyle === 1) ? 8.0 : 2.0) * dpr;
@@ -341,7 +342,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       }
     });
     gl.disable(gl.SCISSOR_TEST);
-  }, [seriesMetadata, viewportX, width, height, padding, program, locations, glReady]);
+  }, [seriesMetadata, width, height, padding, program, locations, glReady]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;

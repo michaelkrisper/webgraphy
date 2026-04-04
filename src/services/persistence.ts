@@ -24,6 +24,15 @@ export interface Dataset {
 
 export type AxisPosition = 'left' | 'right';
 
+export interface XAxisConfig {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+  showGrid: boolean;
+  xMode: 'date' | 'numeric';
+}
+
 export interface YAxisConfig {
   id: string;
   name: string;
@@ -43,7 +52,7 @@ export interface ViewAxisSnapshot {
 export interface ViewSnapshot {
   id: string;
   name: string;
-  viewportX: { min: number; max: number };
+  xAxes: ViewAxisSnapshot[];
   yAxes: ViewAxisSnapshot[];
 }
 
@@ -53,6 +62,7 @@ export interface SeriesConfig {
   name: string;
   xColumn: string;
   yColumn: string;
+  xAxisId: string;
   yAxisId: string;
   pointStyle: 'circle' | 'square' | 'cross' | 'none';
   pointColor: string;
@@ -61,12 +71,10 @@ export interface SeriesConfig {
 }
 
 export interface AppState {
-  viewportX: { min: number; max: number };
+  xAxes: XAxisConfig[];
   yAxes: YAxisConfig[];
   series: SeriesConfig[];
   axisTitles: { x: string; y: string };
-  globalXColumn: string;
-  xMode: 'date' | 'numeric';
   views?: ViewSnapshot[];
 }
 

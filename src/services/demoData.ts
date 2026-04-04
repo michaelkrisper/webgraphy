@@ -1,4 +1,4 @@
-import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig } from './persistence';
+import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { buildMinMaxTrees } from '../utils/downsampling';
 
 
@@ -66,6 +66,17 @@ export function generateDemoDataset(): Dataset {
 }
 
 export const getDemoAppState = (dataset: Dataset): AppState => {
+  const tsBounds = dataset.data[0].bounds;
+
+  const xAxes: XAxisConfig[] = Array.from({ length: 9 }, (_, i) => ({
+    id: `axis-${i + 1}`,
+    name: `X-Axis ${i + 1}`,
+    min: i === 0 ? tsBounds.min : 0,
+    max: i === 0 ? tsBounds.max : 100,
+    showGrid: i === 0,
+    xMode: 'date'
+  }));
+
   const yAxes: YAxisConfig[] = Array.from({ length: 9 }, (_, i) => ({
     id: `axis-${i + 1}`,
     name: `Axis ${i + 1}`,
@@ -83,6 +94,7 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       name: 'Sine Wave',
       xColumn: dataset.columns[0],
       yColumn: dataset.columns[1],
+      xAxisId: 'axis-1',
       yAxisId: 'axis-1',
       pointStyle: 'none',
       pointColor: '#1f77b4',
@@ -95,6 +107,7 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       name: 'Random Walk',
       xColumn: dataset.columns[0],
       yColumn: dataset.columns[2],
+      xAxisId: 'axis-1',
       yAxisId: 'axis-2',
       pointStyle: 'none',
       pointColor: '#ff7f0e',
@@ -108,20 +121,18 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
   yAxes[1].min = Math.floor(rwBounds.min - 5);
   yAxes[1].max = Math.ceil(rwBounds.max + 5);
 
-  const tsBounds = dataset.data[0].bounds;
-
   return {
-    viewportX: { min: tsBounds.min, max: tsBounds.max },
+    xAxes,
     yAxes,
     series,
     axisTitles: { x: dataset.columns[0], y: 'Value' },
-    globalXColumn: dataset.columns[0],
-    xMode: 'date',
     views: [
       {
         id: 'demo-view-1',
         name: 'Full Overview',
-        viewportX: { min: tsBounds.min, max: tsBounds.max },
+        xAxes: [
+          { id: 'axis-1', min: tsBounds.min, max: tsBounds.max }
+        ],
         yAxes: [
           { id: 'axis-1', min: 0, max: 100 },
           { id: 'axis-2', min: Math.floor(rwBounds.min - 5), max: Math.ceil(rwBounds.max + 5) }
@@ -130,7 +141,9 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       {
         id: 'demo-view-2',
         name: 'Zoomed Sine',
-        viewportX: { min: tsBounds.min, max: tsBounds.min + 3600 * 4 }, // 4 hours
+        xAxes: [
+          { id: 'axis-1', min: tsBounds.min, max: tsBounds.min + 3600 * 4 }
+        ],
         yAxes: [
           { id: 'axis-1', min: 10, max: 90 },
           { id: 'axis-2', min: 0, max: 100 }

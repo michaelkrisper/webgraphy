@@ -1,32 +1,29 @@
 import { create } from 'zustand';
-import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type ViewSnapshot } from '../services/persistence';
+import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from '../services/persistence';
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 
 interface GraphState {
   datasets: Dataset[];
   series: SeriesConfig[];
+  xAxes: XAxisConfig[];
   yAxes: YAxisConfig[];
   axisTitles: { x: string; y: string };
-  viewportX: { min: number; max: number };
-  globalXColumn: string;
-  xMode: 'date' | 'numeric';
   views: ViewSnapshot[];
   isLoaded: boolean;
   
   // Actions
   addDataset: (dataset: Dataset) => void;
   removeDataset: (id: string) => void;
+  moveDataset: (id: string, delta: -1 | 1) => void;
   
   addSeries: (series: SeriesConfig) => void;
   updateSeries: (id: string, updates: Partial<SeriesConfig>) => void;
   removeSeries: (id: string) => void;
   
+  updateXAxis: (id: string, updates: Partial<XAxisConfig>) => void;
   updateYAxis: (id: string, updates: Partial<YAxisConfig>) => void;
 
   setAxisTitles: (x: string, y: string) => void;
-  setViewportX: (v: { min: number; max: number }) => void;
-  setGlobalXColumn: (col: string) => void;
-  setXMode: (mode: 'date' | 'numeric') => void;
   
   moveSeries: (id: string, delta: -1 | 1) => void;
   saveView: (name: string) => void;
@@ -38,6 +35,17 @@ interface GraphState {
   loadPersistedState: () => Promise<void>;
   loadDemoData: () => Promise<void>;
 }
+
+const createInitialXAxes = (): XAxisConfig[] => {
+  return Array.from({ length: 9 }, (_, i) => ({
+    id: `axis-${i + 1}`,
+    name: `X-Axis ${i + 1}`,
+    min: 0,
+    max: 100,
+    showGrid: i === 0,
+    xMode: 'date'
+  }));
+};
 
 const createInitialYAxes = (): YAxisConfig[] => {
   return Array.from({ length: 9 }, (_, i) => ({
@@ -54,28 +62,28 @@ const createInitialYAxes = (): YAxisConfig[] => {
 export const useGraphStore = create<GraphState>((set, get) => ({
   datasets: [],
   series: [],
+  xAxes: createInitialXAxes(),
   yAxes: createInitialYAxes(),
   axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
-  viewportX: { min: 0, max: 100 },
-  globalXColumn: 'Timestamp',
-  xMode: 'date',
   views: [],
   isLoaded: false,
 
   addDataset: (dataset) => {
     set((state) => {
       const newDatasets = [...state.datasets, dataset];
-      let newGlobalX = state.globalXColumn;
-      const currentXInNew = dataset.columns.find(c => c === newGlobalX || c.endsWith(`: ${newGlobalX}`));
-      if (!currentXInNew) {
-        const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
-        if (potentialX) newGlobalX = potentialX;
-      }
       const isFirst = state.datasets.length === 0;
+
+      let nextXAxes = state.xAxes;
+      if (isFirst) {
+        const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+        const xColIdx = dataset.columns.indexOf(potentialX);
+        const bounds = dataset.data[xColIdx]?.bounds || { min: 0, max: 100 };
+        nextXAxes = state.xAxes.map((a, i) => i === 0 ? { ...a, min: bounds.min, max: bounds.max } : a);
+      }
+
       return { 
-        datasets: newDatasets, 
-        globalXColumn: newGlobalX,
-        axisTitles: isFirst || newGlobalX !== state.globalXColumn ? { ...state.axisTitles, x: newGlobalX } : state.axisTitles
+        datasets: newDatasets,
+        xAxes: nextXAxes
       };
     });
     if (get().isLoaded) debouncedSaveState();
@@ -90,15 +98,28 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         return {
           datasets: [],
           series: [],
+          xAxes: createInitialXAxes(),
           yAxes: createInitialYAxes(),
           axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
-          viewportX: { min: 0, max: 100 },
-          globalXColumn: 'Timestamp',
-          xMode: 'date',
           views: []
         };
       }
       return { datasets: newDatasets, series: newSeries };
+    });
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  moveDataset: (id, delta) => {
+    set((state) => {
+      const idx = state.datasets.findIndex(d => d.id === id);
+      if (idx === -1) return state;
+      const targetIdx = idx + delta;
+      if (targetIdx < 0 || targetIdx >= state.datasets.length) return state;
+      const newDatasets = [...state.datasets];
+      const temp = newDatasets[idx];
+      newDatasets[idx] = newDatasets[targetIdx];
+      newDatasets[targetIdx] = temp;
+      return { datasets: newDatasets };
     });
     if (get().isLoaded) debouncedSaveState();
   },
@@ -121,17 +142,23 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       if (newSeries.length === 0 && state.datasets.length === 0) {
         localStorage.removeItem('webgraphy-state');
         return {
+          datasets: [],
           series: [],
+          xAxes: createInitialXAxes(),
           yAxes: createInitialYAxes(),
           axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
-          viewportX: { min: 0, max: 100 },
-          globalXColumn: 'Timestamp',
-          xMode: 'date',
           views: []
         };
       }
       return { series: newSeries };
     });
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  updateXAxis: (id, updates) => {
+    set((state) => ({
+      xAxes: state.xAxes.map(a => a.id === id ? { ...a, ...updates } : a)
+    }));
     if (get().isLoaded) debouncedSaveState();
   },
 
@@ -144,25 +171,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   setAxisTitles: (x, y) => {
     set({ axisTitles: { x, y } });
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  setViewportX: (v) => {
-    set({ viewportX: v });
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  setGlobalXColumn: (col) => {
-    set((state) => ({
-      globalXColumn: col,
-      series: state.series.map(s => ({ ...s, xColumn: col })),
-      axisTitles: { ...state.axisTitles, x: col }
-    }));
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  setXMode: (mode) => {
-    set({ xMode: mode });
     if (get().isLoaded) debouncedSaveState();
   },
 
@@ -191,7 +199,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const newView: ViewSnapshot = {
         id: crypto.randomUUID(),
         name: finalName,
-        viewportX: state.viewportX,
+        xAxes: state.xAxes.map(a => ({ id: a.id, min: a.min, max: a.max })),
         yAxes: state.yAxes.map(a => ({ id: a.id, min: a.min, max: a.max }))
       };
       return { views: [...state.views, newView] };
@@ -225,7 +233,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       set({ ...savedState, datasets: allDatasets, isLoaded: true });
       debouncedSaveState();
     } else if (allDatasets.length > 0) {
-      set({ datasets: allDatasets, isLoaded: true, xMode: 'date' });
+      set({ datasets: allDatasets, isLoaded: true });
     } else if (localStorage.getItem('webgraphy-cleared')) {
       localStorage.removeItem('webgraphy-cleared');
       set({ isLoaded: true });
@@ -264,12 +272,10 @@ function debouncedSaveState() {
 
 function saveState(state: GraphState) {
   const appState: AppState = {
-    viewportX: state.viewportX,
+    xAxes: state.xAxes,
     yAxes: state.yAxes,
     series: state.series,
     axisTitles: state.axisTitles,
-    globalXColumn: state.globalXColumn,
-    xMode: state.xMode,
     views: state.views
   };
   persistence.saveAppState(appState);

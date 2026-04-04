@@ -16,18 +16,26 @@ interface Props {
  * Provides an extremely compact UI for configuring an individual data series in a single row.
  */
 export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
-  const { updateSeries, removeSeries, yAxes, updateYAxis } = useGraphStore();
+  const { updateSeries, removeSeries, xAxes, yAxes, updateXAxis, updateYAxis } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
     updateSeries(series.id, updates);
   };
 
-  const currentAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
-  const currentAxis = yAxes.find(a => a.id === series.yAxisId);
+  const currentXAxisIndex = parseInt(series.xAxisId?.split('-')[1]) || 1;
+  const currentXAxis = xAxes.find(a => a.id === (series.xAxisId || 'axis-1'));
 
-  const cycleAxis = () => {
-    const nextIndex = (currentAxisIndex % 9) + 1;
+  const currentYAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
+  const currentYAxis = yAxes.find(a => a.id === series.yAxisId);
+
+  const cycleXAxis = () => {
+    const nextIndex = (currentXAxisIndex % 9) + 1;
+    handleUpdate({ xAxisId: `axis-${nextIndex}` });
+  };
+
+  const cycleYAxis = () => {
+    const nextIndex = (currentYAxisIndex % 9) + 1;
     handleUpdate({ yAxisId: `axis-${nextIndex}` });
   };
 
@@ -81,23 +89,32 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         </button>
       </div>
 
+      {/* X Axis Cycle Button (1-9) */}
+      <button
+        onClick={cycleXAxis}
+        style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#1976d2' }}
+        title="Cycle X-Axis (1-9)"
+       aria-label="Cycle X-Axis">
+        {currentXAxisIndex}
+      </button>
+
       {/* Y Axis Cycle Button (1-9) */}
       <button
-        onClick={cycleAxis}
+        onClick={cycleYAxis}
         style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0 }}
         title="Cycle Y-Axis (1-9)"
        aria-label="Cycle Y-Axis">
-        {currentAxisIndex}
+        {currentYAxisIndex}
       </button>
 
       {/* L/R Side Toggle */}
-      {currentAxis && (
+      {currentYAxis && (
         <button
-          onClick={() => updateYAxis(currentAxis.id, { position: currentAxis.position === 'left' ? 'right' : 'left' })}
+          onClick={() => updateYAxis(currentYAxis.id, { position: currentYAxis.position === 'left' ? 'right' : 'left' })}
           style={{ width: '18px', height: '18px', fontSize: '9px', padding: '0', cursor: 'pointer', background: '#e9ecef', border: '1px solid #ced4da', borderRadius: '2px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          title={currentAxis.position === 'left' ? "Left Axis" : "Right Axis"}
+          title={currentYAxis.position === 'left' ? "Left Axis" : "Right Axis"}
          aria-label="Toggle Left/Right Axis">
-          {currentAxis.position === 'left' ? (
+          {currentYAxis.position === 'left' ? (
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 13V2m-2 3l2-3 2 3M3 13h11m-3-2l3 2-3 2" />
             </svg>
@@ -110,13 +127,13 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       )}
 
       {/* Grid Toggle */}
-      {currentAxis && (
+      {currentYAxis && (
         <button
-          onClick={() => updateYAxis(currentAxis.id, { showGrid: !currentAxis.showGrid })}
-          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          onClick={() => updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })}
+          style={{ width: '18px', height: '18px', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#e9ecef' : '#f8f9fa', border: '1px solid #ced4da', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           title="Toggle Grid"
          aria-label="Toggle Grid">
-          {currentAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
+          {currentYAxis.showGrid ? <Rows size={10} /> : <Square size={10} />}
         </button>
       )}
 
@@ -160,17 +177,29 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         title="Color"
       />
 
-      {/* Y Column Selector */}
-      <select
-        name={`series-y-column-${series.id}`}
-        aria-label={`Y Column for ${series.name || series.yColumn}`}
-        value={series.yColumn}
-        onChange={(e) => handleUpdate({ yColumn: e.target.value })}
-        style={{ width: '80px', fontSize: '9px', padding: '0', height: '18px', minWidth: 0, flexShrink: 1 }}
-        title="Y Column"
-      >
-        {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
-      </select>
+      {/* X/Y Column Selector */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+        <select
+          name={`series-x-column-${series.id}`}
+          aria-label={`X Column for ${series.name || series.yColumn}`}
+          value={series.xColumn}
+          onChange={(e) => handleUpdate({ xColumn: e.target.value })}
+          style={{ width: '70px', fontSize: '8px', padding: '0', height: '12px', minWidth: 0, flexShrink: 1, border: '1px solid #e3f2fd', color: '#1976d2' }}
+          title="X Column"
+        >
+          {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select
+          name={`series-y-column-${series.id}`}
+          aria-label={`Y Column for ${series.name || series.yColumn}`}
+          value={series.yColumn}
+          onChange={(e) => handleUpdate({ yColumn: e.target.value })}
+          style={{ width: '70px', fontSize: '8px', padding: '0', height: '12px', minWidth: 0, flexShrink: 1 }}
+          title="Y Column"
+        >
+          {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
 
       {/* Editable Title */}
       <div style={{ flex: '2', minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
