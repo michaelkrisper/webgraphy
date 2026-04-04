@@ -21,6 +21,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
   const [program, setProgram] = useState<WebGLProgram | null>(null);
   const [locations, setLocations] = useState<any>({});
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
+  const segParamsRef = useRef<Map<string, string>>(new Map());
 
   // Global shared buffer to avoid per-segment array allocations
   // Using module-level variable to persist across renders and components
@@ -53,9 +54,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
       uniform float u_point_size;
-      varying float v_t;
-      varying float v_len;
-      varying float v_dist_start;
+      varying highp float v_t;
+      varying highp float v_len;
+      varying highp float v_dist_start;
 
       vec2 toScreen(vec2 pos) {
         float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
@@ -83,14 +84,15 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       uniform vec4 u_color;
       uniform int u_point_style;
       uniform int u_line_style;
-      varying float v_t;
-      varying float v_len;
-      varying float v_dist_start;
+      uniform float u_dpr;
+      varying highp float v_t;
+      varying highp float v_len;
+      varying highp float v_dist_start;
       void main() {
         if (u_point_style == -1) {
           if (u_line_style > 0) {
-            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
-            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+            float dashLen = ((u_line_style == 1) ? 8.0 : 2.0) * u_dpr;
+            float gapLen = ((u_line_style == 1) ? 6.0 : 4.0) * u_dpr;
             float period = dashLen + gapLen;
             float dist = v_dist_start + v_t * v_len;
             if (mod(dist, period) > dashLen) discard;
@@ -122,6 +124,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
       colorLoc: gl.getUniformLocation(pg, 'u_color'),
       styleLoc: gl.getUniformLocation(pg, 'u_point_style'),
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
+      dprLoc: gl.getUniformLocation(pg, 'u_dpr'),
       sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
       posLoc: gl.getAttribLocation(pg, 'a_position'),
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
@@ -182,6 +185,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
     const locs = locations;
     gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
     gl.uniform2f(locs.resLoc, pw, ph);
+    gl.uniform1f(locs.dprLoc, dpr);
 
     seriesMetadata.forEach(({ series: s, ds, axis, xIdx, yIdx }) => {
       const colX = ds.data[xIdx];
@@ -244,30 +248,44 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, yA
           gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-lod${lodLevel}`;
+          const paramKey = `${viewportX.min}-${viewportX.max}-${axis.min}-${axis.max}-${chartWidth}-${chartHeight}-${dpr}`;
           let segBuffer = buffersRef.current.get(segBufferKey);
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
+            buffersRef.current.set(segBufferKey, segBuffer);
+          }
+
+          if (segParamsRef.current.get(segBufferKey) !== paramKey) {
             // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
             const reqSize = (numPoints - 1) * 12;
             const sharedArr = getSharedBuffer(reqSize);
-            // Compute screen-space cumulative arc length so dash phase is in pixels
+            // Compute screen-space cumulative arc length in physical pixels
             const xRange = (viewportX.max - viewportX.min) || 1;
             const yRange = (axis.max - axis.min) || 1;
+            const pChartWidth = chartWidth * dpr;
+            const pChartHeight = chartHeight * dpr;
+            const dashLen = ((lStyle === 1) ? 8.0 : 2.0) * dpr;
+            const gapLen = ((lStyle === 1) ? 6.0 : 4.0) * dpr;
+            const period = dashLen + gapLen;
+
             let cumDist = 0;
             for (let i = 0; i < numPoints - 1; i++) {
               const ax = xLOD[i], ay = yLOD[i], bx = xLOD[i + 1], by = yLOD[i + 1];
-              const screenDx = (bx - ax) / xRange * chartWidth;
-              const screenDy = (by - ay) / yRange * chartHeight;
+              const screenDx = (bx - ax) / xRange * pChartWidth;
+              const screenDy = (by - ay) / yRange * pChartHeight;
               const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
               const off = i * 12;
-              sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = cumDist;
-              sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = cumDist;
+              const startDist = cumDist % period;
+              sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = startDist;
+              sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = startDist;
               cumDist += segScreenLen;
             }
             gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STATIC_DRAW);
-            buffersRef.current.set(segBufferKey, segBuffer);
-          } else gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
+            segParamsRef.current.set(segBufferKey, paramKey);
+          } else {
+            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+          }
 
           gl.enableVertexAttribArray(locs.posLoc);
           gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 24, 0);
