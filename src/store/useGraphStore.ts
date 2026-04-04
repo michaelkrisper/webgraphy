@@ -71,26 +71,31 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   addDataset: (dataset) => {
     set((state) => {
-      const newDatasets = [...state.datasets, dataset];
-      const isFirst = state.datasets.length === 0;
-
       if (!dataset.xAxisColumn) {
         const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
         dataset.xAxisColumn = potentialX;
       }
+
+      // Automatically assign first unused X-axis
       if (!dataset.xAxisId) {
-        dataset.xAxisId = 'axis-1';
+        const usedXAxisIds = new Set(state.datasets.map(d => d.xAxisId));
+        const unusedAxis = state.xAxes.find(a => !usedXAxisIds.has(a.id)) || state.xAxes[0];
+        dataset.xAxisId = unusedAxis.id;
       }
 
-      let nextXAxes = state.xAxes;
-      if (isFirst) {
-        const xColIdx = dataset.columns.indexOf(dataset.xAxisColumn);
-        const bounds = dataset.data[xColIdx]?.bounds || { min: 0, max: 100 };
-        nextXAxes = state.xAxes.map((a, i) => i === 0 ? { ...a, min: bounds.min, max: bounds.max } : a);
-      }
+      const xColIdx = dataset.columns.indexOf(dataset.xAxisColumn);
+      const col = dataset.data[xColIdx];
+      const bounds = col?.bounds || { min: 0, max: 100 };
+      const isDate = col?.isFloat64 || false;
+
+      const nextXAxes = state.xAxes.map(a =>
+        a.id === dataset.xAxisId
+          ? { ...a, min: bounds.min, max: bounds.max, xMode: isDate ? 'date' : 'numeric' as const }
+          : a
+      );
 
       return {
-        datasets: newDatasets,
+        datasets: [...state.datasets, dataset],
         xAxes: nextXAxes
       };
     });
