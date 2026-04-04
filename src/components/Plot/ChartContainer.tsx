@@ -1122,7 +1122,7 @@ const ChartContainer: React.FC = () => {
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     } else if (e.touches.length === 2) {
       isPanningRef.current = false;
-      setPanTarget(null);
+      setPanTarget(prev => (prev && prev !== 'all') ? prev : target);
       const t1 = e.touches[0], t2 = e.touches[1];
       lastPinchDist.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     }
@@ -1149,7 +1149,7 @@ const ChartContainer: React.FC = () => {
 
       const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
       const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
-      performZoom(zoomFactor, centerX, centerY, 'all');
+      performZoom(zoomFactor, centerX, centerY, panTarget || 'all');
     }
   }, [panTarget, performPan, performZoom]);
 
@@ -1176,6 +1176,21 @@ const ChartContainer: React.FC = () => {
     performPan(dx, dy, panTarget, e.altKey);
   }, [panTarget, padding, width, height, getHoveredAxis, performPan]);
 
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (e.touches.length === 0) {
+      isPanningRef.current = false;
+      setPanTarget(null);
+      lastTouchPos.current = null;
+      lastPinchDist.current = null;
+    } else if (e.touches.length === 1) {
+      // Transition from pinch to pan
+      const touch = e.touches[0];
+      lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+      isPanningRef.current = true;
+      lastPinchDist.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     const handleMouseUp = () => {
       if (zoomBoxStartRef.current) {
@@ -1200,12 +1215,6 @@ const ChartContainer: React.FC = () => {
       isPanningRef.current = false;
       setPanTarget(null);
     };
-    const handleTouchEnd = () => {
-      isPanningRef.current = false;
-      setPanTarget(null);
-      lastTouchPos.current = null;
-      lastPinchDist.current = null;
-    };
 
     window.addEventListener('mousemove', handleMouseMoveRaw);
     window.addEventListener('mouseup', handleMouseUp);
@@ -1217,7 +1226,7 @@ const ChartContainer: React.FC = () => {
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [handleMouseMoveRaw, handleTouchMoveRaw, activeYAxes, width, height, padding, startAnimation]);
+  }, [handleMouseMoveRaw, handleTouchMoveRaw, handleTouchEnd, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
