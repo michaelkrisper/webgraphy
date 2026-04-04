@@ -599,6 +599,7 @@ const ChartContainer: React.FC = () => {
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
   const hoveredAxisIdRef = useRef<string | null>(null);
+  const hoveredXAxisIdRef = useRef<string | null>(null);
   const pressedKeys = useRef<Set<string>>(new Set());
   
   const targetXAxes = useRef<Record<string, { min: number, max: number }>>({});
@@ -1004,7 +1005,8 @@ const ChartContainer: React.FC = () => {
     startAnimation();
   }, [startAnimation, activeXAxesUsed]);
 
-  const getHoveredAxis = useCallback((mouseX: number) => {
+  const getHoveredYAxis = useCallback((mouseX: number, mouseY: number) => {
+    if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
     let foundHovered = null;
     leftAxes.forEach((axis, sideIdx) => {
       let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
@@ -1021,7 +1023,19 @@ const ChartContainer: React.FC = () => {
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
     return foundHovered;
-  }, [leftAxes, rightAxes, axisLayout, padding, width]);
+  }, [leftAxes, rightAxes, axisLayout, padding, width, height]);
+
+  const getHoveredXAxis = useCallback((mouseX: number, mouseY: number) => {
+    if (mouseX < padding.left || mouseX > width - padding.right) return null;
+    let foundHovered = null;
+    activeXAxesUsed.forEach((axis, idx) => {
+      const baseY = height - padding.bottom + (activeXAxesUsed.length - 1 - idx) * xAxisHeight;
+      if (mouseY >= baseY && mouseY <= baseY + xAxisHeight) {
+        foundHovered = axis.id;
+      }
+    });
+    return foundHovered;
+  }, [activeXAxesUsed, padding, width, height, xAxisHeight]);
 
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false) => {
     const state = useGraphStore.getState();
@@ -1160,7 +1174,8 @@ const ChartContainer: React.FC = () => {
     const mouseY = e.clientY - rect.top;
 
     // Detect Hovered Axis
-    hoveredAxisIdRef.current = getHoveredAxis(mouseX);
+    hoveredAxisIdRef.current = getHoveredYAxis(mouseX, mouseY);
+    hoveredXAxisIdRef.current = getHoveredXAxis(mouseX, mouseY);
 
     if (zoomBoxStartRef.current && containerRef.current) {
       const mx = Math.max(padding.left, Math.min(width - padding.right, mouseX));
@@ -1174,7 +1189,7 @@ const ChartContainer: React.FC = () => {
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
     performPan(dx, dy, panTarget, e.altKey);
-  }, [panTarget, padding, width, height, getHoveredAxis, performPan]);
+  }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (e.touches.length === 0) {
@@ -1236,14 +1251,18 @@ const ChartContainer: React.FC = () => {
       pressedKeys.current.add(e.key);
       const step = 0.15;
       if (e.key === 'ArrowLeft') {
-        activeXAxesUsed.forEach(axis => {
+        const onXAxis = !!hoveredXAxisIdRef.current;
+        const axesToMove = onXAxis ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetXAxes.current[axis.id] = { min: t.min - range * step, max: t.max - range * step };
         });
         startAnimation();
       } else if (e.key === 'ArrowRight') {
-        activeXAxesUsed.forEach(axis => {
+        const onXAxis = !!hoveredXAxisIdRef.current;
+        const axesToMove = onXAxis ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
+        axesToMove.forEach(axis => {
           const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
           const range = t.max - t.min;
           targetXAxes.current[axis.id] = { min: t.min + range * step, max: t.max + range * step };
@@ -1270,7 +1289,7 @@ const ChartContainer: React.FC = () => {
     const handleKeyUp = (e: KeyboardEvent) => { if (e.key === 'Control') setIsCtrlPressed(false); pressedKeys.current.delete(e.key); };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, [activeYAxes, startAnimation]);
+  }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
     return activeXAxesUsed.map(axis => {
