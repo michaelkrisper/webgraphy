@@ -272,6 +272,7 @@ export const Sidebar: React.FC = () => {
                         aria-label={`Filter columns for ${d.name}`}
                         autoComplete="off"
                         placeholder="Filter..."
+                        maxLength={100}
                         value={columnFilters[d.id] || ''}
                         onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
                         style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
@@ -384,6 +385,7 @@ export const Sidebar: React.FC = () => {
                           name="view-name"
                           aria-label="Rename view"
                           autoComplete="off"
+                          maxLength={50}
                           value={tempViewName}
                           onChange={(e) => setTempViewName(e.target.value)}
                           onBlur={() => {
