@@ -32,16 +32,15 @@ export const exportToSVG = (
   height: number
 ): string => {
   // 1. Determine active axes and layout
-  const usedXAxisIds = Array.from(new Set(series.map(s => s.xAxisId || 'axis-1')));
-  // Sort X axes by dataset order
   const axisToMinDsIdx = new Map<string, number>();
-  series.forEach(s => {
-    const dsIdx = datasets.findIndex(d => d.id === s.sourceId);
-    const xId = s.xAxisId || 'axis-1';
+  datasets.forEach((d, dsIdx) => {
+    if (!series.some(s => s.sourceId === d.id)) return;
+    const xId = d.xAxisId || 'axis-1';
     if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
       axisToMinDsIdx.set(xId, dsIdx);
     }
   });
+  const usedXAxisIds = Array.from(axisToMinDsIdx.keys());
   const activeXAxes = xAxes
     .filter(a => usedXAxisIds.includes(a.id))
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
@@ -74,7 +73,7 @@ export const exportToSVG = (
   const padding = {
     top: 20,
     right: 20 + rightSum,
-    bottom: 30 + (activeXAxes.length - 1) * 40,
+    bottom: 60 + (activeXAxes.length - 1) * 60,
     left: 20 + leftSum
   };
 
@@ -110,7 +109,7 @@ export const exportToSVG = (
   // 3. Draw Series Data
   series.forEach(s => {
     const ds = datasets.find(d => d.id === s.sourceId);
-    const xAxis = xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+    const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
     const yAxis = yAxes.find(a => a.id === s.yAxisId);
     if (!ds || !xAxis || !yAxis) return;
 
@@ -120,7 +119,7 @@ export const exportToSVG = (
       return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
     };
 
-    const xIdx = findColumn(s.xColumn);
+    const xIdx = findColumn(ds.xAxisColumn);
     const yIdx = findColumn(s.yColumn);
     if (xIdx === -1 || yIdx === -1) return;
 
@@ -157,7 +156,7 @@ export const exportToSVG = (
     const firstXTick = Math.ceil(axis.min / xStep) * xStep;
     const xPrecision = Math.max(0, -Math.floor(Math.log10(xStep || 1)));
     const vp = { xMin: axis.min, xMax: axis.max, yMin: 0, yMax: 100, width, height, padding };
-    const baseY = height - padding.bottom + idx * 40;
+    const baseY = height - padding.bottom + idx * 60;
 
     svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="#333" stroke-width="1" />`;
 
@@ -166,12 +165,13 @@ export const exportToSVG = (
       if (x < padding.left || x > width - padding.right) continue;
       svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="#333" stroke-width="1" />`;
       const label = axis.xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
-      svg += `<text x="${x}" y="${baseY + 18}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
+      svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
     }
 
-    const seriesForThisAxis = series.filter(s => (s.xAxisId || 'axis-1') === axis.id);
-    const title = Array.from(new Set(seriesForThisAxis.map(s => s.xColumn))).join(' / ');
-    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 32}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || '#333')}">${escapeHTML(title)}</text>`;
+    const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
+    const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
+    const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
+    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || '#333')}">${escapeHTML(title)}</text>`;
   });
 
   activeYAxes.forEach(axis => {

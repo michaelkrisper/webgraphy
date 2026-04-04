@@ -223,7 +223,9 @@ describe('useDataImport hook', () => {
       name: 'test.csv',
       columns: ['Col1'],
       rowCount: 10,
-      data: []
+      data: [],
+      xAxisColumn: 'Col1',
+      xAxisId: 'axis-1'
     };
 
     await act(async () => {

@@ -5,7 +5,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
 
-const BASE_PADDING = { top: 20, right: 20, bottom: 30, left: 20 };
+const BASE_PADDING = { top: 20, right: 20, bottom: 60, left: 20 };
 
 type XTicks =
   | { result: number[]; step: number; precision: number; isXDate: false; secondaryLabels?: undefined }
@@ -125,7 +125,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         {xAxes.map((axis, idx) => {
           const axisConf = allXAxes.find(a => a.id === axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
-          const y = height - padding.bottom + idx * 40;
+          const y = height - padding.bottom + idx * 60;
 
           return (
             <g key={`x-axis-spine-${axis.id}`}>
@@ -237,7 +237,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         {xAxes.map((axis, axisIdx) => {
           const axisConf = allXAxes.find(a => a.id === axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
-          const baseY = padding.bottom - axisIdx * 40;
+          const baseY = padding.bottom - axisIdx * 60;
           
           return (
             <React.Fragment key={`x-labels-${axis.id}`}>
@@ -259,7 +259,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                     <div key={`sl-${axis.id}-${sl.timestamp}`} style={{
                       position: 'absolute',
                       left: x,
-                      bottom: baseY - 35,
+                      bottom: baseY - 38,
                       fontSize: '10px',
                       fontWeight: 'bold',
                       color: axis.color,
@@ -281,9 +281,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { x } = worldToScreen(timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
                 const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.ticks.precision)) : t.label;
-                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - 20, transform: 'translateX(-50%)', fontSize: '9px', color: axis.color }}>{label}</div>;
+                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - 22, transform: 'translateX(-50%)', fontSize: '9px', color: axis.color }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', bottom: baseY - 8, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ position: 'absolute', bottom: baseY - 52, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {axis.title}
               </div>
             </React.Fragment>
@@ -372,7 +372,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
       };
 
-      const xIdx = findColumn(s.xColumn);
+      const xIdx = findColumn(ds.xAxisColumn);
       const yIdx = findColumn(s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) return null;
@@ -390,7 +390,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     if (!pos || seriesMetadata.length === 0) return null;
 
     // Use first used X-axis for mouse interaction base
-    const firstUsedXAxisId = series[0]?.xAxisId || 'axis-1';
+    const firstDataset = datasets.find(d => series.some(s => s.sourceId === d.id));
+    const firstUsedXAxisId = firstDataset?.xAxisId || 'axis-1';
     const xAxisConf = xAxes.find(a => a.id === firstUsedXAxisId);
     if (!xAxisConf) return null;
 
@@ -403,8 +404,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestXWorld: number | null = null;
     let bestSeriesXConf: XAxisConfig | null = null;
 
-    seriesMetadata.forEach(({ series: s, xCol }) => {
-      const sXConf = xAxes.find(a => a.id === s.xAxisId);
+    seriesMetadata.forEach(({ ds, xCol }) => {
+      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
       if (!sXConf) return;
 
       const xData = xCol.data;
@@ -450,8 +451,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X
     const entries: { label: string, value: number, color: string, xLabel: string }[] = [];
-    seriesMetadata.forEach(({ series: s, axis, xCol, yCol }) => {
-      const sXConf = xAxes.find(a => a.id === s.xAxisId);
+    seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
+      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
       if (!sXConf) return;
 
       const xData = xCol.data, yData = yCol.data;
@@ -671,9 +672,11 @@ const ChartContainer: React.FC = () => {
     // This is a bit complex. The prompt says "the order of data sources ... should define the order in which the x-axes are drawn".
     // Let's find unique xAxisIds and associate each with the minimum dataset index that uses it.
     const axisToMinDsIdx = new Map<string, number>();
-    series.forEach(s => {
-      const dsIdx = datasets.findIndex(d => d.id === s.sourceId);
-      const xId = s.xAxisId || 'axis-1';
+    datasets.forEach((d, dsIdx) => {
+      // Only include datasets that have at least one series
+      if (!series.some(s => s.sourceId === d.id)) return;
+
+      const xId = d.xAxisId || 'axis-1';
       if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
         axisToMinDsIdx.set(xId, dsIdx);
       }
@@ -689,7 +692,7 @@ const ChartContainer: React.FC = () => {
   const padding = useMemo(() => {
     const leftSum = leftAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
     const rightSum = rightAxes.reduce((sum, a) => sum + (axisLayout[a.id]?.total || 40), 0);
-    const bottomExtra = Math.max(0, (activeXAxesUsed.length - 1) * 40);
+    const bottomExtra = Math.max(0, (activeXAxesUsed.length - 1) * 60);
     return { ...BASE_PADDING, left: BASE_PADDING.left + leftSum, right: BASE_PADDING.right + rightSum, bottom: BASE_PADDING.bottom + bottomExtra };
   }, [leftAxes, rightAxes, axisLayout, activeXAxesUsed]);
 
@@ -717,10 +720,10 @@ const ChartContainer: React.FC = () => {
        let anyDataVisible = false;
        state.series.forEach(s => {
          const ds = state.datasets.find(d => d.id === s.sourceId);
-         const xAxis = state.xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+         const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
          if (!ds || !xAxis) return;
 
-         const xIdx = ds.columns.indexOf(s.xColumn);
+         const xIdx = ds.columns.indexOf(ds.xAxisColumn);
          const xCol = ds.data[xIdx];
          
          if (xCol && xCol.bounds) {
@@ -743,10 +746,10 @@ const ChartContainer: React.FC = () => {
       state.series.forEach(s => {
         const ds = state.datasets.find(d => d.id === s.sourceId);
         if (!ds) return;
-        const xIdx = ds.columns.indexOf(s.xColumn);
+        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (!col || !col.bounds) return;
-        const xId = s.xAxisId || 'axis-1';
+        const xId = ds.xAxisId || 'axis-1';
         const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity };
         xBounds.set(xId, { min: Math.min(cur.min, col.bounds.min), max: Math.max(cur.max, col.bounds.max) });
       });
@@ -840,7 +843,7 @@ const ChartContainer: React.FC = () => {
 
     axisSeries.forEach(s => {
       const ds = datasetsById.get(s.sourceId); if (!ds) return;
-      const xAxis = state.xAxes.find(a => a.id === (s.xAxisId || 'axis-1'));
+      const xAxis = state.xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
       if (!xAxis) return;
       
       const findColumn = (name: string) => {
@@ -849,7 +852,7 @@ const ChartContainer: React.FC = () => {
         return ds.columns.findIndex((c: string) => c.endsWith(`: ${name}`) || c === name);
       };
 
-      const xIdx = findColumn(s.xColumn);
+      const xIdx = findColumn(ds.xAxisColumn);
       const yIdx = findColumn(s.yColumn);
       if (xIdx === -1 || yIdx === -1) return;
 
@@ -935,14 +938,14 @@ const ChartContainer: React.FC = () => {
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
 
     axesToScale.forEach(id => {
-      const axisSeries = state.series.filter(s => (s.xAxisId || 'axis-1') === id);
-      if (axisSeries.length === 0) return;
+      const activeDatasetsUsingAxis = state.datasets.filter(d =>
+        (d.xAxisId || 'axis-1') === id && state.series.some(s => s.sourceId === d.id)
+      );
+      if (activeDatasetsUsingAxis.length === 0) return;
 
       let xMin = Infinity, xMax = -Infinity;
-      axisSeries.forEach(s => {
-        const ds = state.datasets.find(d => d.id === s.sourceId);
-        if (!ds) return;
-        const xIdx = ds.columns.indexOf(s.xColumn);
+      activeDatasetsUsingAxis.forEach(ds => {
+        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (col && col.bounds) {
           if (col.bounds.min < xMin) xMin = col.bounds.min;
@@ -1139,8 +1142,9 @@ const ChartContainer: React.FC = () => {
     return activeXAxesUsed.map(axis => {
       const range = axis.max - axis.min;
       const isXDate = axis.xMode === 'date';
-      const seriesForThisAxis = series.filter(s => (s.xAxisId || 'axis-1') === axis.id);
-      const title = Array.from(new Set(seriesForThisAxis.map(s => s.xColumn))).join(' / ');
+      const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
+      const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
+      const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
       const color = seriesForThisAxis[0]?.lineColor || '#333';
 
       if (range <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
@@ -1176,8 +1180,8 @@ const ChartContainer: React.FC = () => {
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxes} width={width} height={height} padding={padding} leftAxes={leftAxes} rightAxes={rightAxes} series={series} axisLayout={axisLayout} allXAxes={xAxes} />
 
       {activeXAxesUsed.map((axis, idx) => {
-        const baseY = idx * 40;
-        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 40, cursor: 'ew-resize', zIndex: 20 }} />;
+        const baseY = idx * 60;
+        return <div key={`wheel-x-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(axis.id); }} style={{ position: 'absolute', bottom: baseY, left: padding.left, right: padding.right, height: 60, cursor: 'ew-resize', zIndex: 20 }} />;
       })}
 
       {activeYAxes.map((axis) => {

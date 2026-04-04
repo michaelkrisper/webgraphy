@@ -20,6 +20,8 @@ export interface Dataset {
   columns: string[];
   data: DataColumn[];
   rowCount: number;
+  xAxisColumn: string;
+  xAxisId: string;
 }
 
 export type AxisPosition = 'left' | 'right';
@@ -60,9 +62,7 @@ export interface SeriesConfig {
   id: string;
   sourceId: string;
   name: string;
-  xColumn: string;
   yColumn: string;
-  xAxisId: string;
   yAxisId: string;
   pointStyle: 'circle' | 'square' | 'cross' | 'none';
   pointColor: string;
@@ -150,6 +150,14 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
 
     return col;
   });
+
+  if (dataset.xAxisColumn === undefined) {
+    const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+    dataset.xAxisColumn = potentialX;
+  }
+  if (dataset.xAxisId === undefined) {
+    dataset.xAxisId = 'axis-1';
+  }
   
   return dataset;
 }

@@ -70,7 +70,7 @@ describe('persistence', () => {
       };
       openDBMock.mockResolvedValueOnce(mockDb);
 
-      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
       await persistence.saveDataset(dataset);
 
       expect(mockDb.put).toHaveBeenCalledWith('datasets', dataset);
@@ -80,7 +80,7 @@ describe('persistence', () => {
       const storedDataset = {
         id: '1',
         name: 'test',
-        columns: [],
+        columns: ['Time', 'Value'],
         data: [
             { levels: [{ 0: 1, 1: 2, 2: 3 }] }, // missing bounds, level is object
             { levels: [new Float32Array([1, 2, 3])], bounds: {min: 0, max: 1}, refPoint: 5 }, // valid level
@@ -99,16 +99,19 @@ describe('persistence', () => {
       expect(mockDb.get).toHaveBeenCalledWith('datasets', '1');
       expect(dataset).toBeDefined();
       expect(dataset!.data[0].bounds).toEqual({min: 0, max: 0});
-      expect(dataset!.data[0].levels[0]).toBeInstanceOf(Float32Array);
-      expect(dataset!.data[0].levels[0].length).toBe(3);
+      expect(dataset!.data[0].data).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[0].data.length).toBe(3);
       expect(dataset!.data[0].refPoint).toBe(0);
 
       expect(dataset!.data[1].bounds).toEqual({min: 0, max: 1});
-      expect(dataset!.data[1].levels[0]).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[1].data).toBeInstanceOf(Float32Array);
       expect(dataset!.data[1].refPoint).toBe(5);
 
-      expect(dataset!.data[2].levels[0]).toBeInstanceOf(Float32Array);
-      expect(dataset!.data[2].levels[0].length).toBe(0);
+      expect(dataset!.data[2].data).toBeInstanceOf(Float32Array);
+      expect(dataset!.data[2].data.length).toBe(0);
+
+      expect(dataset!.xAxisColumn).toBe('Time');
+      expect(dataset!.xAxisId).toBe('axis-1');
     });
 
     it('should load a dataset that has no data or is not an array', async () => {
@@ -142,8 +145,8 @@ describe('persistence', () => {
 
     it('should get all datasets', async () => {
       const storedDatasets = [
-        { id: '1', name: 'test1', columns: [], data: [], rowCount: 0 },
-        { id: '2', name: 'test2', columns: [], data: [], rowCount: 0 }
+        { id: '1', name: 'test1', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' },
+        { id: '2', name: 'test2', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' }
       ];
 
       const mockDb = {
@@ -238,7 +241,7 @@ describe('persistence', () => {
     it('should propagate error when openDB fails', async () => {
       openDBMock.mockRejectedValueOnce(new Error('Failed to open IndexedDB'));
 
-      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
 
       await expect(persistence.saveDataset(dataset)).rejects.toThrow('Failed to open IndexedDB');
     });
@@ -249,7 +252,7 @@ describe('persistence', () => {
       };
       openDBMock.mockResolvedValueOnce(mockDb);
 
-      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0 };
+      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
 
       await expect(persistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
     });

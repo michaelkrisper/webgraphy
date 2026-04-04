@@ -13,9 +13,10 @@ interface GraphState {
   
   // Actions
   addDataset: (dataset: Dataset) => void;
+  updateDataset: (id: string, updates: Partial<Dataset>) => void;
   removeDataset: (id: string) => void;
   moveDataset: (id: string, delta: -1 | 1) => void;
-  
+
   addSeries: (series: SeriesConfig) => void;
   updateSeries: (id: string, updates: Partial<SeriesConfig>) => void;
   removeSeries: (id: string) => void;
@@ -73,19 +74,33 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const newDatasets = [...state.datasets, dataset];
       const isFirst = state.datasets.length === 0;
 
+      if (!dataset.xAxisColumn) {
+        const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+        dataset.xAxisColumn = potentialX;
+      }
+      if (!dataset.xAxisId) {
+        dataset.xAxisId = 'axis-1';
+      }
+
       let nextXAxes = state.xAxes;
       if (isFirst) {
-        const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
-        const xColIdx = dataset.columns.indexOf(potentialX);
+        const xColIdx = dataset.columns.indexOf(dataset.xAxisColumn);
         const bounds = dataset.data[xColIdx]?.bounds || { min: 0, max: 100 };
         nextXAxes = state.xAxes.map((a, i) => i === 0 ? { ...a, min: bounds.min, max: bounds.max } : a);
       }
 
-      return { 
+      return {
         datasets: newDatasets,
         xAxes: nextXAxes
       };
     });
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  updateDataset: (id, updates) => {
+    set((state) => ({
+      datasets: state.datasets.map(d => d.id === id ? { ...d, ...updates } : d)
+    }));
     if (get().isLoaded) debouncedSaveState();
   },
 
