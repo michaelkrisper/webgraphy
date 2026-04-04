@@ -73,95 +73,67 @@ export function generateTimeTicks(min: number, max: number, step: TimeStep): Tim
   const ticks: TimeTick[] = [];
   const { unit, value } = step;
 
-  if (unit === 'second' || unit === 'minute' || unit === 'hour' || unit === 'day') {
-    // For these units, we can start with a Date at 'min' and align it
-    const d = new Date(min * 1000);
-    if (unit === 'minute') d.setSeconds(0, 0);
-    else if (unit === 'hour') d.setMinutes(0, 0, 0);
-    else if (unit === 'day') d.setHours(0, 0, 0, 0);
-    else d.setMilliseconds(0);
-
-    let current = d.getTime() / 1000;
-    if (current < min) {
-        // Step forward until we hit or pass min
-        if (unit === 'second') current += value;
-        else if (unit === 'minute') current += 60 * value;
-        else if (unit === 'hour') current += 3600 * value;
-        else if (unit === 'day') {
-            d.setDate(d.getDate() + value);
-            current = d.getTime() / 1000;
-        }
-    }
-
-    while (current <= max) {
-      ticks.push({
-        timestamp: current,
-        label: formatPrimaryLabel(current, unit),
-      });
-
-      if (unit === 'day') {
-        d.setDate(d.getDate() + value);
-        current = d.getTime() / 1000;
-      } else {
-        current += UNIT_SECONDS[unit] * value;
-      }
-      if (ticks.length > 200) break;
+  const d = new Date(min * 1000);
+  if (unit === 'second') {
+    d.setMilliseconds(0);
+    d.setSeconds(Math.floor(d.getSeconds() / value) * value);
+  } else if (unit === 'minute') {
+    d.setSeconds(0, 0);
+    d.setMinutes(Math.floor(d.getMinutes() / value) * value);
+  } else if (unit === 'hour') {
+    d.setMinutes(0, 0, 0);
+    d.setHours(Math.floor(d.getHours() / value) * value);
+  } else if (unit === 'day') {
+    d.setHours(0, 0, 0, 0);
+    // For multiple days, we align to the start of the month to be stable
+    if (value > 1) {
+      d.setDate(1);
     }
   } else if (unit === 'week') {
-    const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
-    const day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-    const diff = (day === 0 ? -6 : 1 - day); // Move to previous Monday
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
     d.setDate(d.getDate() + diff);
-
-    let current = d.getTime() / 1000;
-    while (current <= max) {
-      if (current >= min) {
-        ticks.push({
-          timestamp: current,
-          label: formatPrimaryLabel(current, unit),
-        });
-      }
-      d.setDate(d.getDate() + 7 * value);
-      current = d.getTime() / 1000;
-      if (ticks.length > 200) break;
-    }
   } else if (unit === 'month') {
-    const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
-    d.setUTCDate(1); // UTC to avoid DST issues when setting to 1st of month
-    d.setHours(0, 0, 0, 0); // Back to local midnight
     d.setDate(1);
-
-    let current = d.getTime() / 1000;
-    while (current <= max) {
-      if (current >= min) {
-        ticks.push({
-          timestamp: current,
-          label: formatPrimaryLabel(current, unit),
-        });
-      }
-      d.setMonth(d.getMonth() + value);
-      current = d.getTime() / 1000;
-      if (ticks.length > 200) break;
-    }
+    d.setMonth(Math.floor(d.getMonth() / value) * value);
   } else if (unit === 'year') {
-    const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
     d.setMonth(0, 1);
+    d.setFullYear(Math.floor(d.getFullYear() / value) * value);
+  }
 
-    let current = d.getTime() / 1000;
-    while (current <= max) {
-      if (current >= min) {
-        ticks.push({
-          timestamp: current,
-          label: formatPrimaryLabel(current, unit),
-        });
-      }
-      d.setFullYear(d.getFullYear() + value);
-      current = d.getTime() / 1000;
-      if (ticks.length > 200) break;
-    }
+  // Move back one step for margin
+  if (unit === 'second') d.setSeconds(d.getSeconds() - value);
+  else if (unit === 'minute') d.setMinutes(d.getMinutes() - value);
+  else if (unit === 'hour') d.setHours(d.getHours() - value);
+  else if (unit === 'day') d.setDate(d.getDate() - value);
+  else if (unit === 'week') d.setDate(d.getDate() - 7 * value);
+  else if (unit === 'month') d.setMonth(d.getMonth() - value);
+  else if (unit === 'year') d.setFullYear(d.getFullYear() - value);
+
+  let current = d.getTime() / 1000;
+  // Use a slightly larger max for margin (approx 1 step)
+  const marginSeconds = (unit === 'month' ? 31 * 86400 : unit === 'year' ? 366 * 86400 : UNIT_SECONDS[unit]) * value;
+  const extendedMax = max + marginSeconds;
+
+  while (current <= extendedMax) {
+    ticks.push({
+      timestamp: current,
+      label: formatPrimaryLabel(current, unit),
+    });
+
+    if (unit === 'second') d.setSeconds(d.getSeconds() + value);
+    else if (unit === 'minute') d.setMinutes(d.getMinutes() + value);
+    else if (unit === 'hour') d.setHours(d.getHours() + value);
+    else if (unit === 'day') d.setDate(d.getDate() + value);
+    else if (unit === 'week') d.setDate(d.getDate() + 7 * value);
+    else if (unit === 'month') d.setMonth(d.getMonth() + value);
+    else if (unit === 'year') d.setFullYear(d.getFullYear() + value);
+
+    current = d.getTime() / 1000;
+    if (ticks.length > 500) break;
   }
 
   return ticks;
@@ -203,8 +175,9 @@ export function generateSecondaryLabels(min: number, max: number, step: TimeStep
   if (unit === 'second' || unit === 'minute' || unit === 'hour') {
     const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1); // margin
     let current = d.getTime() / 1000;
-    while (current <= max) {
+    while (current <= max + 86400) {
       labels.push({
         timestamp: current,
         label: new Date(current * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
@@ -213,26 +186,14 @@ export function generateSecondaryLabels(min: number, max: number, step: TimeStep
       current = d.getTime() / 1000;
       if (labels.length > 100) break;
     }
-  } else if (unit === 'day' || unit === 'week') {
+  } else {
+    // day, week, month, year
     const d = new Date(min * 1000);
     d.setHours(0, 0, 0, 0);
     d.setMonth(0, 1);
+    d.setFullYear(d.getFullYear() - 1); // margin
     let current = d.getTime() / 1000;
-    while (current <= max) {
-      labels.push({
-        timestamp: current,
-        label: String(new Date(current * 1000).getFullYear()),
-      });
-      d.setFullYear(d.getFullYear() + 1);
-      current = d.getTime() / 1000;
-      if (labels.length > 100) break;
-    }
-  } else if (unit === 'month') {
-    const d = new Date(min * 1000);
-    d.setHours(0, 0, 0, 0);
-    d.setMonth(0, 1);
-    let current = d.getTime() / 1000;
-    while (current <= max) {
+    while (current <= max + 31536000) {
       labels.push({
         timestamp: current,
         label: String(new Date(current * 1000).getFullYear()),
