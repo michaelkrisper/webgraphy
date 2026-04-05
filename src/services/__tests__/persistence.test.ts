@@ -196,8 +196,24 @@ describe('persistence', () => {
   });
 
   describe('AppState persistence', () => {
+    let originalLocalStorage: Storage;
+
+    beforeEach(() => {
+        originalLocalStorage = window.localStorage;
+        Object.defineProperty(window, 'localStorage', {
+            value: {
+                getItem: vi.fn(),
+                setItem: vi.fn(),
+                removeItem: vi.fn(),
+                clear: vi.fn(),
+                length: 0,
+                key: vi.fn()
+            },
+            writable: true
+        });
+    });
+
     it('should save app state to local storage', () => {
-        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
         const state = {
             viewportX: { min: 0, max: 100 },
             yAxes: [],
@@ -207,8 +223,7 @@ describe('persistence', () => {
             xMode: 'numeric' as const
         };
         persistence.saveAppState(state);
-        expect(setItemSpy).toHaveBeenCalledWith('webgraphy-state', JSON.stringify(state));
-        setItemSpy.mockRestore();
+        expect(localStorage.setItem).toHaveBeenCalledWith('webgraphy-state', JSON.stringify(state));
     });
 
     it('should load app state from local storage', () => {
@@ -220,20 +235,18 @@ describe('persistence', () => {
             globalXColumn: '',
             xMode: 'numeric' as const
         };
-        const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValueOnce(JSON.stringify(state));
+        vi.mocked(localStorage.getItem).mockReturnValueOnce(JSON.stringify(state));
 
         const loadedState = persistence.loadAppState();
-        expect(getItemSpy).toHaveBeenCalledWith('webgraphy-state');
+        expect(localStorage.getItem).toHaveBeenCalledWith('webgraphy-state');
         expect(loadedState).toEqual(state);
-        getItemSpy.mockRestore();
     });
 
     it('should return null if no app state in local storage', () => {
-        const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValueOnce(null);
+        vi.mocked(localStorage.getItem).mockReturnValueOnce(null);
 
         const loadedState = persistence.loadAppState();
         expect(loadedState).toBeNull();
-        getItemSpy.mockRestore();
     });
   });
 

@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { formatFullDate } from '../time';
 
 describe('formatFullDate', () => {
+    beforeAll(() => {
+        process.env.TZ = 'UTC';
+    });
+
     it('removes fractional seconds if they are zero', () => {
         const ts = 1673784000; // 2023-01-15 12:00:00
         expect(formatFullDate(ts)).toBe('15.01.2023, 12:00:00');
