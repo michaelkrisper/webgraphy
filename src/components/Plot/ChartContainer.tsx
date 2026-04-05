@@ -481,19 +481,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const finalBestXWorld = bestXWorld as number;
     const finalXConf = bestSeriesXConf as XAxisConfig;
 
-    // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
-    const seriesByAxis: Record<string, string[]> = {};
-    seriesMetadata.forEach(({ series: sr }) => {
-      if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
-      seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
-    });
-    const axisTitleMap: Record<string, string> = {};
-    yAxes.forEach((axis: YAxisConfig) => {
-      if (seriesByAxis[axis.id]) {
-        axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
-      }
-    });
-
     // Collect all Y values from all series at this X, grouped by X-label and X-axis name
     const entries: { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }[] = [];
     seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
@@ -817,7 +804,7 @@ const ChartContainer: React.FC = () => {
 
   const xAxesMetrics = useMemo(() => {
     let currentOffset = 0;
-    return activeXAxesUsed.map((axis, idx) => {
+    return activeXAxesUsed.map((axis) => {
       const baseMetrics = getXAxisMetrics(isMobile, axis.xMode);
       const metrics = {
         ...baseMetrics,
