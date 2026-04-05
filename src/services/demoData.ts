@@ -107,9 +107,9 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       name: 'Random Walk',
       yColumn: dataset.columns[2],
       yAxisId: 'axis-2',
-      pointStyle: 'none',
+      pointStyle: 'circle',
       pointColor: '#e11d48',
-      lineStyle: 'solid',
+      lineStyle: 'none',
       lineColor: '#e11d48'
     }
   ];
