@@ -701,7 +701,7 @@ const ChartContainer: React.FC = () => {
       yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
       startAnimation();
     }
-  }, [isLoaded]);
+  }, [isLoaded, xAxes, yAxes, startAnimation]);
 
   // Handle View Snapshots Lerp
   useEffect(() => {
@@ -921,7 +921,7 @@ const ChartContainer: React.FC = () => {
         }
       });
     }
-  }, [isLoaded, startAnimation, series, yAxes]);
+  }, [isLoaded, startAnimation, series, yAxes, activeYAxes]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1054,7 +1054,7 @@ const ChartContainer: React.FC = () => {
       }
       targetYs.current[axisId] = { min: nextMin, max: nextMax }; startAnimation();
     }
-  }, [xAxes, padding.top, chartHeight, startAnimation]);
+  }, [padding.top, chartHeight, startAnimation]);
 
   const prevSeriesLenRef = useRef(series.length);
   useEffect(() => {
@@ -1335,7 +1335,7 @@ const ChartContainer: React.FC = () => {
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [handleMouseMoveRaw, handleTouchMoveRaw, handleTouchEnd, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation]);
+  }, [handleMouseMoveRaw, handleTouchMoveRaw, handleTouchEnd, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation, isShiftPressed, xAxes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1445,7 +1445,7 @@ const ChartContainer: React.FC = () => {
         return { id: axis.id, ticks: { result: ticks, isXDate: true as const, secondaryLabels }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series]);
+  }, [activeXAxesUsed, chartWidth, series, datasets]);
 
   const leftAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'left'), [activeYAxesLayout]);
   const rightAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'right'), [activeYAxesLayout]);

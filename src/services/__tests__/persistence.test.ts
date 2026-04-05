@@ -213,6 +213,13 @@ describe('persistence', () => {
         });
     });
 
+    afterEach(() => {
+        Object.defineProperty(window, 'localStorage', {
+            value: originalLocalStorage,
+            writable: true
+        });
+    });
+
     it('should save app state to local storage', () => {
         const state = {
             viewportX: { min: 0, max: 100 },
