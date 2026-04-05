@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 
@@ -282,24 +282,21 @@ export const Sidebar: React.FC = () => {
                           aria-label="Cycle X-Axis">
                           {parseInt(d.xAxisId?.split('-')[1]) || 1}
                         </button>
-                        <select
-                          name={`dataset-x-mode-${d.id}`}
-                          aria-label={`X Axis Mode for ${d.name}`}
-                          value={xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode || 'date'}
-                          onChange={(e) => {
+                        <button
+                          onClick={() => {
                             const axisId = d.xAxisId || 'axis-1';
+                            const currentMode = xAxes.find(a => a.id === axisId)?.xMode || 'date';
                             const { updateXAxis } = useGraphStore.getState();
-                            updateXAxis(axisId, { xMode: e.target.value as 'date' | 'numeric' });
+                            updateXAxis(axisId, { xMode: currentMode === 'date' ? 'numeric' : 'date' });
                           }}
-                          style={{ width: '45px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '2px', background: '#f8fafc' }}
-                          title="X-Axis Mode (Time / Decimal)"
+                          style={{ width: '22px', height: '18px', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
+                          title={xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? "Switch to Decimal Mode" : "Switch to Time Mode"}
+                          aria-label="Toggle X-Axis Mode"
                         >
-                          <option value="date">Time</option>
-                          <option value="numeric">Dec.</option>
-                        </select>
+                          {xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={12} /> : <Hash size={12} />}
+                        </button>
                       </div>
 
-                      <div style={{ fontSize: '0.75rem', color: '#666' }}>{d.rowCount.toLocaleString()} rows</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
                         <button
                           onClick={() => moveDataset(d.id, -1)}
@@ -336,7 +333,7 @@ export const Sidebar: React.FC = () => {
                   <details>
                     <summary style={{ fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#64748b', display: 'flex', alignItems: 'center' }}>
                       <ChevronRight size={14} className="details-chevron" />
-                      <span style={{ flex: 1 }}>Columns ({d.columns.length})</span>
+                      <span style={{ flex: 1 }}>Columns ({d.columns.length}) &mdash; {d.rowCount.toLocaleString()} rows</span>
                     </summary>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                       <input
