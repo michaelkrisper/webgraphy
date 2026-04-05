@@ -182,10 +182,19 @@ export const persistence = {
     await db.delete(DATASET_STORE, id);
   },
   saveAppState(state: AppState): void {
-    localStorage.setItem('webgraphy-state', JSON.stringify(state));
+    try {
+      localStorage.setItem('webgraphy-state', JSON.stringify(state));
+    } catch (error) {
+      console.error('Failed to save state to localStorage:', error);
+    }
   },
   loadAppState(): AppState | null {
-    const state = localStorage.getItem('webgraphy-state');
-    return state ? JSON.parse(state) : null;
+    try {
+      const state = localStorage.getItem('webgraphy-state');
+      return state ? JSON.parse(state) : null;
+    } catch (error) {
+      console.error('Failed to load state from localStorage:', error);
+      return null;
+    }
   }
 };

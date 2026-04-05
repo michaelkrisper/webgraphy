@@ -213,7 +213,7 @@ export const Sidebar: React.FC = () => {
                 <HelpCircle size={18} />
               </button>
             </div>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} aria-label="Collapse Menu">
+            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Collapse Menu" aria-label="Collapse Menu">
               <ChevronRight size={18} />
             </button>
           </div>
@@ -229,6 +229,8 @@ export const Sidebar: React.FC = () => {
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
                 style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Import Data Source"
+                aria-label="Import Data Source"
               >
                 {isImporting ? '...' : <Upload size={14} />}
               </button>
@@ -301,6 +303,7 @@ export const Sidebar: React.FC = () => {
                           disabled={datasets.indexOf(d) === 0}
                           style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
                           title="Move Up"
+                          aria-label="Move Up"
                         >
                           <ChevronUp size={12} strokeWidth={3} />
                         </button>
@@ -309,6 +312,7 @@ export const Sidebar: React.FC = () => {
                           disabled={datasets.indexOf(d) === datasets.length - 1}
                           style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
                           title="Move Down"
+                          aria-label="Move Down"
                         >
                           <ChevronDown size={12} strokeWidth={3} />
                         </button>
@@ -347,6 +351,7 @@ export const Sidebar: React.FC = () => {
                         <button
                           onClick={() => setColumnFilters({ ...columnFilters, [d.id]: '' })}
                           aria-label="Clear filter"
+                          title="Clear filter"
                           style={{ position: 'absolute', right: '4px', background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <X size={14} style={{ color: '#999' }} />
@@ -411,6 +416,8 @@ export const Sidebar: React.FC = () => {
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
                 style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Save Data View"
+                aria-label="Save Data View"
               >
                 <Bookmark size={14} />
               </button>
