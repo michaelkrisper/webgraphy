@@ -383,14 +383,36 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
   }, [datasets, series, yAxes]);
 
-  const snap = useMemo(() => {
-    if (!pos || seriesMetadata.length === 0) return null;
+  // ⚡ Bolt Optimization: Extract static crosshair layout dependencies out of the high-frequency mouse loop
+  const snapMetadata = useMemo(() => {
+    if (seriesMetadata.length === 0) return null;
 
-    // Use first used X-axis for mouse interaction base
     const firstDataset = datasets.find(d => series.some(s => s.sourceId === d.id));
     const firstUsedXAxisId = firstDataset?.xAxisId || 'axis-1';
     const xAxisConf = xAxes.find(a => a.id === firstUsedXAxisId);
+
     if (!xAxisConf) return null;
+
+    const seriesByAxis: Record<string, string[]> = {};
+    seriesMetadata.forEach(({ series: sr }) => {
+      if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
+      seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
+    });
+
+    const axisTitleMap: Record<string, string> = {};
+    yAxes.forEach((axis: YAxisConfig) => {
+      if (seriesByAxis[axis.id]) {
+        axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
+      }
+    });
+
+    return { xAxisConf, axisTitleMap };
+  }, [datasets, series, xAxes, yAxes, seriesMetadata]);
+
+  const snap = useMemo(() => {
+    if (!pos || !snapMetadata || seriesMetadata.length === 0) return null;
+
+    const { xAxisConf, axisTitleMap } = snapMetadata;
 
     // Convert SNAP_PX radius to world-x distance
     const xWorldPerPx = (xAxisConf.max - xAxisConf.min) / Math.max(1, width - padding.left - padding.right);
@@ -432,19 +454,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     if (bestXWorld === null || !bestSeriesXConf || bestDist > xSnapWorld) return null;
     const finalBestXWorld = bestXWorld as number;
     const finalXConf = bestSeriesXConf as XAxisConfig;
-
-    // Pre-calculate axis titles to avoid O(N^2) filtering in the loop
-    const seriesByAxis: Record<string, string[]> = {};
-    seriesMetadata.forEach(({ series: sr }) => {
-      if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
-      seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
-    });
-    const axisTitleMap: Record<string, string> = {};
-    yAxes.forEach((axis: YAxisConfig) => {
-      if (seriesByAxis[axis.id]) {
-        axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/');
-      }
-    });
 
     // Collect all Y values from all series at this X, grouped by X-label
     const entries: { xLabel: string, items: { label: string, value: number, color: string }[] }[] = [];
@@ -489,7 +498,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;
 
     return { snapScreenX, entries };
-  }, [pos, seriesMetadata, yAxes, xAxes, width, height, padding, datasets, series]);
+  }, [pos, seriesMetadata, xAxes, width, height, padding, snapMetadata]);
 
   if (!pos) return null;
   if (!snap) return null; // Only show when near a point
