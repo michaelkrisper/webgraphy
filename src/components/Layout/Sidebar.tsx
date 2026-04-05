@@ -202,7 +202,7 @@ export const Sidebar: React.FC = () => {
         <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--text-color)', paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/favicon.svg" alt="logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+              <img src="./favicon.svg" alt="logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
               <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
               <button 
                 onClick={() => setShowHelp(true)}
