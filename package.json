@@ -2,6 +2,7 @@
   "name": "webgraphy",
   "private": true,
   "version": "0.3.6",
+  "author": "Michael Krisper",
   "type": "module",
   "scripts": {
     "dev": "vite",
