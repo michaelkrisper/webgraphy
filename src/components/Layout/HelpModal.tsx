@@ -64,8 +64,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
         <Section title="Plot Area" first>
           <li><strong>Mouse Wheel:</strong> Zoom in and out</li>
-          <li><strong>Click & Drag:</strong> Pan the chart (move the visible area)</li>
+          <li><strong>Click & Drag:</strong> Pan the chart</li>
+          <li><strong>Shift + Interaction:</strong> Synchronize all active X-axes (Zoom/Pan/Keys)</li>
           <li><strong>CTRL + Drag:</strong> Draw a zoom selection box</li>
+          <li><strong>CTRL + C:</strong> Copy current tooltip data to clipboard</li>
           <li><strong>Hover:</strong> Show tooltips for the nearest data points</li>
           <li><strong>Double Click:</strong> Auto-scale to fit all data</li>
         </Section>
@@ -83,6 +85,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <li><strong>↑ ↓:</strong> Pan the Y axis (hovered axis, or all)</li>
           <li><strong>+ / =:</strong> Zoom in on the X axis</li>
           <li><strong>- / _:</strong> Zoom out on the X axis</li>
+          <li><strong>Shift + ← →:</strong> Pan all active X-axes together</li>
           <li><strong>CTRL + + / -:</strong> Zoom the Y axis (while hovering an axis)</li>
         </Section>
 

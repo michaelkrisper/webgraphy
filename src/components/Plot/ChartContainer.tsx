@@ -446,8 +446,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       }
     });
 
-    // Collect all Y values from all series at this X, grouped by X-label
-    const entries: { xLabel: string, items: { label: string, value: number, color: string }[] }[] = [];
+    // Collect all Y values from all series at this X, grouped by X-label and X-axis name
+    const entries: { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }[] = [];
     seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
       const sXConf = xAxes.find(a => a.id === ds.xAxisId);
       if (!sXConf) return;
@@ -477,12 +477,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toString();
 
-      let group = entries.find(g => g.xLabel === xLab);
+      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === sXConf.name);
       if (!group) {
-        group = { xLabel: xLab, items: [] };
+        group = { xLabel: xLab, xAxisName: sXConf.name || `X-Axis ${ds.xAxisId}`, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: sXConf.xMode === 'date' });
     });
 
     // Screen position of the snapped point
@@ -491,13 +491,28 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return { snapScreenX, entries };
   }, [pos, seriesMetadata, yAxes, xAxes, width, height, padding, datasets, series]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        if (!snap) return;
+        const text = snap.entries.map(g => {
+          const itemsText = g.items.map(i => `${i.label}: ${i.value.toLocaleString('de-DE')}`).join('\n');
+          return `${g.xAxisName}: ${g.xLabel}\n${itemsText}`;
+        }).join('\n\n');
+        navigator.clipboard.writeText(text);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [snap]);
+
   if (!pos) return null;
   if (!snap) return null; // Only show when near a point
 
   const { snapScreenX, entries } = snap;
   const totalItems = entries.reduce((sum, g) => sum + g.items.length, 0);
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
-  const isTooltipOnRight = pos.x + 320 + 20 < width; 
+  const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
 
   return (
@@ -524,30 +539,35 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         border: '1px solid #e2e8f0',
         whiteSpace: 'pre',
         lineHeight: '1.2',
-        maxWidth: 320
+        maxWidth: 360,
+        userSelect: 'none'
       }}>
         {entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(auto, 1fr) auto auto', columnGap: '4px', rowGap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr auto auto', columnGap: '0px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#666', textAlign: 'right', gridColumn: '1 / span 4', fontSize: '8px', borderBottom: '1px solid rgba(0,0,0,0.04)', marginTop: groupIdx > 0 ? '4px' : 0 }}>X: {group.xLabel}</div>
+                <div style={{ color: '#666', gridColumn: '1 / span 5', fontSize: '8px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>{group.xAxisName}:</div>
                 {group.items.map((item, itemIdx) => {
-                  // Strip Float32 garbage using toPrecision(7) as Float32 supports ~7 significant digits
-                  const cleanValue = parseFloat(item.value.toPrecision(7));
-                  const valStr = cleanValue.toLocaleString('de-DE', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 10
-                  });
-                  const idx = valStr.indexOf(',');
-                  const intPart = idx !== -1 ? valStr.substring(0, idx) : valStr;
-                  const decPart = idx !== -1 ? valStr.substring(idx) : '';
+                  const formatVal = (val: number) => {
+                    const clean = parseFloat(val.toPrecision(7));
+                    const s = clean.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 10 });
+                    const commaIdx = s.indexOf(',');
+                    return {
+                      int: commaIdx !== -1 ? s.substring(0, commaIdx) : s,
+                      dec: commaIdx !== -1 ? s.substring(commaIdx) : ''
+                    };
+                  };
+
+                  const xParts = item.isXDate ? { int: '', dec: group.xLabel } : formatVal(item.xVal);
+                  const yParts = formatVal(item.value);
 
                   return (
                     <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
-                      <div style={{ color: item.color, textAlign: 'right' }}>{item.label}:</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{intPart}</div>
-                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{decPart}</div>
-                      <div></div> {/* empty grid cell for the 4th column */}
+                      <div style={{ color: '#666', textAlign: 'right' }}>{xParts.int}</div>
+                      <div style={{ color: '#666', textAlign: 'left', paddingRight: '12px' }}>{xParts.dec}</div>
+                      <div style={{ color: item.color, textAlign: 'left', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}:</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{yParts.int}</div>
+                      <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{yParts.dec}</div>
                     </React.Fragment>
                   );
                 })}
@@ -1378,7 +1398,7 @@ const ChartContainer: React.FC = () => {
   const rightAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'right'), [activeYAxesLayout]);
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none' }}>
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
