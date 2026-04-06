@@ -1002,8 +1002,8 @@ const ChartContainer: React.FC = () => {
       const refY = colY.refPoint;
       
       // Binary search for visible range indices
-      let startIdx = 0;
-      let endIdx = xData.length - 1;
+      let startIdx = -1;
+      let endIdx = -1;
       
       // Find first index where xData[i] + refX >= xAxis.min
       let low = 0, high = xData.length - 1;
@@ -1022,10 +1022,12 @@ const ChartContainer: React.FC = () => {
       }
 
       // Scan Y values in visible range
-      for (let i = startIdx; i <= endIdx; i++) {
-        const val = yData[i] + refY;
-        if (val < yMin) yMin = val;
-        if (val > yMax) yMax = val;
+      if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+        for (let i = startIdx; i <= endIdx; i++) {
+          const val = yData[i] + refY;
+          if (val < yMin) yMin = val;
+          if (val > yMax) yMax = val;
+        }
       }
     });
 
@@ -1037,12 +1039,12 @@ const ChartContainer: React.FC = () => {
       if (mouseY !== undefined) {
         if (mouseY < padding.top + chartHeight / 3) {
           // UPPER third click -> Show data in UPPER half of screen (extend min downwards)
-          nextMin = yMin - range - pad;
+          nextMin = yMin - range - 3 * pad;
           nextMax = yMax + pad; 
         } else if (mouseY > padding.top + 2 * chartHeight / 3) {
           // LOWER third click -> Show data in LOWER half of screen (extend max upwards)
           nextMin = yMin - pad; 
-          nextMax = yMax + range + pad;
+          nextMax = yMax + range + 3 * pad;
         } else {
           // MIDDLE third click -> Full scale
           nextMin = yMin - pad;
