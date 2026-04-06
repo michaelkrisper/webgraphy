@@ -510,7 +510,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
       const xLab = sXConf.xMode === 'date'
         ? formatFullDate(xVal)
-        : parseFloat(xVal.toPrecision(7)).toString();
+        : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
 
       let group = entries.find(g => g.xLabel === xLab && g.xAxisName === sXConf.name);
       if (!group) {
@@ -581,26 +581,27 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           <div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr auto auto', columnGap: '0px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#666', gridColumn: '1 / span 5', fontSize: '8px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>{group.xAxisName}:</div>
+                <div style={{ color: '#666', gridColumn: '1 / span 5', fontSize: '9px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
+                  <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '10px' }}>{group.xLabel}</span>
+                  <span style={{ marginLeft: '8px', opacity: 0.8 }}>({group.xAxisName})</span>
+                </div>
                 {group.items.map((item, itemIdx) => {
                   const formatVal = (val: number) => {
                     const clean = parseFloat(val.toPrecision(7));
-                    const s = clean.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 10 });
-                    const commaIdx = s.indexOf(',');
+                    const s = clean.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
+                    const decimalSeparator = (1.1).toLocaleString(undefined).substring(1, 2);
+                    const sepIdx = s.indexOf(decimalSeparator);
                     return {
-                      int: commaIdx !== -1 ? s.substring(0, commaIdx) : s,
-                      dec: commaIdx !== -1 ? s.substring(commaIdx) : ''
+                      int: sepIdx !== -1 ? s.substring(0, sepIdx) : s,
+                      dec: sepIdx !== -1 ? s.substring(sepIdx) : ''
                     };
                   };
 
-                  const xParts = item.isXDate ? { int: '', dec: group.xLabel } : formatVal(item.xVal);
                   const yParts = formatVal(item.value);
 
                   return (
                     <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
-                      <div style={{ color: '#666', textAlign: 'right' }}>{xParts.int}</div>
-                      <div style={{ color: '#666', textAlign: 'left', paddingRight: '12px' }}>{xParts.dec}</div>
-                      <div style={{ color: item.color, textAlign: 'left', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}:</div>
+                      <div style={{ color: item.color, textAlign: 'left', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', gridColumn: '1 / span 3' }}>{item.label}:</div>
                       <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'right' }}>{yParts.int}</div>
                       <div style={{ color: '#333', fontWeight: 'bold', textAlign: 'left' }}>{yParts.dec}</div>
                     </React.Fragment>
