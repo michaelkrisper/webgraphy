@@ -12,9 +12,9 @@ describe('exportToSVG', () => {
             xAxisColumn: 'Time',
             xAxisId: 'axis-1',
             data: [
-                { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
-                { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
-                { data: new Float32Array([100, 200, 300]), bounds: { min: 100, max: 300 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
+                { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0 },
+                { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0 },
+                { data: new Float32Array([100, 200, 300]), bounds: { min: 100, max: 300 }, isFloat64: false, refPoint: 0 }
             ]
         }
     ];
@@ -91,8 +91,8 @@ describe('exportToSVG', () => {
                 xAxisColumn: 'A: Time',
                 xAxisId: 'axis-1',
                 data: [
-                    { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
-                    { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
+                    { data: new Float32Array([0, 1, 2]), bounds: { min: 0, max: 2 }, isFloat64: false, refPoint: 0 },
+                    { data: new Float32Array([10, 20, 30]), bounds: { min: 10, max: 30 }, isFloat64: false, refPoint: 0 }
                 ]
             }
         ];
@@ -146,8 +146,8 @@ describe('exportToSVG', () => {
             xAxisColumn: 'Time',
             xAxisId: 'axis-1',
             data: [
-                { data: new Float32Array(6000).fill(1).map((_, i) => i), bounds: { min: 0, max: 6000 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
-                { data: new Float32Array(6000).fill(1).map((_, i) => i * 2), bounds: { min: 0, max: 12000 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
+                { data: new Float32Array(6000).fill(1).map((_, i) => i), bounds: { min: 0, max: 6000 }, isFloat64: false, refPoint: 0 },
+                { data: new Float32Array(6000).fill(1).map((_, i) => i * 2), bounds: { min: 0, max: 12000 }, isFloat64: false, refPoint: 0 },
             ]
         };
         const seriesLarge: SeriesConfig[] = [
@@ -313,8 +313,8 @@ describe('exportToSVG edge cases', () => {
     it('should calculate final step based on magnitude correctly', () => {
         const datasets: Dataset[] = [{
             id: 'ds1', name: 'Test', columns: ['X', 'Y'], rowCount: 1, xAxisColumn: 'X', xAxisId: 'axis-1', data: [
-                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] },
-                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0, minTree: [], maxTree: [] }
+                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0 },
+                { data: new Float32Array([0]), bounds: { min: 0, max: 0 }, isFloat64: false, refPoint: 0 }
             ]
         }];
         const series: SeriesConfig[] = [{ id: 's1', sourceId: 'ds1', name: 'S1', yColumn: 'Y', yAxisId: 'y1', pointStyle: 'none', pointColor: '', lineStyle: 'none', lineColor: '' }];

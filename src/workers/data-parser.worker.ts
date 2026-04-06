@@ -74,15 +74,11 @@ self.onmessage = async (event) => {
         const config = settings?.columnConfigs?.find((c: { name: string; type: string }) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
 
-        const { minTree, maxTree } = buildMinMaxTrees(relativeData[colIdx].data);
-
         return {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: colBounds[colIdx],
-          data: relativeData[colIdx].data,
-          minTree,
-          maxTree
+          data: relativeData[colIdx].data
         };
       })
     };
@@ -90,8 +86,6 @@ self.onmessage = async (event) => {
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
-      col.minTree.forEach(level => transferList.push(level.buffer as ArrayBuffer));
-      col.maxTree.forEach(level => transferList.push(level.buffer as ArrayBuffer));
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);
@@ -99,68 +93,6 @@ self.onmessage = async (event) => {
     self.postMessage({ type: 'error', error: error instanceof Error ? error.message : String(error) });
   }
 };
-
-/**
- * Builds multi-level Min-Max trees (storing indices) for a given data column.
- * Branching factor is 64.
- */
-function buildMinMaxTrees(data: Float32Array): { minTree: Uint32Array[], maxTree: Uint32Array[] } {
-  const minTree: Uint32Array[] = [];
-  const maxTree: Uint32Array[] = [];
-  const branchingFactor = 64;
-
-  let currentMinIndices = new Uint32Array(data.length);
-  let currentMaxIndices = new Uint32Array(data.length);
-  for (let i = 0; i < data.length; i++) {
-    currentMinIndices[i] = i;
-    currentMaxIndices[i] = i;
-  }
-
-  // Level 0 is the raw data indices (redundant but simplifies downsampling logic)
-  // Actually, we can start with Level 1 which aggregates chunks of Level 0
-  
-  let currentLen = data.length;
-  while (currentLen > branchingFactor) {
-    const nextLen = Math.ceil(currentLen / branchingFactor);
-    const nextMinIndices = new Uint32Array(nextLen);
-    const nextMaxIndices = new Uint32Array(nextLen);
-
-    for (let i = 0; i < nextLen; i++) {
-      const start = i * branchingFactor;
-      const end = Math.min(start + branchingFactor, currentLen);
-
-      let minIdx = currentMinIndices[start];
-      let maxIdx = currentMaxIndices[start];
-      let minVal = data[minIdx];
-      let maxVal = data[maxIdx];
-
-      for (let j = start + 1; j < end; j++) {
-        const idxMin = currentMinIndices[j];
-        const valMin = data[idxMin];
-        if (valMin < minVal) {
-          minVal = valMin;
-          minIdx = idxMin;
-        }
-
-        const idxMax = currentMaxIndices[j];
-        const valMax = data[idxMax];
-        if (valMax > maxVal) {
-          maxVal = valMax;
-          maxIdx = idxMax;
-        }
-      }
-      nextMinIndices[i] = minIdx;
-      nextMaxIndices[i] = maxIdx;
-    }
-    minTree.push(nextMinIndices);
-    maxTree.push(nextMaxIndices);
-    currentMinIndices = nextMinIndices;
-    currentMaxIndices = nextMaxIndices;
-    currentLen = nextLen;
-  }
-
-  return { minTree, maxTree };
-}
 
 function parseCSV(text: string, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};

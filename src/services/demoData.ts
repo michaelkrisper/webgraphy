@@ -1,5 +1,4 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
-import { buildMinMaxTrees } from '../utils/downsampling';
 
 
 export function generateDemoDataset(): Dataset {
@@ -44,14 +43,11 @@ export function generateDemoDataset(): Dataset {
 
   const data: DataColumn[] = columns.map((colName, colIdx) => {
     const col = relativeData[colIdx];
-    const { minTree, maxTree } = buildMinMaxTrees(col.data);
     return {
       isFloat64: colName === 'Timestamp',
       refPoint: col.refPoint,
       bounds: colBounds[colIdx],
       data: col.data,
-      minTree,
-      maxTree,
     };
   });
 

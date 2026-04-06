@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
-import { downsampleMinMax } from '../../utils/downsampling';
 
 interface WebGLLocations {
   posLoc: number;
@@ -45,7 +44,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const getSharedBuffer = (size: number) => {
     let sharedBuffer = (window as unknown as { __webgraphySharedBuffer: Float32Array }).__webgraphySharedBuffer;
     if (!sharedBuffer || sharedBuffer.length < size) {
-      let newSize = sharedBuffer ? sharedBuffer.length : 1024;
+      let newSize = sharedBuffer ? (sharedBuffer.length || 1024) : 1024;
       while (newSize < size) newSize *= 2;
       sharedBuffer = new Float32Array(newSize);
       (window as unknown as { __webgraphySharedBuffer: Float32Array }).__webgraphySharedBuffer = sharedBuffer;
@@ -78,8 +77,12 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       vec2 toScreen(vec2 pos) {
         float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
         float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-        float nx = (abs(dx) > 0.000001) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 0.000001) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
+        
+        // ⚡ Optimization: Pre-calculating ratio on CPU could be even faster, 
+        // but keeping it here for precision-safety while simplifying.
+        float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
+        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
+        
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
         return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
@@ -179,8 +182,26 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         return null;
       }
 
-      return { series: s, ds, xAxis, yAxis, xIdx, yIdx };
-    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, xAxis: XAxisConfig, yAxis: YAxisConfig, xIdx: number, yIdx: number }[];
+      return { 
+        series: s, 
+        ds, 
+        xAxis, 
+        yAxis, 
+        xIdx, 
+        yIdx,
+        lineColorRgba: hexToRgba(s.lineColor),
+        pointColorRgba: hexToRgba(s.pointColor)
+      };
+    }).filter(Boolean) as { 
+      series: SeriesConfig, 
+      ds: Dataset, 
+      xAxis: XAxisConfig, 
+      yAxis: YAxisConfig, 
+      xIdx: number, 
+      yIdx: number,
+      lineColorRgba: number[],
+      pointColorRgba: number[]
+    }[];
   }, [datasets, series, xAxes, yAxes]);
 
   useEffect(() => {
@@ -205,7 +226,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     gl.uniform2f(locs.resLoc, pw, ph);
     gl.uniform1f(locs.dprLoc, dpr);
 
-    seriesMetadata.forEach(({ series: s, ds, xAxis, yAxis, xIdx, yIdx }) => {
+    seriesMetadata.forEach(({ series: s, ds, xAxis, yAxis, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
       const colX = ds.data[xIdx];
       const colY = ds.data[yIdx];
       if (!colX || !colY) return;
@@ -242,11 +263,17 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         }
       }
 
-      // 2. Perform Dynamic Downsampling
-      // We want ~2 points per pixel for smooth lines
-      const targetBuckets = Math.min(endIdx - startIdx + 1, Math.floor(chartWidth * 2));
-      const indices = downsampleMinMax(colY.data, colY.minTree, colY.maxTree, startIdx, endIdx, targetBuckets);
-      const numPoints = indices.length;
+      // 2. Prepare point data for the visible range
+      const numPoints = endIdx - startIdx + 1;
+      const reqSize = numPoints * 2;
+      const sharedArr = getSharedBuffer(reqSize);
+      const yData = colY.data;
+
+      for (let i = 0; i < numPoints; i++) {
+        const idx = startIdx + i;
+        sharedArr[i * 2] = xData[idx];
+        sharedArr[i * 2 + 1] = yData[idx];
+      }
 
       // Pass Viewport relative to this specific column's reference point
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
@@ -259,22 +286,13 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         buffersRef.current.set(bufferKey, buffer);
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-
-      const reqSize = numPoints * 2;
-      const sharedArr = getSharedBuffer(reqSize);
-      const yData = colY.data;
-      for (let i = 0; i < numPoints; i++) {
-        const idx = indices[i];
-        sharedArr[i * 2] = xData[idx];
-        sharedArr[i * 2 + 1] = yData[idx];
-      }
       gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
 
       gl.enableVertexAttribArray(locs.posLoc);
       gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 0, 0);
 
       if (s.lineStyle !== 'none' && numPoints > 1) {
-        const c = hexToRgba(s.lineColor);
+        const c = lineColorRgba;
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
         const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
@@ -346,7 +364,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       if (s.pointStyle !== 'none') {
-        const c = hexToRgba(s.pointColor);
+        const c = pointColorRgba;
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         gl.uniform1f(locs.sizeLoc, 5.0 * dpr);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;

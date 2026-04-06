@@ -9,8 +9,6 @@ export interface DataColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: Float32Array;
-  minTree: Uint32Array[];
-  maxTree: Uint32Array[];
   levels?: Float32Array[]; // For backward compatibility
 }
 
@@ -98,14 +96,6 @@ async function getDB() {
 function fixDatasetTypes(dataset: Dataset): Dataset {
   if (!dataset.data || !Array.isArray(dataset.data)) return dataset;
 
-  const restoreUint32Array = (arr: unknown) => {
-    if (arr instanceof Uint32Array) return arr;
-    if (typeof arr === 'object' && arr !== null) {
-      return new Uint32Array(Object.values(arr) as number[]);
-    }
-    return new Uint32Array(0);
-  };
-
   const restoreFloat32Array = (arr: unknown) => {
     if (arr instanceof Float32Array) return arr;
     if (typeof arr === 'object' && arr !== null) {
@@ -129,28 +119,10 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.data = new Float32Array(0);
     }
 
-    if (col.minTree) {
-      col.minTree = col.minTree.map(restoreUint32Array);
-    } else {
-      col.minTree = [];
-    }
-
-    if (col.maxTree) {
-      col.maxTree = col.maxTree.map(restoreUint32Array);
-    } else {
-      col.maxTree = [];
-    }
-    
-    // Cleanup legacy levels
-    if (col.levels) {
-      delete col.levels;
-    }
-
     if (col.refPoint === undefined) col.refPoint = 0;
 
     return col;
-  });
-
+    });
   if (dataset.xAxisColumn === undefined) {
     const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
     dataset.xAxisColumn = potentialX;
