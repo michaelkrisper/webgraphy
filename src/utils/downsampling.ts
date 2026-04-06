@@ -52,7 +52,8 @@ export function downsampleMinMax(
   }
 
   const bucketSize = rowCount / targetBuckets;
-  const resultIndices = new Set<number>();
+  const rawResult = new Uint32Array(targetBuckets * 4);
+  let resultCount = 0;
 
   for (let i = 0; i < targetBuckets; i++) {
     const bucketStart = Math.floor(startIndex + i * bucketSize);
@@ -61,18 +62,31 @@ export function downsampleMinMax(
     if (bucketStart > bucketEnd) continue;
 
     // 1. Add first and last of bucket
-    resultIndices.add(bucketStart);
-    resultIndices.add(bucketEnd);
+    rawResult[resultCount++] = bucketStart;
+    rawResult[resultCount++] = bucketEnd;
 
     // 2. Find min and max in bucket using trees
     const minIdx = findMinIndex(data, minTree, bucketStart, bucketEnd);
     const maxIdx = findMaxIndex(data, maxTree, bucketStart, bucketEnd);
 
-    resultIndices.add(minIdx);
-    resultIndices.add(maxIdx);
+    rawResult[resultCount++] = minIdx;
+    rawResult[resultCount++] = maxIdx;
   }
 
-  return new Uint32Array(Array.from(resultIndices).sort((a, b) => a - b));
+  const validResult = rawResult.subarray(0, resultCount);
+  validResult.sort();
+
+  let uniqueCount = 0;
+  if (resultCount > 0) {
+    uniqueCount = 1;
+    for (let i = 1; i < resultCount; i++) {
+      if (validResult[i] !== validResult[i - 1]) {
+        validResult[uniqueCount++] = validResult[i];
+      }
+    }
+  }
+
+  return validResult.slice(0, uniqueCount);
 }
 
 function findMinIndex(data: Float32Array, tree: Uint32Array[], start: number, end: number): number {
