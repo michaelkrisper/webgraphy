@@ -720,7 +720,7 @@ const ChartContainer: React.FC = () => {
 
   const activeYAxesLayout = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
-    const isInteracting = isPanningRef.current;
+    const isInteracting = isPanningRef.current || isAnimating.current;
 
     return yAxes.filter(a => usedIds.has(a.id)).map(axis => {
       const range = axis.max - axis.min;
@@ -757,7 +757,7 @@ const ChartContainer: React.FC = () => {
 
   const lastAxisLayout = useRef<Record<string, { total: number, label: number }>>({});
   const axisLayout = useMemo(() => {
-    const isInteracting = isPanningRef.current;
+    const isInteracting = isPanningRef.current || isAnimating.current;
     if (isInteracting && Object.keys(lastAxisLayout.current).length > 0) {
       return lastAxisLayout.current;
     }
@@ -1348,9 +1348,6 @@ const ChartContainer: React.FC = () => {
       if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '_')) e.preventDefault();
       pressedKeys.current.add(e.key);
       const step = 0.15;
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-        isPanningRef.current = true;
-      }
       if (e.key === 'ArrowLeft') {
         const onXAxis = !!hoveredXAxisIdRef.current;
         const axesToMove = (onXAxis && !e.shiftKey) ? activeXAxesUsed.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxesUsed;
@@ -1391,9 +1388,6 @@ const ChartContainer: React.FC = () => {
       if (e.key === 'Control') setIsCtrlPressed(false);
       if (e.key === 'Shift') setIsShiftPressed(false);
       pressedKeys.current.delete(e.key);
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-        isPanningRef.current = false;
-      }
     };
     window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
@@ -1410,7 +1404,7 @@ const ChartContainer: React.FC = () => {
 
       if (range <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
-      const isInteracting = isPanningRef.current;
+      const isInteracting = isPanningRef.current || isAnimating.current;
 
       if (!isXDate) {
         let actualStep: number;
