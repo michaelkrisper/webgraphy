@@ -81,7 +81,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         // ⚡ Optimization: Pre-calculating ratio on CPU could be even faster, 
         // but keeping it here for precision-safety while simplifying.
         float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
+        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.y) / dy : 0.5;
         
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
@@ -142,7 +142,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       padLoc: gl.getUniformLocation(pg, 'u_padding'),
       resLoc: gl.getUniformLocation(pg, 'u_resolution'),
       colorLoc: gl.getUniformLocation(pg, 'u_color'),
-      styleLoc: gl.getUniformLocation(pg, 'u_point_style'),
+      styleLoc: gl.getUniformLocation(pg, 'u_style'),
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
       dprLoc: gl.getUniformLocation(pg, 'u_dpr'),
       sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
@@ -263,33 +263,33 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         }
       }
 
-      // 2. Prepare point data for the visible range
+      // 2. Prepare buffers
       const numPoints = endIdx - startIdx + 1;
-      const reqSize = numPoints * 2;
-      const sharedArr = getSharedBuffer(reqSize);
       const yData = colY.data;
 
-      for (let i = 0; i < numPoints; i++) {
-        const idx = startIdx + i;
-        sharedArr[i * 2] = xData[idx];
-        sharedArr[i * 2 + 1] = yData[idx];
+      // Ensure X buffer exists and is uploaded
+      const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
+      let xBuffer = buffersRef.current.get(xBufferKey);
+      if (!xBuffer) {
+        xBuffer = gl.createBuffer()!;
+        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
+        buffersRef.current.set(xBufferKey, xBuffer);
+      }
+
+      // Ensure Y buffer exists and is uploaded
+      const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
+      let yBuffer = buffersRef.current.get(yBufferKey);
+      if (!yBuffer) {
+        yBuffer = gl.createBuffer()!;
+        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
+        buffersRef.current.set(yBufferKey, yBuffer);
       }
 
       // Pass Viewport relative to this specific column's reference point
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
-
-      const bufferKey = `buf-${ds.id}-${xIdx}-${yIdx}-dyn`;
-      let buffer = buffersRef.current.get(bufferKey);
-      if (!buffer) {
-        buffer = gl.createBuffer()!;
-        buffersRef.current.set(bufferKey, buffer);
-      }
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
-
-      gl.enableVertexAttribArray(locs.posLoc);
-      gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 0, 0);
 
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = lineColorRgba;
@@ -303,9 +303,16 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.disableVertexAttribArray(locs.otherLoc);
           gl.disableVertexAttribArray(locs.tLoc);
           gl.disableVertexAttribArray(locs.distStartLoc);
-          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
-          gl.drawArrays(gl.LINE_STRIP, 0, numPoints);
+          
+          gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+          gl.enableVertexAttribArray(locs.xLoc);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+          gl.enableVertexAttribArray(locs.yLoc);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
+
+          gl.drawArrays(gl.LINE_STRIP, startIdx, numPoints);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
           const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
@@ -332,8 +339,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
             let cumDist = 0;
             for (let i = 0; i < numPoints - 1; i++) {
-              const idxA = indices[i];
-              const idxB = indices[i + 1];
+              const idxA = startIdx + i;
+              const idxB = startIdx + i + 1;
               const ax = xData[idxA], ay = yData[idxA], bx = xData[idxB], by = yData[idxB];
               const screenDx = (bx - ax) / xRange * pChartWidth;
               const screenDy = (by - ay) / yRange * pChartHeight;
@@ -369,12 +376,20 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         gl.uniform1f(locs.sizeLoc, 5.0 * dpr);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 8, 0);
+        
         gl.disableVertexAttribArray(locs.otherLoc);
         gl.disableVertexAttribArray(locs.tLoc);
         gl.disableVertexAttribArray(locs.distStartLoc);
-        gl.drawArrays(gl.POINTS, 0, numPoints);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+        gl.enableVertexAttribArray(locs.xLoc);
+        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+        gl.enableVertexAttribArray(locs.yLoc);
+        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.POINTS, startIdx, numPoints);
       }
     });
     gl.disable(gl.SCISSOR_TEST);
