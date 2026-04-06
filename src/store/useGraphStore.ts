@@ -211,7 +211,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   saveView: (name) => {
     set((state) => {
-      let finalName = name.trim();
+      // SECURITY ENHANCEMENT: Input length limit to prevent DoS via large strings
+      let finalName = name.trim().slice(0, 100);
       if (!finalName) {
         const userViews = state.views.filter(v => v.id !== 'default-view');
         finalName = `View ${userViews.length + 1}`;
@@ -239,8 +240,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   updateViewName: (id, name) => {
+    // SECURITY ENHANCEMENT: Input length limit to prevent DoS via large strings
+    const finalName = name.trim().slice(0, 100);
     set((state) => ({
-      views: state.views.map(v => v.id === id ? { ...v, name } : v)
+      views: state.views.map(v => v.id === id ? { ...v, name: finalName } : v)
     }));
     if (get().isLoaded) debouncedSaveState();
   },
