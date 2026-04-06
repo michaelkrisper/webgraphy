@@ -123,8 +123,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px', padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
           {fileType === 'csv' && (
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Delimiter</label>
+              <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Delimiter</label>
               <select
+                id="import-delimiter"
                 value={delimiter}
                 onChange={e => setDelimiter(e.target.value)}
                 style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
@@ -137,8 +138,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </div>
           )}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Decimal Point</label>
+            <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Decimal Point</label>
             <select
+              id="import-decimal"
               value={decimalPoint}
               onChange={e => setDecimalPoint(e.target.value)}
               style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
@@ -148,8 +150,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Start Row</label>
+            <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Start Row</label>
             <input
+              id="import-start-row"
               type="number"
               min="1"
               value={startRow}
@@ -158,8 +161,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>X-Axis Column</label>
+            <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>X-Axis Column</label>
             <select
+              id="import-x-axis"
               value={xAxisColumn}
               onChange={e => setXAxisColumnOverride(e.target.value)}
               style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
@@ -182,11 +186,13 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       type="text"
                       maxLength={100}
                       value={config.name}
+                      aria-label={`Column ${i + 1} name`}
                       onChange={e => handleUpdateColumn(i, { name: e.target.value })}
                       style={{ width: '100%', marginBottom: '4px', fontWeight: 'bold', border: '1px solid transparent', background: 'transparent' }}
                     />
                     <select
                       value={config.type}
+                      aria-label={`Column ${i + 1} data type`}
                       onChange={e => handleUpdateColumn(i, { type: e.target.value as ColumnType })}
                       style={{ width: '100%', fontSize: '11px', marginBottom: '4px' }}
                     >
@@ -200,6 +206,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                         type="text"
                         placeholder="Format (e.g. YYYY-MM-DD)"
                         maxLength={50}
+                        aria-label={`Column ${i + 1} date format`}
                         value={config.dateFormat || ''}
                         onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
                         style={{ width: '100%', fontSize: '11px', padding: '2px' }}
