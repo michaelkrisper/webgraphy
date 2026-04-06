@@ -145,8 +145,16 @@ function parseCSV(text: string, settings?: ParseSettings) {
 
 function parseJSON(text: string, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
-  const raw = JSON.parse(text);
-  if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format');
+  
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    console.error('Worker: Failed to parse JSON data:', error);
+    throw new Error('Invalid JSON format: ' + (error instanceof Error ? error.message : String(error)));
+  }
+
+  if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format: Expected a non-empty array of objects');
 
   const allHeaders = Object.keys(raw[0]);
   const rowCount = raw.length;

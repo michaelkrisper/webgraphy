@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 
 interface WebGLLocations {
-  posLoc: number;
+  xLoc: number;
+  yLoc: number;
   otherLoc: number;
   tLoc: number;
   distStartLoc: number;
@@ -61,7 +62,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     glRef.current = gl;
 
     const vsSource = `
-      attribute vec2 a_position;
+      attribute float a_x;
+      attribute float a_y;
       attribute vec2 a_other;
       attribute float a_t;
       attribute float a_dist_start;
@@ -81,7 +83,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         // ⚡ Optimization: Pre-calculating ratio on CPU could be even faster, 
         // but keeping it here for precision-safety while simplifying.
         float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.y) / dy : 0.5;
+        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
         
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
@@ -89,7 +91,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       void main() {
-        vec2 p = toScreen(a_position);
+        vec2 p = toScreen(vec2(a_x, a_y));
         vec2 other = toScreen(a_other);
         v_t = a_t;
         v_len = length(other - p);
@@ -100,40 +102,50 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     `;
 
     const fsSource = `
-      precision mediump float;
-      uniform vec4 u_color;
-      uniform int u_point_style;
-      uniform int u_line_style;
-      uniform float u_dpr;
+      precision highp float;
       varying highp float v_t;
       varying highp float v_len;
       varying highp float v_dist_start;
+      uniform vec4 u_color;
+      uniform int u_style;
+      uniform int u_line_style;
+      uniform float u_dpr;
+
       void main() {
-        if (u_point_style == -1) {
-          if (u_line_style > 0) {
-            float dashLen = ((u_line_style == 1) ? 8.0 : 2.0) * u_dpr;
-            float gapLen = ((u_line_style == 1) ? 6.0 : 4.0) * u_dpr;
-            float period = dashLen + gapLen;
-            float dist = v_dist_start + v_t * v_len;
-            if (mod(dist, period) > dashLen) discard;
-          }
-        } else if (u_point_style == 0) {
-          // Circle
-          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+        if (u_style == 0) { // Circle
+          float d = length(gl_PointCoord - 0.5);
           if (d > 0.5) discard;
-        } else if (u_point_style == 2) {
-          // 'X' Symbol
-          vec2 p = gl_PointCoord - vec2(0.5);
-          float d1 = abs(p.x - p.y);
-          float d2 = abs(p.x + p.y);
-          if (min(d1, d2) > 0.15) discard;
+          gl_FragColor = u_color;
+        } else if (u_style == 1) { // Square
+          gl_FragColor = u_color;
+        } else if (u_style == 2) { // Cross
+          vec2 p = gl_PointCoord - 0.5;
+          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+          gl_FragColor = u_color;
+        } else { // Line segment
+          if (u_line_style > 0) {
+            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+            float total = (dashLen + gapLen) * u_dpr;
+            float dist = mod(v_dist_start + v_t * v_len, total);
+            if (dist > dashLen * u_dpr) discard;
+          }
+          gl_FragColor = u_color;
         }
-        gl_FragColor = u_color;
       }
     `;
 
-    const pg = createProgram(gl, vsSource, fsSource);
-    if (!pg) return;
+    const vs = gl.createShader(gl.VERTEX_SHADER)!;
+    gl.shaderSource(vs, vsSource);
+    gl.compileShader(vs);
+    const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
+    gl.shaderSource(fs, fsSource);
+    gl.compileShader(fs);
+
+    const pg = gl.createProgram()!;
+    gl.attachShader(pg, vs);
+    gl.attachShader(pg, fs);
+    gl.linkProgram(pg);
     setProgram(pg);
 
     setLocations({
@@ -146,7 +158,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
       dprLoc: gl.getUniformLocation(pg, 'u_dpr'),
       sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
-      posLoc: gl.getAttribLocation(pg, 'a_position'),
+      xLoc: gl.getAttribLocation(pg, 'a_x'),
+      yLoc: gl.getAttribLocation(pg, 'a_y'),
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
       tLoc: gl.getAttribLocation(pg, 'a_t'),
       distStartLoc: gl.getAttribLocation(pg, 'a_dist_start')
@@ -263,11 +276,14 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         }
       }
 
-      // 2. Prepare buffers
+      // 2. Prepare point data for the visible range
       const numPoints = endIdx - startIdx + 1;
       const yData = colY.data;
 
-      // Ensure X buffer exists and is uploaded
+      // Pass Viewport relative to this specific column's reference point
+      gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
+      gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
+
       const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
       let xBuffer = buffersRef.current.get(xBufferKey);
       if (!xBuffer) {
@@ -277,7 +293,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         buffersRef.current.set(xBufferKey, xBuffer);
       }
 
-      // Ensure Y buffer exists and is uploaded
       const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
       let yBuffer = buffersRef.current.get(yBufferKey);
       if (!yBuffer) {
@@ -286,10 +301,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
         buffersRef.current.set(yBufferKey, yBuffer);
       }
-
-      // Pass Viewport relative to this specific column's reference point
-      gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
-      gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
 
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = lineColorRgba;
@@ -326,7 +337,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
             const reqSize = (numPoints - 1) * 12;
             const sharedArr = getSharedBuffer(reqSize);
-            const yData = colY.data;
 
             // Compute screen-space cumulative arc length in physical pixels
             const xRange = (xAxis.max - xAxis.min) || 1;
@@ -358,8 +368,12 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
           }
 
-          gl.enableVertexAttribArray(locs.posLoc);
-          gl.vertexAttribPointer(locs.posLoc, 2, gl.FLOAT, false, 24, 0);
+          // Use xLoc and yLoc for interleaved buffer too, with correct strides/offsets
+          gl.enableVertexAttribArray(locs.xLoc);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
+          gl.enableVertexAttribArray(locs.yLoc);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
+          
           gl.enableVertexAttribArray(locs.otherLoc);
           gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
           gl.enableVertexAttribArray(locs.tLoc);
@@ -399,39 +413,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
 });
 
-function createProgram(gl: WebGLRenderingContext, vsSource: string, fsSource: string) {
-  const vs = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fs = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  if (!vs || !fs) return null;
-  const program = gl.createProgram()!;
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  return gl.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
-}
-
-function loadShader(gl: WebGLRenderingContext, type: number, source: string) {
-  const shader = gl.createShader(type)!;
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error(gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
-}
-
-function hexToRgba(hex: string): number[] {
-  // Handle short hex like #333
-  if (hex.length === 4) {
-    const r = parseInt(hex[1] + hex[1], 16) / 255;
-    const g = parseInt(hex[2] + hex[2], 16) / 255;
-    const b = parseInt(hex[3] + hex[3], 16) / 255;
-    return [r || 0, g || 0, b || 0];
-  }
+const hexToRgba = (hex: string): number[] => {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [r || 0, g || 0, b || 0];
-}
+  return [r, g, b];
+};

@@ -20,8 +20,8 @@ jobs:
 
     steps:
       - name: Security Check (Allowlist)
-        # Ersetze die Platzhalter mit den tatsächlichen GitHub-Usernamen deines Teams
-        if: ${{ !contains(fromJson('["dein-username", "team-mitglied"]'), github.actor) }}
+        # Restrict execution to the repository owner for enhanced security
+        if: ${{ github.actor != github.repository_owner }}
         run: |
           echo "Unauthorized user attempted to trigger Jules."
           exit 1
