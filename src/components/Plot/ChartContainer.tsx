@@ -74,17 +74,17 @@ type PanTarget = 'all' | { xAxisId: string } | { yAxisId: string };
 const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric') => {
   if (xMode === 'date') {
     return {
-      height: isMobile ? 40 : 60,
-      labelBottom: isMobile ? 16 : 22,
-      secLabelBottom: isMobile ? 28 : 38,
-      titleBottom: isMobile ? 34 : 52
+      height: isMobile ? 50 : 60,
+      labelBottom: isMobile ? 18 : 22,
+      secLabelBottom: isMobile ? 32 : 38,
+      titleBottom: isMobile ? 44 : 52
     };
   }
   return {
-    height: isMobile ? 30 : 40,
-    labelBottom: isMobile ? 14 : 18,
+    height: isMobile ? 40 : 40,
+    labelBottom: isMobile ? 18 : 18,
     secLabelBottom: 0,
-    titleBottom: isMobile ? 24 : 32
+    titleBottom: isMobile ? 32 : 32
   };
 };
 
@@ -278,7 +278,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                       position: 'absolute',
                       left: x,
                       bottom: baseY - metrics.secLabelBottom,
-                      fontSize: isMobile ? '8px' : '10px',
+                      fontSize: isMobile ? '10px' : '10px',
                       fontWeight: 'bold',
                       color: axis.color,
                       backgroundColor: 'rgba(255,255,255,0.8)',
@@ -299,9 +299,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { x } = worldToScreen(timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
                 const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.ticks.precision)) : t.label;
-                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.labelBottom, transform: 'translateX(-50%)', fontSize: isMobile ? '8px' : '9px', color: axis.color }}>{label}</div>;
+                return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.labelBottom, transform: 'translateX(-50%)', fontSize: isMobile ? '10px' : '9px', color: axis.color }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', bottom: baseY - metrics.titleBottom, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: isMobile ? '8px' : '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ position: 'absolute', bottom: baseY - metrics.titleBottom, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {axis.title}
               </div>
             </React.Fragment>
@@ -333,9 +333,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
-                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
+                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: isMobile ? '10px' : '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -563,9 +563,9 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         bottom: isTooltipBelow ? 'auto' : (height - pos.y) + 15,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         color: '#1e293b',
-        padding: '8px 12px',
+        padding: isMobile ? '12px 16px' : '8px 12px',
         borderRadius: '8px',
-        fontSize: '10px',
+        fontSize: isMobile ? '12px' : '10px',
         fontFamily: 'monospace',
         pointerEvents: 'none',
         zIndex: 100,
@@ -581,8 +581,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           <div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr auto auto', columnGap: '0px', rowGap: '4px' }}>
             {entries.map((group, groupIdx) => (
               <React.Fragment key={`group-${groupIdx}`}>
-                <div style={{ color: '#666', gridColumn: '1 / span 5', fontSize: '9px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
-                  <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '10px' }}>{group.xLabel}</span>
+                <div style={{ color: '#666', gridColumn: '1 / span 5', fontSize: isMobile ? '11px' : '9px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
+                  <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: isMobile ? '12px' : '10px' }}>{group.xLabel}</span>
                   <span style={{ marginLeft: '8px', opacity: 0.8 }}>({group.xAxisName})</span>
                 </div>
                 {group.items.map((item, itemIdx) => {

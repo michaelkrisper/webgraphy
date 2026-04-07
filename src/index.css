@@ -4,6 +4,15 @@
   --sidebar-bg: #f8fafc;
   --border-color: #e2e8f0;
   --text-color: #1e293b;
+  --touch-target-size: 28px;
+  --mobile-font-size: 11px;
+}
+
+@media (max-width: 768px) or (max-height: 500px) {
+  :root {
+    --touch-target-size: 36px;
+    --mobile-font-size: 14px;
+  }
 }
 
 * {
@@ -75,10 +84,10 @@ body, html, #root {
   border-bottom: 2px solid var(--text-color);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px) or (max-height: 500px) {
   .sidebar h2 {
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
   }
 }
 
@@ -91,11 +100,11 @@ body, html, #root {
   color: #495057;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px) or (max-height: 500px) {
   .section-title {
-    font-size: 0.8rem;
-    margin-top: 0.5rem;
-    margin-bottom: 0.3rem;
+    font-size: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.6rem;
   }
 }
 

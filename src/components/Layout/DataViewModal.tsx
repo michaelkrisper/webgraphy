@@ -23,27 +23,27 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
       alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(2px)'
     }}>
       <div style={{
-        backgroundColor: '#fff', padding: '24px', borderRadius: '8px',
+        backgroundColor: '#fff', padding: '16px', borderRadius: '8px',
         maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>Data Source: {dataset.name}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }} aria-label="Close dialog">
-            <X size={20} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Data Source: {dataset.name}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Close dialog">
+            <X size={24} />
           </button>
         </div>
 
-        <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+        <div style={{ marginBottom: '12px', fontSize: '1rem', color: '#666' }}>
           Showing first {maxRows} of {dataset.rowCount.toLocaleString()} rows.
         </div>
 
         <div style={{ overflowX: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
                 {dataset.columns.map((col, i) => (
-                  <th key={i} style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                  <th key={i} style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                     {col}
                   </th>
                 ))}
@@ -69,7 +69,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
                     }
 
                     return (
-                      <td key={colIndex} style={{ border: '1px solid #dee2e6', padding: '8px' }}>
+                      <td key={colIndex} style={{ border: '1px solid #dee2e6', padding: '12px' }}>
                         {displayValue}
                       </td>
                     );
@@ -83,7 +83,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
           <button
             onClick={onClose}
-            style={{ padding: '8px 24px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '12px 32px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer', fontWeight: 'bold', minHeight: '44px', fontSize: '1rem' }}
           >
             Close
           </button>

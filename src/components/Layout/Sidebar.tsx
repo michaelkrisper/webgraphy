@@ -163,24 +163,26 @@ export const Sidebar: React.FC = () => {
             position: 'absolute',
             top: '0',
             right: '0',
-            padding: '8px 16px',
+            padding: '12px 24px',
             borderRadius: '0',
             background: 'rgba(255, 255, 255, 0.8)',
             border: '1px solid rgba(0, 0, 0, 0.1)',
             borderTop: 'none',
             borderRight: 'none',
-            borderBottomLeftRadius: '4px',
+            borderBottomLeftRadius: '8px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
             backdropFilter: 'blur(4px)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             transition: 'all 0.2s ease',
             fontWeight: 'bold',
-            fontSize: '12px',
-            color: '#333'
+            fontSize: '14px',
+            color: '#333',
+            minWidth: '80px',
+            minHeight: '44px'
           }}
           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 1)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)'}
@@ -203,37 +205,37 @@ export const Sidebar: React.FC = () => {
         <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--text-color)', paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="./favicon.svg" alt="logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+              <img src="./favicon.svg" alt="logo" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
               <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
               <button 
                 onClick={() => setShowHelp(true)}
                 title="Help & Interactions"
                 aria-label="Help & Interactions"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }}
               >
-                <HelpCircle size={18} />
+                <HelpCircle size={22} />
               </button>
             </div>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Collapse Menu" aria-label="Collapse Menu">
-              <ChevronRight size={18} />
+            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }} title="Collapse Menu" aria-label="Collapse Menu">
+              <ChevronRight size={22} />
             </button>
           </div>
           
           <div className="section">
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('sources')} aria-expanded={openSections.sources} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
-                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
-                <FilePlus size={14} style={{ marginRight: '5px' }} />
+              <button onClick={() => toggleSection('sources')} aria-expanded={openSections.sources} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
+                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
+                <FilePlus size={18} style={{ marginRight: '5px' }} />
                 Data Sources
               </button>
               <button
                 disabled={isImporting}
                 onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title="Import Data Source"
                 aria-label="Import Data Source"
               >
-                {isImporting ? '...' : <Upload size={14} />}
+                {isImporting ? '...' : <Upload size={18} />}
               </button>
               <input
                 type="file"
@@ -251,23 +253,23 @@ export const Sidebar: React.FC = () => {
             {openSections.sources && <div className="sources-list" style={{ marginBottom: '1rem' }}>
               {datasets.map(d => (
                 <div key={d.id} style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                     <div
                       onDoubleClick={() => setViewingDatasetId(d.id)}
-                      style={{ fontWeight: 'bold', fontSize: '0.9rem', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ fontWeight: 'bold', fontSize: 'var(--mobile-font-size)', flex: '1 1 100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}
                       title={`${d.name} (Double-click to view data table)`}
                     >
                       {d.name}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
                       {/* X Axis selection */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <select
                           name={`dataset-x-column-${d.id}`}
                           aria-label={`X Column for ${d.name}`}
                           value={d.xAxisColumn}
                           onChange={(e) => updateDataset(d.id, { xAxisColumn: e.target.value })}
-                          style={{ width: '70px', fontSize: '9px', padding: '1px', height: '18px', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '2px', background: '#f8fafc' }}
+                          style={{ width: '90px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '4px', background: '#f8fafc' }}
                           title="X Column (Source Wide)"
                         >
                           {d.columns.map(c => <option key={c} value={c}>{c}</option>)}
@@ -278,7 +280,7 @@ export const Sidebar: React.FC = () => {
                             const nextXIdx = (currentXIdx % 9) + 1;
                             updateDataset(d.id, { xAxisId: `axis-${nextXIdx}` });
                           }}
-                          style={{ width: '18px', height: '18px', fontSize: '10px', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '2px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
                           title="Cycle X-Axis (1-9)"
                           aria-label="Cycle X-Axis">
                           {parseInt(d.xAxisId?.split('-')[1]) || 1}
@@ -290,52 +292,54 @@ export const Sidebar: React.FC = () => {
                             const { updateXAxis } = useGraphStore.getState();
                             updateXAxis(axisId, { xMode: currentMode === 'date' ? 'numeric' : 'date' });
                           }}
-                          style={{ width: '22px', height: '18px', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
                           title={xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? "Switch to Decimal Mode" : "Switch to Time Mode"}
                           aria-label="Toggle X-Axis Mode"
                         >
-                          {xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={12} /> : <Hash size={12} />}
+                          {xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={16} /> : <Hash size={16} />}
                         </button>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
+                          <button
+                            onClick={() => moveDataset(d.id, -1)}
+                            disabled={datasets.indexOf(d) === 0}
+                            style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
+                            title="Move Up"
+                            aria-label="Move Up"
+                          >
+                            <ChevronUp size={16} strokeWidth={3} />
+                          </button>
+                          <button
+                            onClick={() => moveDataset(d.id, 1)}
+                            disabled={datasets.indexOf(d) === datasets.length - 1}
+                            style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
+                            title="Move Down"
+                            aria-label="Move Down"
+                          >
+                            <ChevronDown size={16} strokeWidth={3} />
+                          </button>
+                        </div>
                         <button
-                          onClick={() => moveDataset(d.id, -1)}
-                          disabled={datasets.indexOf(d) === 0}
-                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
-                          title="Move Up"
-                          aria-label="Move Up"
+                          onClick={async () => {
+                            if (window.confirm(`Are you sure you want to remove the data source "${d.name}"?`)) {
+                              await persistence.deleteDataset(d.id);
+                              removeDataset(d.id);
+                            }
+                          }}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Remove data source"
+                          aria-label="Remove data source"
                         >
-                          <ChevronUp size={12} strokeWidth={3} />
-                        </button>
-                        <button
-                          onClick={() => moveDataset(d.id, 1)}
-                          disabled={datasets.indexOf(d) === datasets.length - 1}
-                          style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: '11px', display: 'flex', alignItems: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
-                          title="Move Down"
-                          aria-label="Move Down"
-                        >
-                          <ChevronDown size={12} strokeWidth={3} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
-                      <button 
-                        onClick={async () => {
-                          if (window.confirm(`Are you sure you want to remove the data source "${d.name}"?`)) {
-                            await persistence.deleteDataset(d.id);
-                            removeDataset(d.id);
-                          }
-                        }} 
-                        style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex' }}
-                        title="Remove data source"
-                        aria-label="Remove data source"
-                      >
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </div>
                   <details>
-                    <summary style={{ fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#64748b', display: 'flex', alignItems: 'center' }}>
-                      <ChevronRight size={14} className="details-chevron" />
+                    <summary style={{ fontSize: 'var(--mobile-font-size)', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#64748b', display: 'flex', alignItems: 'center', padding: '6px 0' }}>
+                      <ChevronRight size={18} className="details-chevron" />
                       <span style={{ flex: 1 }}>Columns ({d.columns.length}) &mdash; {d.rowCount.toLocaleString()} rows</span>
                     </summary>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
@@ -348,33 +352,33 @@ export const Sidebar: React.FC = () => {
                         maxLength={100}
                         value={columnFilters[d.id] || ''}
                         onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
-                        style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '8px 30px 8px 8px', fontSize: 'var(--mobile-font-size)', border: '1px solid #ced4da', borderRadius: '4px', boxSizing: 'border-box', outline: 'none', height: 'var(--touch-target-size)' }}
                       />
                       {columnFilters[d.id] && (
                         <button
                           onClick={() => setColumnFilters({ ...columnFilters, [d.id]: '' })}
                           aria-label="Clear filter"
                           title="Clear filter"
-                          style={{ position: 'absolute', right: '4px', background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ position: 'absolute', right: '4px', background: 'none', border: 'none', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }}
                         >
-                          <X size={14} style={{ color: '#999' }} />
+                          <X size={18} style={{ color: '#999' }} />
                         </button>
                       )}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {d.columns
                         .filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase()))
                         .map(col => (
                         <button 
                           key={col} 
                           onClick={() => createSeries(d.id, col)}
-                          style={{ fontSize: '10px', padding: '2px 4px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '3px', color: '#475569' }}
+                          style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
                         >
                           {col}
                         </button>
                       ))}
                       {d.columns.filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase())).length === 0 && (
-                        <span style={{ fontSize: '10px', color: '#999' }}>No columns found.</span>
+                        <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>
                       )}
                     </div>
                   </details>
@@ -385,14 +389,14 @@ export const Sidebar: React.FC = () => {
 
           <div className="section">
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('series')} aria-expanded={openSections.series} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
-                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
-                <Layout size={14} style={{ marginRight: '5px' }} />
+              <button onClick={() => toggleSection('series')} aria-expanded={openSections.series} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
+                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
+                <Layout size={18} style={{ marginRight: '5px' }} />
                 Data Series
               </button>
             </div>
             {openSections.series && <div className="series-list" style={{ marginBottom: '1rem' }}>
-              {series.length === 0 && <p style={{ fontSize: '0.8rem', color: '#666' }}>Click a column above to add a series.</p>}
+              {series.length === 0 && <p style={{ fontSize: 'var(--mobile-font-size)', color: '#666', padding: '8px' }}>Click a column above to add a series.</p>}
               {[...series].reverse().map((s, i) => {
                 const dataset = datasets.find(d => d.id === s.sourceId);
                 return (
@@ -411,30 +415,30 @@ export const Sidebar: React.FC = () => {
 
           <div className="section" style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
             <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('views')} aria-expanded={openSections.views} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}>
-                <ChevronRight size={14} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
-                <Eye size={14} style={{ marginRight: '5px' }} />
+              <button onClick={() => toggleSection('views')} aria-expanded={openSections.views} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
+                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
+                <Eye size={18} style={{ marginRight: '5px' }} />
                 Data Views
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); saveView(''); }}
-                style={{ padding: '4px 8px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title="Save Data View"
                 aria-label="Save Data View"
               >
-                <Bookmark size={14} />
+                <Bookmark size={18} />
               </button>
             </div>
             {openSections.views && <div style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
               
               {customViews.length === 0 && (
-                <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '4px' }}>No saved views.</div>
+                <div style={{ fontSize: 'var(--mobile-font-size)', color: '#64748b', textAlign: 'center', padding: '8px' }}>No saved views.</div>
               )}
               
               {customViews.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {customViews.map(v => (
-                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px', background: '#f8fafc', borderRadius: '3px', border: '1px solid #e2e8f0' }}>
+                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
                       {editingViewId === v.id ? (
                         <input
                           autoFocus
@@ -455,33 +459,33 @@ export const Sidebar: React.FC = () => {
                             }
                             if (e.key === 'Escape') setEditingViewId(null);
                           }}
-                          style={{ flex: 1, fontSize: '12px', padding: '0 2px', height: '18px', marginRight: '8px' }}
+                          style={{ flex: 1, fontSize: 'var(--mobile-font-size)', padding: '0 4px', height: 'var(--touch-target-size)', marginRight: '8px' }}
                         />
                       ) : (
                         <span 
                           onClick={() => { setEditingViewId(v.id); setTempViewName(v.name); }}
-                          style={{ fontSize: '12px', fontWeight: 'bold', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'text' }} 
+                          style={{ fontSize: 'var(--mobile-font-size)', fontWeight: 'bold', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'text', padding: '4px 0' }}
                           title="Click to rename"
                         >
                           {v.name}
                         </span>
                       )}
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button 
                           onClick={() => applyView(v.id)}
-                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#10b981', display: 'flex' }}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Apply view bounds"
                           aria-label="Apply view bounds"
                         >
-                          <Eye size={14} />
+                          <Eye size={18} />
                         </button>
                         <button 
                           onClick={() => deleteView(v.id)}
-                          style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex' }}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Delete view"
                           aria-label="Delete view"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
@@ -495,15 +499,15 @@ export const Sidebar: React.FC = () => {
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <button
                 onClick={handleExportSVG}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: '12px' }}
+                style={{ flex: 1, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
               >
-                <FileImage size={14} /> Export SVG
+                <FileImage size={18} /> Export SVG
               </button>
               <button
                 onClick={handleExportPNG}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: '12px' }}
+                style={{ flex: 1, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
               >
-                <Image size={14} /> Export PNG
+                <Image size={18} /> Export PNG
               </button>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -522,9 +526,9 @@ export const Sidebar: React.FC = () => {
                     };
                   }
                 }}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
+                style={{ flex: 1, padding: '12px', cursor: 'pointer', background: '#fff', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
               >
-                <RotateCcw size={14} /> Demo
+                <RotateCcw size={18} /> Demo
               </button>
               <button
                 onClick={async () => {
@@ -540,26 +544,26 @@ export const Sidebar: React.FC = () => {
                     };
                   }
                 }}
-                style={{ flex: 1, padding: '8px', cursor: 'pointer', background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
+                style={{ flex: 1, padding: '12px', cursor: 'pointer', background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
               >
-                <RotateCcw size={14} /> Reset
+                <RotateCcw size={18} /> Reset
               </button>
             </div>
           </div>
 
-          <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#999', paddingBottom: '0.5rem' }}>
+          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#999', paddingBottom: '1rem' }}>
             <span>v0.3.4</span>
             <span>|</span>
             <button 
               onClick={() => setShowImprint(true)} 
-              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '10px' }}
+              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: '4px', fontSize: '12px' }}
             >
               Imprint
             </button>
             <span>|</span>
             <button 
               onClick={() => setShowLicense(true)} 
-              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '10px' }}
+              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: '4px', fontSize: '12px' }}
             >
               License
             </button>
