@@ -1452,7 +1452,7 @@ const ChartContainer: React.FC = () => {
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-        <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} />
+        <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} />
       </div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={leftAxesLayout} rightAxes={rightAxesLayout} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} />
 

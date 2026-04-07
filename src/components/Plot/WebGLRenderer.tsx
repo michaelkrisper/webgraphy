@@ -26,12 +26,13 @@ interface Props {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
+  isInteracting?: boolean;
 }
 
 /**
- * WebGLRenderer Component (v0.3.4 - Ultra-Precision Shader)
+ * WebGLRenderer Component (v0.3.5 - Ultra-Precision Shader with Dynamic Interaction Downsampling)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding }) => {
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, isInteracting }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -280,6 +281,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       const numPoints = endIdx - startIdx + 1;
       const yData = colY.data;
 
+      // Calculate drawStep for interaction optimization (Skip points during pan/animation if > 50k)
+      const drawStep = (isInteracting && numPoints > 50000) ? Math.max(1, Math.floor(numPoints / 20000)) : 1;
+
       // Pass Viewport relative to this specific column's reference point
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
@@ -317,13 +321,13 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           
           gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
           gl.enableVertexAttribArray(locs.xLoc);
-          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
           gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
           gl.enableVertexAttribArray(locs.yLoc);
-          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
-          gl.drawArrays(gl.LINE_STRIP, startIdx, numPoints);
+          gl.drawArrays(gl.LINE_STRIP, 0, Math.floor(numPoints / drawStep));
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
           const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
@@ -335,7 +339,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
           if (segParamsRef.current.get(segBufferKey) !== paramKey) {
             // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
-            const reqSize = (numPoints - 1) * 12;
+            const numSegs = Math.floor((numPoints - 1) / drawStep);
+            const reqSize = numSegs * 12;
             const sharedArr = getSharedBuffer(reqSize);
 
             // Compute screen-space cumulative arc length in physical pixels
@@ -348,9 +353,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             const period = dashLen + gapLen;
 
             let cumDist = 0;
-            for (let i = 0; i < numPoints - 1; i++) {
-              const idxA = startIdx + i;
-              const idxB = startIdx + i + 1;
+            for (let i = 0; i < numSegs; i++) {
+              const idxA = startIdx + i * drawStep;
+              const idxB = startIdx + (i + 1) * drawStep;
               const ax = xData[idxA], ay = yData[idxA], bx = xData[idxB], by = yData[idxB];
               const screenDx = (bx - ax) / xRange * pChartWidth;
               const screenDy = (by - ay) / yRange * pChartHeight;
@@ -380,7 +385,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
           gl.enableVertexAttribArray(locs.distStartLoc);
           gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
-          gl.drawArrays(gl.LINES, 0, (numPoints - 1) * 2);
+          gl.drawArrays(gl.LINES, 0, numSegs * 2);
         }
       }
 
@@ -397,13 +402,13 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
         gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
         gl.enableVertexAttribArray(locs.xLoc);
-        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
         gl.enableVertexAttribArray(locs.yLoc);
-        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
-        gl.drawArrays(gl.POINTS, startIdx, numPoints);
+        gl.drawArrays(gl.POINTS, 0, Math.floor(numPoints / drawStep));
       }
     });
     gl.disable(gl.SCISSOR_TEST);
