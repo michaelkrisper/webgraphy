@@ -111,24 +111,24 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
       alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(2px)'
     }}>
       <div style={{
-        backgroundColor: '#fff', padding: '24px', borderRadius: '8px',
+        backgroundColor: '#fff', padding: '16px', borderRadius: '8px',
         maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>Import Settings: {fileName}</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer' }} aria-label="Close dialog"><X size={20} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Import Settings: {fileName}</h2>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Close dialog"><X size={24} /></button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px', padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
           {fileType === 'csv' && (
             <div>
-              <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Delimiter</label>
+              <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Delimiter</label>
               <select
                 id="import-delimiter"
                 value={delimiter}
                 onChange={e => setDelimiter(e.target.value)}
-                style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
               >
                 <option value=",">Comma (,)</option>
                 <option value=";">Semicolon (;)</option>
@@ -138,35 +138,35 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </div>
           )}
           <div>
-            <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Decimal Point</label>
+            <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Decimal Point</label>
             <select
               id="import-decimal"
               value={decimalPoint}
               onChange={e => setDecimalPoint(e.target.value)}
-              style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
             >
               <option value=".">Dot (.)</option>
               <option value=",">Comma (,)</option>
             </select>
           </div>
           <div>
-            <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Start Row</label>
+            <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Start Row</label>
             <input
               id="import-start-row"
               type="number"
               min="1"
               value={startRow}
               onChange={e => setStartRow(parseInt(e.target.value) || 1)}
-              style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
             />
           </div>
           <div>
-            <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>X-Axis Column</label>
+            <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>X-Axis Column</label>
             <select
               id="import-x-axis"
               value={xAxisColumn}
               onChange={e => setXAxisColumnOverride(e.target.value)}
-              style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #ced4da' }}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
             >
               {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
                 <option key={c.index} value={c.name}>{c.name}</option>
@@ -176,25 +176,25 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
         </div>
 
         <div style={{ marginBottom: '20px', overflowX: 'auto' }}>
-          <h3 style={{ fontSize: '14px', marginBottom: '10px' }}>Column Configuration & Preview</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '10px' }}>Column Configuration & Preview</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ backgroundColor: '#e9ecef' }}>
                 {columnConfigs.map((config, i) => (
-                  <th key={i} style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
+                  <th key={i} style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'left', minWidth: '180px' }}>
                     <input
                       type="text"
                       maxLength={100}
                       value={config.name}
                       aria-label={`Column ${i + 1} name`}
                       onChange={e => handleUpdateColumn(i, { name: e.target.value })}
-                      style={{ width: '100%', marginBottom: '4px', fontWeight: 'bold', border: '1px solid transparent', background: 'transparent' }}
+                      style={{ width: '100%', marginBottom: '8px', fontWeight: 'bold', border: '1px solid #dee2e6', background: '#fff', padding: '4px', fontSize: '14px', borderRadius: '4px' }}
                     />
                     <select
                       value={config.type}
                       aria-label={`Column ${i + 1} data type`}
                       onChange={e => handleUpdateColumn(i, { type: e.target.value as ColumnType })}
-                      style={{ width: '100%', fontSize: '11px', marginBottom: '4px' }}
+                      style={{ width: '100%', fontSize: '14px', marginBottom: '8px', height: '36px', borderRadius: '4px' }}
                     >
                       <option value="numeric">Numeric</option>
                       <option value="date">Date/Time</option>
@@ -209,7 +209,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                         aria-label={`Column ${i + 1} date format`}
                         value={config.dateFormat || ''}
                         onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
-                        style={{ width: '100%', fontSize: '11px', padding: '2px' }}
+                        style={{ width: '100%', fontSize: '14px', padding: '6px', border: '1px solid #dee2e6', borderRadius: '4px' }}
                       />
                     )}
                   </th>
@@ -222,7 +222,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                   {columnConfigs.map((config, colIndex) => (
                     <td key={colIndex} style={{
                       border: '1px solid #dee2e6',
-                      padding: '8px',
+                      padding: '12px',
                       color: config.type === 'ignore' ? '#adb5bd' : '#212529',
                       backgroundColor: config.type === 'ignore' ? '#f8f9fa' : 'transparent'
                     }}>
@@ -237,18 +237,18 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           </table>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: 'auto', flexWrap: 'wrap' }}>
           <button
             onClick={onCancel}
-            style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer' }}
+            style={{ padding: '12px 24px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer', minHeight: '44px', fontSize: '1rem', flex: '1 1 auto' }}
           >
             Cancel
           </button>
           <button
             onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs, xAxisColumn })}
-            style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#007bff', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '12px 24px', borderRadius: '4px', border: 'none', background: '#007bff', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '44px', fontSize: '1rem', flex: '1 1 auto', fontWeight: 'bold' }}
           >
-            <Check size={16} /> Import Data
+            <Check size={20} /> Import Data
           </button>
         </div>
       </div>
