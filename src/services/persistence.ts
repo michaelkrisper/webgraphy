@@ -66,6 +66,7 @@ export interface SeriesConfig {
   pointColor: string;
   lineStyle: 'solid' | 'dashed' | 'dotted' | 'none';
   lineColor: string;
+  lineWidth: number;
 }
 
 export interface AppState {

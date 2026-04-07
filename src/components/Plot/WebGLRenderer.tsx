@@ -327,6 +327,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.enableVertexAttribArray(locs.yLoc);
           gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
+          gl.lineWidth(s.lineWidth * dpr);
           gl.drawArrays(gl.LINE_STRIP, 0, Math.floor(numPoints / drawStep));
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
@@ -337,9 +338,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             buffersRef.current.set(segBufferKey, segBuffer);
           }
 
+          const numSegs = Math.floor((numPoints - 1) / drawStep);
           if (segParamsRef.current.get(segBufferKey) !== paramKey) {
             // Per vertex: pos(2) + other(2) + t(1) + dist_start(1) = 6 floats, stride 24
-            const numSegs = Math.floor((numPoints - 1) / drawStep);
             const reqSize = numSegs * 12;
             const sharedArr = getSharedBuffer(reqSize);
 
@@ -385,6 +386,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
           gl.enableVertexAttribArray(locs.distStartLoc);
           gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
+
+          gl.lineWidth(s.lineWidth * dpr);
           gl.drawArrays(gl.LINES, 0, numSegs * 2);
         }
       }

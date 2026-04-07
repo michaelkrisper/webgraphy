@@ -59,6 +59,14 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
     );
   };
 
+  const renderLineWidthIcon = () => {
+    return (
+      <svg width="14" height="14" viewBox="0 0 16 16" style={{ display: 'block' }}>
+        <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth={Math.min(4.5, series.lineWidth * 1.5)} />
+      </svg>
+    );
+  };
+
   return (
     <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
       {/* Reorder Buttons (UP/DOWN) */}
@@ -131,6 +139,19 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         title={`Line Style: ${series.lineStyle}`}
        aria-label="Cycle Line Style">
         {renderLineStyleIcon()}
+      </button>
+
+      {/* Line Width Cycle */}
+      <button
+        onClick={() => {
+          const widths = [1, 1.5, 2, 2.5, 3];
+          const next = widths[(widths.indexOf(series.lineWidth) + 1) % widths.length];
+          handleUpdate({ lineWidth: next });
+        }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0, color: '#475569' }}
+        title={`Line Width: ${series.lineWidth}`}
+       aria-label="Cycle Line Width">
+        {renderLineWidthIcon()}
       </button>
 
       {/* Point Style Cycle */}
