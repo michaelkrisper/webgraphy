@@ -149,7 +149,8 @@ export const Sidebar: React.FC = () => {
       pointStyle: 'circle',
       pointColor: color,
       lineStyle: 'solid',
-      lineColor: color
+      lineColor: color,
+      lineWidth: 1.5
     });
   };
 

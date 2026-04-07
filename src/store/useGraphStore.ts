@@ -253,6 +253,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const allDatasets = await persistence.getAllDatasets();
 
     if (savedState) {
+      if (savedState.series) {
+        savedState.series = savedState.series.map(s => ({
+          ...s,
+          lineWidth: s.lineWidth ?? 1.5
+        }));
+      }
       set({ ...savedState, datasets: allDatasets, isLoaded: true });
       debouncedSaveState();
     } else if (allDatasets.length > 0) {
