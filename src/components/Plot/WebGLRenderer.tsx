@@ -323,6 +323,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.enableVertexAttribArray(locs.yLoc);
           gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
+          gl.lineWidth(s.lineWidth * dpr);
           gl.drawArrays(gl.LINE_STRIP, startIdx, numPoints);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
@@ -380,6 +381,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
           gl.enableVertexAttribArray(locs.distStartLoc);
           gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
+          gl.lineWidth(s.lineWidth * dpr);
           gl.drawArrays(gl.LINES, 0, (numPoints - 1) * 2);
         }
       }

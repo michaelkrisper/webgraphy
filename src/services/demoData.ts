@@ -155,7 +155,8 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       pointStyle: 'none',
       pointColor: '#f97316', // Orange
       lineStyle: 'solid',
-      lineColor: '#ea580c'
+      lineColor: '#ea580c',
+      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -166,7 +167,8 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       pointStyle: 'none',
       pointColor: '#3b82f6', // Blue
       lineStyle: 'solid',
-      lineColor: '#2563eb'
+      lineColor: '#2563eb',
+      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -177,7 +179,8 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       pointStyle: 'none',
       pointColor: '#eab308', // Yellow
       lineStyle: 'solid',
-      lineColor: '#ca8a04'
+      lineColor: '#ca8a04',
+      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -188,7 +191,8 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
       pointStyle: 'none',
       pointColor: '#14b8a6', // Teal
       lineStyle: 'solid',
-      lineColor: '#0d9488'
+      lineColor: '#0d9488',
+      lineWidth: 1.5
     }
   ];
 
