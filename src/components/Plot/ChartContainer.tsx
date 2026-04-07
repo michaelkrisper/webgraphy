@@ -1147,18 +1147,6 @@ const ChartContainer: React.FC = () => {
 
     const draggedAxisId = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
     const axesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedAxisId ? [activeYAxes.find(a => a.id === draggedAxisId)!] : []);
-    const SNAP_THRESHOLD = 15;
-
-    // Snap targets: screen-Y positions of y=0 on every OTHER visible axis
-    const snapTargets: number[] = [];
-    if (!altKey && draggedAxisId && chartHeight > 0) {
-      state.yAxes.forEach(otherAxis => {
-        if (otherAxis.id === draggedAxisId) return;
-        if (otherAxis.min > 0 || otherAxis.max < 0) return; // 0 not in range
-        const screenYZero = padding.top + (1 - (0 - otherAxis.min) / (otherAxis.max - otherAxis.min)) * chartHeight;
-        snapTargets.push(screenYZero);
-      });
-    }
 
     axesToPan.forEach(axis => {
       if (!axis) return;
@@ -1167,25 +1155,6 @@ const ChartContainer: React.FC = () => {
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
       let nextMin = curAxis.min + yMove;
       let nextMax = curAxis.max + yMove;
-
-      // Snapping Logic - only when dragging a SINGLE axis and ALT is not held
-      if (snapTargets.length > 0 && chartHeight > 0) {
-        const nextYRange = nextMax - nextMin;
-        const screenYZero = padding.top + (1 - (0 - nextMin) / nextYRange) * chartHeight;
-
-        let bestTarget = null;
-        let bestDist = SNAP_THRESHOLD;
-        for (const target of snapTargets) {
-          const d = Math.abs(screenYZero - target);
-          if (d < bestDist) { bestDist = d; bestTarget = target; }
-        }
-
-        if (bestTarget !== null) {
-          const ratio = (bestTarget - padding.top) / chartHeight - 1;
-          nextMin = nextYRange * ratio;
-          nextMax = nextMin + nextYRange;
-        }
-      }
 
       const nextY = { min: nextMin, max: nextMax };
       state.updateYAxis(axis.id, nextY);
