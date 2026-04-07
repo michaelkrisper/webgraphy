@@ -319,8 +319,10 @@ export const Sidebar: React.FC = () => {
                       </div>
                       <button 
                         onClick={async () => {
-                          await persistence.deleteDataset(d.id);
-                          removeDataset(d.id);
+                          if (window.confirm(`Are you sure you want to remove the data source "${d.name}"?`)) {
+                            await persistence.deleteDataset(d.id);
+                            removeDataset(d.id);
+                          }
                         }} 
                         style={{ padding: '2px', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex' }}
                         title="Remove data source"
@@ -345,7 +347,7 @@ export const Sidebar: React.FC = () => {
                         maxLength={100}
                         value={columnFilters[d.id] || ''}
                         onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
-                        style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box', outline: 'none' }}
+                        style={{ width: '100%', padding: '4px 22px 4px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '3px', boxSizing: 'border-box' }}
                       />
                       {columnFilters[d.id] && (
                         <button
