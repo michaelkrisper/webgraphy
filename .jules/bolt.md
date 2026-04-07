@@ -7,3 +7,6 @@
 ## 2024-04-06 - Replacing Set with Uint32Array in downsampling
 **Learning:** Using `Set` to deduplicate indices inside a high-frequency WebGL rendering loop causes significant GC pressure and overhead due to boxing `number` primitives into JS objects. Pre-allocating a `Uint32Array` and using a manual sort-and-deduplicate pass is up to 10x faster for this specific workload.
 **Action:** Always prefer TypedArrays over `Set` or `Array` when collecting and deduplicating large numbers of numerical indices in performance-critical loops (like LOD/downsampling algorithms).
+## 2026-04-07 - [Hoist static lookups out of inner loops]
+**Learning:** Constructing Map objects on render to replace Array.find for small arrays (1-4 items) is a negative optimization due to memory allocation and hashing overhead. The real optimization is hoisting invariant Array.find lookups (like mainXConf) out of inner loops (like tick mapping).
+**Action:** Always prefer loop hoisting over converting small arrays to Maps in high-frequency React render cycles.

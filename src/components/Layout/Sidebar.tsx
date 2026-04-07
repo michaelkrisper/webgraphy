@@ -149,7 +149,8 @@ export const Sidebar: React.FC = () => {
       pointStyle: 'circle',
       pointColor: color,
       lineStyle: 'solid',
-      lineColor: color
+      lineColor: color,
+      lineWidth: 1.5
     });
   };
 
@@ -322,7 +323,7 @@ export const Sidebar: React.FC = () => {
                         </div>
                         <button
                           onClick={async () => {
-                            if (confirm(`Remove data source "${d.name}"?`)) {
+                            if (window.confirm(`Are you sure you want to remove the data source "${d.name}"?`)) {
                               await persistence.deleteDataset(d.id);
                               removeDataset(d.id);
                             }

@@ -119,6 +119,10 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
 
 const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics }: AxesLayerProps) => {
   const isMobile = width < 768 || height < 500;
+
+  // ⚡ Bolt Optimization: Hoist invariant variable lookups out of inner map loops
+  const mainXConf = useMemo(() => allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!, [allXAxes, xAxes]);
+
   const seriesByYAxisId = useMemo(() => {
     const grouped: Record<string, SeriesConfig[]> = {};
     for (let i = 0; i < series.length; i++) {
@@ -190,7 +194,6 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
         {yAxes.length > 0 && (() => {
           const mainAxis = yAxes[0];
-          const mainXConf = allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!;
           const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: mainAxis.min, yMax: mainAxis.max, width, height, padding };
           if (mainAxis.min <= 0 && mainAxis.max >= 0) {
             return (
@@ -237,7 +240,6 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 markerEnd="url(#arrow)"
               />
               {axis.ticks.map(t => {
-                const mainXConf = allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!;
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
@@ -324,8 +326,6 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
           const titleX = isLeft ? xPos + 7.5 : xPos + axisMetrics.total - 7.5;
-
-          const mainXConf = allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!;
 
           return (
             <React.Fragment key={axis.id}>
