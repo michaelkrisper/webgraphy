@@ -187,6 +187,7 @@ export const Sidebar: React.FC = () => {
           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 1)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)'}
           title="Open Menu"
+          aria-label="Open Menu"
         >
           Menu
         </button>

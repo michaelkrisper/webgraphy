@@ -13,15 +13,21 @@ describe('LTTB (Largest-Triangle-Three-Buckets)', () => {
   ];
 
   describe('edge cases', () => {
-    it('returns the first and last points when threshold is 1', () => {
-      const result = lttb(sampleData, 1);
-      expect(result.length).toBe(2);
-      expect(result[0]).toEqual(sampleData[0]);
-      expect(result[1]).toEqual(sampleData[sampleData.length - 1]);
+    it('returns the original data for a small dataset and a large threshold', () => {
+      const smallData = [{ x: 1, y: 10 }, { x: 2, y: 20 }];
+      const result = lttb(smallData, 1000);
+      expect(result).toBe(smallData);
+      expect(result).toEqual(smallData);
     });
 
-    it('returns the first and last points when threshold is negative', () => {
+    it('returns the original data when threshold is negative', () => {
       const result = lttb(sampleData, -5);
+      expect(result).toBe(sampleData);
+      expect(result).toEqual(sampleData);
+    });
+
+    it('returns 2 points (first and last) when threshold is 1, as LTTB requires at least start and end points', () => {
+      const result = lttb(sampleData, 1);
       expect(result.length).toBe(2);
       expect(result[0]).toEqual(sampleData[0]);
       expect(result[1]).toEqual(sampleData[sampleData.length - 1]);
