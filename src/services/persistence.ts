@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import { secureJSONParse } from '../utils/json';
 
 const DB_NAME = 'webgraphy-db';
 const DATASET_STORE = 'datasets';
@@ -164,7 +165,7 @@ export const persistence = {
   loadAppState(): AppState | null {
     try {
       const state = localStorage.getItem('webgraphy-state');
-      return state ? JSON.parse(state) : null;
+      return state ? secureJSONParse(state) : null;
     } catch (error) {
       console.error('Failed to load state from localStorage:', error);
       return null;

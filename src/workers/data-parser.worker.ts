@@ -1,4 +1,5 @@
 // Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
+import { secureJSONParse } from '../utils/json';
 
 interface ColumnConfigEntry {
   index: number;
@@ -148,7 +149,7 @@ function parseJSON(text: string, settings?: ParseSettings) {
   
   let raw;
   try {
-    raw = JSON.parse(text);
+    raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
     throw new Error('Invalid JSON format: ' + (error instanceof Error ? error.message : String(error)));
