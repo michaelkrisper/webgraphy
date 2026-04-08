@@ -550,6 +550,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
+  const isMobile = width < 768 || height < 500;
 
   return (
     <>
@@ -1098,7 +1099,6 @@ const ChartContainer: React.FC = () => {
 
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
 
-    const activeDatasetIds = new Set(state.series.map(s => s.sourceId));
     axesToScale.forEach(id => {
       const activeDatasetsUsingAxis = state.datasets.filter(d =>
         (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id)
@@ -1155,7 +1155,7 @@ const ChartContainer: React.FC = () => {
     return foundHovered;
   }, [xAxesMetrics, padding, width, height]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all',  shiftKey: boolean = false) => {
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
