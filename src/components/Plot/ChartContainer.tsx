@@ -1153,8 +1153,8 @@ const ChartContainer: React.FC = () => {
       const curAxis = state.yAxes.find(a => a.id === axis.id)!;
       const yRange = curAxis.max - curAxis.min;
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      let nextMin = curAxis.min + yMove;
-      let nextMax = curAxis.max + yMove;
+      const nextMin = curAxis.min + yMove;
+      const nextMax = curAxis.max + yMove;
 
       const nextY = { min: nextMin, max: nextMax };
       state.updateYAxis(axis.id, nextY);
