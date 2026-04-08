@@ -120,14 +120,14 @@ function parseCSV(text: string, settings?: ParseSettings) {
   const activeCols: number[] = [];
   const finalHeaders: string[] = [];
   for (let j = 0; j < headers.length; j++) {
-     if (configsByIndex[j]?.type !== 'ignore') {
-         activeCols.push(j);
-         finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-     }
+    if (configsByIndex[j]?.type !== 'ignore') {
+      activeCols.push(j);
+      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+    }
   }
-  const numActive = activeCols.length;
 
-  // ⚡ Bolt Optimization: Column-major storage (Structure of Arrays - SOA) for better cache locality and performance later
+  const numActive = activeCols.length;
+  // ⚡ Bolt Optimization: Column-major storage
   const data: Float64Array[] = new Array(numActive);
   for (let k = 0; k < numActive; k++) {
     data[k] = new Float64Array(rowCount);
@@ -136,18 +136,16 @@ function parseCSV(text: string, settings?: ParseSettings) {
   const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
   const isComma = decimalPoint === ',';
 
-  // ⚡ Bolt Optimization: Use faster split and trim approach inside loop
   let actualRowCount = 0;
   for (let i = startRow; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i].trim();
     if (!line) continue;
 
-    const rawValues = line.split(delimiter);
-
+    const values = line.split(delimiter);
     for (let k = 0; k < numActive; k++) {
       const j = activeCols[k];
-      let val = rawValues[j];
-
+      let val = values[j];
+      
       if (val !== undefined) {
          val = val.trim();
          // Fast quote removal
@@ -170,7 +168,6 @@ function parseCSV(text: string, settings?: ParseSettings) {
 
   return { columns: finalHeaders, rowCount: actualRowCount, data: data };
 }
-
 
 function parseJSON(text: string, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
@@ -222,8 +219,9 @@ function parseJSON(text: string, settings?: ParseSettings) {
       const header = allHeaders[j];
       const config = configsByIndex[j];
 
-      const val = String(row[header]);
-      data[k][i] = parseValue(val, config, isComma, categoricalMaps[k]);
+      const val = row[header];
+      const valStr = val === undefined || val === null ? '' : String(val);
+      data[k][i] = parseValue(valStr, config, isComma, categoricalMaps[k]);
     }
   }
 
