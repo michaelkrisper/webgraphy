@@ -549,6 +549,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
+  const isMobile = width < 768 || height < 500;
 
   return (
     <>
@@ -1132,7 +1133,7 @@ const ChartContainer: React.FC = () => {
     return foundHovered;
   }, [xAxesMetrics, padding, width, height]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false, shiftKey: boolean = false) => {
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', _altKey: boolean = false, shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
