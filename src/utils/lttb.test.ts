@@ -13,6 +13,20 @@ describe('LTTB (Largest-Triangle-Three-Buckets)', () => {
   ];
 
   describe('edge cases', () => {
+    it('returns the first and last points when threshold is 1', () => {
+      const result = lttb(sampleData, 1);
+      expect(result.length).toBe(2);
+      expect(result[0]).toEqual(sampleData[0]);
+      expect(result[1]).toEqual(sampleData[sampleData.length - 1]);
+    });
+
+    it('returns the first and last points when threshold is negative', () => {
+      const result = lttb(sampleData, -5);
+      expect(result.length).toBe(2);
+      expect(result[0]).toEqual(sampleData[0]);
+      expect(result[1]).toEqual(sampleData[sampleData.length - 1]);
+    });
+
     it('returns the original data when threshold >= data.length', () => {
       const result = lttb(sampleData, 10);
       expect(result).toBe(sampleData);
@@ -40,6 +54,14 @@ describe('LTTB (Largest-Triangle-Three-Buckets)', () => {
   });
 
   describe('downsampling', () => {
+    it('downsamples correctly on a larger dataset', () => {
+      const largeData = Array.from({ length: 100 }, (_, i) => ({ x: i, y: Math.sin(i) }));
+      const result = lttb(largeData, 10);
+      expect(result.length).toBe(10);
+      expect(result[0]).toEqual(largeData[0]);
+      expect(result[result.length - 1]).toEqual(largeData[largeData.length - 1]);
+    });
+
     it('downsamples data to the specified threshold', () => {
       const result = lttb(sampleData, 4);
       expect(result.length).toBe(4);
