@@ -224,8 +224,8 @@ describe('Coordinate Conversions', () => {
     });
   });
 
-  describe('reversibility', () => {
-    it('should be perfectly reversible', () => {
+describe('reversibility', () => {
+    it('worldToScreen -> screenToWorld', () => {
       const view: Viewport = {
         xMin: -50, xMax: 150,
         yMin: -10, yMax: 20,
@@ -248,6 +248,58 @@ describe('Coordinate Conversions', () => {
         expect(world.x).toBeCloseTo(p.x);
         expect(world.y).toBeCloseTo(p.y);
       }
+    });
+
+    it('screenToWorld -> worldToScreen', () => {
+      const view: Viewport = {
+        xMin: -50, xMax: 150,
+        yMin: -10, yMax: 20,
+        width: 800, height: 600,
+        padding: { top: 15, right: 25, bottom: 35, left: 45 }
+      };
+
+      const points = [
+        { x: 0, y: 0 },
+        { x: 45, y: 565 },
+        { x: 775, y: 15 },
+        { x: 400, y: 300 },
+        { x: -100, y: 800 } // out of bounds
+      ];
+
+      for (const p of points) {
+        const world = screenToWorld(p.x, p.y, view);
+        const screen = worldToScreen(world.x, world.y, view);
+
+        expect(screen.x).toBeCloseTo(p.x);
+        expect(screen.y).toBeCloseTo(p.y);
+      }
+    });
+  });
+
+  describe('degenerate dimensions', () => {
+    it('handles zero chart width safely', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 10, height: 500,
+        padding: { top: 0, right: 5, bottom: 0, left: 5 } // width = 10 - 5 - 5 = 0
+      };
+
+      const result = screenToWorld(5, 250, view);
+      expect(result.x).toBeNaN(); // or Infinity/0 depending on exact logic, but we test it doesn't crash
+      // Since chartWidth is 0, (sx - p.left) / chartWidth is 0 / 0 which is NaN
+    });
+
+    it('handles zero chart height safely', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 20,
+        padding: { top: 10, right: 0, bottom: 10, left: 0 } // height = 20 - 10 - 10 = 0
+      };
+
+      const result = screenToWorld(500, 10, view);
+      expect(result.y).toBeNaN(); // (view.height - p.bottom - sy) is 20 - 10 - 10 = 0. 0 / 0 is NaN
     });
   });
 });
