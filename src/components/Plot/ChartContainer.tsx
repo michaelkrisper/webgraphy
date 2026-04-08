@@ -849,11 +849,18 @@ const ChartContainer: React.FC = () => {
 
     // AGGRESSIVE AUTO-SCALE: If current viewport is way off data bounds, reset it.
     let shouldReset = wasEmptyRef.current;
+
+    // Create a map for quick dataset lookups
+    const datasetsById = new Map<string, Dataset>();
+    if (state.datasets.length > 0) {
+      state.datasets.forEach(d => datasetsById.set(d.id, d));
+    }
+
     if (!shouldReset && state.datasets.length > 0) {
        // Check if ANY dataset is visible in its assigned X range
        let anyDataVisible = false;
        state.series.forEach(s => {
-         const ds = state.datasets.find(d => d.id === s.sourceId);
+         const ds = datasetsById.get(s.sourceId);
          const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
          if (!ds || !xAxis) return;
 
@@ -878,7 +885,7 @@ const ChartContainer: React.FC = () => {
       
       const xBounds = new Map<string, { min: number, max: number }>();
       state.series.forEach(s => {
-        const ds = state.datasets.find(d => d.id === s.sourceId);
+        const ds = datasetsById.get(s.sourceId);
         if (!ds) return;
         const xIdx = ds.columns.indexOf(ds.xAxisColumn);
         const col = ds.data[xIdx];
@@ -975,6 +982,7 @@ const ChartContainer: React.FC = () => {
     const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
+    // Create a dictionary for quick dataset lookups by id to avoid O(N^2)
     const datasetsById = new Map<string, Dataset>();
     state.datasets.forEach(d => datasetsById.set(d.id, d));
 
@@ -1074,11 +1082,15 @@ const ChartContainer: React.FC = () => {
     const state = useGraphStore.getState();
     if (state.datasets.length === 0) return;
 
+    // Use a Set to quickly identify datasets that have at least one active series
+    const activeDatasetIds = new Set<string>();
+    state.series.forEach(s => activeDatasetIds.add(s.sourceId));
+
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
 
     axesToScale.forEach(id => {
       const activeDatasetsUsingAxis = state.datasets.filter(d =>
-        (d.xAxisId || 'axis-1') === id && state.series.some(s => s.sourceId === d.id)
+        (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id)
       );
       if (activeDatasetsUsingAxis.length === 0) return;
 
