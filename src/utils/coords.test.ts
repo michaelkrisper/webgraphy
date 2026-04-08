@@ -20,6 +20,62 @@ describe('Coordinate Conversions', () => {
       expect(worldToScreen(-10, 110, view)).toEqual({ x: -100, y: -50 });
     });
 
+    it('handles division by zero when min and max bounds are equal', () => {
+      const view: Viewport = {
+        xMin: 100, xMax: 100,
+        yMin: 50, yMax: 50,
+        width: 1000, height: 500,
+      };
+
+      const result = worldToScreen(100, 50, view);
+
+      // In JS, 0 / 0 is NaN
+      expect(Number.isNaN(result.x)).toBe(true);
+      expect(Number.isNaN(result.y)).toBe(true);
+    });
+
+    it('handles negative coordinates correctly', () => {
+      const view: Viewport = {
+        xMin: -100, xMax: 100,
+        yMin: -100, yMax: 100,
+        width: 1000, height: 500,
+      };
+
+      // x: -50 -> 25% of 1000 = 250
+      // y: -50 -> 25% of 500 = 125, inverted -> 500 - 125 = 375
+      expect(worldToScreen(-50, -50, view)).toEqual({ x: 250, y: 375 });
+    });
+
+    it('handles zero width and height views correctly', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 0, height: 0,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+      };
+
+      // Since chartWidth and chartHeight are 0, sx and sy will be 0
+      expect(worldToScreen(50, 50, view)).toEqual({ x: 0, y: 0 });
+    });
+
+    it('handles negative padding values correctly', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 500,
+        padding: { top: -10, right: -20, bottom: -30, left: -40 }
+      };
+
+      // chartWidth = 1000 - (-40) - (-20) = 1060
+      // p.left = -40
+      // sx for x=50: -40 + (50 / 100) * 1060 = -40 + 530 = 490
+
+      // chartHeight = 500 - (-10) - (-30) = 540
+      // p.bottom = -30
+      // sy for y=50: 500 - (-30) - (50 / 100) * 540 = 530 - 270 = 260
+      expect(worldToScreen(50, 50, view)).toEqual({ x: 490, y: 260 });
+    });
+
     it('converts correctly with padding', () => {
       const view: Viewport = {
         xMin: 0, xMax: 100,
