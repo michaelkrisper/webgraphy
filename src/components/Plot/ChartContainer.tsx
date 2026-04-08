@@ -347,6 +347,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 const SNAP_PX = 30; // pixel radius for snapping to a point
 
 const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series }: CrosshairProps) => {
+  const isMobile = width < 768 || height < 500;
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -902,8 +903,13 @@ const ChartContainer: React.FC = () => {
       const datasetsById = new Map<string, Dataset>();
       state.datasets.forEach(d => datasetsById.set(d.id, d));
 
+      const seriesByYAxisIdLocal = new Map<string, typeof state.series>();
+      state.series.forEach(s => {
+        if (!seriesByYAxisIdLocal.has(s.yAxisId)) seriesByYAxisIdLocal.set(s.yAxisId, []);
+        seriesByYAxisIdLocal.get(s.yAxisId)!.push(s);
+      });
       activeYAxes.forEach(axis => {
-        const axisSeries = state.series.filter(s => s.yAxisId === axis.id);
+        const axisSeries = seriesByYAxisIdLocal.get(axis.id) || [];
         if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
@@ -972,7 +978,11 @@ const ChartContainer: React.FC = () => {
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState();
-    const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
+    const axisSeries = [];
+    for(let i=0; i<state.series.length; i++) {
+      if (state.series[i].yAxisId === axisId) axisSeries.push(state.series[i]);
+    }
+    if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
     const datasetsById = new Map<string, Dataset>();
@@ -1076,9 +1086,10 @@ const ChartContainer: React.FC = () => {
 
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
 
+    const activeDatasetIds = new Set(state.series.map(s => s.sourceId));
     axesToScale.forEach(id => {
       const activeDatasetsUsingAxis = state.datasets.filter(d =>
-        (d.xAxisId || 'axis-1') === id && state.series.some(s => s.sourceId === d.id)
+        (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id)
       );
       if (activeDatasetsUsingAxis.length === 0) return;
 
@@ -1132,7 +1143,7 @@ const ChartContainer: React.FC = () => {
     return foundHovered;
   }, [xAxesMetrics, padding, width, height]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false, shiftKey: boolean = false) => {
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all',  shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
@@ -1153,8 +1164,8 @@ const ChartContainer: React.FC = () => {
       const curAxis = state.yAxes.find(a => a.id === axis.id)!;
       const yRange = curAxis.max - curAxis.min;
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      let nextMin = curAxis.min + yMove;
-      let nextMax = curAxis.max + yMove;
+      const nextMin = curAxis.min + yMove;
+      const nextMax = curAxis.max + yMove;
 
       const nextY = { min: nextMin, max: nextMax };
       state.updateYAxis(axis.id, nextY);
@@ -1215,7 +1226,7 @@ const ChartContainer: React.FC = () => {
       const dx = touch.clientX - lastTouchPos.current.x;
       const dy = touch.clientY - lastTouchPos.current.y;
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-      performPan(dx, dy, panTarget, false, e.shiftKey);
+      performPan(dx, dy, panTarget, e.shiftKey);
     } else if (e.touches.length === 2 && lastPinchDist.current) {
       if (e.cancelable) e.preventDefault();
       const rect = containerRef.current.getBoundingClientRect();
@@ -1252,7 +1263,7 @@ const ChartContainer: React.FC = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    performPan(dx, dy, panTarget, e.altKey, e.shiftKey);
+    performPan(dx, dy, panTarget, e.shiftKey);
   }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
@@ -1363,11 +1374,35 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
+    const activeDatasetIds = new Set(series.map(s => s.sourceId));
+    const datasetsByXAxis: Record<string, Dataset[]> = {};
+    const datasetToXAxis: Record<string, string> = {};
+
+    for(let i = 0; i < datasets.length; i++) {
+      const d = datasets[i];
+      if (activeDatasetIds.has(d.id)) {
+        const axisId = d.xAxisId || 'axis-1';
+        datasetToXAxis[d.id] = axisId;
+        if (!datasetsByXAxis[axisId]) datasetsByXAxis[axisId] = [];
+        datasetsByXAxis[axisId].push(d);
+      }
+    }
+
+    const seriesByXAxis: Record<string, SeriesConfig[]> = {};
+    for(let i = 0; i < series.length; i++) {
+      const s = series[i];
+      const axisId = datasetToXAxis[s.sourceId];
+      if (axisId) {
+        if (!seriesByXAxis[axisId]) seriesByXAxis[axisId] = [];
+        seriesByXAxis[axisId].push(s);
+      }
+    }
+
     return activeXAxesUsed.map(axis => {
       const range = axis.max - axis.min;
       const isXDate = axis.xMode === 'date';
-      const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
-      const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
+      const datasetsForThisAxis = datasetsByXAxis[axis.id] || [];
+      const seriesForThisAxis = seriesByXAxis[axis.id] || [];
       const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
       const color = seriesForThisAxis[0]?.lineColor || '#475569';
 

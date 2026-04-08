@@ -20,6 +20,62 @@ describe('Coordinate Conversions', () => {
       expect(worldToScreen(-10, 110, view)).toEqual({ x: -100, y: -50 });
     });
 
+    it('handles division by zero when min and max bounds are equal', () => {
+      const view: Viewport = {
+        xMin: 100, xMax: 100,
+        yMin: 50, yMax: 50,
+        width: 1000, height: 500,
+      };
+
+      const result = worldToScreen(100, 50, view);
+
+      // In JS, 0 / 0 is NaN
+      expect(Number.isNaN(result.x)).toBe(true);
+      expect(Number.isNaN(result.y)).toBe(true);
+    });
+
+    it('handles negative coordinates correctly', () => {
+      const view: Viewport = {
+        xMin: -100, xMax: 100,
+        yMin: -100, yMax: 100,
+        width: 1000, height: 500,
+      };
+
+      // x: -50 -> 25% of 1000 = 250
+      // y: -50 -> 25% of 500 = 125, inverted -> 500 - 125 = 375
+      expect(worldToScreen(-50, -50, view)).toEqual({ x: 250, y: 375 });
+    });
+
+    it('handles zero width and height views correctly', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 0, height: 0,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+      };
+
+      // Since chartWidth and chartHeight are 0, sx and sy will be 0
+      expect(worldToScreen(50, 50, view)).toEqual({ x: 0, y: 0 });
+    });
+
+    it('handles negative padding values correctly', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 500,
+        padding: { top: -10, right: -20, bottom: -30, left: -40 }
+      };
+
+      // chartWidth = 1000 - (-40) - (-20) = 1060
+      // p.left = -40
+      // sx for x=50: -40 + (50 / 100) * 1060 = -40 + 530 = 490
+
+      // chartHeight = 500 - (-10) - (-30) = 540
+      // p.bottom = -30
+      // sy for y=50: 500 - (-30) - (50 / 100) * 540 = 530 - 270 = 260
+      expect(worldToScreen(50, 50, view)).toEqual({ x: 490, y: 260 });
+    });
+
     it('converts correctly with padding', () => {
       const view: Viewport = {
         xMin: 0, xMax: 100,
@@ -36,6 +92,54 @@ describe('Coordinate Conversions', () => {
 
       // Middle: (x: 50, y: 50)
       expect(worldToScreen(50, 50, view)).toEqual({ x: 510, y: 240 });
+    });
+
+    it('handles negative coordinate ranges', () => {
+      const view: Viewport = {
+        xMin: -100, xMax: -50,
+        yMin: -100, yMax: -50,
+        width: 1000, height: 500,
+      };
+
+      expect(worldToScreen(-100, -100, view)).toEqual({ x: 0, y: 500 });
+      expect(worldToScreen(-50, -50, view)).toEqual({ x: 1000, y: 0 });
+      expect(worldToScreen(-75, -75, view)).toEqual({ x: 500, y: 250 });
+    });
+
+    it('handles inverted ranges (max < min)', () => {
+      const view: Viewport = {
+        xMin: 100, xMax: 0,
+        yMin: 100, yMax: 0,
+        width: 1000, height: 500,
+      };
+
+      expect(worldToScreen(100, 100, view)).toEqual({ x: 0, y: 500 });
+      expect(worldToScreen(0, 0, view)).toEqual({ x: 1000, y: 0 });
+    });
+
+    it('handles zero range (min === max)', () => {
+      const view: Viewport = {
+        xMin: 50, xMax: 50,
+        yMin: 50, yMax: 50,
+        width: 1000, height: 500,
+      };
+
+      const result = worldToScreen(50, 50, view);
+      expect(Number.isNaN(result.x)).toBe(true);
+      expect(Number.isNaN(result.y)).toBe(true);
+    });
+
+    it('handles extreme padding (collapsed chart area)', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 100, height: 100,
+        padding: { top: 50, right: 50, bottom: 50, left: 50 }
+      };
+
+      // Chart area is 0x0 at (50, 50)
+      expect(worldToScreen(0, 0, view)).toEqual({ x: 50, y: 50 });
+      expect(worldToScreen(100, 100, view)).toEqual({ x: 50, y: 50 });
     });
   });
 
@@ -68,10 +172,60 @@ describe('Coordinate Conversions', () => {
       expect(screenToWorld(980, 10, view)).toEqual({ x: 100, y: 100 });
       expect(screenToWorld(510, 240, view)).toEqual({ x: 50, y: 50 });
     });
+
+    it('handles negative coordinate ranges', () => {
+      const view: Viewport = {
+        xMin: -100, xMax: -50,
+        yMin: -100, yMax: -50,
+        width: 1000, height: 500,
+      };
+
+      expect(screenToWorld(0, 500, view)).toEqual({ x: -100, y: -100 });
+      expect(screenToWorld(1000, 0, view)).toEqual({ x: -50, y: -50 });
+      expect(screenToWorld(500, 250, view)).toEqual({ x: -75, y: -75 });
+    });
+
+    it('handles inverted ranges (max < min)', () => {
+      const view: Viewport = {
+        xMin: 100, xMax: 0,
+        yMin: 100, yMax: 0,
+        width: 1000, height: 500,
+      };
+
+      expect(screenToWorld(0, 500, view)).toEqual({ x: 100, y: 100 });
+      expect(screenToWorld(1000, 0, view)).toEqual({ x: 0, y: 0 });
+    });
+
+    it('handles zero range (min === max)', () => {
+      const view: Viewport = {
+        xMin: 50, xMax: 50,
+        yMin: 50, yMax: 50,
+        width: 1000, height: 500,
+      };
+
+      // Even if range is zero, the min value is returned plus zero
+      const result = screenToWorld(500, 250, view);
+      expect(result.x).toBe(50);
+      expect(result.y).toBe(50);
+    });
+
+    it('handles extreme padding (collapsed chart area)', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 100, height: 100,
+        padding: { top: 50, right: 50, bottom: 50, left: 50 }
+      };
+
+      // When width/height is 0, division by zero occurs
+      const result = screenToWorld(50, 50, view);
+      expect(Number.isNaN(result.x)).toBe(true);
+      expect(Number.isNaN(result.y)).toBe(true);
+    });
   });
 
-  describe('reversibility', () => {
-    it('should be perfectly reversible', () => {
+describe('reversibility', () => {
+    it('worldToScreen -> screenToWorld', () => {
       const view: Viewport = {
         xMin: -50, xMax: 150,
         yMin: -10, yMax: 20,
@@ -94,6 +248,58 @@ describe('Coordinate Conversions', () => {
         expect(world.x).toBeCloseTo(p.x);
         expect(world.y).toBeCloseTo(p.y);
       }
+    });
+
+    it('screenToWorld -> worldToScreen', () => {
+      const view: Viewport = {
+        xMin: -50, xMax: 150,
+        yMin: -10, yMax: 20,
+        width: 800, height: 600,
+        padding: { top: 15, right: 25, bottom: 35, left: 45 }
+      };
+
+      const points = [
+        { x: 0, y: 0 },
+        { x: 45, y: 565 },
+        { x: 775, y: 15 },
+        { x: 400, y: 300 },
+        { x: -100, y: 800 } // out of bounds
+      ];
+
+      for (const p of points) {
+        const world = screenToWorld(p.x, p.y, view);
+        const screen = worldToScreen(world.x, world.y, view);
+
+        expect(screen.x).toBeCloseTo(p.x);
+        expect(screen.y).toBeCloseTo(p.y);
+      }
+    });
+  });
+
+  describe('degenerate dimensions', () => {
+    it('handles zero chart width safely', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 10, height: 500,
+        padding: { top: 0, right: 5, bottom: 0, left: 5 } // width = 10 - 5 - 5 = 0
+      };
+
+      const result = screenToWorld(5, 250, view);
+      expect(result.x).toBeNaN(); // or Infinity/0 depending on exact logic, but we test it doesn't crash
+      // Since chartWidth is 0, (sx - p.left) / chartWidth is 0 / 0 which is NaN
+    });
+
+    it('handles zero chart height safely', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 20,
+        padding: { top: 10, right: 0, bottom: 10, left: 0 } // height = 20 - 10 - 10 = 0
+      };
+
+      const result = screenToWorld(500, 10, view);
+      expect(result.y).toBeNaN(); // (view.height - p.bottom - sy) is 20 - 10 - 10 = 0. 0 / 0 is NaN
     });
   });
 });

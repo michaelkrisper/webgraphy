@@ -160,7 +160,6 @@ function parseJSON(text: string, settings?: ParseSettings) {
   const rowCount = raw.length;
 
   const categoricalMaps = new Array(allHeaders.length).fill(null).map(() => new Map<string, number>());
-  const data = [];
 
   // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
   const configsByIndex = new Array(allHeaders.length);
@@ -168,29 +167,35 @@ function parseJSON(text: string, settings?: ParseSettings) {
     configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
   }
 
-  for (let i = 0; i < rowCount; i++) {
-    const row = raw[i];
-    const parsedRow: number[] = [];
-
-    for (let j = 0; j < allHeaders.length; j++) {
-      const header = allHeaders[j];
-      const config = configsByIndex[j];
-      if (config?.type === 'ignore') continue;
-
-      const val = String(row[header]);
-      parsedRow.push(parseValue(val, config, decimalPoint, categoricalMaps[j]));
+  // Pre-calculate active columns to avoid inner loop branching and allow array pre-allocation
+  const activeColumns: { header: string; config: ColumnConfigEntry | undefined; catMap: Map<string, number> }[] = [];
+  for (let j = 0; j < allHeaders.length; j++) {
+    if (configsByIndex[j]?.type !== 'ignore') {
+      activeColumns.push({
+        header: allHeaders[j],
+        config: configsByIndex[j],
+        catMap: categoricalMaps[j]
+      });
     }
-    data.push(parsedRow);
   }
 
-  const finalHeaders = allHeaders.filter((_, i) => {
-    const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === i);
-    return config?.type !== 'ignore';
-  }).map((h) => {
-     const originalIdx = allHeaders.indexOf(h);
-     const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === originalIdx);
-     return config?.name || h;
-  });
+  const activeColCount = activeColumns.length;
+  const data = new Array(rowCount);
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = raw[i];
+    const parsedRow: number[] = new Array(activeColCount);
+
+    for (let j = 0; j < activeColCount; j++) {
+      const col = activeColumns[j];
+      const val = row[col.header];
+      const valStr = val === undefined || val === null ? '' : String(val);
+      parsedRow[j] = parseValue(valStr, col.config, decimalPoint, col.catMap);
+    }
+    data[i] = parsedRow;
+  }
+
+  const finalHeaders = activeColumns.map(c => c.config?.name || c.header);
 
   return { columns: finalHeaders, rowCount: data.length, data: data };
 }
