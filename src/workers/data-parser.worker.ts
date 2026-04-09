@@ -45,6 +45,7 @@ self.onmessage = async (event) => {
     });
 
     // 2. Prepare datasets with synchronized LOD
+    const CHUNK_SIZE = 512;
     const relativeData = columns.map((_, colIdx) => {
       let refPoint = 0;
       for (let i = 0; i < rowCount; i++) {
@@ -58,7 +59,24 @@ self.onmessage = async (event) => {
       for (let i = 0; i < rowCount; i++) {
         data[i] = result.data[i][colIdx] - refPoint;
       }
-      return { data, refPoint };
+
+      const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
+      const chunkMin = new Float32Array(numChunks);
+      const chunkMax = new Float32Array(numChunks);
+      for (let c = 0; c < numChunks; c++) {
+        let cMin = Infinity, cMax = -Infinity;
+        const start = c * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, rowCount);
+        for (let i = start; i < end; i++) {
+          const val = data[i];
+          if (val < cMin) cMin = val;
+          if (val > cMax) cMax = val;
+        }
+        chunkMin[c] = cMin;
+        chunkMax[c] = cMax;
+      }
+
+      return { data, refPoint, chunkMin, chunkMax };
     });
 
     // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
@@ -78,7 +96,9 @@ self.onmessage = async (event) => {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: colBounds[colIdx],
-          data: relativeData[colIdx].data
+          data: relativeData[colIdx].data,
+          chunkMin: relativeData[colIdx].chunkMin,
+          chunkMax: relativeData[colIdx].chunkMax
         };
       })
     };
@@ -86,6 +106,8 @@ self.onmessage = async (event) => {
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
+      if (col.chunkMin) transferList.push(col.chunkMin.buffer as ArrayBuffer);
+      if (col.chunkMax) transferList.push(col.chunkMax.buffer as ArrayBuffer);
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);

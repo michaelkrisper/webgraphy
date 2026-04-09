@@ -1024,10 +1024,46 @@ const ChartContainer: React.FC = () => {
 
       // Scan Y values in visible range
       if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
-        for (let i = startIdx; i <= endIdx; i++) {
-          const val = yData[i] + refY;
-          if (val < yMin) yMin = val;
-          if (val > yMax) yMax = val;
+        const CHUNK_SIZE = 512;
+        const chunkMin = colY.chunkMin;
+        const chunkMax = colY.chunkMax;
+
+        if (chunkMin && chunkMax && (endIdx - startIdx) > CHUNK_SIZE) {
+          const startChunk = Math.floor(startIdx / CHUNK_SIZE);
+          const endChunk = Math.floor(endIdx / CHUNK_SIZE);
+
+          if (startChunk === endChunk) {
+            for (let i = startIdx; i <= endIdx; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+          } else {
+            const firstChunkEnd = (startChunk + 1) * CHUNK_SIZE;
+            for (let i = startIdx; i < firstChunkEnd; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+            for (let c = startChunk + 1; c < endChunk; c++) {
+              const cMin = chunkMin[c] + refY;
+              const cMax = chunkMax[c] + refY;
+              if (cMin < yMin) yMin = cMin;
+              if (cMax > yMax) yMax = cMax;
+            }
+            const lastChunkStart = endChunk * CHUNK_SIZE;
+            for (let i = lastChunkStart; i <= endIdx; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+          }
+        } else {
+          for (let i = startIdx; i <= endIdx; i++) {
+            const val = yData[i] + refY;
+            if (val < yMin) yMin = val;
+            if (val > yMax) yMax = val;
+          }
         }
       }
     });
