@@ -11,7 +11,7 @@ vi.mock('../../../store/useGraphStore', () => ({
 describe('SeriesConfigUI', () => {
   it('cycles line width when the button is clicked', () => {
     const updateSeries = vi.fn();
-    (useGraphStore as any).mockReturnValue({
+    (useGraphStore as unknown as Parameters<typeof useGraphStore>[0]).mockReturnValue({
       updateSeries,
       yAxes: [],
     });
@@ -27,7 +27,7 @@ describe('SeriesConfigUI', () => {
       pointStyle: 'circle',
     };
 
-    render(<SeriesConfigUI series={mockSeries as any} dataset={{ id: 'ds-1', columns: ['col-1'] } as any} />);
+    render(<SeriesConfigUI series={mockSeries as unknown as Parameters<typeof useGraphStore>[0]} dataset={{ id: 'ds-1', columns: ['col-1'] } as unknown as Parameters<typeof useGraphStore>[0]} />);
 
     const cycleButton = screen.getByLabelText('Cycle Line Width');
     fireEvent.click(cycleButton);
@@ -37,7 +37,7 @@ describe('SeriesConfigUI', () => {
 
   it('wraps around to 1 when cycling from 3', () => {
     const updateSeries = vi.fn();
-    (useGraphStore as any).mockReturnValue({
+    (useGraphStore as unknown as Parameters<typeof useGraphStore>[0]).mockReturnValue({
       updateSeries,
       yAxes: [],
     });
@@ -53,7 +53,7 @@ describe('SeriesConfigUI', () => {
       pointStyle: 'circle',
     };
 
-    render(<SeriesConfigUI series={mockSeries as any} dataset={{ id: 'ds-1', columns: ['col-1'] } as any} />);
+    render(<SeriesConfigUI series={mockSeries as unknown as Parameters<typeof useGraphStore>[0]} dataset={{ id: 'ds-1', columns: ['col-1'] } as unknown as Parameters<typeof useGraphStore>[0]} />);
 
     const cycleButton = screen.getByLabelText('Cycle Line Width');
     fireEvent.click(cycleButton);

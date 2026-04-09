@@ -165,7 +165,7 @@ export const persistence = {
   loadAppState(): AppState | null {
     try {
       const state = localStorage.getItem('webgraphy-state');
-      return state ? secureJSONParse(state) : null;
+      return state ? (secureJSONParse(state) as AppState) : null;
     } catch (error) {
       console.error('Failed to load state from localStorage:', error);
       return null;

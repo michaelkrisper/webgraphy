@@ -175,6 +175,7 @@ function parseJSON(text: string, settings?: ParseSettings) {
   
   let raw;
   try {
+    // 🔒 Security Fix: Using secureJSONParse instead of native JSON.parse to prevent Prototype Pollution vulnerabilities.
     raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
