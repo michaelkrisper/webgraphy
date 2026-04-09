@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(commit-commands:commit-push-pr)",
+      "Bash(npm run:*)",
+      "Bash(ls C:/Users/Michi/webgraphy/LICENSE* C:/Users/Michi/webgraphy/README*)",
+      "Bash(gh api:*)",
+      "Bash(gh pr:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git reset:*)",
+      "Bash(git pull:*)",
+      "Bash(gh run:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(grep *)"
+    ]
+  }
+}

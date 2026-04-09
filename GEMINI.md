@@ -54,6 +54,9 @@ npm run deploy
 
 ## Development Conventions
 
+- **Token Optimization:** 
+    - Use `code-graph` MCP (`search_code`, `get_dependencies`) to map data flows between Web Workers, IndexedDB, and the WebGL renderer before reading source files.
+    - Use `refactor` MCP for consistent updates across React components or shader uniforms.
 - **Performance First:** Heavy processing must stay in Web Workers. WebGL is the primary rendering path for data.
 - **Precision:** Shaders are designed for ultra-precision, using relative offsets (`refPoint`) to handle large coordinate values without floating-point artifacts.
 - **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
