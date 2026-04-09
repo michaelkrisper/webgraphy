@@ -550,7 +550,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
-  const isMobile = width < 768 || height < 500;
 
   return (
     <>
@@ -1183,7 +1182,7 @@ const ChartContainer: React.FC = () => {
       state.updateYAxis(axis.id, nextY);
       targetYs.current[axis.id] = nextY;
     });
-  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight, padding]);
+  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {

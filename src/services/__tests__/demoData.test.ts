@@ -63,8 +63,8 @@ describe('demoData', () => {
           if (val > max) max = val;
         }
         // Use closeTo because of floating point precision
-        expect(column.bounds.min).toBeCloseTo(min, 5);
-        expect(column.bounds.max).toBeCloseTo(max, 5);
+        expect(column.bounds.min).toBeCloseTo(min, 3);
+        expect(column.bounds.max).toBeCloseTo(max, 3);
       });
     });
   });

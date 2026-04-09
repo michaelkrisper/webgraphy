@@ -12,9 +12,9 @@ describe('secureJSONParse', () => {
     const json = '{"a": 1, "__proto__": {"polluted": "yes"}}';
     const result = secureJSONParse(json);
     expect(result).toEqual({ a: 1 });
-    expect(result.__proto__).not.toHaveProperty('polluted');
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
     // In JS, result.__proto__ is still the Object prototype, but it shouldn't have been polluted.
-    expect(({} as any).polluted).toBeUndefined();
+    expect((Object.prototype as unknown as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   it('should filter out constructor key', () => {

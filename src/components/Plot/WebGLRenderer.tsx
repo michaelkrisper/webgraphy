@@ -415,7 +415,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
     });
     gl.disable(gl.SCISSOR_TEST);
-  }, [seriesMetadata, width, height, padding, program, locations, glReady]);
+  }, [seriesMetadata, width, height, padding, program, locations, glReady, isInteracting]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
