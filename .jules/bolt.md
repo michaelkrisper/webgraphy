@@ -10,3 +10,6 @@
 ## 2026-04-07 - [Hoist static lookups out of inner loops]
 **Learning:** Constructing Map objects on render to replace Array.find for small arrays (1-4 items) is a negative optimization due to memory allocation and hashing overhead. The real optimization is hoisting invariant Array.find lookups (like mainXConf) out of inner loops (like tick mapping).
 **Action:** Always prefer loop hoisting over converting small arrays to Maps in high-frequency React render cycles.
+## 2025-04-09 - Avoid redundant binary searches on shared datasets in inner loops
+**Learning:** In `ChartContainer.tsx`, multiple series often share the same dataset. The high-frequency `snap` hook was performing an O(log N) binary search *per series* to find the closest data point, and it did this twice per series (once to find the overall closest point, and again to look up the corresponding Y values).
+**Action:** Always cache expensive operations per underlying data source rather than per consumer. A simple `Map<string, number>` keyed by Dataset ID cuts the binary searches by 2x overall, and proportionally more depending on how many series share the dataset. Avoid re-computing array operations (like `.find`) by passing them in memoized structures (e.g. `seriesMetadata`).
