@@ -226,6 +226,50 @@ describe('generateSecondaryLabels', () => {
         expect(labels[1].timestamp).toBe(1672531200);
     });
 
+
+    it('generates day labels when unit is second', () => {
+        const min = 1673784000;
+        const max = 1673870400; // +1 day
+        const labels = generateSecondaryLabels(min, max, { unit: 'second', value: 30 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels[0].label).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+        expect(labels[0].timestamp).toBe(1673654400); // 2023-01-14 (margin)
+    });
+
+    it('generates day labels when unit is minute', () => {
+        const min = 1673784000;
+        const max = 1673870400; // +1 day
+        const labels = generateSecondaryLabels(min, max, { unit: 'minute', value: 15 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels[0].label).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+        expect(labels[0].timestamp).toBe(1673654400); // 2023-01-14 (margin)
+    });
+
+    it('generates year labels when unit is day', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'day', value: 1 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
+        expect(labels[0].timestamp).toBe(1640995200); // 2022-01-01
+    });
+
+    it('generates year labels when unit is week', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'week', value: 2 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
+    });
+
+    it('generates year labels when unit is year', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'year', value: 1 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
+    });
+
     it('caps the number of labels to prevent infinite loops (hour unit)', () => {
         const min = 1673784000; // 2023-01-15
         const max = 1673784000 + (200 * 86400); // +200 days
