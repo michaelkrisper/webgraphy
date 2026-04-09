@@ -553,7 +553,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
-  const isMobile = width < 768 || height < 500;
 
   return (
     <>
