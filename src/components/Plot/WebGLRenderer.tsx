@@ -1,6 +1,80 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 
+const VERTEX_SHADER_SOURCE = `
+      attribute float a_x;
+      attribute float a_y;
+      attribute vec2 a_other;
+      attribute float a_t;
+      attribute float a_dist_start;
+      uniform vec2 u_rel_viewport_x;
+      uniform vec2 u_rel_viewport_y;
+      uniform vec4 u_padding;
+      uniform vec2 u_resolution;
+      uniform float u_point_size;
+      varying highp float v_t;
+      varying highp float v_len;
+      varying highp float v_dist_start;
+
+      vec2 toScreen(vec2 pos) {
+        float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
+        float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
+        
+        // ⚡ Optimization: Pre-calculating ratio on CPU could be even faster, 
+        // but keeping it here for precision-safety while simplifying.
+        float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
+        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
+        
+        float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
+        float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
+        return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
+      }
+
+      void main() {
+        vec2 p = toScreen(vec2(a_x, a_y));
+        vec2 other = toScreen(a_other);
+        v_t = a_t;
+        v_len = length(other - p);
+        v_dist_start = a_dist_start;
+        gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
+        gl_PointSize = u_point_size;
+      }
+`;
+
+const FRAGMENT_SHADER_SOURCE = `
+      precision highp float;
+      varying highp float v_t;
+      varying highp float v_len;
+      varying highp float v_dist_start;
+      uniform vec4 u_color;
+      uniform int u_style;
+      uniform int u_line_style;
+      uniform float u_dpr;
+
+      void main() {
+        if (u_style == 0) { // Circle
+          float d = length(gl_PointCoord - 0.5);
+          if (d > 0.5) discard;
+          gl_FragColor = u_color;
+        } else if (u_style == 1) { // Square
+          gl_FragColor = u_color;
+        } else if (u_style == 2) { // Cross
+          vec2 p = gl_PointCoord - 0.5;
+          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+          gl_FragColor = u_color;
+        } else { // Line segment
+          if (u_line_style > 0) {
+            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+            float total = (dashLen + gapLen) * u_dpr;
+            float dist = mod(v_dist_start + v_t * v_len, total);
+            if (dist > dashLen * u_dpr) discard;
+          }
+          gl_FragColor = u_color;
+        }
+      }
+`;
+
 interface WebGLLocations {
   xLoc: number;
   yLoc: number;
@@ -62,85 +136,12 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     if (!gl) return;
     glRef.current = gl;
 
-    const vsSource = `
-      attribute float a_x;
-      attribute float a_y;
-      attribute vec2 a_other;
-      attribute float a_t;
-      attribute float a_dist_start;
-      uniform vec2 u_rel_viewport_x;
-      uniform vec2 u_rel_viewport_y;
-      uniform vec4 u_padding;
-      uniform vec2 u_resolution;
-      uniform float u_point_size;
-      varying highp float v_t;
-      varying highp float v_len;
-      varying highp float v_dist_start;
-
-      vec2 toScreen(vec2 pos) {
-        float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
-        float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-        
-        // ⚡ Optimization: Pre-calculating ratio on CPU could be even faster, 
-        // but keeping it here for precision-safety while simplifying.
-        float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
-        
-        float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
-        float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
-        return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
-      }
-
-      void main() {
-        vec2 p = toScreen(vec2(a_x, a_y));
-        vec2 other = toScreen(a_other);
-        v_t = a_t;
-        v_len = length(other - p);
-        v_dist_start = a_dist_start;
-        gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
-        gl_PointSize = u_point_size;
-      }
-    `;
-
-    const fsSource = `
-      precision highp float;
-      varying highp float v_t;
-      varying highp float v_len;
-      varying highp float v_dist_start;
-      uniform vec4 u_color;
-      uniform int u_style;
-      uniform int u_line_style;
-      uniform float u_dpr;
-
-      void main() {
-        if (u_style == 0) { // Circle
-          float d = length(gl_PointCoord - 0.5);
-          if (d > 0.5) discard;
-          gl_FragColor = u_color;
-        } else if (u_style == 1) { // Square
-          gl_FragColor = u_color;
-        } else if (u_style == 2) { // Cross
-          vec2 p = gl_PointCoord - 0.5;
-          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
-          gl_FragColor = u_color;
-        } else { // Line segment
-          if (u_line_style > 0) {
-            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
-            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
-            float total = (dashLen + gapLen) * u_dpr;
-            float dist = mod(v_dist_start + v_t * v_len, total);
-            if (dist > dashLen * u_dpr) discard;
-          }
-          gl_FragColor = u_color;
-        }
-      }
-    `;
 
     const vs = gl.createShader(gl.VERTEX_SHADER)!;
-    gl.shaderSource(vs, vsSource);
+    gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
     gl.compileShader(vs);
     const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
-    gl.shaderSource(fs, fsSource);
+    gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
     gl.compileShader(fs);
 
     const pg = gl.createProgram()!;
@@ -415,7 +416,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
     });
     gl.disable(gl.SCISSOR_TEST);
-  }, [seriesMetadata, width, height, padding, program, locations, glReady]);
+  }, [seriesMetadata, width, height, padding, program, locations, glReady, isInteracting]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
