@@ -79,13 +79,31 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
     return { min, max };
   });
 
+  const CHUNK_SIZE = 512;
   const relativeData = columns.map((_, colIdx) => {
     const refPoint = rawData[0][colIdx];
     const data = new Float32Array(rowCount);
     for (let i = 0; i < rowCount; i++) {
       data[i] = rawData[i][colIdx] - refPoint;
     }
-    return { data, refPoint };
+
+    const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
+    const chunkMin = new Float32Array(numChunks);
+    const chunkMax = new Float32Array(numChunks);
+    for (let c = 0; c < numChunks; c++) {
+      let cMin = Infinity, cMax = -Infinity;
+      const start = c * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, rowCount);
+      for (let i = start; i < end; i++) {
+        const val = data[i];
+        if (val < cMin) cMin = val;
+        if (val > cMax) cMax = val;
+      }
+      chunkMin[c] = cMin;
+      chunkMax[c] = cMax;
+    }
+
+    return { data, refPoint, chunkMin, chunkMax };
   });
 
   return columns.map((colName, colIdx) => {
@@ -95,6 +113,8 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
       refPoint: col.refPoint,
       bounds: colBounds[colIdx],
       data: col.data,
+      chunkMin: col.chunkMin,
+      chunkMax: col.chunkMax
     };
   });
 }

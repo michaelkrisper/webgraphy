@@ -11,6 +11,8 @@ export interface DataColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: Float32Array;
+  chunkMin?: Float32Array;
+  chunkMax?: Float32Array;
   levels?: Float32Array[]; // For backward compatibility
 }
 
@@ -130,10 +132,13 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.data = new Float32Array(0);
     }
 
+    if (col.chunkMin) col.chunkMin = restoreFloat32Array(col.chunkMin);
+    if (col.chunkMax) col.chunkMax = restoreFloat32Array(col.chunkMax);
+
     if (col.refPoint === undefined) col.refPoint = 0;
 
     return col;
-    });
+  });
   if (dataset.xAxisColumn === undefined) {
     const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
     dataset.xAxisColumn = potentialX;

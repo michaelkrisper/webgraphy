@@ -39,8 +39,11 @@ self.onmessage = async (event) => {
     const colCount = columns.length;
     const relativeData = new Array(colCount);
 
+    const CHUNK_SIZE = 512;
+    const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
+
     // We've already parsed the data and calculated active columns in parseCSV/parseJSON
-    // Now we combine bounds calculation and float data mapping into a single pass per column
+    // Now we combine bounds calculation, chunk min/max calculation and float data mapping into a single pass per column
     for (let j = 0; j < colCount; j++) {
       let min = Infinity, max = -Infinity;
       let refPoint = 0;
@@ -48,6 +51,9 @@ self.onmessage = async (event) => {
       const colData = new Float32Array(rowCount);
       const sourceData = result.data[j]; // Cache array access
       let startIdx = 0;
+
+      const chunkMin = new Float32Array(numChunks).fill(Infinity);
+      const chunkMax = new Float32Array(numChunks).fill(-Infinity);
 
       // Find reference point first (usually row 0, but could be later if NaN)
       // Any NaNs before the reference point are copied as NaN
@@ -58,20 +64,30 @@ self.onmessage = async (event) => {
           break;
         }
         colData[startIdx] = NaN;
+        const chunkIdx = Math.floor(startIdx / CHUNK_SIZE);
+        // NaNs don't update min/max
       }
 
-      // Single pass for the rest of the data: calculate bounds and relative data
+      // Single pass for the rest of the data: calculate bounds, chunk min/max and relative data
       for (let i = startIdx; i < rowCount; i++) {
         const val = sourceData[i];
-        if (val < min) min = val;
-        if (val > max) max = val;
+        if (!Number.isNaN(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+          
+          const chunkIdx = Math.floor(i / CHUNK_SIZE);
+          if (val < chunkMin[chunkIdx]) chunkMin[chunkIdx] = val;
+          if (val > chunkMax[chunkIdx]) chunkMax[chunkIdx] = val;
+        }
         colData[i] = val - refPoint;
       }
 
       relativeData[j] = {
         data: colData,
         refPoint,
-        bounds: { min, max }
+        bounds: { min, max },
+        chunkMin,
+        chunkMax
       };
     }
 
@@ -92,7 +108,9 @@ self.onmessage = async (event) => {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: relativeData[colIdx].bounds,
-          data: relativeData[colIdx].data
+          data: relativeData[colIdx].data,
+          chunkMin: relativeData[colIdx].chunkMin,
+          chunkMax: relativeData[colIdx].chunkMax
         };
       })
     };
@@ -100,6 +118,8 @@ self.onmessage = async (event) => {
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
+      if (col.chunkMin) transferList.push(col.chunkMin.buffer as ArrayBuffer);
+      if (col.chunkMax) transferList.push(col.chunkMax.buffer as ArrayBuffer);
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);
