@@ -271,6 +271,7 @@ describe('downloadFile', () => {
   });
 
   it('should handle normal strings using Blob correctly', () => {
+    vi.useFakeTimers();
     downloadFile('Hello, world!', 'test.txt', 'text/plain');
 
     const mockedCreate = document.createElement as unknown as ReturnType<typeof vi.fn>;
@@ -280,6 +281,12 @@ describe('downloadFile', () => {
     expect(a.href).toBe('blob:mock-url');
     expect(a.download).toBe('test.txt');
     expect(mockClick).toHaveBeenCalled();
+
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+
+    vi.useRealTimers();
   });
 });
 
