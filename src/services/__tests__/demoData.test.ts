@@ -1,7 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateDemoDataset, getDemoAppState } from '../demoData';
 
 describe('demoData', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2024, 0, 1));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('generateDemoDataset', () => {
     it('should generate a dataset with correct structure and metadata', () => {
       const dataset = generateDemoDataset();
@@ -40,6 +49,10 @@ describe('demoData', () => {
     it('should have data values within reasonable bounds', () => {
       const dataset = generateDemoDataset();
 
+      const tempCol = dataset.data[1];
+      expect(tempCol.bounds.min).toBeGreaterThanOrEqual(-50);
+      expect(tempCol.bounds.max).toBeLessThanOrEqual(100);
+
       const humidityCol = dataset.data[2];
       expect(humidityCol.bounds.min).toBeGreaterThanOrEqual(0);
       expect(humidityCol.bounds.max).toBeLessThanOrEqual(100);
@@ -66,6 +79,34 @@ describe('demoData', () => {
         expect(column.bounds.min).toBeCloseTo(min, 4);
         expect(column.bounds.max).toBeCloseTo(max, 4);
       });
+    });
+
+    it('should generate deterministic timestamps strictly increasing by 60', () => {
+      const dataset = generateDemoDataset();
+      const tsCol = dataset.data[0];
+
+      expect(tsCol.refPoint).toBe(Math.floor(new Date(2024, 0, 1).getTime() / 1000));
+
+      // Timestamp bounds check
+      expect(tsCol.bounds.max - tsCol.bounds.min).toBe((dataset.rowCount - 1) * 60);
+
+      // Relative data check
+      expect(tsCol.data[0]).toBe(0);
+      expect(tsCol.data[1]).toBe(60);
+      expect(tsCol.data[2]).toBe(120);
+      expect(tsCol.data[dataset.rowCount - 1]).toBe((dataset.rowCount - 1) * 60);
+    });
+
+    it('should generate expected specific data values when randomness is mocked', () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const dataset = generateDemoDataset();
+
+      expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(0.5, 2);
+      expect(dataset.data[2].refPoint + dataset.data[2].data[0]).toBeCloseTo(83.2, 2);
+      expect(dataset.data[3].refPoint + dataset.data[3].data[0]).toBeCloseTo(0, 2);
+      expect(dataset.data[4].refPoint + dataset.data[4].data[0]).toBeCloseTo(2, 2);
+
+      vi.restoreAllMocks();
     });
   });
 
