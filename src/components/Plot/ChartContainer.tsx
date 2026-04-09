@@ -1221,7 +1221,7 @@ const ChartContainer: React.FC = () => {
       state.updateYAxis(axis.id, nextY);
       targetYs.current[axis.id] = nextY;
     });
-  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight, padding]);
+  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {
