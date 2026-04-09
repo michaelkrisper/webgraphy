@@ -1,0 +1,3 @@
+🎯 **What:** The `getDemoAppState` test previously used `generateDemoDataset()` which generated a full year of minute-by-minute data (525,600 rows). This was slow and violated unit testing principles by not isolating the function being tested.
+📊 **Coverage:** The test now uses a minimal mock dataset with 10 rows and explicit bounds, verifying that `getDemoAppState` correctly configures the AppState, axes, bounds, and series based on the provided dataset structure.
+✨ **Result:** Improved test execution time and better isolation of unit tests, preventing changes in `generateDemoDataset` from breaking the `getDemoAppState` tests.

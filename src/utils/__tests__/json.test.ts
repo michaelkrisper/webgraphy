@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
 import { secureJSONParse } from '../json';
 
@@ -14,7 +15,7 @@ describe('secureJSONParse', () => {
     expect(result).toEqual({ a: 1 });
     expect(result.__proto__).not.toHaveProperty('polluted');
     // In JS, result.__proto__ is still the Object prototype, but it shouldn't have been polluted.
-    expect(({} as any).polluted).toBeUndefined();
+    expect(({} as unknown as any).polluted).toBeUndefined();
   });
 
   it('should filter out constructor key', () => {
