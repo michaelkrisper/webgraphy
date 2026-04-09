@@ -236,6 +236,18 @@ export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], x
 };
 
 export const downloadFile = (content: string, fileName: string, contentType: string) => {
-  const a = document.createElement('a'); if (content.startsWith('data:')) { a.href = content; } else { const file = new Blob([content], { type: contentType }); a.href = URL.createObjectURL(file); }
-  a.download = fileName; a.click();
+  const a = document.createElement('a');
+  const isDataUrl = content.startsWith('data:');
+  if (isDataUrl) {
+    a.href = content;
+  } else {
+    const file = new Blob([content], { type: contentType });
+    a.href = URL.createObjectURL(file);
+  }
+  a.download = fileName;
+  a.click();
+  if (!isDataUrl) {
+    // Security/Memory leak prevention: revoke the object URL after download
+    setTimeout(() => URL.revokeObjectURL(a.href), 100);
+  }
 };
