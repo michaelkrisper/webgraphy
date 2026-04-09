@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { generateTimeTicks } from "../time";
-import { formatFullDate } from '../time';
+import { formatFullDate, generateTimeTicks } from '../time';
 
 describe('formatFullDate', () => {
     let originalTz: string | undefined;
@@ -33,6 +32,7 @@ describe('formatFullDate', () => {
         const ts = 1673784000.100;
         expect(formatFullDate(ts)).toBe('15.01.2023, 12:00:00,1');
     });
+
 });
 
 describe('generateTimeTicks', () => {
@@ -116,5 +116,10 @@ describe('generateTimeTicks', () => {
         expect(ticks.map(t => t.label)).toEqual([
             '1969', '1970', '1971', '1972', '1973'
         ]);
+    });
+
+    it('limits the number of ticks to max 501', () => {
+        const ticks = generateTimeTicks(0, 10000, { unit: 'second', value: 1 });
+        expect(ticks.length).toBe(501);
     });
 });
