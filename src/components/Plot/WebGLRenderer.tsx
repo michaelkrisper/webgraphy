@@ -51,26 +51,42 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform int u_line_style;
       uniform float u_dpr;
 
+      void drawCircle() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        gl_FragColor = u_color;
+      }
+
+      void drawSquare() {
+        gl_FragColor = u_color;
+      }
+
+      void drawCross() {
+        vec2 p = gl_PointCoord - 0.5;
+        if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+        gl_FragColor = u_color;
+      }
+
+      void drawLineSegment() {
+        if (u_line_style > 0) {
+          float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+          float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+          float total = (dashLen + gapLen) * u_dpr;
+          float dist = mod(v_dist_start + v_t * v_len, total);
+          if (dist > dashLen * u_dpr) discard;
+        }
+        gl_FragColor = u_color;
+      }
+
       void main() {
-        if (u_style == 0) { // Circle
-          float d = length(gl_PointCoord - 0.5);
-          if (d > 0.5) discard;
-          gl_FragColor = u_color;
-        } else if (u_style == 1) { // Square
-          gl_FragColor = u_color;
-        } else if (u_style == 2) { // Cross
-          vec2 p = gl_PointCoord - 0.5;
-          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
-          gl_FragColor = u_color;
-        } else { // Line segment
-          if (u_line_style > 0) {
-            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
-            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
-            float total = (dashLen + gapLen) * u_dpr;
-            float dist = mod(v_dist_start + v_t * v_len, total);
-            if (dist > dashLen * u_dpr) discard;
-          }
-          gl_FragColor = u_color;
+        if (u_style == 0) {
+          drawCircle();
+        } else if (u_style == 1) {
+          drawSquare();
+        } else if (u_style == 2) {
+          drawCross();
+        } else {
+          drawLineSegment();
         }
       }
 `;
