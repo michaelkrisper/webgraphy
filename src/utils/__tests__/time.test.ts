@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels } from '../time';
+import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels, formatPrimaryLabel } from '../time';
 
 describe('formatFullDate', () => {
     let originalTz: string | undefined;
@@ -87,6 +87,14 @@ describe('generateTimeTicks', () => {
             '31.12.', '01.01.', '02.01.', '03.01.', '04.01.'
         ]);
     });
+    it('generates ticks for multiple days (value > 1)', () => {
+        const ticks = generateTimeTicks(0, 86400 * 4, { unit: 'day', value: 2 });
+        expect(ticks.map(t => t.timestamp)).toEqual([-172800, 0, 172800, 345600, 518400]);
+        expect(ticks.map(t => t.label)).toEqual([
+            '30.12.', '01.01.', '03.01.', '05.01.', '07.01.'
+        ]);
+    });
+
 
     it('generates ticks for weeks', () => {
         // We use { unit: 'week', value: 1 }, min = 0, max = 86400 * 14 (2 weeks)
@@ -121,6 +129,9 @@ describe('generateTimeTicks', () => {
     it('limits the number of ticks to max 501', () => {
         const ticks = generateTimeTicks(0, 10000, { unit: 'second', value: 1 });
         expect(ticks.length).toBe(501);
+    });
+    it('returns empty label for unknown unit', () => {
+        expect(formatPrimaryLabel(0, 'unknown' as any)).toBe('');
     });
 });
 
