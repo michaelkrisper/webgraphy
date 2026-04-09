@@ -173,6 +173,9 @@ describe('demoData', () => {
       expect(appState.series).toHaveLength(4);
       expect(appState.views).toHaveLength(4);
 
+      expect(appState.xAxes[0].min).toBe(mockDataset.data[0].bounds.min);
+      expect(appState.xAxes[0].max).toBe(mockDataset.data[0].bounds.max);
+
       // Check Y-axis overrides
       expect(appState.yAxes[0].name).toBe('Temperature (°C)');
       expect(appState.yAxes[1].name).toBe('Humidity (%)');
