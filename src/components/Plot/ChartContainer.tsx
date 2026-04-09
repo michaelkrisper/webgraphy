@@ -388,7 +388,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return series.map(s => {
       const ds = datasets.find(d => d.id === s.sourceId);
       const axis = yAxes.find(a => a.id === s.yAxisId);
-      if (!ds || !axis) return null;
+      const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+      if (!ds || !axis || !xAxis) return null;
 
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
@@ -406,9 +407,9 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
       if (!xCol?.data || !yCol?.data) return null;
 
-      return { series: s, ds, axis, xIdx, yIdx, xCol, yCol };
-    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
-  }, [datasets, series, yAxes]);
+      return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xAxis: XAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
+  }, [datasets, series, yAxes, xAxes]);
 
   // ⚡ Bolt Optimization: Extract static crosshair layout dependencies out of the high-frequency mouse loop
   const snapMetadata = useMemo(() => {
@@ -450,30 +451,44 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestXWorld: number | null = null;
     let bestSeriesXConf: XAxisConfig | null = null;
 
-    seriesMetadata.forEach(({ ds, xCol }) => {
-      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
-      if (!sXConf) return;
+    // Cache the closest index for each dataset to avoid repeating binary search for multiple series on the same dataset
+    const closestIdxByDataset = new Map<string, number>();
+
+    seriesMetadata.forEach(({ ds, xAxis, xCol }) => {
+      let cachedIdx = closestIdxByDataset.get(ds.id);
 
       const xData = xCol.data;
       const refX = xCol.refPoint;
 
-      const sVp = { xMin: sXConf.min, xMax: sXConf.max, yMin: 0, yMax: 100, width, height, padding };
+      if (cachedIdx === undefined) {
+        const sVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: 0, yMax: 100, width, height, padding };
+        const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
+
+        // Binary search for the closest point
+        let lo = 0, hi = xData.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
+        }
+
+        let bestI = lo;
+        if (lo > 0 && Math.abs(xData[lo-1]+refX-sMouseWorld.x) < Math.abs(xData[lo]+refX-sMouseWorld.x)) bestI = lo-1;
+        cachedIdx = bestI;
+        closestIdxByDataset.set(ds.id, cachedIdx);
+      }
+
+      const sVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: 0, yMax: 100, width, height, padding };
       const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
 
-      // Binary search for the closest point
-      let lo = 0, hi = xData.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
-      }
-      for (const i of [lo - 1, lo, lo + 1]) {
+      for (const i of [cachedIdx - 1, cachedIdx, cachedIdx + 1]) {
         if (i < 0 || i >= xData.length) continue;
         const wx = xData[i] + refX;
         const d = Math.abs(wx - sMouseWorld.x);
+
         if (d < bestDist) {
           bestDist = d;
           bestXWorld = wx;
-          bestSeriesXConf = sXConf;
+          bestSeriesXConf = xAxis;
         }
       }
     });
@@ -484,24 +499,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X, grouped by X-label and X-axis name
     const entries: { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }[] = [];
-    seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
-      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
-      if (!sXConf) return;
-
+    seriesMetadata.forEach(({ series: s, ds, axis, xAxis, xCol, yCol }) => {
       const xData = xCol.data, yData = yCol.data;
       const refX = xCol.refPoint, refY = yCol.refPoint;
 
-      // Find closest index to its own X world pos matching the mouse screen pos
-      const sVp = { xMin: sXConf.min, xMax: sXConf.max, yMin: 0, yMax: 100, width, height, padding };
-      const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-
-      let lo = 0, hi = xData.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
-      }
-      let bestI = lo;
-      if (lo > 0 && Math.abs(xData[lo-1]+refX-sMouseWorld.x) < Math.abs(xData[lo]+refX-sMouseWorld.x)) bestI = lo-1;
+      // Reuse the cached index from the first pass instead of repeating the binary search!
+      const bestI = closestIdxByDataset.get(ds.id) as number;
 
       const yVal = yData[bestI] + refY;
       const xVal = xData[bestI] + refX;
@@ -509,23 +512,23 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
 
-      const xLab = sXConf.xMode === 'date'
+      const xLab = xAxis.xMode === 'date'
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
 
-      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === sXConf.name);
+      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === xAxis.name);
       if (!group) {
-        group = { xLabel: xLab, xAxisName: sXConf.name || `X-Axis ${ds.xAxisId}`, items: [] };
+        group = { xLabel: xLab, xAxisName: xAxis.name || `X-Axis ${ds.xAxisId}`, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: sXConf.xMode === 'date' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: xAxis.xMode === 'date' });
     });
 
     // Screen position of the snapped point
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;
 
     return { snapScreenX, entries };
-  }, [pos, seriesMetadata, xAxes, width, height, padding, snapMetadata]);
+  }, [pos, seriesMetadata, width, height, padding, snapMetadata]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -550,7 +553,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
-  const isMobile = width < 768 || height < 500;
 
   return (
     <>
@@ -1043,10 +1045,46 @@ const ChartContainer: React.FC = () => {
 
       // Scan Y values in visible range
       if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
-        for (let i = startIdx; i <= endIdx; i++) {
-          const val = yData[i] + refY;
-          if (val < yMin) yMin = val;
-          if (val > yMax) yMax = val;
+        const CHUNK_SIZE = 512;
+        const chunkMin = colY.chunkMin;
+        const chunkMax = colY.chunkMax;
+
+        if (chunkMin && chunkMax && (endIdx - startIdx) > CHUNK_SIZE) {
+          const startChunk = Math.floor(startIdx / CHUNK_SIZE);
+          const endChunk = Math.floor(endIdx / CHUNK_SIZE);
+
+          if (startChunk === endChunk) {
+            for (let i = startIdx; i <= endIdx; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+          } else {
+            const firstChunkEnd = (startChunk + 1) * CHUNK_SIZE;
+            for (let i = startIdx; i < firstChunkEnd; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+            for (let c = startChunk + 1; c < endChunk; c++) {
+              const cMin = chunkMin[c] + refY;
+              const cMax = chunkMax[c] + refY;
+              if (cMin < yMin) yMin = cMin;
+              if (cMax > yMax) yMax = cMax;
+            }
+            const lastChunkStart = endChunk * CHUNK_SIZE;
+            for (let i = lastChunkStart; i <= endIdx; i++) {
+              const val = yData[i] + refY;
+              if (val < yMin) yMin = val;
+              if (val > yMax) yMax = val;
+            }
+          }
+        } else {
+          for (let i = startIdx; i <= endIdx; i++) {
+            const val = yData[i] + refY;
+            if (val < yMin) yMin = val;
+            if (val > yMax) yMax = val;
+          }
         }
       }
     });
@@ -1183,7 +1221,7 @@ const ChartContainer: React.FC = () => {
       state.updateYAxis(axis.id, nextY);
       targetYs.current[axis.id] = nextY;
     });
-  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight, padding]);
+  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     if (e.ctrlKey && target === 'all' && containerRef.current) {

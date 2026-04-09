@@ -25,10 +25,9 @@ self.onmessage = async (event) => {
   const { file, type, settings } = event.data;
 
   try {
-    const text = await file.text();
     let result;
-    if (type === 'csv') result = parseCSV(text, settings);
-    else if (type === 'json') result = parseJSON(text, settings);
+    if (type === 'csv') result = await parseCSV(file, settings);
+    else if (type === 'json') result = await parseJSON(file, settings);
     else throw new Error(`Unsupported file type: ${type}`);
 
     const rowCount = result.rowCount;
@@ -39,32 +38,55 @@ self.onmessage = async (event) => {
     const colCount = columns.length;
     const relativeData = new Array(colCount);
 
+    const CHUNK_SIZE = 512;
+    const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
+
+    // We've already parsed the data and calculated active columns in parseCSV/parseJSON
+    // Now we combine bounds calculation, chunk min/max calculation and float data mapping into a single pass per column
     for (let j = 0; j < colCount; j++) {
       let min = Infinity, max = -Infinity;
       let refPoint = 0;
 
       const colData = new Float32Array(rowCount);
+      const sourceData = result.data[j]; // Cache array access
+      let startIdx = 0;
+
+      const chunkMin = new Float32Array(numChunks).fill(Infinity);
+      const chunkMax = new Float32Array(numChunks).fill(-Infinity);
 
       // Find reference point first (usually row 0, but could be later if NaN)
-      for (let i = 0; i < rowCount; i++) {
-        const val = result.data[j][i]; // Using transposed data now!
+      // Any NaNs before the reference point are copied as NaN
+      for (; startIdx < rowCount; startIdx++) {
+        const val = sourceData[startIdx];
         if (!Number.isNaN(val)) {
           refPoint = val;
           break;
         }
+        colData[startIdx] = NaN;
+
+        // NaNs don't update min/max
       }
 
-      for (let i = 0; i < rowCount; i++) {
-        const val = result.data[j][i];
-        if (val < min) min = val;
-        if (val > max) max = val;
+      // Single pass for the rest of the data: calculate bounds, chunk min/max and relative data
+      for (let i = startIdx; i < rowCount; i++) {
+        const val = sourceData[i];
+        if (!Number.isNaN(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+          
+          const chunkIdx = Math.floor(i / CHUNK_SIZE);
+          if (val < chunkMin[chunkIdx]) chunkMin[chunkIdx] = val;
+          if (val > chunkMax[chunkIdx]) chunkMax[chunkIdx] = val;
+        }
         colData[i] = val - refPoint;
       }
 
       relativeData[j] = {
         data: colData,
         refPoint,
-        bounds: { min, max }
+        bounds: { min, max },
+        chunkMin,
+        chunkMax
       };
     }
 
@@ -85,7 +107,9 @@ self.onmessage = async (event) => {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: relativeData[colIdx].bounds,
-          data: relativeData[colIdx].data
+          data: relativeData[colIdx].data,
+          chunkMin: relativeData[colIdx].chunkMin,
+          chunkMax: relativeData[colIdx].chunkMax
         };
       })
     };
@@ -93,6 +117,8 @@ self.onmessage = async (event) => {
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
+      if (col.chunkMin) transferList.push(col.chunkMin.buffer as ArrayBuffer);
+      if (col.chunkMax) transferList.push(col.chunkMax.buffer as ArrayBuffer);
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);
@@ -101,66 +127,131 @@ self.onmessage = async (event) => {
   }
 };
 
-function parseCSV(text: string, settings?: ParseSettings) {
+async function parseCSV(file: File, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
 
-  // Strip BOM if present
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
-  if (lines.length === 0) throw new Error('Empty CSV file');
+  const stream = file.stream();
+  const reader = stream.getReader();
+  const decoder = new TextDecoder('utf-8');
 
-  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-  const rowCount = lines.length - startRow;
+  let buffer = '';
+  let lineCount = 0;
+  let actualRowCount = 0;
 
-  // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
-  const configsByIndex = new Array(headers.length);
-  for (let j = 0; j < headers.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
-  }
+  // We don't know the rowCount in advance when streaming, start with a reasonable capacity and double it when needed
+  let capacity = 100000;
 
-  // ⚡ Bolt Optimization: Determine active columns upfront
+  let numActive = 0;
   const activeCols: number[] = [];
   const finalHeaders: string[] = [];
-  for (let j = 0; j < headers.length; j++) {
-    if (configsByIndex[j]?.type !== 'ignore') {
-      activeCols.push(j);
-      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-    }
-  }
-
-  const numActive = activeCols.length;
-  // ⚡ Bolt Optimization: Column-major storage
-  const data: Float64Array[] = new Array(numActive);
-  for (let k = 0; k < numActive; k++) {
-    data[k] = new Float64Array(rowCount);
-  }
-
-  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+  let configsByIndex: (ColumnConfigEntry | undefined)[] = [];
+  let data: Float64Array[] = [];
+  let categoricalMaps: Map<string, number>[] = [];
   const isComma = decimalPoint === ',';
 
-  let actualRowCount = 0;
-  for (let i = startRow; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  let isFirstLine = true;
 
-    const values = line.split(delimiter);
-    for (let k = 0; k < numActive; k++) {
-      const j = activeCols[k];
-      let val = values[j];
-      
-      if (val !== undefined) {
-         val = val.trim();
-         // Fast quote removal
-         if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-             val = val.substring(1, val.length - 1);
-         }
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+    } else {
+      buffer += decoder.decode();
+    }
+
+    // Strip BOM if present at the very beginning
+    if (isFirstLine && buffer.charCodeAt(0) === 0xFEFF) {
+      buffer = buffer.slice(1);
+    }
+
+    const lines = buffer.split(/\r?\n/);
+
+    // Keep the last partial line in the buffer
+    if (!done) {
+      buffer = lines.pop() || '';
+    } else {
+      buffer = '';
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        if (!done || i < lines.length - 1 || line.length > 0) {
+            // Only increment lineCount if it's an actual empty line in the middle of the file
+            // Not a trailing empty newline at the end
+             if (done && i === lines.length - 1 && line.length === 0) {
+                 continue; // ignore trailing empty string
+             }
+             lineCount++;
+        }
+        continue;
       }
 
-      data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+      if (isFirstLine && lineCount === 0) {
+        const headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+        configsByIndex = new Array(headers.length);
+        for (let j = 0; j < headers.length; j++) {
+          configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+        }
+
+        for (let j = 0; j < headers.length; j++) {
+          if (configsByIndex[j]?.type !== 'ignore') {
+            activeCols.push(j);
+            finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+          }
+        }
+
+        numActive = activeCols.length;
+        data = new Array(numActive);
+        for (let k = 0; k < numActive; k++) {
+          data[k] = new Float64Array(capacity);
+        }
+
+        categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+        isFirstLine = false;
+      }
+      
+      if (lineCount >= startRow) {
+        // Ensure capacity
+        if (actualRowCount >= capacity) {
+          capacity *= 2;
+          for (let k = 0; k < numActive; k++) {
+            const newData = new Float64Array(capacity);
+            newData.set(data[k]);
+            data[k] = newData;
+          }
+        }
+
+        const values = line.split(delimiter);
+        for (let k = 0; k < numActive; k++) {
+          const j = activeCols[k];
+          let val = values[j];
+
+          if (val !== undefined) {
+             val = val.trim();
+             if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+                 val = val.substring(1, val.length - 1);
+             }
+          }
+
+          data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+        }
+        actualRowCount++;
+      }
+      lineCount++;
     }
-    actualRowCount++;
+
+    if (done) {
+      break;
+    }
   }
 
-  // ⚡ Bolt Optimization: Trim data arrays to actual size
+  if (actualRowCount === 0 && lineCount === 0) {
+      throw new Error('Empty CSV file');
+  }
+
   for (let k = 0; k < numActive; k++) {
     if (data[k].length !== actualRowCount) {
       data[k] = data[k].subarray(0, actualRowCount);
@@ -170,11 +261,13 @@ function parseCSV(text: string, settings?: ParseSettings) {
   return { columns: finalHeaders, rowCount: actualRowCount, data: data };
 }
 
-function parseJSON(text: string, settings?: ParseSettings) {
+async function parseJSON(file: File, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
   
+  const text = await file.text();
   let raw;
   try {
+    // 🔒 Security Fix: Using secureJSONParse instead of native JSON.parse to prevent Prototype Pollution vulnerabilities.
     raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
