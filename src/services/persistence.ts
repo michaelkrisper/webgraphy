@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { secureJSONParse } from '../utils/json';
+import { z } from 'zod';
 
 const DB_NAME = 'webgraphy-db';
 const DATASET_STORE = 'datasets';
@@ -10,6 +11,8 @@ export interface DataColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: Float32Array;
+  chunkMin?: Float32Array;
+  chunkMax?: Float32Array;
   levels?: Float32Array[]; // For backward compatibility
 }
 
@@ -78,7 +81,15 @@ export interface AppState {
   views?: ViewSnapshot[];
 }
 
+export const XAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), showGrid: z.boolean(), xMode: z.enum(['date', 'numeric']) });
+export const YAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), position: z.enum(['left', 'right']), color: z.string(), showGrid: z.boolean() });
+export const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), lineWidth: z.number() });
+export const ViewAxisSnapshotSchema = z.object({ id: z.string(), min: z.number(), max: z.number() });
+export const ViewSnapshotSchema = z.object({ id: z.string(), name: z.string(), xAxes: z.array(ViewAxisSnapshotSchema), yAxes: z.array(ViewAxisSnapshotSchema) });
+export const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }), views: z.array(ViewSnapshotSchema).optional() });
+
 let db: IDBPDatabase | null = null;
+
 
 async function getDB() {
   if (db) return db;
@@ -121,10 +132,13 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.data = new Float32Array(0);
     }
 
+    if (col.chunkMin) col.chunkMin = restoreFloat32Array(col.chunkMin);
+    if (col.chunkMax) col.chunkMax = restoreFloat32Array(col.chunkMax);
+
     if (col.refPoint === undefined) col.refPoint = 0;
 
     return col;
-    });
+  });
   if (dataset.xAxisColumn === undefined) {
     const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
     dataset.xAxisColumn = potentialX;
@@ -165,7 +179,15 @@ export const persistence = {
   loadAppState(): AppState | null {
     try {
       const state = localStorage.getItem('webgraphy-state');
-      return state ? (secureJSONParse(state) as AppState) : null;
+      if (!state) return null;
+      const parsed = secureJSONParse(state);
+      const validated = AppStateSchema.safeParse(parsed);
+      if (validated.success) {
+        return validated.data;
+      } else {
+        console.error('Invalid state in localStorage:', validated.error);
+        return null;
+      }
     } catch (error) {
       console.error('Failed to load state from localStorage:', error);
       return null;
