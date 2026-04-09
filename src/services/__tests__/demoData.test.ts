@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateDemoDataset, getDemoAppState } from '../demoData';
+import { type Dataset } from '../persistence';
 
 describe('demoData', () => {
   describe('generateDemoDataset', () => {
@@ -77,8 +78,54 @@ describe('demoData', () => {
         randomUUID: () => mockUUID
       });
 
-      const dataset = generateDemoDataset();
-      const appState = getDemoAppState(dataset);
+      const mockDataset = {
+        id: 'mock-dataset-id',
+        name: 'Mock Dataset',
+        rowCount: 10,
+        xAxisColumn: 'A: Timestamp',
+        xAxisId: 'axis-1',
+        columns: [
+          'A: Timestamp',
+          'A: Temperature (°C)',
+          'A: Humidity (%)',
+          'A: Solar Irradiance (W/m²)',
+          'A: Wind Speed (m/s)'
+        ],
+        data: [
+          {
+            isFloat64: true,
+            refPoint: 0,
+            bounds: { min: 1000000, max: 2000000 },
+            data: new Float64Array(10)
+          },
+          {
+            isFloat64: false,
+            refPoint: 0,
+            bounds: { min: 0, max: 10 },
+            data: new Float32Array(10)
+          },
+          {
+            isFloat64: false,
+            refPoint: 0,
+            bounds: { min: 0, max: 100 },
+            data: new Float32Array(10)
+          },
+          {
+            isFloat64: false,
+            refPoint: 0,
+            bounds: { min: 0, max: 1000 },
+            data: new Float32Array(10)
+          },
+          {
+            isFloat64: false,
+            refPoint: 0,
+            bounds: { min: 0, max: 20 },
+            data: new Float32Array(10)
+          }
+        ]
+      } as unknown as Dataset;
+
+      const appState = getDemoAppState(mockDataset);
 
       expect(appState.xAxes).toHaveLength(9);
       expect(appState.yAxes).toHaveLength(9);
@@ -93,8 +140,8 @@ describe('demoData', () => {
 
       // Check series links
       appState.series.forEach((s, i) => {
-        expect(s.sourceId).toBe(dataset.id);
-        expect(s.yColumn).toBe(dataset.columns[i + 1]);
+        expect(s.sourceId).toBe(mockDataset.id);
+        expect(s.yColumn).toBe(mockDataset.columns[i + 1]);
         expect(s.yAxisId).toBe(`axis-${i + 1}`);
         expect(s.id).toBe(mockUUID);
       });
