@@ -137,7 +137,7 @@ export function generateTimeTicks(min: number, max: number, step: TimeStep): Tim
   return ticks;
 }
 
-function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
+export function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
   const d = new Date(ts * 1000);
   const pad = (n: number) => String(n).padStart(2, '0');
 
