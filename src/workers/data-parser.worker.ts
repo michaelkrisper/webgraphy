@@ -25,10 +25,12 @@ self.onmessage = async (event) => {
   const { file, type, settings } = event.data;
 
   try {
-    const text = await file.text();
     let result;
-    if (type === 'csv') result = parseCSV(text, settings);
-    else if (type === 'json') result = parseJSON(text, settings);
+    if (type === 'csv') result = await parseCSV(file, settings);
+    else if (type === 'json') {
+      const text = await file.text();
+      result = parseJSON(text, settings);
+    }
     else throw new Error(`Unsupported file type: ${type}`);
 
     const rowCount = result.rowCount;
@@ -64,7 +66,6 @@ self.onmessage = async (event) => {
           break;
         }
         colData[startIdx] = NaN;
-        const chunkIdx = Math.floor(startIdx / CHUNK_SIZE);
         // NaNs don't update min/max
       }
 
@@ -128,66 +129,175 @@ self.onmessage = async (event) => {
   }
 };
 
-function parseCSV(text: string, settings?: ParseSettings) {
+async function parseCSV(file: File, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
 
-  // Strip BOM if present
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
-  if (lines.length === 0) throw new Error('Empty CSV file');
+  const stream = file.stream();
+  const reader = stream.getReader();
+  const decoder = new TextDecoder('utf-8');
 
-  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-  const rowCount = lines.length - startRow;
-
-  // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
-  const configsByIndex = new Array(headers.length);
-  for (let j = 0; j < headers.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
-  }
-
-  // ⚡ Bolt Optimization: Determine active columns upfront
+  let remainder = '';
+  let isFirstChunk = true;
+  let headers: string[] = [];
+  const configsByIndex: (ColumnConfigEntry | undefined)[] = [];
   const activeCols: number[] = [];
   const finalHeaders: string[] = [];
-  for (let j = 0; j < headers.length; j++) {
-    if (configsByIndex[j]?.type !== 'ignore') {
-      activeCols.push(j);
-      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-    }
-  }
+  let numActive = 0;
 
-  const numActive = activeCols.length;
-  // ⚡ Bolt Optimization: Column-major storage
-  const data: Float64Array[] = new Array(numActive);
-  for (let k = 0; k < numActive; k++) {
-    data[k] = new Float64Array(rowCount);
-  }
-
-  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+  let capacity = 100000;
+  let data: Float64Array[] = [];
+  let categoricalMaps: Map<string, number>[] = [];
   const isComma = decimalPoint === ',';
-
   let actualRowCount = 0;
-  for (let i = startRow; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  let linesRead = 0;
 
-    const values = line.split(delimiter);
-    for (let k = 0; k < numActive; k++) {
-      const j = activeCols[k];
-      let val = values[j];
-      
-      if (val !== undefined) {
-         val = val.trim();
-         // Fast quote removal
-         if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-             val = val.substring(1, val.length - 1);
-         }
-      }
+  while (true) {
+    const { done, value } = await reader.read();
 
-      data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+    let chunk = '';
+    if (value) {
+      chunk = decoder.decode(value, { stream: !done });
+    } else if (done) {
+      chunk = decoder.decode();
     }
-    actualRowCount++;
+
+    if (!chunk && done) break;
+
+    if (isFirstChunk && chunk) {
+      if (chunk.charCodeAt(0) === 0xFEFF) {
+        chunk = chunk.slice(1);
+      }
+      isFirstChunk = false;
+    }
+
+    const text = remainder + chunk;
+    let start = 0;
+
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '\n') {
+        const line = text.substring(start, text[i - 1] === '\r' ? i - 1 : i).trim();
+        start = i + 1;
+
+        if (linesRead === 0) {
+          headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+          if (headers.length === 0) throw new Error('Empty CSV file');
+
+          configsByIndex = new Array(headers.length);
+          for (let j = 0; j < headers.length; j++) {
+            configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+          }
+
+          for (let j = 0; j < headers.length; j++) {
+            if (configsByIndex[j]?.type !== 'ignore') {
+              activeCols.push(j);
+              finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+            }
+          }
+
+          numActive = activeCols.length;
+          data = new Array(numActive);
+          for (let k = 0; k < numActive; k++) {
+            data[k] = new Float64Array(capacity);
+          }
+          categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+          linesRead++;
+          continue;
+        }
+
+        if (linesRead < startRow) {
+          linesRead++;
+          continue;
+        }
+
+        linesRead++;
+
+        if (!line) continue;
+
+        if (actualRowCount >= capacity) {
+          capacity = Math.floor(capacity * 1.5);
+          for (let k = 0; k < numActive; k++) {
+            const newData = new Float64Array(capacity);
+            newData.set(data[k]);
+            data[k] = newData;
+          }
+        }
+
+        // Extremely fast line parser:
+        // We know we are inside a loop that goes character by character in the outer loop,
+        // but here we just process the `line` string. To keep it simple and correct, we'll stick to split for now,
+        // but since we might hit memory limits with array allocation if split is slow, we should check it.
+        const values = line.split(delimiter);
+        for (let k = 0; k < numActive; k++) {
+          const j = activeCols[k];
+          let val = values[j];
+          if (val !== undefined) {
+             val = val.trim();
+             if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+                 val = val.substring(1, val.length - 1);
+             }
+          }
+          data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+        }
+        actualRowCount++;
+      }
+    }
+    remainder = text.substring(start);
+
+    if (done) break;
   }
 
-  // ⚡ Bolt Optimization: Trim data arrays to actual size
+  if (remainder.trim()) {
+    const line = remainder.trim();
+    if (linesRead === 0) {
+      headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+      if (headers.length === 0) throw new Error('Empty CSV file');
+      configsByIndex = new Array(headers.length);
+      for (let j = 0; j < headers.length; j++) {
+        configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+      }
+      for (let j = 0; j < headers.length; j++) {
+        if (configsByIndex[j]?.type !== 'ignore') {
+          activeCols.push(j);
+          finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+        }
+      }
+      numActive = activeCols.length;
+      data = new Array(numActive);
+      for (let k = 0; k < numActive; k++) {
+        data[k] = new Float64Array(capacity);
+      }
+      categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+      linesRead++;
+    } else if (linesRead >= startRow) {
+      if (actualRowCount >= capacity) {
+        capacity = Math.floor(capacity * 1.5);
+        for (let k = 0; k < numActive; k++) {
+          const newData = new Float64Array(capacity);
+          newData.set(data[k]);
+          data[k] = newData;
+        }
+      }
+      const values = line.split(delimiter);
+      for (let k = 0; k < numActive; k++) {
+        const j = activeCols[k];
+        let val = values[j];
+        if (val !== undefined) {
+           val = val.trim();
+           if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+               val = val.substring(1, val.length - 1);
+           }
+        }
+        data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+      }
+      actualRowCount++;
+      linesRead++;
+    }
+  }
+
+  if (linesRead === 0) {
+    throw new Error('Empty CSV file');
+  }
+
   for (let k = 0; k < numActive; k++) {
     if (data[k].length !== actualRowCount) {
       data[k] = data[k].subarray(0, actualRowCount);
