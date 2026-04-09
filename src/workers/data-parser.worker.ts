@@ -64,7 +64,6 @@ self.onmessage = async (event) => {
           break;
         }
         colData[startIdx] = NaN;
-        const chunkIdx = Math.floor(startIdx / CHUNK_SIZE);
         // NaNs don't update min/max
       }
 
