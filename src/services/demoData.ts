@@ -1,15 +1,8 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 
-export function generateDemoDataset(): Dataset {
-  const rowCount = 525600; // 1 year of minute-by-minute data
-  const columns = ['Timestamp', 'Temperature (°C)', 'Humidity (%)', 'Solar Irradiance (W/m²)', 'Wind Speed (m/s)'];
-  const datasetId = 'demo-dataset';
 
+function generateRawWeatherData(rowCount: number, startTime: number): number[][] {
   const rawData: number[][] = [];
-  // Set start time to Jan 1st of the current year, midnight
-  const currentYear = new Date().getFullYear();
-  const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
-
   for (let i = 0; i < rowCount; i++) {
     const ts = startTime + (i * 60);
     const minutesElapsed = i;
@@ -71,7 +64,11 @@ export function generateDemoDataset(): Dataset {
 
     rawData.push([ts, temp, humidity, solar, wind]);
   }
+  return rawData;
+}
 
+
+function processColumns(rawData: number[][], rowCount: number, columns: string[]): DataColumn[] {
   const colBounds = columns.map((_, colIdx) => {
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < rowCount; i++) {
@@ -109,7 +106,7 @@ export function generateDemoDataset(): Dataset {
     return { data, refPoint, chunkMin, chunkMax };
   });
 
-  const data: DataColumn[] = columns.map((colName, colIdx) => {
+  return columns.map((colName, colIdx) => {
     const col = relativeData[colIdx];
     return {
       isFloat64: colName === 'Timestamp',
@@ -120,6 +117,19 @@ export function generateDemoDataset(): Dataset {
       chunkMax: col.chunkMax
     };
   });
+}
+
+export function generateDemoDataset(): Dataset {
+  const rowCount = 525600; // 1 year of minute-by-minute data
+  const columns = ['Timestamp', 'Temperature (°C)', 'Humidity (%)', 'Solar Irradiance (W/m²)', 'Wind Speed (m/s)'];
+  const datasetId = 'demo-dataset';
+
+  // Set start time to Jan 1st of the current year, midnight
+  const currentYear = new Date().getFullYear();
+  const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+
+  const rawData = generateRawWeatherData(rowCount, startTime);
+  const data = processColumns(rawData, rowCount, columns);
 
   const prefix = 'A: ';
   return {

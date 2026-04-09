@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Dataset } from '../persistence';
+import type { Dataset, AppState } from '../persistence';
 
 vi.mock('idb', () => ({
   openDB: vi.fn(),
@@ -221,26 +221,22 @@ describe('persistence', () => {
     });
 
     it('should save app state to local storage', () => {
-        const state = {
-            viewportX: { min: 0, max: 100 },
+        const state: AppState = {
+            xAxes: [{ id: 'axis-1', name: 'X', min: 0, max: 100, showGrid: true, xMode: 'numeric' }],
             yAxes: [],
             series: [],
-            axisTitles: { x: '', y: '' },
-            globalXColumn: '',
-            xMode: 'numeric' as const
+            axisTitles: { x: '', y: '' }
         };
         persistence.saveAppState(state);
         expect(localStorage.setItem).toHaveBeenCalledWith('webgraphy-state', JSON.stringify(state));
     });
 
     it('should load app state from local storage', () => {
-        const state = {
-            viewportX: { min: 0, max: 100 },
+        const state: AppState = {
+            xAxes: [{ id: 'axis-1', name: 'X', min: 0, max: 100, showGrid: true, xMode: 'numeric' }],
             yAxes: [],
             series: [],
-            axisTitles: { x: '', y: '' },
-            globalXColumn: '',
-            xMode: 'numeric' as const
+            axisTitles: { x: '', y: '' }
         };
         vi.mocked(localStorage.getItem).mockReturnValueOnce(JSON.stringify(state));
 
@@ -252,6 +248,13 @@ describe('persistence', () => {
     it('should return null if no app state in local storage', () => {
         vi.mocked(localStorage.getItem).mockReturnValueOnce(null);
 
+        const loadedState = persistence.loadAppState();
+        expect(loadedState).toBeNull();
+    });
+
+    it('should return null if loaded state is invalid', () => {
+        const invalidState = { xAxes: [{ id: 'axis-1', min: 'invalid' }] };
+        vi.mocked(localStorage.getItem).mockReturnValueOnce(JSON.stringify(invalidState));
         const loadedState = persistence.loadAppState();
         expect(loadedState).toBeNull();
     });

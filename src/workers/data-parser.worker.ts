@@ -1,4 +1,5 @@
 // Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
+import { secureJSONParse } from '../utils/json';
 
 interface ColumnConfigEntry {
   index: number;
@@ -33,51 +34,62 @@ self.onmessage = async (event) => {
     const rowCount = result.rowCount;
     const columns = result.columns;
     
-    // 1. Calculate absolute bounds for all columns first
-    const colBounds = columns.map((_, colIdx) => {
-      let min = Infinity, max = -Infinity;
-      for (let i = 0; i < rowCount; i++) {
-        const val = result.data[i][colIdx];
-        if (val < min) min = val;
-        if (val > max) max = val;
-      }
-      return { min, max };
-    });
+    // ⚡ Bolt Optimization: Combine bounds calculation and relative data calculation
+    // into a single pass and use column-major (SOA) architecture for much better cache locality
+    const colCount = columns.length;
+    const relativeData = new Array(colCount);
 
-    // 2. Prepare datasets with synchronized LOD
     const CHUNK_SIZE = 512;
-    const relativeData = columns.map((_, colIdx) => {
+    const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
+
+    // We've already parsed the data and calculated active columns in parseCSV/parseJSON
+    // Now we combine bounds calculation, chunk min/max calculation and float data mapping into a single pass per column
+    for (let j = 0; j < colCount; j++) {
+      let min = Infinity, max = -Infinity;
       let refPoint = 0;
-      for (let i = 0; i < rowCount; i++) {
-        const val = result.data[i][colIdx];
+
+      const colData = new Float32Array(rowCount);
+      const sourceData = result.data[j]; // Cache array access
+      let startIdx = 0;
+
+      const chunkMin = new Float32Array(numChunks).fill(Infinity);
+      const chunkMax = new Float32Array(numChunks).fill(-Infinity);
+
+      // Find reference point first (usually row 0, but could be later if NaN)
+      // Any NaNs before the reference point are copied as NaN
+      for (; startIdx < rowCount; startIdx++) {
+        const val = sourceData[startIdx];
         if (!Number.isNaN(val)) {
           refPoint = val;
           break;
         }
-      }
-      const data = new Float32Array(rowCount);
-      for (let i = 0; i < rowCount; i++) {
-        data[i] = result.data[i][colIdx] - refPoint;
+        colData[startIdx] = NaN;
+        const chunkIdx = Math.floor(startIdx / CHUNK_SIZE);
+        // NaNs don't update min/max
       }
 
-      const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
-      const chunkMin = new Float32Array(numChunks);
-      const chunkMax = new Float32Array(numChunks);
-      for (let c = 0; c < numChunks; c++) {
-        let cMin = Infinity, cMax = -Infinity;
-        const start = c * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, rowCount);
-        for (let i = start; i < end; i++) {
-          const val = data[i];
-          if (val < cMin) cMin = val;
-          if (val > cMax) cMax = val;
+      // Single pass for the rest of the data: calculate bounds, chunk min/max and relative data
+      for (let i = startIdx; i < rowCount; i++) {
+        const val = sourceData[i];
+        if (!Number.isNaN(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+          
+          const chunkIdx = Math.floor(i / CHUNK_SIZE);
+          if (val < chunkMin[chunkIdx]) chunkMin[chunkIdx] = val;
+          if (val > chunkMax[chunkIdx]) chunkMax[chunkIdx] = val;
         }
-        chunkMin[c] = cMin;
-        chunkMax[c] = cMax;
+        colData[i] = val - refPoint;
       }
 
-      return { data, refPoint, chunkMin, chunkMax };
-    });
+      relativeData[j] = {
+        data: colData,
+        refPoint,
+        bounds: { min, max },
+        chunkMin,
+        chunkMax
+      };
+    }
 
     // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
     const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: { type: string }) => cc.type !== 'ignore') : [];
@@ -95,7 +107,7 @@ self.onmessage = async (event) => {
         return {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
-          bounds: colBounds[colIdx],
+          bounds: relativeData[colIdx].bounds,
           data: relativeData[colIdx].data,
           chunkMin: relativeData[colIdx].chunkMin,
           chunkMax: relativeData[colIdx].chunkMax
@@ -124,9 +136,7 @@ function parseCSV(text: string, settings?: ParseSettings) {
   if (lines.length === 0) throw new Error('Empty CSV file');
 
   const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-  const data: number[][] = [];
-
-  const categoricalMaps = new Array(headers.length).fill(null).map(() => new Map<string, number>());
+  const rowCount = lines.length - startRow;
 
   // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
   const configsByIndex = new Array(headers.length);
@@ -134,43 +144,65 @@ function parseCSV(text: string, settings?: ParseSettings) {
     configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
   }
 
+  // ⚡ Bolt Optimization: Determine active columns upfront
+  const activeCols: number[] = [];
+  const finalHeaders: string[] = [];
+  for (let j = 0; j < headers.length; j++) {
+    if (configsByIndex[j]?.type !== 'ignore') {
+      activeCols.push(j);
+      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+    }
+  }
+
+  const numActive = activeCols.length;
+  // ⚡ Bolt Optimization: Column-major storage
+  const data: Float64Array[] = new Array(numActive);
+  for (let k = 0; k < numActive; k++) {
+    data[k] = new Float64Array(rowCount);
+  }
+
+  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+  const isComma = decimalPoint === ',';
+
+  let actualRowCount = 0;
   for (let i = startRow; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const rawValues = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
-    const parsedRow: number[] = [];
+    const values = line.split(delimiter);
+    for (let k = 0; k < numActive; k++) {
+      const j = activeCols[k];
+      let val = values[j];
+      
+      if (val !== undefined) {
+         val = val.trim();
+         // Fast quote removal
+         if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+             val = val.substring(1, val.length - 1);
+         }
+      }
 
-    for (let j = 0; j < headers.length; j++) {
-      const config = configsByIndex[j];
-      if (config?.type === 'ignore') continue;
-
-      const val = rawValues[j];
-      parsedRow.push(parseValue(val, config, decimalPoint, categoricalMaps[j]));
+      data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
     }
-    data.push(parsedRow);
+    actualRowCount++;
   }
 
-  const finalHeaders = headers.filter((_, i) => {
-    const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === i);
-    return config?.type !== 'ignore';
-  }).map((h) => {
-     // Re-find the original index to look up the correct config
-     const originalIdx = headers.indexOf(h);
-     const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === originalIdx);
-     return config?.name || h;
-  });
+  // ⚡ Bolt Optimization: Trim data arrays to actual size
+  for (let k = 0; k < numActive; k++) {
+    if (data[k].length !== actualRowCount) {
+      data[k] = data[k].subarray(0, actualRowCount);
+    }
+  }
 
-  return { columns: finalHeaders, rowCount: data.length, data: data };
+  return { columns: finalHeaders, rowCount: actualRowCount, data: data };
 }
-
 
 function parseJSON(text: string, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
   
   let raw;
   try {
-    raw = JSON.parse(text);
+    raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
     throw new Error('Invalid JSON format: ' + (error instanceof Error ? error.message : String(error)));
@@ -181,43 +213,50 @@ function parseJSON(text: string, settings?: ParseSettings) {
   const allHeaders = Object.keys(raw[0]);
   const rowCount = raw.length;
 
-  const categoricalMaps = new Array(allHeaders.length).fill(null).map(() => new Map<string, number>());
-  const data = [];
-
-  // ⚡ Bolt Optimization: Pre-calculate column configurations to avoid O(N) .find() lookup inside inner loop
+  // ⚡ Bolt Optimization: Pre-calculate column configurations
   const configsByIndex = new Array(allHeaders.length);
   for (let j = 0; j < allHeaders.length; j++) {
     configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
   }
 
-  for (let i = 0; i < rowCount; i++) {
-    const row = raw[i];
-    const parsedRow: number[] = [];
+  // ⚡ Bolt Optimization: Determine active columns upfront
+  const activeCols: number[] = [];
+  const finalHeaders: string[] = [];
+  for (let j = 0; j < allHeaders.length; j++) {
+     if (configsByIndex[j]?.type !== 'ignore') {
+         activeCols.push(j);
+         finalHeaders.push(configsByIndex[j]?.name || allHeaders[j]);
+     }
+  }
+  const numActive = activeCols.length;
 
-    for (let j = 0; j < allHeaders.length; j++) {
-      const header = allHeaders[j];
-      const config = configsByIndex[j];
-      if (config?.type === 'ignore') continue;
-
-      const val = String(row[header]);
-      parsedRow.push(parseValue(val, config, decimalPoint, categoricalMaps[j]));
-    }
-    data.push(parsedRow);
+  // ⚡ Bolt Optimization: Column-major storage
+  const data: Float64Array[] = new Array(numActive);
+  for (let k = 0; k < numActive; k++) {
+    data[k] = new Float64Array(rowCount);
   }
 
-  const finalHeaders = allHeaders.filter((_, i) => {
-    const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === i);
-    return config?.type !== 'ignore';
-  }).map((h) => {
-     const originalIdx = allHeaders.indexOf(h);
-     const config = columnConfigs.find((c: ColumnConfigEntry) => c.index === originalIdx);
-     return config?.name || h;
-  });
+  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+  const isComma = decimalPoint === ',';
 
-  return { columns: finalHeaders, rowCount: data.length, data: data };
+  for (let i = 0; i < rowCount; i++) {
+    const row = raw[i];
+
+    for (let k = 0; k < numActive; k++) {
+      const j = activeCols[k];
+      const header = allHeaders[j];
+      const config = configsByIndex[j];
+
+      const val = row[header];
+      const valStr = val === undefined || val === null ? '' : String(val);
+      data[k][i] = parseValue(valStr, config, isComma, categoricalMaps[k]);
+    }
+  }
+
+  return { columns: finalHeaders, rowCount: rowCount, data: data };
 }
 
-function parseValue(val: string, config: ParseConfig | null | undefined, decimalPoint: string, categoricalMap: Map<string, number>): number {
+function parseValue(val: string, config: ParseConfig | null | undefined, isComma: boolean, categoricalMap: Map<string, number>): number {
   if (val === undefined || val === null || val === '') return NaN;
 
   if (config?.type === 'date') {
@@ -232,8 +271,8 @@ function parseValue(val: string, config: ParseConfig | null | undefined, decimal
   }
 
   // Default: numeric
-  const normalized = decimalPoint === ',' ? val.replace(',', '.') : val;
-  const p = parseFloat(normalized);
+  // ⚡ Bolt Optimization: Fast path for parseValue
+  const p = parseFloat(isComma ? val.replace(',', '.') : val);
   return isNaN(p) ? NaN : p;
 }
 

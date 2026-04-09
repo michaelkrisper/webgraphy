@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, Check } from 'lucide-react';
+import { secureJSONParse } from '../../utils/json';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
 
 interface ImportSettingsDialogProps {
@@ -41,7 +42,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   const previewData = useMemo(() => {
     if (fileType === 'json') {
       try {
-        const parsed = JSON.parse(fileContent) as unknown;
+        const parsed = secureJSONParse(fileContent) as unknown;
         const rows = Array.isArray(parsed) ? parsed : [parsed];
         const headers = Object.keys((rows[0] as Record<string, unknown>) || {});
         return { headers, rows: (rows as Record<string, string>[]).slice(0, 10) };

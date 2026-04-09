@@ -347,6 +347,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 const SNAP_PX = 30; // pixel radius for snapping to a point
 
 const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series }: CrosshairProps) => {
+  const isMobile = width < 768 || height < 500;
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -387,7 +388,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return series.map(s => {
       const ds = datasets.find(d => d.id === s.sourceId);
       const axis = yAxes.find(a => a.id === s.yAxisId);
-      if (!ds || !axis) return null;
+      const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+      if (!ds || !axis || !xAxis) return null;
 
       const findColumn = (name: string) => {
         const idx = ds.columns.indexOf(name);
@@ -405,9 +407,9 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
       if (!xCol?.data || !yCol?.data) return null;
 
-      return { series: s, ds, axis, xIdx, yIdx, xCol, yCol };
-    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
-  }, [datasets, series, yAxes]);
+      return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
+    }).filter(Boolean) as { series: SeriesConfig, ds: Dataset, axis: YAxisConfig, xAxis: XAxisConfig, xIdx: number, yIdx: number, xCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} }, yCol: { data: Float32Array, refPoint: number, bounds: {min: number, max: number} } }[];
+  }, [datasets, series, yAxes, xAxes]);
 
   // ⚡ Bolt Optimization: Extract static crosshair layout dependencies out of the high-frequency mouse loop
   const snapMetadata = useMemo(() => {
@@ -449,30 +451,44 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     let bestXWorld: number | null = null;
     let bestSeriesXConf: XAxisConfig | null = null;
 
-    seriesMetadata.forEach(({ ds, xCol }) => {
-      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
-      if (!sXConf) return;
+    // Cache the closest index for each dataset to avoid repeating binary search for multiple series on the same dataset
+    const closestIdxByDataset = new Map<string, number>();
+
+    seriesMetadata.forEach(({ ds, xAxis, xCol }) => {
+      let cachedIdx = closestIdxByDataset.get(ds.id);
 
       const xData = xCol.data;
       const refX = xCol.refPoint;
 
-      const sVp = { xMin: sXConf.min, xMax: sXConf.max, yMin: 0, yMax: 100, width, height, padding };
+      if (cachedIdx === undefined) {
+        const sVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: 0, yMax: 100, width, height, padding };
+        const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
+
+        // Binary search for the closest point
+        let lo = 0, hi = xData.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1;
+          if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
+        }
+
+        let bestI = lo;
+        if (lo > 0 && Math.abs(xData[lo-1]+refX-sMouseWorld.x) < Math.abs(xData[lo]+refX-sMouseWorld.x)) bestI = lo-1;
+        cachedIdx = bestI;
+        closestIdxByDataset.set(ds.id, cachedIdx);
+      }
+
+      const sVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: 0, yMax: 100, width, height, padding };
       const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
 
-      // Binary search for the closest point
-      let lo = 0, hi = xData.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
-      }
-      for (const i of [lo - 1, lo, lo + 1]) {
+      for (const i of [cachedIdx - 1, cachedIdx, cachedIdx + 1]) {
         if (i < 0 || i >= xData.length) continue;
         const wx = xData[i] + refX;
         const d = Math.abs(wx - sMouseWorld.x);
+
         if (d < bestDist) {
           bestDist = d;
           bestXWorld = wx;
-          bestSeriesXConf = sXConf;
+          bestSeriesXConf = xAxis;
         }
       }
     });
@@ -483,24 +499,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
     // Collect all Y values from all series at this X, grouped by X-label and X-axis name
     const entries: { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }[] = [];
-    seriesMetadata.forEach(({ series: s, ds, axis, xCol, yCol }) => {
-      const sXConf = xAxes.find(a => a.id === ds.xAxisId);
-      if (!sXConf) return;
-
+    seriesMetadata.forEach(({ series: s, ds, axis, xAxis, xCol, yCol }) => {
       const xData = xCol.data, yData = yCol.data;
       const refX = xCol.refPoint, refY = yCol.refPoint;
 
-      // Find closest index to its own X world pos matching the mouse screen pos
-      const sVp = { xMin: sXConf.min, xMax: sXConf.max, yMin: 0, yMax: 100, width, height, padding };
-      const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-
-      let lo = 0, hi = xData.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1; else hi = mid;
-      }
-      let bestI = lo;
-      if (lo > 0 && Math.abs(xData[lo-1]+refX-sMouseWorld.x) < Math.abs(xData[lo]+refX-sMouseWorld.x)) bestI = lo-1;
+      // Reuse the cached index from the first pass instead of repeating the binary search!
+      const bestI = closestIdxByDataset.get(ds.id) as number;
 
       const yVal = yData[bestI] + refY;
       const xVal = xData[bestI] + refX;
@@ -508,23 +512,23 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
 
-      const xLab = sXConf.xMode === 'date'
+      const xLab = xAxis.xMode === 'date'
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
 
-      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === sXConf.name);
+      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === xAxis.name);
       if (!group) {
-        group = { xLabel: xLab, xAxisName: sXConf.name || `X-Axis ${ds.xAxisId}`, items: [] };
+        group = { xLabel: xLab, xAxisName: xAxis.name || `X-Axis ${ds.xAxisId}`, items: [] };
         entries.push(group);
       }
-      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: sXConf.xMode === 'date' });
+      group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: xAxis.xMode === 'date' });
     });
 
     // Screen position of the snapped point
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;
 
     return { snapScreenX, entries };
-  }, [pos, seriesMetadata, xAxes, width, height, padding, snapMetadata]);
+  }, [pos, seriesMetadata, width, height, padding, snapMetadata]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -549,6 +553,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   const maxExpectedHeight = 30 + entries.length * 18 + totalItems * 24;
   const isTooltipOnRight = pos.x + 360 + 20 < width;
   const isTooltipBelow = pos.y + maxExpectedHeight + 20 < height;
+  const isMobile = width < 768 || height < 500;
 
   return (
     <>
@@ -849,11 +854,18 @@ const ChartContainer: React.FC = () => {
 
     // AGGRESSIVE AUTO-SCALE: If current viewport is way off data bounds, reset it.
     let shouldReset = wasEmptyRef.current;
+
+    // Create a map for quick dataset lookups
+    const datasetsById = new Map<string, Dataset>();
+    if (state.datasets.length > 0) {
+      state.datasets.forEach(d => datasetsById.set(d.id, d));
+    }
+
     if (!shouldReset && state.datasets.length > 0) {
        // Check if ANY dataset is visible in its assigned X range
        let anyDataVisible = false;
        state.series.forEach(s => {
-         const ds = state.datasets.find(d => d.id === s.sourceId);
+         const ds = datasetsById.get(s.sourceId);
          const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
          if (!ds || !xAxis) return;
 
@@ -878,7 +890,7 @@ const ChartContainer: React.FC = () => {
       
       const xBounds = new Map<string, { min: number, max: number }>();
       state.series.forEach(s => {
-        const ds = state.datasets.find(d => d.id === s.sourceId);
+        const ds = datasetsById.get(s.sourceId);
         if (!ds) return;
         const xIdx = ds.columns.indexOf(ds.xAxisColumn);
         const col = ds.data[xIdx];
@@ -902,8 +914,13 @@ const ChartContainer: React.FC = () => {
       const datasetsById = new Map<string, Dataset>();
       state.datasets.forEach(d => datasetsById.set(d.id, d));
 
+      const seriesByYAxisIdLocal = new Map<string, typeof state.series>();
+      state.series.forEach(s => {
+        if (!seriesByYAxisIdLocal.has(s.yAxisId)) seriesByYAxisIdLocal.set(s.yAxisId, []);
+        seriesByYAxisIdLocal.get(s.yAxisId)!.push(s);
+      });
       activeYAxes.forEach(axis => {
-        const axisSeries = state.series.filter(s => s.yAxisId === axis.id);
+        const axisSeries = seriesByYAxisIdLocal.get(axis.id) || [];
         if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
@@ -972,9 +989,14 @@ const ChartContainer: React.FC = () => {
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState();
-    const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
+    const axisSeries = [];
+    for(let i=0; i<state.series.length; i++) {
+      if (state.series[i].yAxisId === axisId) axisSeries.push(state.series[i]);
+    }
+    if (axisSeries.length === 0) return;
     let yMin = Infinity, yMax = -Infinity;
     
+    // Create a dictionary for quick dataset lookups by id to avoid O(N^2)
     const datasetsById = new Map<string, Dataset>();
     state.datasets.forEach(d => datasetsById.set(d.id, d));
 
@@ -1110,11 +1132,15 @@ const ChartContainer: React.FC = () => {
     const state = useGraphStore.getState();
     if (state.datasets.length === 0) return;
 
+    // Use a Set to quickly identify datasets that have at least one active series
+    const activeDatasetIds = new Set<string>();
+    state.series.forEach(s => activeDatasetIds.add(s.sourceId));
+
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
 
     axesToScale.forEach(id => {
       const activeDatasetsUsingAxis = state.datasets.filter(d =>
-        (d.xAxisId || 'axis-1') === id && state.series.some(s => s.sourceId === d.id)
+        (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id)
       );
       if (activeDatasetsUsingAxis.length === 0) return;
 
@@ -1168,7 +1194,7 @@ const ChartContainer: React.FC = () => {
     return foundHovered;
   }, [xAxesMetrics, padding, width, height]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', altKey: boolean = false, shiftKey: boolean = false) => {
+  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
 
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
@@ -1189,8 +1215,8 @@ const ChartContainer: React.FC = () => {
       const curAxis = state.yAxes.find(a => a.id === axis.id)!;
       const yRange = curAxis.max - curAxis.min;
       const yMove = chartHeight > 0 ? (dy / chartHeight) * yRange : 0;
-      let nextMin = curAxis.min + yMove;
-      let nextMax = curAxis.max + yMove;
+      const nextMin = curAxis.min + yMove;
+      const nextMax = curAxis.max + yMove;
 
       const nextY = { min: nextMin, max: nextMax };
       state.updateYAxis(axis.id, nextY);
@@ -1251,7 +1277,7 @@ const ChartContainer: React.FC = () => {
       const dx = touch.clientX - lastTouchPos.current.x;
       const dy = touch.clientY - lastTouchPos.current.y;
       lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-      performPan(dx, dy, panTarget, false, e.shiftKey);
+      performPan(dx, dy, panTarget, e.shiftKey);
     } else if (e.touches.length === 2 && lastPinchDist.current) {
       if (e.cancelable) e.preventDefault();
       const rect = containerRef.current.getBoundingClientRect();
@@ -1288,7 +1314,7 @@ const ChartContainer: React.FC = () => {
     if (!panTarget || !lastMousePos.current) return;
     const dx = e.clientX - lastMousePos.current.x, dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-    performPan(dx, dy, panTarget, e.altKey, e.shiftKey);
+    performPan(dx, dy, panTarget, e.shiftKey);
   }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
@@ -1399,11 +1425,35 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
+    const activeDatasetIds = new Set(series.map(s => s.sourceId));
+    const datasetsByXAxis: Record<string, Dataset[]> = {};
+    const datasetToXAxis: Record<string, string> = {};
+
+    for(let i = 0; i < datasets.length; i++) {
+      const d = datasets[i];
+      if (activeDatasetIds.has(d.id)) {
+        const axisId = d.xAxisId || 'axis-1';
+        datasetToXAxis[d.id] = axisId;
+        if (!datasetsByXAxis[axisId]) datasetsByXAxis[axisId] = [];
+        datasetsByXAxis[axisId].push(d);
+      }
+    }
+
+    const seriesByXAxis: Record<string, SeriesConfig[]> = {};
+    for(let i = 0; i < series.length; i++) {
+      const s = series[i];
+      const axisId = datasetToXAxis[s.sourceId];
+      if (axisId) {
+        if (!seriesByXAxis[axisId]) seriesByXAxis[axisId] = [];
+        seriesByXAxis[axisId].push(s);
+      }
+    }
+
     return activeXAxesUsed.map(axis => {
       const range = axis.max - axis.min;
       const isXDate = axis.xMode === 'date';
-      const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
-      const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
+      const datasetsForThisAxis = datasetsByXAxis[axis.id] || [];
+      const seriesForThisAxis = seriesByXAxis[axis.id] || [];
       const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
       const color = seriesForThisAxis[0]?.lineColor || '#475569';
 

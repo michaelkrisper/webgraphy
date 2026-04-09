@@ -5,7 +5,7 @@
 
 export function lttb(data: { x: number, y: number }[], threshold: number): { x: number, y: number }[] {
   const dataLength = data.length;
-  if (threshold >= dataLength || threshold === 0) {
+  if (threshold >= dataLength || threshold <= 0) {
     return data; // No need to downsample
   }
 
