@@ -239,6 +239,89 @@ describe('useDataImport hook', () => {
     global.FileReader = originalFileReader;
   });
 
+  it('should process import with worker successfully when xAxisColumn is undefined', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const file = new File([''], 'test2.csv', { type: 'text/csv' });
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
+        this.onload?.({ target: { result: 'data' } });
+      }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    act(() => {
+      result.current.importFile(file);
+    });
+
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
+
+    act(() => {
+      result.current.confirmImport(settings);
+    });
+
+    const mockDataset = {
+      id: 'ds-2',
+      name: 'test2.csv',
+      columns: ['Col1'],
+      rowCount: 10,
+      data: []
+    };
+
+    await act(async () => {
+      await getMockWorker().onmessage?.({
+        data: { type: 'success', dataset: mockDataset }
+      } as MessageEvent);
+    });
+
+    expect(mockAddDataset.mock.calls[0][0].xAxisColumn).toBeUndefined();
+    expect(result.current.isImporting).toBe(false);
+    expect(result.current.pendingFile).toBeNull();
+
+    global.FileReader = originalFileReader;
+  });
+
+
+  it('should handle unknown worker message types', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const file = new File([''], 'test.csv', { type: 'text/csv' });
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
+        this.onload?.({ target: { result: 'data' } });
+      }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    act(() => {
+      result.current.importFile(file);
+    });
+
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [] };
+
+    act(() => {
+      result.current.confirmImport(settings);
+    });
+
+    expect(result.current.isImporting).toBe(true);
+
+    await act(async () => {
+      await getMockWorker().onmessage?.({
+        data: { type: 'unknown' }
+      } as MessageEvent);
+    });
+
+    // The state should remain unchanged (still importing)
+    expect(result.current.isImporting).toBe(true);
+
+    global.FileReader = originalFileReader;
+  });
+
+
   it('should handle worker errors', async () => {
     const { result } = renderHook(() => useDataImport());
 
