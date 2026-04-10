@@ -61,14 +61,7 @@ const TIME_STEPS: TimeStep[] = [
 export function getTimeStep(rangeSeconds: number, maxTicks: number): TimeStep {
   const idealStep = rangeSeconds / maxTicks;
   for (const step of TIME_STEPS) {
-    let stepSeconds: number;
-    if (step.unit === 'month') {
-      stepSeconds = 2592000 * step.value;
-    } else if (step.unit === 'year') {
-      stepSeconds = 31536000 * step.value;
-    } else {
-      stepSeconds = UNIT_SECONDS[step.unit] * step.value;
-    }
+    const stepSeconds = UNIT_SECONDS[step.unit] * step.value;
     if (stepSeconds >= idealStep) return step;
   }
   return TIME_STEPS[TIME_STEPS.length - 1];

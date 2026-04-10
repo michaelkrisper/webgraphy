@@ -111,6 +111,14 @@ describe('generateTimeTicks', () => {
             '31.12.', '01.01.', '02.01.', '03.01.', '04.01.'
         ]);
     });
+    it('generates ticks for multiple days (value > 1)', () => {
+        const ticks = generateTimeTicks(0, 86400 * 4, { unit: 'day', value: 2 });
+        expect(ticks.map(t => t.timestamp)).toEqual([-172800, 0, 172800, 345600, 518400]);
+        expect(ticks.map(t => t.label)).toEqual([
+            '30.12.', '01.01.', '03.01.', '05.01.', '07.01.'
+        ]);
+    });
+
 
     it('generates ticks for weeks', () => {
         // We use { unit: 'week', value: 1 }, min = 0, max = 86400 * 14 (2 weeks)
@@ -145,6 +153,9 @@ describe('generateTimeTicks', () => {
     it('limits the number of ticks to max 501', () => {
         const ticks = generateTimeTicks(0, 10000, { unit: 'second', value: 1 });
         expect(ticks.length).toBe(501);
+    });
+    it('returns empty label for unknown unit', () => {
+        expect(formatPrimaryLabel(0, 'unknown' as any)).toBe('');
     });
 });
 
@@ -257,6 +268,50 @@ describe('generateSecondaryLabels', () => {
         expect(labels[0].timestamp).toBe(1640995200);
         // 2023-01-01 00:00:00 UTC = 1672531200
         expect(labels[1].timestamp).toBe(1672531200);
+    });
+
+
+    it('generates day labels when unit is second', () => {
+        const min = 1673784000;
+        const max = 1673870400; // +1 day
+        const labels = generateSecondaryLabels(min, max, { unit: 'second', value: 30 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels[0].label).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+        expect(labels[0].timestamp).toBe(1673654400); // 2023-01-14 (margin)
+    });
+
+    it('generates day labels when unit is minute', () => {
+        const min = 1673784000;
+        const max = 1673870400; // +1 day
+        const labels = generateSecondaryLabels(min, max, { unit: 'minute', value: 15 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels[0].label).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+        expect(labels[0].timestamp).toBe(1673654400); // 2023-01-14 (margin)
+    });
+
+    it('generates year labels when unit is day', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'day', value: 1 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
+        expect(labels[0].timestamp).toBe(1640995200); // 2022-01-01
+    });
+
+    it('generates year labels when unit is week', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'week', value: 2 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
+    });
+
+    it('generates year labels when unit is year', () => {
+        const min = 1673740800; // 2023-01-15
+        const max = 1705276800; // 2024-01-15
+        const labels = generateSecondaryLabels(min, max, { unit: 'year', value: 1 });
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.map(l => l.label)).toEqual(['2022', '2023', '2024', '2025']);
     });
 
     it('caps the number of labels to prevent infinite loops (hour unit)', () => {

@@ -11,6 +11,7 @@ import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
 import { HelpModal } from './HelpModal';
 import { LicenseModal } from './LicenseModal';
+import { CollapsedMenuButton } from './CollapsedMenuButton';
 
 const COLOR_PALETTE = [
   '#2563eb', '#e11d48', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c'
@@ -157,40 +158,7 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       {isCollapsed && (
-        <button 
-          onClick={() => setIsCollapsed(false)}
-          style={{
-            position: 'absolute',
-            top: '0',
-            right: '0',
-            padding: '12px 24px',
-            borderRadius: '0',
-            background: 'rgba(255, 255, 255, 0.8)',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-            borderTop: 'none',
-            borderRight: 'none',
-            borderBottomLeftRadius: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            backdropFilter: 'blur(4px)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            transition: 'all 0.2s ease',
-            fontWeight: 'bold',
-            fontSize: '14px',
-            color: '#333',
-            minWidth: '80px',
-            minHeight: '44px'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 1)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)'}
-          title="Open Menu"
-          aria-label="Open Menu"
-        >
-          Menu
-        </button>
+        <CollapsedMenuButton onClick={() => setIsCollapsed(false)} />
       )}
 
       <aside 
