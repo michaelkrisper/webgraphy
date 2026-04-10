@@ -49,12 +49,11 @@ interface AxesLayerProps {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
-  leftAxes: YAxisLayout[];
-  rightAxes: YAxisLayout[];
   series: SeriesConfig[];
   axisLayout: Record<string, { total: number; label: number }>;
   allXAxes: XAxisConfig[];
   xAxesMetrics: XAxisMetrics[];
+  yAxesOffsets: Record<string, number>;
 }
 
 interface CrosshairProps {
@@ -117,7 +116,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
   );
 });
 
-const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics }: AxesLayerProps) => {
+const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, axisLayout, allXAxes, xAxesMetrics, yAxesOffsets }: AxesLayerProps) => {
   const isMobile = width < 768 || height < 500;
 
   // ⚡ Bolt Optimization: Hoist invariant variable lookups out of inner map loops
@@ -212,15 +211,13 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           return null;
         })()}
         {yAxes.map((axis) => {
-          const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+          const isLeft = axis.position === 'left';
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
           if (isLeft) {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
-            xPos = padding.left - offset - axisMetrics.total;
+            xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisMetrics.total;
           } else {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
-            xPos = width - padding.right + offset;
+            xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
           }
           const axisLineX = isLeft ? xPos + axisMetrics.total : xPos;
           const range = axis.max - axis.min;
@@ -308,15 +305,13 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           );
         })}
         {yAxes.map((axis) => {
-          const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+          const isLeft = axis.position === 'left';
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
           if (isLeft) {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
-            xPos = padding.left - offset - axisMetrics.total;
+            xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisMetrics.total;
           } else {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
-            xPos = width - padding.right + offset;
+            xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
           }
           const range = axis.max - axis.min;
           const chartHeight = Math.max(0, height - padding.top - padding.bottom);
@@ -807,6 +802,22 @@ const ChartContainer: React.FC = () => {
 
   const isMobile = width < 768 || height < 500;
 
+  // ⚡ Bolt Optimization: Pre-calculate Y-axis cumulative offsets to replace O(N^2) inline loop lookups with O(1) property access
+  const yAxesOffsets = useMemo(() => {
+    const offsets: Record<string, number> = {};
+    let leftCumulative = 0;
+    for (let i = 0; i < leftAxes.length; i++) {
+      offsets[leftAxes[i].id] = leftCumulative;
+      leftCumulative += axisLayout[leftAxes[i].id]?.total || 40;
+    }
+    let rightCumulative = 0;
+    for (let i = 0; i < rightAxes.length; i++) {
+      offsets[rightAxes[i].id] = rightCumulative;
+      rightCumulative += axisLayout[rightAxes[i].id]?.total || 40;
+    }
+    return offsets;
+  }, [leftAxes, rightAxes, axisLayout]);
+
   const xAxesMetrics = useMemo(() => {
     let currentOffset = 0;
     return activeXAxesUsed.map((axis) => {
@@ -1164,22 +1175,22 @@ const ChartContainer: React.FC = () => {
   const getHoveredYAxis = useCallback((mouseX: number, mouseY: number) => {
     if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
     let foundHovered = null;
-    leftAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+    leftAxes.forEach((axis) => {
+      const offset = yAxesOffsets[axis.id] || 0;
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
       const leftBound = padding.left - offset - axisMetrics.total;
       const rightBound = padding.left - offset;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
-    rightAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+    rightAxes.forEach((axis) => {
+      const offset = yAxesOffsets[axis.id] || 0;
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
       const leftBound = width - padding.right + offset;
       const rightBound = width - padding.right + offset + axisMetrics.total;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
     });
     return foundHovered;
-  }, [leftAxes, rightAxes, axisLayout, padding, width, height]);
+  }, [leftAxes, rightAxes, padding, height, width, axisLayout, yAxesOffsets]);
 
   const getHoveredXAxis = useCallback((mouseX: number, mouseY: number) => {
     if (mouseX < padding.left || mouseX > width - padding.right) return null;
@@ -1498,9 +1509,6 @@ const ChartContainer: React.FC = () => {
     });
   }, [activeXAxesUsed, chartWidth, series, datasets]);
 
-  const leftAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'left'), [activeYAxesLayout]);
-  const rightAxesLayout = useMemo(() => activeYAxesLayout.filter(a => a.position === 'right'), [activeYAxesLayout]);
-
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
       {useGraphStore.getState().datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
@@ -1508,7 +1516,7 @@ const ChartContainer: React.FC = () => {
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <WebGLRenderer datasets={useGraphStore.getState().datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} />
       </div>
-      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={leftAxesLayout} rightAxes={rightAxesLayout} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} />
+      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} yAxesOffsets={yAxesOffsets} />
 
       {xAxesMetrics.map((metrics) => {
         const baseY = padding.bottom - metrics.cumulativeOffset - metrics.height;
@@ -1516,15 +1524,13 @@ const ChartContainer: React.FC = () => {
       })}
 
       {activeYAxes.map((axis) => {
-        const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+        const isLeft = axis.position === 'left';
         const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
         let xPos = 0;
         if (isLeft) {
-          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
-          xPos = padding.left - offset - axisMetrics.total;
+          xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisMetrics.total;
         } else {
-          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
-          xPos = width - padding.right + offset;
+          xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
