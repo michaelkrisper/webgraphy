@@ -1164,20 +1164,25 @@ const ChartContainer: React.FC = () => {
   const getHoveredYAxis = useCallback((mouseX: number, mouseY: number) => {
     if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
     let foundHovered = null;
-    leftAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+    let leftOffset = 0;
+    for (let i = 0; i < leftAxes.length; i++) {
+      const axis = leftAxes[i];
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
-      const leftBound = padding.left - offset - axisMetrics.total;
-      const rightBound = padding.left - offset;
+      const leftBound = padding.left - leftOffset - axisMetrics.total;
+      const rightBound = padding.left - leftOffset;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
-    });
-    rightAxes.forEach((axis, sideIdx) => {
-      let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+      leftOffset += axisMetrics.total;
+    }
+
+    let rightOffset = 0;
+    for (let i = 0; i < rightAxes.length; i++) {
+      const axis = rightAxes[i];
       const axisMetrics = axisLayout[axis.id] || { total: 40 };
-      const leftBound = width - padding.right + offset;
-      const rightBound = width - padding.right + offset + axisMetrics.total;
+      const leftBound = width - padding.right + rightOffset;
+      const rightBound = width - padding.right + rightOffset + axisMetrics.total;
       if (mouseX >= leftBound && mouseX <= rightBound) foundHovered = axis.id;
-    });
+      rightOffset += axisMetrics.total;
+    }
     return foundHovered;
   }, [leftAxes, rightAxes, axisLayout, padding, width, height]);
 
