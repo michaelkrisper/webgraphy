@@ -24,6 +24,27 @@ function detectDelimiter(fileContent: string, fileType: 'csv' | 'json'): string 
   return best;
 }
 
+
+function detectColumnTypeAndFormat(firstVal: string | undefined, decimalPoint: string): { type: ColumnType; dateFormat?: string } {
+  let type: ColumnType = 'numeric';
+  let dateFormat: string | undefined;
+
+  if (firstVal) {
+    const normalized = firstVal.replace(decimalPoint, '.');
+    if (isNaN(Number(normalized)) || normalized.split('.').length > 2) {
+      if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
+        type = 'date';
+        if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
+        else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
+        else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
+      } else {
+        type = 'categorical';
+      }
+    }
+  }
+  return { type, dateFormat };
+}
+
 export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   fileName,
   fileContent,
@@ -67,26 +88,11 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
       const override = columnOverrides[name];
       if (override) return { index, name, type: 'numeric' as ColumnType, ...override };
 
-      let type: ColumnType = 'numeric';
-      let dateFormat: string | undefined;
-
       const firstVal = fileType === 'json'
         ? (previewData.rows as Record<string, string>[]).find(row => row[name])?.[name]
         : (previewData.rows as string[][])[0]?.[index];
 
-      if (firstVal) {
-        const normalized = firstVal.replace(decimalPoint, '.');
-        if (isNaN(Number(normalized)) || normalized.split('.').length > 2) {
-          if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
-            type = 'date';
-            if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
-            else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
-            else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
-          } else {
-            type = 'categorical';
-          }
-        }
-      }
+      const { type, dateFormat } = detectColumnTypeAndFormat(firstVal, decimalPoint);
       return { index, name, type, dateFormat };
     });
   }, [previewData, columnOverrides, decimalPoint, fileType]);
