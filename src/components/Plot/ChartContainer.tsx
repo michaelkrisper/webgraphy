@@ -132,6 +132,24 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
     }
     return grouped;
   }, [series]);
+
+  // ⚡ Bolt Optimization: Pre-calculate cumulative offsets to avoid O(N^2) loops inside mapping
+  const { leftOffsets, rightOffsets } = useMemo(() => {
+    const leftOffsets: Record<string, number> = {};
+    let currentLeftOffset = 0;
+    for (let i = 0; i < leftAxes.length; i++) {
+      leftOffsets[leftAxes[i].id] = currentLeftOffset;
+      currentLeftOffset += axisLayout[leftAxes[i].id]?.total || 40;
+    }
+    const rightOffsets: Record<string, number> = {};
+    let currentRightOffset = 0;
+    for (let i = 0; i < rightAxes.length; i++) {
+      rightOffsets[rightAxes[i].id] = currentRightOffset;
+      currentRightOffset += axisLayout[rightAxes[i].id]?.total || 40;
+    }
+    return { leftOffsets, rightOffsets };
+  }, [leftAxes, rightAxes, axisLayout]);
+
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -212,14 +230,14 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           return null;
         })()}
         {yAxes.map((axis) => {
-          const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+          const isLeft = axis.position === 'left';
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
           if (isLeft) {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+            const offset = leftOffsets[axis.id] ?? 0;
             xPos = padding.left - offset - axisMetrics.total;
           } else {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+            const offset = rightOffsets[axis.id] ?? 0;
             xPos = width - padding.right + offset;
           }
           const axisLineX = isLeft ? xPos + axisMetrics.total : xPos;
@@ -308,14 +326,14 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           );
         })}
         {yAxes.map((axis) => {
-          const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+          const isLeft = axis.position === 'left';
           const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
           let xPos = 0;
           if (isLeft) {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+            const offset = leftOffsets[axis.id] ?? 0;
             xPos = padding.left - offset - axisMetrics.total;
           } else {
-            let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+            const offset = rightOffsets[axis.id] ?? 0;
             xPos = width - padding.right + offset;
           }
           const range = axis.max - axis.min;
@@ -781,6 +799,24 @@ const ChartContainer: React.FC = () => {
     lastAxisLayout.current = layout;
     return layout;
   }, [activeYAxes, height]);
+
+
+  // ⚡ Bolt Optimization: Pre-calculate cumulative offsets to avoid O(N^2) loops inside mapping
+  const { leftOffsets, rightOffsets } = useMemo(() => {
+    const leftOffsets: Record<string, number> = {};
+    let currentLeftOffset = 0;
+    for (let i = 0; i < leftAxes.length; i++) {
+      leftOffsets[leftAxes[i].id] = currentLeftOffset;
+      currentLeftOffset += axisLayout[leftAxes[i].id]?.total || 40;
+    }
+    const rightOffsets: Record<string, number> = {};
+    let currentRightOffset = 0;
+    for (let i = 0; i < rightAxes.length; i++) {
+      rightOffsets[rightAxes[i].id] = currentRightOffset;
+      currentRightOffset += axisLayout[rightAxes[i].id]?.total || 40;
+    }
+    return { leftOffsets, rightOffsets };
+  }, [leftAxes, rightAxes, axisLayout]);
 
   const activeXAxesUsed = useMemo(() => {
     // Mapping: which datasets use which X axes?
@@ -1521,14 +1557,14 @@ const ChartContainer: React.FC = () => {
       })}
 
       {activeYAxes.map((axis) => {
-        const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+        const isLeft = axis.position === 'left';
         const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
         let xPos = 0;
         if (isLeft) {
-          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+          const offset = leftOffsets[axis.id] ?? 0;
           xPos = padding.left - offset - axisMetrics.total;
         } else {
-          let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[rightAxes[i].id]?.total || 40;
+          const offset = rightOffsets[axis.id] ?? 0;
           xPos = width - padding.right + offset;
         }
         return <div key={`wheel-${axis.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: axis.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: axis.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: axis.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); const mouseY = rect ? e.clientY - rect.top : undefined; handleAutoScaleY(axis.id, mouseY); }} style={{ position: 'absolute', left: xPos, top: padding.top, width: axisMetrics.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
