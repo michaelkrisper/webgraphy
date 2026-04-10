@@ -4,7 +4,7 @@ import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels
 
 describe('formatPrimaryLabel', () => {
     it('returns empty string for unknown unit', () => {
-        expect(formatPrimaryLabel(0, 'unknown' as any)).toBe('');
+        expect(formatPrimaryLabel(0, 'unknown' as never)).toBe('');
     });
 });
 
@@ -155,7 +155,7 @@ describe('generateTimeTicks', () => {
         expect(ticks.length).toBe(501);
     });
     it('returns empty label for unknown unit', () => {
-        expect(formatPrimaryLabel(0, 'unknown' as any)).toBe('');
+        expect(formatPrimaryLabel(0, 'unknown' as never)).toBe('');
     });
 });
 
