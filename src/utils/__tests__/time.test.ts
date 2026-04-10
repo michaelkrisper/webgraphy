@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels, formatPrimaryLabel } from '../time';
 
+
+describe('formatPrimaryLabel', () => {
+    it('returns empty string for unknown unit', () => {
+        expect(formatPrimaryLabel(0, 'unknown' as any)).toBe('');
+    });
+});
+
 describe('formatFullDate', () => {
     let originalTz: string | undefined;
 
@@ -36,6 +43,23 @@ describe('formatFullDate', () => {
 });
 
 describe('generateTimeTicks', () => {
+    it('generates ticks for multi-month steps', () => {
+        const ticks = generateTimeTicks(0, 86400 * 180, { unit: 'month', value: 2 });
+        expect(ticks.length).toBeGreaterThan(0);
+    });
+
+    it('generates ticks for multi-year steps', () => {
+        const ticks = generateTimeTicks(0, 86400 * 365 * 5, { unit: 'year', value: 2 });
+        expect(ticks.length).toBeGreaterThan(0);
+    });
+
+    it('generates ticks for multiple days aligning to start of month', () => {
+        // We use { unit: 'day', value: 2 }, min = 0, max = 86400 * 4
+        // Expected to hit line 95 (d.setDate(1))
+        const ticks = generateTimeTicks(0, 86400 * 4, { unit: 'day', value: 2 });
+        expect(ticks.length).toBeGreaterThan(0);
+    });
+
     let originalTz: string | undefined;
 
     beforeAll(() => {
@@ -136,6 +160,15 @@ describe('generateTimeTicks', () => {
 });
 
 describe('getTimeStep', () => {
+    it('handles edge cases like 0 or negative values', () => {
+        // range 0
+        expect(getTimeStep(0, 10)).toEqual({ unit: 'second', value: 1 });
+        // maxTicks 0 -> idealStep is Infinity
+        expect(getTimeStep(100, 0)).toEqual({ unit: 'year', value: 100 });
+        // negative range -> idealStep is negative
+        expect(getTimeStep(-100, 10)).toEqual({ unit: 'second', value: 1 });
+    });
+
     it('returns a suitable step in seconds for a small range', () => {
         // range of 60 seconds, max 10 ticks -> ideal step 6s
         // next available in TIME_STEPS is 10s
