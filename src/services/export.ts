@@ -1,6 +1,7 @@
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { worldToScreen } from '../utils/coords';
 import { lttb } from '../utils/lttb';
+import { getColumnIndex } from '../utils/columns';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
@@ -67,8 +68,21 @@ export const exportToSVG = (
   const axisWidthMap: Record<string, number> = {};
   activeYAxes.forEach(a => axisWidthMap[a.id] = getAxisWidth(a));
 
-  const leftSum = leftAxes.reduce((sum, a) => sum + axisWidthMap[a.id], 0);
-  const rightSum = rightAxes.reduce((sum, a) => sum + axisWidthMap[a.id], 0);
+  // ⚡ Bolt Optimization: Pre-calculate Y-axis cumulative offsets to replace O(N^2) inline loop lookups with O(1) property access
+  const yAxesOffsets: Record<string, number> = {};
+  let leftCumulative = 0;
+  for (const axis of leftAxes) {
+    yAxesOffsets[axis.id] = leftCumulative;
+    leftCumulative += axisWidthMap[axis.id];
+  }
+  let rightCumulative = 0;
+  for (const axis of rightAxes) {
+    yAxesOffsets[axis.id] = rightCumulative;
+    rightCumulative += axisWidthMap[axis.id];
+  }
+
+  const leftSum = leftCumulative;
+  const rightSum = rightCumulative;
 
   const padding = {
     top: 20,
@@ -113,14 +127,8 @@ export const exportToSVG = (
     const yAxis = yAxes.find(a => a.id === s.yAxisId);
     if (!ds || !xAxis || !yAxis) return;
 
-    const findColumn = (name: string) => {
-      const idx = ds.columns.indexOf(name);
-      if (idx !== -1) return idx;
-      return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-    };
-
-    const xIdx = findColumn(ds.xAxisColumn);
-    const yIdx = findColumn(s.yColumn);
+    const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+    const yIdx = getColumnIndex(ds, s.yColumn);
     if (xIdx === -1 || yIdx === -1) return;
 
     const xCol = ds.data[xIdx], yCol = ds.data[yIdx], visibleData = [];
@@ -175,15 +183,13 @@ export const exportToSVG = (
   });
 
   activeYAxes.forEach(axis => {
-    const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+    const isLeft = axis.position === 'left';
     const axisWidth = axisWidthMap[axis.id];
     let xPos = 0;
     if (isLeft) {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisWidthMap[leftAxes[i].id];
-      xPos = padding.left - offset - axisWidth;
+      xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisWidth;
     } else {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisWidthMap[rightAxes[i].id];
-      xPos = width - padding.right + offset;
+      xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
     }
     
     const range = axis.max - axis.min, step = range / Math.max(2, Math.floor(chartHeight / 30));
@@ -225,12 +231,13 @@ export const formatDate = (val: number, step: number) => {
 
 export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number): Promise<string> => {
   const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr; canvas.height = height * dpr;
     const ctx = canvas.getContext('2d')!; ctx.scale(dpr, dpr);
     const img = new Image(), svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }), url = URL.createObjectURL(svgBlob);
     img.onload = () => { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load SVG into image for PNG export')); };
     img.src = url;
   });
 };

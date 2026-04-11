@@ -4,6 +4,7 @@ import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
+import { getColumnIndex } from '../../utils/columns';
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
@@ -409,14 +410,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
       if (!ds || !axis || !xAxis) return null;
 
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) return null;
 
@@ -956,12 +951,15 @@ const ChartContainer: React.FC = () => {
     if (!shouldReset && state.datasets.length > 0) {
        // Check if ANY dataset is visible in its assigned X range
        let anyDataVisible = false;
+       const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+       state.xAxes.forEach(a => xAxesById.set(a.id, a));
+
        state.series.forEach(s => {
          const ds = datasetsById.get(s.sourceId);
-         const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+         const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
          if (!ds || !xAxis) return;
 
-         const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+         const xIdx = getColumnIndex(ds, ds.xAxisColumn);
          const xCol = ds.data[xIdx];
          
          if (xCol && xCol.bounds) {
@@ -984,7 +982,7 @@ const ChartContainer: React.FC = () => {
       state.series.forEach(s => {
         const ds = datasetsById.get(s.sourceId);
         if (!ds) return;
-        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+        const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (!col || !col.bounds) return;
         const xId = ds.xAxisId || 'axis-1';
@@ -1017,7 +1015,8 @@ const ChartContainer: React.FC = () => {
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
           const ds = datasetsById.get(s.sourceId); if (!ds) return;
-          const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
+          const yIdx = getColumnIndex(ds, s.yColumn);
+          const yCol = ds.data[yIdx]; if (!yCol || !yCol.bounds) return;
           if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
           if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
         });
@@ -1091,20 +1090,16 @@ const ChartContainer: React.FC = () => {
     // Create a dictionary for quick dataset lookups by id to avoid O(N^2)
     const datasetsById = new Map<string, Dataset>();
     state.datasets.forEach(d => datasetsById.set(d.id, d));
+    const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+    state.xAxes.forEach(a => xAxesById.set(a.id, a));
 
     axisSeries.forEach(s => {
       const ds = datasetsById.get(s.sourceId); if (!ds) return;
-      const xAxis = state.xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
+      const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
       if (!xAxis) return;
       
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex((c: string) => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
       if (xIdx === -1 || yIdx === -1) return;
 
       const colX = ds.data[xIdx];
@@ -1238,7 +1233,7 @@ const ChartContainer: React.FC = () => {
 
       let xMin = Infinity, xMax = -Infinity;
       activeDatasetsUsingAxis.forEach(ds => {
-        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+        const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (col && col.bounds) {
           if (col.bounds.min < xMin) xMin = col.bounds.min;
