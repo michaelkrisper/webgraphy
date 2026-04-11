@@ -42,7 +42,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                {dataset.columns.map((col, i) => (
+                {(dataset.columns || []).map((col, i) => (
                   <th key={i} style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                     {col}
                   </th>
@@ -52,7 +52,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
             <tbody>
               {rows.map(rowIndex => (
                 <tr key={rowIndex} style={{ borderBottom: '1px solid #eee' }}>
-                  {dataset.data.map((colData, colIndex) => {
+                  {(dataset.data || []).map((colData, colIndex) => {
                     const rawValue = colData.data[rowIndex];
                     const absoluteValue = rawValue + colData.refPoint;
 
