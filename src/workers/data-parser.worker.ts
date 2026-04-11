@@ -127,6 +127,68 @@ self.onmessage = async (event) => {
   }
 };
 
+
+function processCSVHeader(line: string, delimiter: string, columnConfigs: ColumnConfigEntry[], capacity: number) {
+  const headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+  const configMap = new Map<number, ColumnConfigEntry>();
+  for (let i = 0; i < columnConfigs.length; i++) {
+    configMap.set(columnConfigs[i].index, columnConfigs[i]);
+  }
+
+  const configsByIndex = new Array(headers.length);
+  for (let j = 0; j < headers.length; j++) {
+    configsByIndex[j] = configMap.get(j);
+  }
+
+  const activeCols: number[] = [];
+  const finalHeaders: string[] = [];
+
+  for (let j = 0; j < headers.length; j++) {
+    if (configsByIndex[j]?.type !== 'ignore') {
+      activeCols.push(j);
+      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+    }
+  }
+
+  const numActive = activeCols.length;
+  const data = new Array(numActive);
+  for (let k = 0; k < numActive; k++) {
+    data[k] = new Float64Array(capacity);
+  }
+
+  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+
+  return { configsByIndex, activeCols, finalHeaders, numActive, data, categoricalMaps };
+}
+
+function processCSVRow(
+  line: string,
+  delimiter: string,
+  numActive: number,
+  activeCols: number[],
+  configsByIndex: (ColumnConfigEntry | undefined)[],
+  isComma: boolean,
+  categoricalMaps: Map<string, number>[],
+  actualRowCount: number,
+  data: Float64Array[]
+) {
+  const values = line.split(delimiter);
+  for (let k = 0; k < numActive; k++) {
+    const j = activeCols[k];
+    let val = values[j];
+
+    if (val !== undefined) {
+       val = val.trim();
+       if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+           val = val.substring(1, val.length - 1);
+       }
+    }
+
+    data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+  }
+}
+
 async function parseCSV(file: File, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
 
@@ -142,8 +204,8 @@ async function parseCSV(file: File, settings?: ParseSettings) {
   let capacity = 100000;
 
   let numActive = 0;
-  const activeCols: number[] = [];
-  const finalHeaders: string[] = [];
+  let activeCols: number[] = [];
+  let finalHeaders: string[] = [];
   let configsByIndex: (ColumnConfigEntry | undefined)[] = [];
   let data: Float64Array[] = [];
   let categoricalMaps: Map<string, number>[] = [];
@@ -189,32 +251,13 @@ async function parseCSV(file: File, settings?: ParseSettings) {
       }
 
       if (isFirstLine && lineCount === 0) {
-        const headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-
-        const configMap = new Map<number, ColumnConfigEntry>();
-        for (let i = 0; i < columnConfigs.length; i++) {
-          configMap.set(columnConfigs[i].index, columnConfigs[i]);
-        }
-
-        configsByIndex = new Array(headers.length);
-        for (let j = 0; j < headers.length; j++) {
-          configsByIndex[j] = configMap.get(j);
-        }
-
-        for (let j = 0; j < headers.length; j++) {
-          if (configsByIndex[j]?.type !== 'ignore') {
-            activeCols.push(j);
-            finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-          }
-        }
-
-        numActive = activeCols.length;
-        data = new Array(numActive);
-        for (let k = 0; k < numActive; k++) {
-          data[k] = new Float64Array(capacity);
-        }
-
-        categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+        const headerResult = processCSVHeader(line, delimiter, columnConfigs, capacity);
+        configsByIndex = headerResult.configsByIndex;
+        activeCols = headerResult.activeCols;
+        finalHeaders = headerResult.finalHeaders;
+        numActive = headerResult.numActive;
+        data = headerResult.data;
+        categoricalMaps = headerResult.categoricalMaps;
         isFirstLine = false;
       }
       
@@ -229,20 +272,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
           }
         }
 
-        const values = line.split(delimiter);
-        for (let k = 0; k < numActive; k++) {
-          const j = activeCols[k];
-          let val = values[j];
-
-          if (val !== undefined) {
-             val = val.trim();
-             if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-                 val = val.substring(1, val.length - 1);
-             }
-          }
-
-          data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
-        }
+        processCSVRow(line, delimiter, numActive, activeCols, configsByIndex, isComma, categoricalMaps, actualRowCount, data);
         actualRowCount++;
       }
       lineCount++;
