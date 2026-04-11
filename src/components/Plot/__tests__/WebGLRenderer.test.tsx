@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { WebGLRenderer } from '../WebGLRenderer';
 import React from 'react';
+import { secureRandom } from '../../../utils/random';
 
 // Mock WebGL Rendering Context
 const createMockWebGLContext = () => {
@@ -70,7 +71,7 @@ describe('WebGLRenderer Downsampling', () => {
 
   it('renders without downsampling when points <= 50000', () => {
     const xData = new Float32Array(50000).map((_, i) => i);
-    const yData = new Float32Array(50000).map((_, i) => Math.random());
+    const yData = new Float32Array(50000).map((_, i) => secureRandom());
 
     const props = {
       ...baseProps,
@@ -109,7 +110,7 @@ describe('WebGLRenderer Downsampling', () => {
 
   it('renders with downsampling when points > 50000 and isInteracting', () => {
     const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => Math.random());
+    const yData = new Float32Array(100000).map((_, i) => secureRandom());
 
     const props = {
       ...baseProps,
@@ -148,7 +149,7 @@ describe('WebGLRenderer Downsampling', () => {
 
   it('renders without downsampling when points > 50000 but not interacting', () => {
     const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => Math.random());
+    const yData = new Float32Array(100000).map((_, i) => secureRandom());
 
     const props = {
       ...baseProps,
@@ -187,7 +188,7 @@ describe('WebGLRenderer Downsampling', () => {
 
   it('handles dashed lines downsampling appropriately', () => {
     const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => Math.random());
+    const yData = new Float32Array(100000).map((_, i) => secureRandom());
 
     const props = {
       ...baseProps,
@@ -229,7 +230,7 @@ describe('WebGLRenderer Downsampling', () => {
 
   it('handles point styles downsampling appropriately', () => {
     const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => Math.random());
+    const yData = new Float32Array(100000).map((_, i) => secureRandom());
 
     const props = {
       ...baseProps,
