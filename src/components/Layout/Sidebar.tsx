@@ -3,9 +3,10 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
+import { CalculatedColumnModal } from './CalculatedColumnModal';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
 import { ImprintModal } from './ImprintModal';
@@ -29,6 +30,7 @@ export const Sidebar: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
   const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
+  const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -43,6 +45,10 @@ export const Sidebar: React.FC = () => {
   const selectedDatasetForView = useMemo(() => {
     return datasets.find(d => d.id === viewingDatasetId);
   }, [datasets, viewingDatasetId]);
+
+  const selectedDatasetForCalc = useMemo(() => {
+    return datasets.find(d => d.id === calculatingDatasetId);
+  }, [datasets, calculatingDatasetId]);
 
   const customViews = useMemo(() => {
     return views ? views.filter(v => v.id !== 'default-view') : [];
@@ -302,6 +308,14 @@ export const Sidebar: React.FC = () => {
                           aria-label="Remove data source"
                         >
                           <Trash2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => setCalculatingDatasetId(d.id)}
+                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Add Calculated Series"
+                          aria-label="Add Calculated Series"
+                        >
+                          <Calculator size={18} />
                         </button>
                       </div>
                     </div>
@@ -573,6 +587,12 @@ export const Sidebar: React.FC = () => {
         <DataViewModal
           dataset={selectedDatasetForView}
           onClose={() => setViewingDatasetId(null)}
+        />
+      )}
+      {selectedDatasetForCalc && (
+        <CalculatedColumnModal
+          dataset={selectedDatasetForCalc}
+          onClose={() => setCalculatingDatasetId(null)}
         />
       )}
     </>
