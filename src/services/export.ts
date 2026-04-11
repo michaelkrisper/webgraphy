@@ -220,12 +220,13 @@ export const formatDate = (val: number, step: number) => {
 
 export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number): Promise<string> => {
   const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr; canvas.height = height * dpr;
     const ctx = canvas.getContext('2d')!; ctx.scale(dpr, dpr);
     const img = new Image(), svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }), url = URL.createObjectURL(svgBlob);
     img.onload = () => { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load SVG into image for PNG export')); };
     img.src = url;
   });
 };
