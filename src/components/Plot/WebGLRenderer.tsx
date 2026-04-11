@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
+import { getColumnIndex } from '../../utils/columns';
 
 const VERTEX_SHADER_SOURCE = `
       attribute float a_x;
@@ -51,26 +52,42 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform int u_line_style;
       uniform float u_dpr;
 
+      void drawCircle() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        gl_FragColor = u_color;
+      }
+
+      void drawSquare() {
+        gl_FragColor = u_color;
+      }
+
+      void drawCross() {
+        vec2 p = gl_PointCoord - 0.5;
+        if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+        gl_FragColor = u_color;
+      }
+
+      void drawLineSegment() {
+        if (u_line_style > 0) {
+          float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
+          float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
+          float total = (dashLen + gapLen) * u_dpr;
+          float dist = mod(v_dist_start + v_t * v_len, total);
+          if (dist > dashLen * u_dpr) discard;
+        }
+        gl_FragColor = u_color;
+      }
+
       void main() {
-        if (u_style == 0) { // Circle
-          float d = length(gl_PointCoord - 0.5);
-          if (d > 0.5) discard;
-          gl_FragColor = u_color;
-        } else if (u_style == 1) { // Square
-          gl_FragColor = u_color;
-        } else if (u_style == 2) { // Cross
-          vec2 p = gl_PointCoord - 0.5;
-          if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
-          gl_FragColor = u_color;
-        } else { // Line segment
-          if (u_line_style > 0) {
-            float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
-            float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
-            float total = (dashLen + gapLen) * u_dpr;
-            float dist = mod(v_dist_start + v_t * v_len, total);
-            if (dist > dashLen * u_dpr) discard;
-          }
-          gl_FragColor = u_color;
+        if (u_style == 0) {
+          drawCircle();
+        } else if (u_style == 1) {
+          drawSquare();
+        } else if (u_style == 2) {
+          drawCross();
+        } else {
+          drawLineSegment();
         }
       }
 `;
@@ -184,14 +201,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       const yAxis = yAxes.find(a => a.id === s.yAxisId);
       if (!ds || !xAxis || !yAxis) return null;
 
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) {
         return null;

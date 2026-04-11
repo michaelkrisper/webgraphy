@@ -1,0 +1,234 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import '@testing-library/jest-dom';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Sidebar } from '../Sidebar';
+import { useGraphStore } from '../../../store/useGraphStore';
+import { useDataImport } from '../../../hooks/useDataImport';
+import type { Mock } from 'vitest';
+
+// Mock the components
+vi.mock('../ImportSettingsDialog', () => ({
+  ImportSettingsDialog: () => <div data-testid="import-settings-dialog">Import Settings</div>,
+}));
+vi.mock('../DataViewModal', () => ({
+  DataViewModal: () => <div data-testid="data-view-modal">Data View</div>,
+}));
+vi.mock('../ImprintModal', () => ({
+  ImprintModal: () => <div data-testid="imprint-modal">Imprint</div>,
+}));
+vi.mock('../HelpModal', () => ({
+  HelpModal: () => <div data-testid="help-modal">Help</div>,
+}));
+vi.mock('../LicenseModal', () => ({
+  LicenseModal: () => <div data-testid="license-modal">License</div>,
+}));
+vi.mock('../CollapsedMenuButton', () => ({
+  CollapsedMenuButton: ({ onClick }: any) => <button onClick={onClick} data-testid="collapsed-menu-button">Menu</button>,
+}));
+vi.mock('../../Sidebar/SeriesConfig', () => ({
+  SeriesConfigUI: () => <div data-testid="series-config-ui">Series Config</div>,
+}));
+
+// Mock the services/export
+vi.mock('../../../services/export', () => ({
+  exportToSVG: vi.fn().mockReturnValue('<svg></svg>'),
+  exportToPNG: vi.fn().mockResolvedValue('data:image/png;base64,...'),
+  downloadFile: vi.fn(),
+}));
+
+// Mock indexedDB for the Reset/Demo buttons
+const mockClear = vi.fn();
+const mockTransaction = vi.fn().mockReturnValue({
+  objectStore: vi.fn().mockReturnValue({ clear: mockClear }),
+  oncomplete: vi.fn(),
+});
+const mockOpen = vi.fn().mockReturnValue({
+  onsuccess: vi.fn(),
+});
+
+global.indexedDB = {
+  open: mockOpen,
+} as any;
+
+// Mock window.confirm
+const mockConfirm = vi.fn();
+window.confirm = mockConfirm;
+
+// Mock localStorage
+const mockRemoveItem = vi.fn();
+const mockSetItem = vi.fn();
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    removeItem: mockRemoveItem,
+    setItem: mockSetItem,
+  },
+});
+
+// Mock hooks
+vi.mock('../../../store/useGraphStore', () => ({
+  useGraphStore: vi.fn(),
+}));
+
+vi.mock('../../../hooks/useDataImport', () => ({
+  useDataImport: vi.fn(),
+}));
+
+describe('Sidebar Component', () => {
+  const mockSaveView = vi.fn();
+  const mockApplyView = vi.fn();
+  const mockDeleteView = vi.fn();
+  const mockUpdateViewName = vi.fn();
+  const mockLoadDemoData = vi.fn().mockResolvedValue(undefined);
+  const mockImportFile = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default mock returns
+    (useGraphStore as unknown as Mock).mockReturnValue({
+      datasets: [],
+      series: [],
+      xAxes: [],
+      yAxes: [],
+      axisTitles: [],
+      views: [
+        { id: 'default-view', name: 'Default' },
+        { id: 'view-1', name: 'Custom View 1' }
+      ],
+      removeDataset: vi.fn(),
+      updateDataset: vi.fn(),
+      moveDataset: vi.fn(),
+      saveView: mockSaveView,
+      applyView: mockApplyView,
+      deleteView: mockDeleteView,
+      moveSeries: vi.fn(),
+      updateViewName: mockUpdateViewName,
+      loadDemoData: mockLoadDemoData,
+    });
+
+    (useDataImport as unknown as Mock).mockReturnValue({
+      importFile: mockImportFile,
+      confirmImport: vi.fn(),
+      cancelImport: vi.fn(),
+      pendingFile: null,
+      isImporting: false,
+    });
+
+    // Set a predictable window size to test both mobile and desktop states
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+  });
+
+  it('renders correctly with default state', () => {
+    render(<Sidebar />);
+    expect(screen.getByText('WebGraphy')).toBeInTheDocument();
+    expect(screen.getByText('Data Sources')).toBeInTheDocument();
+    expect(screen.getByText('Data Series')).toBeInTheDocument();
+    expect(screen.getByText('Data Views')).toBeInTheDocument();
+  });
+
+  it('can be collapsed and expanded', () => {
+    // Start with a large window so it's not initially collapsed
+    window.innerWidth = 1024;
+    render(<Sidebar />);
+
+    // Check it's not collapsed (sidebar-content visible)
+    const sidebar = screen.getByRole('complementary');
+    expect(sidebar.style.width).not.toBe('0px');
+
+    // Click collapse
+    const collapseBtn = screen.getByLabelText('Collapse Menu');
+    fireEvent.click(collapseBtn);
+
+    // Should now be collapsed
+    expect(sidebar.style.width).toBe('0px');
+    expect(screen.getByTestId('collapsed-menu-button')).toBeInTheDocument();
+
+    // Expand again
+    fireEvent.click(screen.getByTestId('collapsed-menu-button'));
+    expect(sidebar.style.width).not.toBe('0px');
+  });
+
+  it('displays custom views and handles interactions', () => {
+    render(<Sidebar />);
+
+    // Default view is filtered out, Custom View 1 should be visible
+    expect(screen.getByText('Custom View 1')).toBeInTheDocument();
+
+    // Save new view
+    fireEvent.click(screen.getByLabelText('Save Data View'));
+    expect(mockSaveView).toHaveBeenCalledWith('');
+
+    // Apply view
+    fireEvent.click(screen.getByLabelText('Apply view bounds'));
+    expect(mockApplyView).toHaveBeenCalledWith('view-1');
+
+    // Delete view
+    fireEvent.click(screen.getByLabelText('Delete view'));
+    expect(mockDeleteView).toHaveBeenCalledWith('view-1');
+  });
+
+  it('handles editing view names', () => {
+    render(<Sidebar />);
+
+    // Click on view name to edit
+    const viewNameSpan = screen.getByText('Custom View 1');
+    fireEvent.click(viewNameSpan);
+
+    // Input should appear
+    const input = screen.getByRole('textbox', { name: 'Rename view' });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('Custom View 1');
+
+    // Change value
+    fireEvent.change(input, { target: { value: 'New Name' } });
+
+    // Blur to save
+    fireEvent.blur(input);
+    expect(mockUpdateViewName).toHaveBeenCalledWith('view-1', 'New Name');
+  });
+
+  it('toggles sections when headers are clicked', () => {
+    render(<Sidebar />);
+
+    const viewsHeader = screen.getByText('Data Views').closest('button');
+    expect(viewsHeader).toHaveAttribute('aria-expanded', 'true');
+
+    // Custom views are initially visible
+    expect(screen.getByText('Custom View 1')).toBeInTheDocument();
+
+    // Click to toggle
+    fireEvent.click(viewsHeader!);
+    expect(viewsHeader).toHaveAttribute('aria-expanded', 'false');
+
+    // Custom views are hidden
+    expect(screen.queryByText('Custom View 1')).not.toBeInTheDocument();
+  });
+
+  it('opens modals when links are clicked', () => {
+    render(<Sidebar />);
+
+    fireEvent.click(screen.getByText('Imprint'));
+    expect(screen.getByTestId('imprint-modal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('License'));
+    expect(screen.getByTestId('license-modal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Help & Interactions'));
+    expect(screen.getByTestId('help-modal')).toBeInTheDocument();
+  });
+
+  it('shows ImportSettingsDialog when there is a pending file', () => {
+    (useDataImport as unknown as Mock).mockReturnValue({
+      importFile: mockImportFile,
+      confirmImport: vi.fn(),
+      cancelImport: vi.fn(),
+      pendingFile: { file: new File([''], 'test.csv'), preview: 'a,b\n1,2', type: 'text/csv' },
+      isImporting: false,
+    });
+
+    render(<Sidebar />);
+    expect(screen.getByTestId('import-settings-dialog')).toBeInTheDocument();
+  });
+
+});

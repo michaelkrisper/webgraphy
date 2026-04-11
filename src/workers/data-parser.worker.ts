@@ -27,10 +27,7 @@ self.onmessage = async (event) => {
   try {
     let result;
     if (type === 'csv') result = await parseCSV(file, settings);
-    else if (type === 'json') {
-      const text = await file.text();
-      result = parseJSON(text, settings);
-    }
+    else if (type === 'json') result = await parseJSON(file, settings);
     else throw new Error(`Unsupported file type: ${type}`);
 
     const rowCount = result.rowCount;
@@ -66,6 +63,7 @@ self.onmessage = async (event) => {
           break;
         }
         colData[startIdx] = NaN;
+
         // NaNs don't update min/max
       }
 
@@ -129,6 +127,63 @@ self.onmessage = async (event) => {
   }
 };
 
+
+function processCSVHeader(line: string, delimiter: string, columnConfigs: ColumnConfigEntry[], capacity: number) {
+  const headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+  const configsByIndex = new Array(headers.length);
+  for (let j = 0; j < headers.length; j++) {
+    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+  }
+
+  const activeCols: number[] = [];
+  const finalHeaders: string[] = [];
+
+  for (let j = 0; j < headers.length; j++) {
+    if (configsByIndex[j]?.type !== 'ignore') {
+      activeCols.push(j);
+      finalHeaders.push(configsByIndex[j]?.name || headers[j]);
+    }
+  }
+
+  const numActive = activeCols.length;
+  const data = new Array(numActive);
+  for (let k = 0; k < numActive; k++) {
+    data[k] = new Float64Array(capacity);
+  }
+
+  const categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
+
+  return { configsByIndex, activeCols, finalHeaders, numActive, data, categoricalMaps };
+}
+
+function processCSVRow(
+  line: string,
+  delimiter: string,
+  numActive: number,
+  activeCols: number[],
+  configsByIndex: (ColumnConfigEntry | undefined)[],
+  isComma: boolean,
+  categoricalMaps: Map<string, number>[],
+  actualRowCount: number,
+  data: Float64Array[]
+) {
+  const values = line.split(delimiter);
+  for (let k = 0; k < numActive; k++) {
+    const j = activeCols[k];
+    let val = values[j];
+
+    if (val !== undefined) {
+       val = val.trim();
+       if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+           val = val.substring(1, val.length - 1);
+       }
+    }
+
+    data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+  }
+}
+
 async function parseCSV(file: File, settings?: ParseSettings) {
   const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
 
@@ -136,85 +191,75 @@ async function parseCSV(file: File, settings?: ParseSettings) {
   const reader = stream.getReader();
   const decoder = new TextDecoder('utf-8');
 
-  let remainder = '';
-  let isFirstChunk = true;
-  let headers: string[] = [];
-  const configsByIndex: (ColumnConfigEntry | undefined)[] = [];
-  const activeCols: number[] = [];
-  const finalHeaders: string[] = [];
-  let numActive = 0;
+  let buffer = '';
+  let lineCount = 0;
+  let actualRowCount = 0;
 
+  // We don't know the rowCount in advance when streaming, start with a reasonable capacity and double it when needed
   let capacity = 100000;
+
+  let numActive = 0;
+  let activeCols: number[] = [];
+  let finalHeaders: string[] = [];
+  let configsByIndex: (ColumnConfigEntry | undefined)[] = [];
   let data: Float64Array[] = [];
   let categoricalMaps: Map<string, number>[] = [];
   const isComma = decimalPoint === ',';
-  let actualRowCount = 0;
-  let linesRead = 0;
+
+  let isFirstLine = true;
 
   while (true) {
     const { done, value } = await reader.read();
 
-    let chunk = '';
     if (value) {
-      chunk = decoder.decode(value, { stream: !done });
-    } else if (done) {
-      chunk = decoder.decode();
+      buffer += decoder.decode(value, { stream: true });
+    } else {
+      buffer += decoder.decode();
     }
 
-    if (!chunk && done) break;
+    // Strip BOM if present at the very beginning
+    if (isFirstLine && buffer.charCodeAt(0) === 0xFEFF) {
+      buffer = buffer.slice(1);
+    }
 
-    if (isFirstChunk && chunk) {
-      if (chunk.charCodeAt(0) === 0xFEFF) {
-        chunk = chunk.slice(1);
+    const lines = buffer.split(/\r?\n/);
+
+    // Keep the last partial line in the buffer
+    if (!done) {
+      buffer = lines.pop() || '';
+    } else {
+      buffer = '';
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        if (!done || i < lines.length - 1 || line.length > 0) {
+            // Only increment lineCount if it's an actual empty line in the middle of the file
+            // Not a trailing empty newline at the end
+             if (done && i === lines.length - 1 && line.length === 0) {
+                 continue; // ignore trailing empty string
+             }
+             lineCount++;
+        }
+        continue;
       }
-      isFirstChunk = false;
-    }
 
-    const text = remainder + chunk;
-    let start = 0;
+      if (isFirstLine && lineCount === 0) {
+        const headerResult = processCSVHeader(line, delimiter, columnConfigs, capacity);
+        configsByIndex = headerResult.configsByIndex;
+        activeCols = headerResult.activeCols;
+        finalHeaders = headerResult.finalHeaders;
+        numActive = headerResult.numActive;
+        data = headerResult.data;
+        categoricalMaps = headerResult.categoricalMaps;
+        isFirstLine = false;
+      }
 
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] === '\n') {
-        const line = text.substring(start, text[i - 1] === '\r' ? i - 1 : i).trim();
-        start = i + 1;
-
-        if (linesRead === 0) {
-          headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-          if (headers.length === 0) throw new Error('Empty CSV file');
-
-          configsByIndex = new Array(headers.length);
-          for (let j = 0; j < headers.length; j++) {
-            configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
-          }
-
-          for (let j = 0; j < headers.length; j++) {
-            if (configsByIndex[j]?.type !== 'ignore') {
-              activeCols.push(j);
-              finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-            }
-          }
-
-          numActive = activeCols.length;
-          data = new Array(numActive);
-          for (let k = 0; k < numActive; k++) {
-            data[k] = new Float64Array(capacity);
-          }
-          categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
-          linesRead++;
-          continue;
-        }
-
-        if (linesRead < startRow) {
-          linesRead++;
-          continue;
-        }
-
-        linesRead++;
-
-        if (!line) continue;
-
+      if (lineCount >= startRow) {
+        // Ensure capacity
         if (actualRowCount >= capacity) {
-          capacity = Math.floor(capacity * 1.5);
+          capacity *= 2;
           for (let k = 0; k < numActive; k++) {
             const newData = new Float64Array(capacity);
             newData.set(data[k]);
@@ -222,81 +267,21 @@ async function parseCSV(file: File, settings?: ParseSettings) {
           }
         }
 
-        // Extremely fast line parser:
-        // We know we are inside a loop that goes character by character in the outer loop,
-        // but here we just process the `line` string. To keep it simple and correct, we'll stick to split for now,
-        // but since we might hit memory limits with array allocation if split is slow, we should check it.
-        const values = line.split(delimiter);
-        for (let k = 0; k < numActive; k++) {
-          const j = activeCols[k];
-          let val = values[j];
-          if (val !== undefined) {
-             val = val.trim();
-             if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-                 val = val.substring(1, val.length - 1);
-             }
-          }
-          data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
-        }
+        processCSVRow(line, delimiter, numActive, activeCols, configsByIndex, isComma, categoricalMaps, actualRowCount, data);
         actualRowCount++;
       }
+      lineCount++;
     }
-    remainder = text.substring(start);
 
-    if (done) break;
-  }
-
-  if (remainder.trim()) {
-    const line = remainder.trim();
-    if (linesRead === 0) {
-      headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-      if (headers.length === 0) throw new Error('Empty CSV file');
-      configsByIndex = new Array(headers.length);
-      for (let j = 0; j < headers.length; j++) {
-        configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
-      }
-      for (let j = 0; j < headers.length; j++) {
-        if (configsByIndex[j]?.type !== 'ignore') {
-          activeCols.push(j);
-          finalHeaders.push(configsByIndex[j]?.name || headers[j]);
-        }
-      }
-      numActive = activeCols.length;
-      data = new Array(numActive);
-      for (let k = 0; k < numActive; k++) {
-        data[k] = new Float64Array(capacity);
-      }
-      categoricalMaps = new Array(numActive).fill(null).map(() => new Map<string, number>());
-      linesRead++;
-    } else if (linesRead >= startRow) {
-      if (actualRowCount >= capacity) {
-        capacity = Math.floor(capacity * 1.5);
-        for (let k = 0; k < numActive; k++) {
-          const newData = new Float64Array(capacity);
-          newData.set(data[k]);
-          data[k] = newData;
-        }
-      }
-      const values = line.split(delimiter);
-      for (let k = 0; k < numActive; k++) {
-        const j = activeCols[k];
-        let val = values[j];
-        if (val !== undefined) {
-           val = val.trim();
-           if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-               val = val.substring(1, val.length - 1);
-           }
-        }
-        data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
-      }
-      actualRowCount++;
-      linesRead++;
+    if (done) {
+      break;
     }
   }
 
-  if (linesRead === 0) {
-    throw new Error('Empty CSV file');
+  if (actualRowCount === 0 && lineCount === 0) {
+      throw new Error('Empty CSV file');
   }
+
 
   for (let k = 0; k < numActive; k++) {
     if (data[k].length !== actualRowCount) {
@@ -307,11 +292,13 @@ async function parseCSV(file: File, settings?: ParseSettings) {
   return { columns: finalHeaders, rowCount: actualRowCount, data: data };
 }
 
-function parseJSON(text: string, settings?: ParseSettings) {
+async function parseJSON(file: File, settings?: ParseSettings) {
   const { decimalPoint = '.', columnConfigs = [] } = settings || {};
   
+  const text = await file.text();
   let raw;
   try {
+    // 🔒 Security Fix: Using secureJSONParse instead of native JSON.parse to prevent Prototype Pollution vulnerabilities.
     raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
