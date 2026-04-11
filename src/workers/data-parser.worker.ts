@@ -131,9 +131,14 @@ self.onmessage = async (event) => {
 function processCSVHeader(line: string, delimiter: string, columnConfigs: ColumnConfigEntry[], capacity: number) {
   const headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
 
+  const configMap = new Map<number, ColumnConfigEntry>();
+  for (let i = 0; i < columnConfigs.length; i++) {
+    configMap.set(columnConfigs[i].index, columnConfigs[i]);
+  }
+
   const configsByIndex = new Array(headers.length);
   for (let j = 0; j < headers.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+    configsByIndex[j] = configMap.get(j);
   }
 
   const activeCols: number[] = [];
@@ -310,9 +315,14 @@ async function parseJSON(file: File, settings?: ParseSettings) {
   const rowCount = raw.length;
 
   // ⚡ Bolt Optimization: Pre-calculate column configurations
+  const configMap = new Map<number, ColumnConfigEntry>();
+  for (let i = 0; i < columnConfigs.length; i++) {
+    configMap.set(columnConfigs[i].index, columnConfigs[i]);
+  }
+
   const configsByIndex = new Array(allHeaders.length);
   for (let j = 0; j < allHeaders.length; j++) {
-    configsByIndex[j] = columnConfigs.find((c: ColumnConfigEntry) => c.index === j);
+    configsByIndex[j] = configMap.get(j);
   }
 
   // ⚡ Bolt Optimization: Determine active columns upfront
