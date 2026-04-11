@@ -858,6 +858,9 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, height]);
 
 
+  const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
+  const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
+
   // ⚡ Bolt Optimization: Pre-calculate cumulative offsets to avoid O(N^2) loops inside mapping
   const { leftOffsets, rightOffsets } = useMemo(() => {
     const leftOffsets: Record<string, number> = {};
@@ -894,9 +897,6 @@ const ChartContainer: React.FC = () => {
       .filter(a => axisToMinDsIdx.has(a.id))
       .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
   }, [xAxes, series, datasets]);
-
-  const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
-  const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
 
   const isMobile = width < 768 || height < 500;
 
