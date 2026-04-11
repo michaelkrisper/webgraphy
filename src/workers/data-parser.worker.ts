@@ -93,6 +93,15 @@ self.onmessage = async (event) => {
     // ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
     const nonIgnoredConfigs = settings?.columnConfigs ? settings.columnConfigs.filter((cc: { type: string }) => cc.type !== 'ignore') : [];
 
+    // ⚡ Bolt Optimization: Map configs by name for O(1) lookup
+    const configByName = new Map<string, ColumnConfigEntry>();
+    if (settings?.columnConfigs) {
+      for (let i = 0; i < settings.columnConfigs.length; i++) {
+        const config = settings.columnConfigs[i];
+        if (config.name) configByName.set(config.name, config);
+      }
+    }
+
     const dataset = {
       id: crypto.randomUUID(),
       name: file.name,
@@ -100,7 +109,8 @@ self.onmessage = async (event) => {
       rowCount: rowCount,
       xAxisColumn: settings?.xAxisColumn,
       data: columns.map((colName, colIdx) => {
-        const config = settings?.columnConfigs?.find((c: { name: string; type: string }) => c.name === colName || (c.name === nonIgnoredConfigs[colIdx]?.name));
+        const nonIgnoredName = nonIgnoredConfigs[colIdx]?.name;
+        const config = configByName.get(colName) || (nonIgnoredName ? configByName.get(nonIgnoredName) : undefined);
         const isPotentialX = config?.type === 'date' || colIdx === 0 || colName.toLowerCase().includes('time') || colName.toLowerCase().includes('date');
 
         return {
