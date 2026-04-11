@@ -67,8 +67,22 @@ export const exportToSVG = (
   const axisWidthMap: Record<string, number> = {};
   activeYAxes.forEach(a => axisWidthMap[a.id] = getAxisWidth(a));
 
-  const leftSum = leftAxes.reduce((sum, a) => sum + axisWidthMap[a.id], 0);
-  const rightSum = rightAxes.reduce((sum, a) => sum + axisWidthMap[a.id], 0);
+  // ⚡ Bolt Optimization: Pre-calculate Y-axis cumulative offsets to replace O(N^2) inline loop lookups with O(1) property access
+  const leftOffsets: Record<string, number> = {};
+  let currentLeftOffset = 0;
+  for (const axis of leftAxes) {
+    leftOffsets[axis.id] = currentLeftOffset;
+    currentLeftOffset += axisWidthMap[axis.id];
+  }
+  const rightOffsets: Record<string, number> = {};
+  let currentRightOffset = 0;
+  for (const axis of rightAxes) {
+    rightOffsets[axis.id] = currentRightOffset;
+    currentRightOffset += axisWidthMap[axis.id];
+  }
+
+  const leftSum = currentLeftOffset;
+  const rightSum = currentRightOffset;
 
   const padding = {
     top: 20,
@@ -175,14 +189,14 @@ export const exportToSVG = (
   });
 
   activeYAxes.forEach(axis => {
-    const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
+    const isLeft = axis.position === 'left';
     const axisWidth = axisWidthMap[axis.id];
     let xPos = 0;
     if (isLeft) {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisWidthMap[leftAxes[i].id];
+      const offset = leftOffsets[axis.id] ?? 0;
       xPos = padding.left - offset - axisWidth;
     } else {
-      let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisWidthMap[rightAxes[i].id];
+      const offset = rightOffsets[axis.id] ?? 0;
       xPos = width - padding.right + offset;
     }
     
