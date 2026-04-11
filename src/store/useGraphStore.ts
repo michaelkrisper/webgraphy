@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from '../services/persistence';
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
+import { getColumnIndex } from '../utils/columns';
 
 interface GraphState {
   datasets: Dataset[];
@@ -83,7 +84,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         dataset.xAxisId = unusedAxis.id;
       }
 
-      const xColIdx = dataset.columns.indexOf(dataset.xAxisColumn);
+      const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
       const col = dataset.data[xColIdx];
       const bounds = col?.bounds || { min: 0, max: 100 };
       const isDate = col?.isFloat64 || false;

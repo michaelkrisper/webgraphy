@@ -1,6 +1,7 @@
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { worldToScreen } from '../utils/coords';
 import { lttb } from '../utils/lttb';
+import { getColumnIndex } from '../utils/columns';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
@@ -113,14 +114,8 @@ export const exportToSVG = (
     const yAxis = yAxes.find(a => a.id === s.yAxisId);
     if (!ds || !xAxis || !yAxis) return;
 
-    const findColumn = (name: string) => {
-      const idx = ds.columns.indexOf(name);
-      if (idx !== -1) return idx;
-      return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-    };
-
-    const xIdx = findColumn(ds.xAxisColumn);
-    const yIdx = findColumn(s.yColumn);
+    const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+    const yIdx = getColumnIndex(ds, s.yColumn);
     if (xIdx === -1 || yIdx === -1) return;
 
     const xCol = ds.data[xIdx], yCol = ds.data[yIdx], visibleData = [];
