@@ -125,6 +125,12 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
   // ⚡ Bolt Optimization: Hoist invariant variable lookups out of inner map loops
   const mainXConf = useMemo(() => allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!, [allXAxes, xAxes]);
 
+  const allXAxesById = useMemo(() => {
+    const map = new Map<string, typeof allXAxes[0]>();
+    allXAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [allXAxes]);
+
   const seriesByYAxisId = useMemo(() => {
     const grouped: Record<string, SeriesConfig[]> = {};
     for (let i = 0; i < series.length; i++) {
@@ -170,7 +176,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
         />
         
         {xAxes.map((axis, idx) => {
-          const axisConf = allXAxes.find(a => a.id === axis.id)!;
+          const axisConf = mainXConf.id === axis.id ? mainXConf : allXAxesById.get(axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
           const metrics = xAxesMetrics[idx];
           const y = height - padding.bottom + metrics.cumulativeOffset;
@@ -272,7 +278,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }}>
         {xAxes.map((axis, axisIdx) => {
-          const axisConf = allXAxes.find(a => a.id === axis.id)!;
+          const axisConf = mainXConf.id === axis.id ? mainXConf : allXAxesById.get(axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
           const metrics = xAxesMetrics[axisIdx];
           const baseY = padding.bottom - metrics.cumulativeOffset;
@@ -405,10 +411,19 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
   // ⚡ Bolt Optimization: Pre-calculate series metadata to avoid O(N) array/string operations inside the high-frequency mouse move `snap` calculation
   const seriesMetadata = useMemo(() => {
+    const datasetsById = new Map<string, Dataset>();
+    datasets.forEach(d => datasetsById.set(d.id, d));
+
+    const yAxesById = new Map<string, YAxisConfig>();
+    yAxes.forEach(a => yAxesById.set(a.id, a));
+
+    const xAxesById = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => xAxesById.set(a.id, a));
+
     return series.map(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      const axis = yAxes.find(a => a.id === s.yAxisId);
-      const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+      const ds = datasetsById.get(s.sourceId);
+      const axis = yAxesById.get(s.yAxisId);
+      const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
       if (!ds || !axis || !xAxis) return null;
 
       const xIdx = getColumnIndex(ds, ds.xAxisColumn);
