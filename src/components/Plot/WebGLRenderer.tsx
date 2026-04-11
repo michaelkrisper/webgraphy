@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
+import { getColumnIndex } from '../../utils/columns';
 
 const VERTEX_SHADER_SOURCE = `
       attribute float a_x;
@@ -200,14 +201,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       const yAxis = yAxes.find(a => a.id === s.yAxisId);
       if (!ds || !xAxis || !yAxis) return null;
 
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) {
         return null;
