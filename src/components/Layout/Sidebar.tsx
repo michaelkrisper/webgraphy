@@ -483,7 +483,7 @@ export const Sidebar: React.FC = () => {
               <button
                 onClick={async () => {
                   if (confirm('Restore demo data? Current settings will be cleared.')) {
-                    localStorage.removeItem('webgraphy-state');
+                    await persistence.clearAppState();
                     const db = await indexedDB.open('webgraphy-db');
                     db.onsuccess = () => {
                       const database = db.result;
@@ -502,7 +502,7 @@ export const Sidebar: React.FC = () => {
               <button
                 onClick={async () => {
                   if (confirm('Delete all datasets and reset all settings?')) {
-                    localStorage.removeItem('webgraphy-state');
+                    await persistence.clearAppState();
                     localStorage.setItem('webgraphy-cleared', '1');
                     const db = await indexedDB.open('webgraphy-db');
                     db.onsuccess = () => {

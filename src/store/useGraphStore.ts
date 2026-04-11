@@ -115,7 +115,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const newDatasets = state.datasets.filter(d => d.id !== id);
       const newSeries = state.series.filter(s => s.sourceId !== id);
       if (newDatasets.length === 0 && newSeries.length === 0) {
-        localStorage.removeItem('webgraphy-state');
+        persistence.clearAppState();
         return {
           datasets: [],
           series: [],
@@ -161,7 +161,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set((state) => {
       const newSeries = state.series.filter(s => s.id !== id);
       if (newSeries.length === 0 && state.datasets.length === 0) {
-        localStorage.removeItem('webgraphy-state');
+        persistence.clearAppState();
         return {
           datasets: [],
           series: [],
@@ -250,7 +250,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   loadPersistedState: async () => {
-    const savedState = persistence.loadAppState();
+    const savedState = await persistence.loadAppState();
     const allDatasets = await persistence.getAllDatasets();
 
     if (savedState) {
@@ -280,7 +280,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
     await persistence.saveDataset(demoDataset);
     // Force immediate save to avoid race conditions with window.location.reload()
-    persistence.saveAppState(demoState);
+    await persistence.saveAppState(demoState);
 
     set({
       ...demoState,

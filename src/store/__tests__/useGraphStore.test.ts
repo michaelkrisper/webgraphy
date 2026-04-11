@@ -10,7 +10,8 @@ vi.mock('../../services/persistence', () => ({
     getAllDatasets: vi.fn().mockResolvedValue([]),
     deleteDataset: vi.fn(),
     saveAppState: vi.fn(),
-    loadAppState: vi.fn().mockReturnValue(null),
+    loadAppState: vi.fn().mockResolvedValue(null),
+    clearAppState: vi.fn().mockResolvedValue(undefined),
   },
 }));
 

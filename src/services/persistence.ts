@@ -1,9 +1,9 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import { secureJSONParse } from '../utils/json';
 import { z } from 'zod';
 
 const DB_NAME = 'webgraphy-db';
 const DATASET_STORE = 'datasets';
+const APP_STATE_STORE = 'app_state';
 const VERSION = 1;
 
 export interface DataColumn {
@@ -98,6 +98,9 @@ async function getDB() {
       if (!db.objectStoreNames.contains(DATASET_STORE)) {
         db.createObjectStore(DATASET_STORE, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(APP_STATE_STORE)) {
+        db.createObjectStore(APP_STATE_STORE);
+      }
     },
   });
   return db;
@@ -169,28 +172,37 @@ export const persistence = {
     const db = await getDB();
     await db.delete(DATASET_STORE, id);
   },
-  saveAppState(state: AppState): void {
+  async saveAppState(state: AppState): Promise<void> {
     try {
-      localStorage.setItem('webgraphy-state', JSON.stringify(state));
+      const db = await getDB();
+      await db.put(APP_STATE_STORE, state, 'webgraphy-state');
     } catch (error) {
-      console.error('Failed to save state to localStorage:', error);
+      console.error('Failed to save state to IndexedDB:', error);
     }
   },
-  loadAppState(): AppState | null {
+  async loadAppState(): Promise<AppState | null> {
     try {
-      const state = localStorage.getItem('webgraphy-state');
+      const db = await getDB();
+      const state = await db.get(APP_STATE_STORE, 'webgraphy-state');
       if (!state) return null;
-      const parsed = secureJSONParse(state);
-      const validated = AppStateSchema.safeParse(parsed);
+      const validated = AppStateSchema.safeParse(state);
       if (validated.success) {
         return validated.data;
       } else {
-        console.error('Invalid state in localStorage:', validated.error);
+        console.error('Invalid state in IndexedDB:', validated.error);
         return null;
       }
     } catch (error) {
-      console.error('Failed to load state from localStorage:', error);
+      console.error('Failed to load state from IndexedDB:', error);
       return null;
+    }
+  },
+  async clearAppState(): Promise<void> {
+    try {
+      const db = await getDB();
+      await db.delete(APP_STATE_STORE, 'webgraphy-state');
+    } catch (error) {
+      console.error('Failed to clear state from IndexedDB:', error);
     }
   }
 };
