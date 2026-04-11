@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Sidebar } from '../Sidebar';
 import { useGraphStore } from '../../../store/useGraphStore';
 import { useDataImport } from '../../../hooks/useDataImport';
@@ -23,7 +23,7 @@ vi.mock('../LicenseModal', () => ({
   LicenseModal: () => <div data-testid="license-modal">License</div>,
 }));
 vi.mock('../CollapsedMenuButton', () => ({
-  CollapsedMenuButton: ({ onClick }: any) => <button onClick={onClick} data-testid="collapsed-menu-button">Menu</button>,
+  CollapsedMenuButton: ({ onClick }: { onClick: () => void }) => <button onClick={onClick} data-testid="collapsed-menu-button">Menu</button>,
 }));
 vi.mock('../../Sidebar/SeriesConfig', () => ({
   SeriesConfigUI: () => <div data-testid="series-config-ui">Series Config</div>,
@@ -38,7 +38,7 @@ vi.mock('../../../services/export', () => ({
 
 // Mock indexedDB for the Reset/Demo buttons
 const mockClear = vi.fn();
-const mockTransaction = vi.fn().mockReturnValue({
+vi.fn().mockReturnValue({
   objectStore: vi.fn().mockReturnValue({ clear: mockClear }),
   oncomplete: vi.fn(),
 });
@@ -48,7 +48,7 @@ const mockOpen = vi.fn().mockReturnValue({
 
 global.indexedDB = {
   open: mockOpen,
-} as any;
+} as unknown;
 
 // Mock window.confirm
 const mockConfirm = vi.fn();
