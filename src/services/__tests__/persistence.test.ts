@@ -41,6 +41,8 @@ describe('persistence', () => {
 
         expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('datasets');
         expect(mockDb.createObjectStore).toHaveBeenCalledWith('datasets', { keyPath: 'id' });
+        expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('app_state');
+        expect(mockDb.createObjectStore).toHaveBeenCalledWith('app_state');
     });
 
     it('should not upgrade db if store exists', async () => {
@@ -61,6 +63,7 @@ describe('persistence', () => {
         await persistence.getAllDatasets();
 
         expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('datasets');
+        expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith('app_state');
         expect(mockDb.createObjectStore).not.toHaveBeenCalled();
     });
 
@@ -196,67 +199,69 @@ describe('persistence', () => {
   });
 
   describe('AppState persistence', () => {
-    let originalLocalStorage: Storage;
+    it('should save app state to IndexedDB', async () => {
+        const mockDb = {
+            put: vi.fn().mockResolvedValueOnce(undefined),
+        };
+        openDBMock.mockResolvedValueOnce(mockDb);
 
-    beforeEach(() => {
-        originalLocalStorage = window.localStorage;
-        Object.defineProperty(window, 'localStorage', {
-            value: {
-                getItem: vi.fn(),
-                setItem: vi.fn(),
-                removeItem: vi.fn(),
-                clear: vi.fn(),
-                length: 0,
-                key: vi.fn()
-            },
-            writable: true
-        });
-    });
-
-    afterEach(() => {
-        Object.defineProperty(window, 'localStorage', {
-            value: originalLocalStorage,
-            writable: true
-        });
-    });
-
-    it('should save app state to local storage', () => {
         const state: AppState = {
             xAxes: [{ id: 'axis-1', name: 'X', min: 0, max: 100, showGrid: true, xMode: 'numeric' }],
             yAxes: [],
             series: [],
             axisTitles: { x: '', y: '' }
         };
-        persistence.saveAppState(state);
-        expect(localStorage.setItem).toHaveBeenCalledWith('webgraphy-state', JSON.stringify(state));
+        await persistence.saveAppState(state);
+        expect(mockDb.put).toHaveBeenCalledWith('app_state', state, 'webgraphy-state');
     });
 
-    it('should load app state from local storage', () => {
+    it('should load app state from IndexedDB', async () => {
         const state: AppState = {
             xAxes: [{ id: 'axis-1', name: 'X', min: 0, max: 100, showGrid: true, xMode: 'numeric' }],
             yAxes: [],
             series: [],
             axisTitles: { x: '', y: '' }
         };
-        vi.mocked(localStorage.getItem).mockReturnValueOnce(JSON.stringify(state));
 
-        const loadedState = persistence.loadAppState();
-        expect(localStorage.getItem).toHaveBeenCalledWith('webgraphy-state');
+        const mockDb = {
+            get: vi.fn().mockResolvedValueOnce(state),
+        };
+        openDBMock.mockResolvedValueOnce(mockDb);
+
+        const loadedState = await persistence.loadAppState();
+        expect(mockDb.get).toHaveBeenCalledWith('app_state', 'webgraphy-state');
         expect(loadedState).toEqual(state);
     });
 
-    it('should return null if no app state in local storage', () => {
-        vi.mocked(localStorage.getItem).mockReturnValueOnce(null);
+    it('should return null if no app state in IndexedDB', async () => {
+        const mockDb = {
+            get: vi.fn().mockResolvedValueOnce(undefined),
+        };
+        openDBMock.mockResolvedValueOnce(mockDb);
 
-        const loadedState = persistence.loadAppState();
+        const loadedState = await persistence.loadAppState();
         expect(loadedState).toBeNull();
     });
 
-    it('should return null if loaded state is invalid', () => {
+    it('should return null if loaded state is invalid', async () => {
         const invalidState = { xAxes: [{ id: 'axis-1', min: 'invalid' }] };
-        vi.mocked(localStorage.getItem).mockReturnValueOnce(JSON.stringify(invalidState));
-        const loadedState = persistence.loadAppState();
+        const mockDb = {
+            get: vi.fn().mockResolvedValueOnce(invalidState),
+        };
+        openDBMock.mockResolvedValueOnce(mockDb);
+
+        const loadedState = await persistence.loadAppState();
         expect(loadedState).toBeNull();
+    });
+
+    it('should clear app state from IndexedDB', async () => {
+        const mockDb = {
+            delete: vi.fn().mockResolvedValueOnce(undefined),
+        };
+        openDBMock.mockResolvedValueOnce(mockDb);
+
+        await persistence.clearAppState();
+        expect(mockDb.delete).toHaveBeenCalledWith('app_state', 'webgraphy-state');
     });
   });
 

@@ -187,11 +187,9 @@ export const exportToSVG = (
     const axisWidth = axisWidthMap[axis.id];
     let xPos = 0;
     if (isLeft) {
-      const offset = leftOffsets[axis.id] ?? 0;
-      xPos = padding.left - offset - axisWidth;
+      xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisWidth;
     } else {
-      const offset = rightOffsets[axis.id] ?? 0;
-      xPos = width - padding.right + offset;
+      xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
     }
     
     const range = axis.max - axis.min, step = range / Math.max(2, Math.floor(chartHeight / 30));
