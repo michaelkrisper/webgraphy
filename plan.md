@@ -1,24 +1,25 @@
-## Proposed Optimization
+1. Add a `useMemo` block in `src/components/Plot/ChartContainer.tsx` to pre-calculate cumulative layout offsets for the left and right Y-axes.
+    - Let's call it `yAxisOffsets`. It will be a `Record<string, number>`.
+    - It maps the axis ID to its cumulative offset from the inner edge of the plot.
+    - Dependencies: `[leftAxes, rightAxes, axisLayout]`.
 
-Currently, in both `src/components/Plot/ChartContainer.tsx` and `src/services/export.ts`, determining the offset (X position) for a Y-axis involves an O(N) loop iterating over all axes on the same side (`leftAxes` or `rightAxes`) up to the current axis index. This is done repeatedly during renders (especially during interactions where animations/panning cause high re-render rates), wheel handlers, mouse down events, and SVG export generation.
+2. Replace the inner loops in `ChartContainer.tsx`:
+    - Around line 219 and 222 (the main axes rendering loop).
+    - Around line 315 and 318 (the axes titles rendering loop).
+    - Around line 1133 and 1140 (in `getHoveredYAxis`).
+    - Around line 1488 and 1491 (in the invisible interaction overlay loops).
 
-```javascript
-// Current inefficient pattern:
-const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
-// ...
-let offset = 0; for(let i=0; i<sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
-```
+    Replace this:
+    ```typescript
+    let offset = 0; for (let i = 0; i < sideIdx; i++) offset += axisLayout[leftAxes[i].id]?.total || 40;
+    ```
+    with this:
+    ```typescript
+    let offset = yAxisOffsets[axis.id] || 0;
+    ```
 
-This makes the complexity O(N^2) relative to the number of Y-axes.
+3. Complete pre commit steps
+    - Call the pre commit tool to verify that lint, testing, and formatting pass.
 
-The optimization is to pre-calculate these cumulative offsets and store them in an object mapping `yAxis.id` to its cumulative offset. This lookup can then be O(1), similar to how `xAxesMetrics` currently handles `cumulativeOffset`.
-
-### Target Files:
-- `src/components/Plot/ChartContainer.tsx`
-- `src/services/export.ts`
-
-### Implementation steps
-1. **In `ChartContainer.tsx`**: Add a `useMemo` (e.g., `yAxesMetrics`) that computes the cumulative offsets for all Y axes (left and right) once per layout change.
-2. Replace all instances of the `for` loops computing offsets with an O(1) property lookup from this memoized map.
-3. Apply a similar preprocessing step in `src/services/export.ts`.
-
+4. Submit the change
+    - Provide a description of the performance improvement (redundant nested loops removed, O(N^2) complexity reduced to O(N)).
