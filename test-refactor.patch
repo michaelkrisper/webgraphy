@@ -1,0 +1,84 @@
+--- src/workers/data-parser.worker.ts
++++ src/workers/data-parser.worker.ts
+@@ -198,66 +198,8 @@
+
+-  while (true) {
+-    const { done, value } = await reader.read();
+-
+-    if (value) {
+-      buffer += decoder.decode(value, { stream: true });
+-    } else {
+-      buffer += decoder.decode();
+-    }
+-
+-    // Strip BOM if present at the very beginning
+-    if (isFirstLine && buffer.charCodeAt(0) === 0xFEFF) {
+-      buffer = buffer.slice(1);
+-    }
+-
+-    const lines = buffer.split(/\r?\n/);
+-
+-    // Keep the last partial line in the buffer
+-    if (!done) {
+-      buffer = lines.pop() || '';
+-    } else {
+-      buffer = '';
+-    }
+-
+-    for (let i = 0; i < lines.length; i++) {
+-      const line = lines[i].trim();
+-      if (!line) {
+-        if (!done || i < lines.length - 1 || line.length > 0) {
+-            // Only increment lineCount if it's an actual empty line in the middle of the file
+-            // Not a trailing empty newline at the end
+-             if (done && i === lines.length - 1 && line.length === 0) {
+-                 continue; // ignore trailing empty string
+-             }
+-             lineCount++;
+-        }
+-        continue;
+-      }
+-
+-      if (isFirstLine && lineCount === 0) {
+-        const headerResult = processCSVHeader(line, delimiter, columnConfigs, capacity);
+-        configsByIndex = headerResult.configsByIndex;
+-        activeCols = headerResult.activeCols;
+-        finalHeaders = headerResult.finalHeaders;
+-        numActive = headerResult.numActive;
+-        data = headerResult.data;
+-        categoricalMaps = headerResult.categoricalMaps;
+-        isFirstLine = false;
+-      }
+-
+-      if (lineCount >= startRow) {
+-        // Ensure capacity
+-        if (actualRowCount >= capacity) {
+-          capacity *= 2;
+-          for (let k = 0; k < numActive; k++) {
+-            const newData = new Float64Array(capacity);
+-            newData.set(data[k]);
+-            data[k] = newData;
+-          }
+-        }
+-
+-        processCSVRow(line, delimiter, numActive, activeCols, configsByIndex, isComma, categoricalMaps, actualRowCount, data);
+-        actualRowCount++;
+-      }
+-      lineCount++;
+-    }
+-
+-    if (done) {
+-      break;
+-    }
+-  }
++  const streamResult = await processCSVStream(
++    reader, decoder, delimiter, startRow, columnConfigs, capacity,
++    isComma, buffer, lineCount, actualRowCount, numActive, activeCols,
++    finalHeaders, configsByIndex, data, categoricalMaps, isFirstLine
++  );
++
++  actualRowCount = streamResult.actualRowCount;
++  lineCount = streamResult.lineCount;
++  numActive = streamResult.numActive;
++  data = streamResult.data;
++  finalHeaders = streamResult.finalHeaders;
