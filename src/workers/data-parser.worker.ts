@@ -287,6 +287,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
       throw new Error('Empty CSV file');
   }
 
+
   for (let k = 0; k < numActive; k++) {
     if (data[k].length !== actualRowCount) {
       data[k] = data[k].subarray(0, actualRowCount);
