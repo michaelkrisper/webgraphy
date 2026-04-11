@@ -4,6 +4,7 @@ import { WebGLRenderer } from './WebGLRenderer';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
+import { getColumnIndex } from '../../utils/columns';
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
@@ -409,14 +410,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
       if (!ds || !axis || !xAxis) return null;
 
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex(c => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
 
       if (xIdx === -1 || yIdx === -1) return null;
 
@@ -638,6 +633,87 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   );
 });
 
+
+const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
+
+const applyKeyboardZoom = (
+  state: ReturnType<typeof useGraphStore.getState>,
+  keys: Set<string>,
+  targetXAxes: Record<string, { min: number, max: number }>,
+  targetYs: Record<string, { min: number, max: number }>
+) => {
+  if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
+    const isCtrl = keys.has('Control');
+    const zoomFactor = (keys.has('+') || keys.has('=')) ? 0.85 : 1.15;
+
+    state.xAxes.forEach(axis => {
+      const t = targetXAxes[axis.id] || { min: axis.min, max: axis.max };
+      const xRange = t.max - t.min;
+      const newXRange = xRange * zoomFactor;
+      targetXAxes[axis.id] = { min: t.min + (xRange - newXRange) / 2, max: t.max - (xRange - newXRange) / 2 };
+    });
+
+    if (!isCtrl) {
+      state.yAxes.forEach(axis => {
+        const t = targetYs[axis.id] || { min: axis.min, max: axis.max };
+        const yRange = t.max - t.min;
+        const newYRange = yRange * zoomFactor;
+        targetYs[axis.id] = { min: t.min + (yRange - newYRange) / 2, max: t.max - (yRange - newYRange) / 2 };
+      });
+    }
+    return true;
+  }
+  return false;
+};
+
+const animateXAxes = (
+  state: ReturnType<typeof useGraphStore.getState>,
+  targetXAxes: Record<string, { min: number, max: number }>,
+  factor: number
+) => {
+  let needsNextFrame = false;
+  state.xAxes.forEach(axis => {
+    const target = targetXAxes[axis.id];
+    if (!target) return;
+    const xRange = Math.abs(axis.max - axis.min);
+    const xEps = xRange * 0.0001 || 0.0001;
+    const nextXMin = lerp(axis.min, target.min, factor);
+    const nextXMax = lerp(axis.max, target.max, factor);
+
+    if (Math.abs(nextXMin - axis.min) > xEps || Math.abs(nextXMax - axis.max) > xEps) {
+      state.updateXAxis(axis.id, { min: nextXMin, max: nextXMax });
+      needsNextFrame = true;
+    } else if (axis.min !== target.min || axis.max !== target.max) {
+      state.updateXAxis(axis.id, { min: target.min, max: target.max });
+    }
+  });
+  return needsNextFrame;
+};
+
+const animateYAxes = (
+  state: ReturnType<typeof useGraphStore.getState>,
+  targetYs: Record<string, { min: number, max: number }>,
+  factor: number
+) => {
+  let needsNextFrame = false;
+  state.yAxes.forEach(axis => {
+    const target = targetYs[axis.id];
+    if (!target) return;
+    const yRange = Math.abs(axis.max - axis.min);
+    const yEps = yRange * 0.0001 || 0.0001;
+    const nextYMin = lerp(axis.min, target.min, factor);
+    const nextYMax = lerp(axis.max, target.max, factor);
+
+    if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
+      state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax });
+      needsNextFrame = true;
+    } else if (axis.min !== target.min || axis.max !== target.max) {
+      state.updateYAxis(axis.id, { min: target.min, max: target.max });
+    }
+  });
+  return needsNextFrame;
+};
+
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets } = useGraphStore();
@@ -669,49 +745,25 @@ const ChartContainer: React.FC = () => {
   const startAnimation = useCallback(() => {
     if (isAnimating.current) return;
     isAnimating.current = true;
-    const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
     const loop = () => {
       const state = useGraphStore.getState();
       const factor = isPanningRef.current ? 1 : 0.4;
       const keys = pressedKeys.current;
-      let needsNextFrame = false;
-      if (keys.has('+') || keys.has('=') || keys.has('-') || keys.has('_')) {
-        const isCtrl = keys.has('Control'), zoomFactor = (keys.has('+') || keys.has('=')) ? 0.85 : 1.15;
-        state.xAxes.forEach(axis => {
-          const t = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max };
-          const xRange = t.max - t.min, newXRange = xRange * zoomFactor;
-          targetXAxes.current[axis.id] = { min: t.min + (xRange - newXRange) / 2, max: t.max - (xRange - newXRange) / 2 };
-        });
-        if (!isCtrl) {
-          state.yAxes.forEach(axis => {
-            const t = targetYs.current[axis.id] || { min: axis.min, max: axis.max };
-            const yRange = t.max - t.min, newYRange = yRange * zoomFactor;
-            targetYs.current[axis.id] = { min: t.min + (yRange - newYRange) / 2, max: t.max - (yRange - newYRange) / 2 };
-          });
-        }
+
+      let needsNextFrame = applyKeyboardZoom(state, keys, targetXAxes.current, targetYs.current);
+
+      if (animateXAxes(state, targetXAxes.current, factor)) {
         needsNextFrame = true;
       }
-      state.xAxes.forEach(axis => {
-        const target = targetXAxes.current[axis.id]; if (!target) return;
-        const xRange = Math.abs(axis.max - axis.min), xEps = xRange * 0.0001 || 0.0001;
-        const nextXMin = lerp(axis.min, target.min, factor), nextXMax = lerp(axis.max, target.max, factor);
-        if (Math.abs(nextXMin - axis.min) > xEps || Math.abs(nextXMax - axis.max) > xEps) {
-          state.updateXAxis(axis.id, { min: nextXMin, max: nextXMax }); needsNextFrame = true;
-        } else if (axis.min !== target.min || axis.max !== target.max) {
-          state.updateXAxis(axis.id, { min: target.min, max: target.max });
-        }
-      });
-      state.yAxes.forEach(axis => {
-        const target = targetYs.current[axis.id]; if (!target) return;
-        const yRange = Math.abs(axis.max - axis.min), yEps = yRange * 0.0001 || 0.0001;
-        const nextYMin = lerp(axis.min, target.min, factor), nextYMax = lerp(axis.max, target.max, factor);
-        if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
-          state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax }); needsNextFrame = true;
-        } else if (axis.min !== target.min || axis.max !== target.max) {
-          state.updateYAxis(axis.id, { min: target.min, max: target.max });
-        }
-      });
-      if (needsNextFrame) requestAnimationFrame(loop); else isAnimating.current = false;
+      if (animateYAxes(state, targetYs.current, factor)) {
+        needsNextFrame = true;
+      }
+
+      if (needsNextFrame) {
+        requestAnimationFrame(loop);
+      } else {
+        isAnimating.current = false;
+      }
     };
     requestAnimationFrame(loop);
   }, []);
@@ -801,6 +853,9 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, height]);
 
 
+  const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
+  const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
+
   // ⚡ Bolt Optimization: Pre-calculate cumulative offsets to avoid O(N^2) loops inside mapping
   const { leftOffsets, rightOffsets } = useMemo(() => {
     const leftOffsets: Record<string, number> = {};
@@ -837,9 +892,6 @@ const ChartContainer: React.FC = () => {
       .filter(a => axisToMinDsIdx.has(a.id))
       .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
   }, [xAxes, series, datasets]);
-
-  const leftAxes = useMemo(() => activeYAxes.filter(a => a.position === 'left'), [activeYAxes]);
-  const rightAxes = useMemo(() => activeYAxes.filter(a => a.position === 'right'), [activeYAxes]);
 
   const isMobile = width < 768 || height < 500;
 
@@ -899,12 +951,15 @@ const ChartContainer: React.FC = () => {
     if (!shouldReset && state.datasets.length > 0) {
        // Check if ANY dataset is visible in its assigned X range
        let anyDataVisible = false;
+       const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+       state.xAxes.forEach(a => xAxesById.set(a.id, a));
+
        state.series.forEach(s => {
          const ds = datasetsById.get(s.sourceId);
-         const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+         const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
          if (!ds || !xAxis) return;
 
-         const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+         const xIdx = getColumnIndex(ds, ds.xAxisColumn);
          const xCol = ds.data[xIdx];
          
          if (xCol && xCol.bounds) {
@@ -927,7 +982,7 @@ const ChartContainer: React.FC = () => {
       state.series.forEach(s => {
         const ds = datasetsById.get(s.sourceId);
         if (!ds) return;
-        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+        const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (!col || !col.bounds) return;
         const xId = ds.xAxisId || 'axis-1';
@@ -960,7 +1015,8 @@ const ChartContainer: React.FC = () => {
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
           const ds = datasetsById.get(s.sourceId); if (!ds) return;
-          const yCol = ds.data[ds.columns.indexOf(s.yColumn)]; if (!yCol || !yCol.bounds) return;
+          const yIdx = getColumnIndex(ds, s.yColumn);
+          const yCol = ds.data[yIdx]; if (!yCol || !yCol.bounds) return;
           if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
           if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
         });
@@ -1034,20 +1090,16 @@ const ChartContainer: React.FC = () => {
     // Create a dictionary for quick dataset lookups by id to avoid O(N^2)
     const datasetsById = new Map<string, Dataset>();
     state.datasets.forEach(d => datasetsById.set(d.id, d));
+    const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+    state.xAxes.forEach(a => xAxesById.set(a.id, a));
 
     axisSeries.forEach(s => {
       const ds = datasetsById.get(s.sourceId); if (!ds) return;
-      const xAxis = state.xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
+      const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
       if (!xAxis) return;
       
-      const findColumn = (name: string) => {
-        const idx = ds.columns.indexOf(name);
-        if (idx !== -1) return idx;
-        return ds.columns.findIndex((c: string) => c.endsWith(`: ${name}`) || c === name);
-      };
-
-      const xIdx = findColumn(ds.xAxisColumn);
-      const yIdx = findColumn(s.yColumn);
+      const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+      const yIdx = getColumnIndex(ds, s.yColumn);
       if (xIdx === -1 || yIdx === -1) return;
 
       const colX = ds.data[xIdx];
@@ -1181,7 +1233,7 @@ const ChartContainer: React.FC = () => {
 
       let xMin = Infinity, xMax = -Infinity;
       activeDatasetsUsingAxis.forEach(ds => {
-        const xIdx = ds.columns.indexOf(ds.xAxisColumn);
+        const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const col = ds.data[xIdx];
         if (col && col.bounds) {
           if (col.bounds.min < xMin) xMin = col.bounds.min;
