@@ -951,9 +951,12 @@ const ChartContainer: React.FC = () => {
     if (!shouldReset && state.datasets.length > 0) {
        // Check if ANY dataset is visible in its assigned X range
        let anyDataVisible = false;
+       const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+       state.xAxes.forEach(a => xAxesById.set(a.id, a));
+
        state.series.forEach(s => {
          const ds = datasetsById.get(s.sourceId);
-         const xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
+         const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
          if (!ds || !xAxis) return;
 
          const xIdx = getColumnIndex(ds, ds.xAxisColumn);
@@ -1087,10 +1090,12 @@ const ChartContainer: React.FC = () => {
     // Create a dictionary for quick dataset lookups by id to avoid O(N^2)
     const datasetsById = new Map<string, Dataset>();
     state.datasets.forEach(d => datasetsById.set(d.id, d));
+    const xAxesById = new Map<string, (typeof state.xAxes)[0]>();
+    state.xAxes.forEach(a => xAxesById.set(a.id, a));
 
     axisSeries.forEach(s => {
       const ds = datasetsById.get(s.sourceId); if (!ds) return;
-      const xAxis = state.xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
+      const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
       if (!xAxis) return;
       
       const xIdx = getColumnIndex(ds, ds.xAxisColumn);

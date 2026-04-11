@@ -1,4 +1,5 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
+import { secureRandom } from '../utils/random';
 
 
 function generateRawWeatherData(rowCount: number, startTime: number): number[][] {
@@ -19,13 +20,13 @@ function generateRawWeatherData(rowCount: number, startTime: number): number[][]
 
     let temp = 15 + (yearlyCycle * 12) + (dailyCycle * 5) + weatherFront;
     // Add high-frequency noise
-    temp += (Math.random() - 0.5) * 1.5;
+    temp += (secureRandom() - 0.5) * 1.5;
 
     // --- Humidity ---
     // Inversely correlated with temperature, plus some randomness
     let humidity = 100 - ((temp + 10) / 50) * 80;
     humidity += Math.sin(minutesElapsed / (60 * 24 * 2.1)) * 10; // weather systems
-    humidity += (Math.random() - 0.5) * 5;
+    humidity += (secureRandom() - 0.5) * 5;
     humidity = Math.max(0, Math.min(100, humidity)); // clamp 0-100
 
     // --- Solar Irradiance ---
@@ -42,13 +43,13 @@ function generateRawWeatherData(rowCount: number, startTime: number): number[][]
       solar = dailySolar * maxS;
 
       // Simulate cloud cover (reduces irradiance randomly)
-      if (Math.random() > 0.85) {
-        solar *= (Math.random() * 0.5 + 0.1);
+      if (secureRandom() > 0.85) {
+        solar *= (secureRandom() * 0.5 + 0.1);
       }
     }
     // Add minor sensor noise during the day
     if (solar > 0) {
-      solar += (Math.random() - 0.5) * 10;
+      solar += (secureRandom() - 0.5) * 10;
     }
     solar = Math.max(0, solar);
 
@@ -56,10 +57,10 @@ function generateRawWeatherData(rowCount: number, startTime: number): number[][]
     // Higher wind during weather fronts and during the day
     let wind = 2 + Math.abs(weatherFront) * 1.5 + (dailyCycle > 0 ? dailyCycle * 2 : 0);
     // Occasional gusts
-    if (Math.random() > 0.98) {
-      wind += Math.random() * 8;
+    if (secureRandom() > 0.98) {
+      wind += secureRandom() * 8;
     }
-    wind += (Math.random() - 0.5) * 1.5;
+    wind += (secureRandom() - 0.5) * 1.5;
     wind = Math.max(0, wind);
 
     rawData.push([ts, temp, humidity, solar, wind]);

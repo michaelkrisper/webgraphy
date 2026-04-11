@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateDemoDataset, getDemoAppState } from '../demoData';
 import { type Dataset } from '../persistence';
+import * as randomUtils from '../../utils/random';
 
 describe('demoData', () => {
   beforeEach(() => {
@@ -101,7 +102,7 @@ describe('demoData', () => {
     });
 
     it('should generate expected specific data values when randomness is mocked', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      vi.spyOn(randomUtils, 'secureRandom').mockReturnValue(0.5);
       const dataset = generateDemoDataset();
 
       expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(0.5, 2);

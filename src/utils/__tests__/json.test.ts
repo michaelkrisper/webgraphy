@@ -45,6 +45,37 @@ describe('secureJSONParse', () => {
     expect(result).toEqual([{}, { valid: 1 }]);
   });
 
+  it('should filter out dangerous keys in deeply nested structures', () => {
+    // Note: We use computed property names or raw strings because JSON.stringify
+    // skips __proto__ when defined directly in an object literal.
+    const json = JSON.stringify({
+      level1: {
+        ['__proto__']: { polluted: 'level1' },
+        level2: [
+          {
+            constructor: { prototype: { polluted: 'level2' } },
+            valid: true
+          },
+          {
+            prototype: { polluted: 'level2_alt' },
+            nested: {
+              ['__proto__']: { polluted: 'level3' }
+            }
+          }
+        ]
+      }
+    });
+    const result = secureJSONParse(json) as any;
+    expect(result.level1.__proto__).not.toHaveProperty('polluted');
+    expect(result.level1.level2[0].constructor).toBe(Object);
+    expect(result.level1.level2[0].valid).toBe(true);
+    expect(result.level1.level2[1].prototype).toBeUndefined();
+    expect(result.level1.level2[1].nested.__proto__).not.toHaveProperty('polluted');
+
+    // Check global state
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
   it('should throw error for invalid JSON', () => {
     const json = '{"invalid": }';
     expect(() => secureJSONParse(json)).toThrow();
