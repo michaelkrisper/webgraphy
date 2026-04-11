@@ -3,6 +3,18 @@ import { persistence, type Dataset } from '../services/persistence';
 import { useGraphStore } from '../store/useGraphStore';
 import type { ImportSettings } from '../types/import';
 
+
+const processImportedDataset = (ds: Dataset, currentDatasetsLength: number) => {
+  const letter = String.fromCharCode(65 + currentDatasetsLength);
+  const prefix = `${letter}: `;
+  ds.name = `${letter} - ${ds.name}`;
+  ds.columns = ds.columns.map(c => `${prefix}${c}`);
+  if (ds.xAxisColumn) {
+    ds.xAxisColumn = `${prefix}${ds.xAxisColumn}`;
+  }
+  return ds;
+};
+
 /**
  * Hook to manage data import logic and worker communication.
  */
@@ -39,17 +51,8 @@ export const useDataImport = () => {
       const { type: msgType, dataset, error: msgError } = event.data;
 
       if (msgType === 'success') {
-        const ds = dataset as Dataset;
-        const currentDatasets = useGraphStore.getState().datasets;
-        
-        // Add A-Z prefix
-        const letter = String.fromCharCode(65 + currentDatasets.length);
-        const prefix = `${letter}: `;
-        ds.name = `${letter} - ${ds.name}`;
-        ds.columns = ds.columns.map(c => `${prefix}${c}`);
-        if (ds.xAxisColumn) {
-          ds.xAxisColumn = `${prefix}${ds.xAxisColumn}`;
-        }
+        const currentDatasetsLength = useGraphStore.getState().datasets.length;
+        const ds = processImportedDataset(dataset as Dataset, currentDatasetsLength);
 
         await persistence.saveDataset(ds);
         addDataset(ds);
