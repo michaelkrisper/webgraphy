@@ -16,3 +16,6 @@
 ## 2026-04-11 - [Optimize y-axis offsets from O(N^2) to O(1)]
 **Learning:** Computing cumulative sizes of sibling elements inline during mapping (like stacked y-axes offsets) involves iterating over previous elements inside the loop, creating an O(N^2) complexity. This happens on every render and export. Pre-calculating the sum using a simple object map eliminates this bottleneck entirely and is much faster.
 **Action:** When rendering stacked or sequential items based on dimensions of earlier items, compute a cumulative sum map (`Record<id, number>`) in a `useMemo` first, transforming nested iteration into O(1) lookups.
+## 2026-04-12 - [Avoid O(N) array loops in React render loops]
+**Learning:** Found O(N) `.find()` and array iteration bottlenecks inside React component `useMemo` hooks (`ChartContainer.tsx` and `WebGLRenderer.tsx`) running on high-frequency events.
+**Action:** Replaced inline array lookups with O(1) `Map` objects computed outside the inner loops to maintain stable performance during user interactions.

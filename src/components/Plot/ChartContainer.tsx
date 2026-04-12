@@ -527,7 +527,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const finalXConf = bestSeriesXConf as XAxisConfig;
 
     // Collect all Y values from all series at this X, grouped by X-label and X-axis name
-    const entries: { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }[] = [];
+    const entriesMap = new Map<string, { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }>();
     seriesMetadata.forEach(({ series: s, ds, axis, xAxis, xCol, yCol }) => {
       const xData = xCol.data, yData = yCol.data;
       const refX = xCol.refPoint, refY = yCol.refPoint;
@@ -545,13 +545,16 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
 
-      let group = entries.find(g => g.xLabel === xLab && g.xAxisName === xAxis.name);
+      const xAxisName = xAxis.name || `X-Axis ${ds.xAxisId}`;
+      const groupKey = `${xLab}|${xAxisName}`;
+      let group = entriesMap.get(groupKey);
       if (!group) {
-        group = { xLabel: xLab, xAxisName: xAxis.name || `X-Axis ${ds.xAxisId}`, items: [] };
-        entries.push(group);
+        group = { xLabel: xLab, xAxisName, items: [] };
+        entriesMap.set(groupKey, group);
       }
       group.items.push({ label: displayLabel, value: yVal, color: s.lineColor || '#333', xVal, isXDate: xAxis.xMode === 'date' });
     });
+    const entries = Array.from(entriesMap.values());
 
     // Screen position of the snapped point
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;

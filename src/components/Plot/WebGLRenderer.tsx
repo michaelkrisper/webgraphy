@@ -195,10 +195,19 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
   // ⚡ Bolt Optimization: Pre-calculate series metadata to avoid O(N) array/string operations inside the render loop
   const seriesMetadata = useMemo(() => {
+    const datasetsById = new Map<string, Dataset>();
+    datasets.forEach(d => datasetsById.set(d.id, d));
+
+    const xAxesById = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => xAxesById.set(a.id, a));
+
+    const yAxesById = new Map<string, YAxisConfig>();
+    yAxes.forEach(a => yAxesById.set(a.id, a));
+
     return series.map(s => {
-      const ds = datasets.find(d => d.id === s.sourceId);
-      const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
-      const yAxis = yAxes.find(a => a.id === s.yAxisId);
+      const ds = datasetsById.get(s.sourceId);
+      const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
+      const yAxis = yAxesById.get(s.yAxisId);
       if (!ds || !xAxis || !yAxis) return null;
 
       const xIdx = getColumnIndex(ds, ds.xAxisColumn);
