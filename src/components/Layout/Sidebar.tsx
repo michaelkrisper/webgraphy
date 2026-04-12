@@ -335,20 +335,24 @@ export const Sidebar: React.FC = () => {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {d.columns
-                        .filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase()))
-                        .map(col => (
-                        <button 
-                          key={col} 
-                          onClick={() => createSeries(d.id, col)}
-                          style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
-                        >
-                          {col}
-                        </button>
-                      ))}
-                      {d.columns.filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase())).length === 0 && (
-                        <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>
-                      )}
+                      {(() => {
+                        const filterVal = (columnFilters[d.id] || '').toLowerCase();
+                        const filteredColumns = d.columns.filter(col => col.toLowerCase().includes(filterVal));
+
+                        if (filteredColumns.length === 0) {
+                          return <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>;
+                        }
+
+                        return filteredColumns.map(col => (
+                          <button
+                            key={col}
+                            onClick={() => createSeries(d.id, col)}
+                            style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
+                          >
+                            {col}
+                          </button>
+                        ));
+                      })()}
                     </div>
                   </details>
                 </div>
