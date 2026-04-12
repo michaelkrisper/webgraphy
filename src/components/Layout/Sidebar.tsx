@@ -34,7 +34,7 @@ export const Sidebar: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const [width, setWidth] = useState(() => Math.min(450, window.innerWidth * 0.85));
+  const [width, setWidth] = useState(() => Math.min(600, window.innerWidth * 0.35));
   const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768 || window.innerHeight < 500);
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
