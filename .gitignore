@@ -27,3 +27,5 @@ dist-ssr
 smoke-test-data.csv
 *.csv
 coverage/
+
+.jules/
