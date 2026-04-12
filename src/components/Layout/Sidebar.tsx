@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator, ArrowUpDown, MoveHorizontal, Minus, Circle, Palette, Type, Rows } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -349,20 +349,24 @@ export const Sidebar: React.FC = () => {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {d.columns
-                        .filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase()))
-                        .map(col => (
-                        <button 
-                          key={col} 
-                          onClick={() => createSeries(d.id, col)}
-                          style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
-                        >
-                          {col}
-                        </button>
-                      ))}
-                      {d.columns.filter(col => col.toLowerCase().includes((columnFilters[d.id] || '').toLowerCase())).length === 0 && (
-                        <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>
-                      )}
+                      {(() => {
+                        const filterVal = (columnFilters[d.id] || '').toLowerCase();
+                        const filteredColumns = d.columns.filter(col => col.toLowerCase().includes(filterVal));
+
+                        if (filteredColumns.length === 0) {
+                          return <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>;
+                        }
+
+                        return filteredColumns.map(col => (
+                          <button
+                            key={col}
+                            onClick={() => createSeries(d.id, col)}
+                            style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
+                          >
+                            {col}
+                          </button>
+                        ));
+                      })()}
                     </div>
                   </details>
                 </div>
@@ -380,6 +384,21 @@ export const Sidebar: React.FC = () => {
             </div>
             {openSections.series && <div className="series-list" style={{ marginBottom: '1rem' }}>
               {series.length === 0 && <p style={{ fontSize: 'var(--mobile-font-size)', color: '#666', padding: '8px' }}>Click a column above to add a series.</p>}
+              {series.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', padding: '4px 0', borderBottom: '2px solid var(--border-color)', color: '#64748b', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--sidebar-bg)', zIndex: 1 }}>
+                  <div title="Order" style={{ display: 'flex', justifyContent: 'center' }}><ArrowUpDown size={14} /></div>
+                  <div title="Y-Axis #" style={{ display: 'flex', justifyContent: 'center' }}><Hash size={14} /></div>
+                  <div title="Side (L/R)" style={{ display: 'flex', justifyContent: 'center' }}><MoveHorizontal size={14} /></div>
+                  <div title="Grid" style={{ display: 'flex', justifyContent: 'center' }}><Rows size={14} /></div>
+                  <div title="Line Style" style={{ display: 'flex', justifyContent: 'center' }}><Minus size={14} /></div>
+                  <div title="Line Width" style={{ display: 'flex', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>W</div>
+                  <div title="Point Style" style={{ display: 'flex', justifyContent: 'center' }}><Circle size={12} /></div>
+                  <div title="Color" style={{ display: 'flex', justifyContent: 'center' }}><Palette size={14} /></div>
+                  <div title="Data Column" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>COL</div>
+                  <div title="Series Name" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>NAME</div>
+                  <div />
+                </div>
+              )}
               {[...series].reverse().map((s, i) => {
                 const dataset = datasets.find(d => d.id === s.sourceId);
                 return (

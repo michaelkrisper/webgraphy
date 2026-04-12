@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { X, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { secureJSONParse } from '../../utils/json';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
+import { Modal } from './Modal';
 
 interface ImportSettingsDialogProps {
   fileName: string;
@@ -112,139 +113,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(2px)'
-    }}>
-      <div style={{
-        backgroundColor: '#fff', padding: '16px', borderRadius: '8px',
-        maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Import Settings: {fileName}</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Close dialog"><X size={24} /></button>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-          {fileType === 'csv' && (
-            <div>
-              <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Delimiter</label>
-              <select
-                id="import-delimiter"
-                value={delimiter}
-                onChange={e => setDelimiter(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
-              >
-                <option value=",">Comma (,)</option>
-                <option value=";">Semicolon (;)</option>
-                <option value="\t">Tab</option>
-                <option value="|">Pipe (|)</option>
-              </select>
-            </div>
-          )}
-          <div>
-            <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Decimal Point</label>
-            <select
-              id="import-decimal"
-              value={decimalPoint}
-              onChange={e => setDecimalPoint(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
-            >
-              <option value=".">Dot (.)</option>
-              <option value=",">Comma (,)</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Start Row</label>
-            <input
-              id="import-start-row"
-              type="number"
-              min="1"
-              value={startRow}
-              onChange={e => setStartRow(parseInt(e.target.value) || 1)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
-            />
-          </div>
-          <div>
-            <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>X-Axis Column</label>
-            <select
-              id="import-x-axis"
-              value={xAxisColumn}
-              onChange={e => setXAxisColumnOverride(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
-            >
-              {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
-                <option key={c.index} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px', overflowX: 'auto' }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: '10px' }}>Column Configuration & Preview</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#e9ecef' }}>
-                {columnConfigs.map((config, i) => (
-                  <th key={i} style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'left', minWidth: '180px' }}>
-                    <input
-                      type="text"
-                      maxLength={100}
-                      value={config.name}
-                      aria-label={`Column ${i + 1} name`}
-                      onChange={e => handleUpdateColumn(i, { name: e.target.value })}
-                      style={{ width: '100%', marginBottom: '8px', fontWeight: 'bold', border: '1px solid #dee2e6', background: '#fff', padding: '4px', fontSize: '14px', borderRadius: '4px' }}
-                    />
-                    <select
-                      value={config.type}
-                      aria-label={`Column ${i + 1} data type`}
-                      onChange={e => handleUpdateColumn(i, { type: e.target.value as ColumnType })}
-                      style={{ width: '100%', fontSize: '14px', marginBottom: '8px', height: '36px', borderRadius: '4px' }}
-                    >
-                      <option value="numeric">Numeric</option>
-                      <option value="date">Date/Time</option>
-                      <option value="categorical">Categorical</option>
-                      <option value="ignore">Ignore</option>
-                    </select>
-                    {config.type === 'date' && (
-                      <input
-                        type="text"
-                        placeholder="Format (e.g. YYYY-MM-DD)"
-                        maxLength={50}
-                        aria-label={`Column ${i + 1} date format`}
-                        value={config.dateFormat || ''}
-                        onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
-                        style={{ width: '100%', fontSize: '14px', padding: '6px', border: '1px solid #dee2e6', borderRadius: '4px' }}
-                      />
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {previewData.rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {columnConfigs.map((config, colIndex) => (
-                    <td key={colIndex} style={{
-                      border: '1px solid #dee2e6',
-                      padding: '12px',
-                      color: config.type === 'ignore' ? '#adb5bd' : '#212529',
-                      backgroundColor: config.type === 'ignore' ? '#f8f9fa' : 'transparent'
-                    }}>
-                      {fileType === 'json'
-                        ? (row as Record<string, string>)[previewData.headers[colIndex]]
-                        : (row as string[])[colIndex]}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: 'auto', flexWrap: 'wrap' }}>
+    <Modal
+      onClose={onCancel}
+      title={`Import Settings: ${fileName}`}
+      maxWidth="1000px"
+      width="95%"
+      padding="16px"
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
           <button
             onClick={onCancel}
             style={{ padding: '12px 24px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer', minHeight: '44px', fontSize: '1rem', flex: '1 1 auto' }}
@@ -258,7 +134,124 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             <Check size={20} /> Import Data
           </button>
         </div>
+      }
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+        {fileType === 'csv' && (
+          <div>
+            <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Delimiter</label>
+            <select
+              id="import-delimiter"
+              value={delimiter}
+              onChange={e => setDelimiter(e.target.value)}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
+            >
+              <option value=",">Comma (,)</option>
+              <option value=";">Semicolon (;)</option>
+              <option value="\t">Tab</option>
+              <option value="|">Pipe (|)</option>
+            </select>
+          </div>
+        )}
+        <div>
+          <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Decimal Point</label>
+          <select
+            id="import-decimal"
+            value={decimalPoint}
+            onChange={e => setDecimalPoint(e.target.value)}
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
+          >
+            <option value=".">Dot (.)</option>
+            <option value=",">Comma (,)</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Start Row</label>
+          <input
+            id="import-start-row"
+            type="number"
+            min="1"
+            value={startRow}
+            onChange={e => setStartRow(parseInt(e.target.value) || 1)}
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
+          />
+        </div>
+        <div>
+          <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>X-Axis Column</label>
+          <select
+            id="import-x-axis"
+            value={xAxisColumn}
+            onChange={e => setXAxisColumnOverride(e.target.value)}
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', height: '40px', fontSize: '14px' }}
+          >
+            {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
+              <option key={c.index} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
-    </div>
+
+      <div style={{ marginBottom: '20px', overflowX: 'auto' }}>
+        <h3 style={{ fontSize: '1rem', marginBottom: '10px' }}>Column Configuration & Preview</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#e9ecef' }}>
+              {columnConfigs.map((config, i) => (
+                <th key={i} style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'left', minWidth: '180px' }}>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    value={config.name}
+                    aria-label={`Column ${i + 1} name`}
+                    onChange={e => handleUpdateColumn(i, { name: e.target.value })}
+                    style={{ width: '100%', marginBottom: '8px', fontWeight: 'bold', border: '1px solid #dee2e6', background: '#fff', padding: '4px', fontSize: '14px', borderRadius: '4px' }}
+                  />
+                  <select
+                    value={config.type}
+                    aria-label={`Column ${i + 1} data type`}
+                    onChange={e => handleUpdateColumn(i, { type: e.target.value as ColumnType })}
+                    style={{ width: '100%', fontSize: '14px', marginBottom: '8px', height: '36px', borderRadius: '4px' }}
+                  >
+                    <option value="numeric">Numeric</option>
+                    <option value="date">Date/Time</option>
+                    <option value="categorical">Categorical</option>
+                    <option value="ignore">Ignore</option>
+                  </select>
+                  {config.type === 'date' && (
+                    <input
+                      type="text"
+                      placeholder="Format (e.g. YYYY-MM-DD)"
+                      maxLength={50}
+                      aria-label={`Column ${i + 1} date format`}
+                      value={config.dateFormat || ''}
+                      onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
+                      style={{ width: '100%', fontSize: '14px', padding: '6px', border: '1px solid #dee2e6', borderRadius: '4px' }}
+                    />
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {previewData.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {columnConfigs.map((config, colIndex) => (
+                  <td key={colIndex} style={{
+                    border: '1px solid #dee2e6',
+                    padding: '12px',
+                    color: config.type === 'ignore' ? '#adb5bd' : '#212529',
+                    backgroundColor: config.type === 'ignore' ? '#f8f9fa' : 'transparent'
+                  }}>
+                    {fileType === 'json'
+                      ? (row as Record<string, string>)[previewData.headers[colIndex]]
+                      : (row as string[])[colIndex]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
   );
 };

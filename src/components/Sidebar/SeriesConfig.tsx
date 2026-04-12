@@ -68,7 +68,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   return (
-    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '6px 0', fontSize: 'var(--mobile-font-size)', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', alignItems: 'center' }}>
       {/* Reorder Buttons (UP/DOWN) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
         <button
@@ -99,7 +99,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </button>
 
       {/* L/R Side Toggle */}
-      {currentYAxis && (
+      {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { position: currentYAxis.position === 'left' ? 'right' : 'left' })}
           style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
@@ -115,10 +115,10 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
             </svg>
           )}
         </button>
-      )}
+      ) : <div style={{ width: 'var(--touch-target-size)' }} />}
 
       {/* Grid Toggle */}
-      {currentYAxis && (
+      {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })}
           style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#f1f5f9' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#475569' }}
@@ -126,7 +126,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
          aria-label="Toggle Grid">
           {currentYAxis.showGrid ? <Rows size={16} /> : <Square size={16} />}
         </button>
-      )}
+      ) : <div style={{ width: 'var(--touch-target-size)' }} />}
 
       {/* Line Style Cycle */}
       <button
@@ -148,7 +148,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = widths[(widths.indexOf(series.lineWidth) + 1) % widths.length];
           handleUpdate({ lineWidth: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0, color: '#475569' }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
         title={`Line Width: ${series.lineWidth}`}
        aria-label="Cycle Line Width">
         {renderLineWidthIcon()}
