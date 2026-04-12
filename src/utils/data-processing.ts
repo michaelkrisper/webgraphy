@@ -44,11 +44,12 @@ export function processRawColumn(sourceData: Float64Array | number[]): Processed
       if (val < min) min = val;
       if (val > max) max = val;
 
+      const relativeVal = (val as number) - refPoint;
       const chunkIdx = Math.floor(i / CHUNK_SIZE);
-      if (val < chunkMin[chunkIdx]) chunkMin[chunkIdx] = val;
-      if (val > chunkMax[chunkIdx]) chunkMax[chunkIdx] = val;
+      if (relativeVal < chunkMin[chunkIdx]) chunkMin[chunkIdx] = relativeVal;
+      if (relativeVal > chunkMax[chunkIdx]) chunkMax[chunkIdx] = relativeVal;
 
-      colData[i] = (val as number) - refPoint;
+      colData[i] = relativeVal;
     } else {
       colData[i] = NaN;
     }
