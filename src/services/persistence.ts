@@ -4,7 +4,7 @@ import { z } from 'zod';
 const DB_NAME = 'webgraphy-db';
 const DATASET_STORE = 'datasets';
 const APP_STATE_STORE = 'app_state';
-const VERSION = 1;
+const VERSION = 2;
 
 export interface DataColumn {
   isFloat64: boolean;

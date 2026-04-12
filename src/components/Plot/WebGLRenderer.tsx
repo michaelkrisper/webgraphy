@@ -120,6 +120,13 @@ interface Props {
   isInteracting?: boolean;
 }
 
+const hexToRgba = (hex: string): number[] => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  return [r, g, b];
+};
+
 /**
  * WebGLRenderer Component (v0.3.5 - Ultra-Precision Shader with Dynamic Interaction Downsampling)
  */
@@ -442,9 +449,3 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
 });
 
-const hexToRgba = (hex: string): number[] => {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [r, g, b];
-};
