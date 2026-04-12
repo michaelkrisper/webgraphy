@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator, ArrowUpDown, MoveHorizontal, Minus, Circle, Palette, Rows } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator, ArrowUpDown, MoveHorizontal, Minus, Circle, Palette, Rows, Search, EyeOff } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -19,11 +19,17 @@ const COLOR_PALETTE = [
 ];
 
 /**
- * Sidebar Component (v2.6 - Floating Expand Button)
- * Manages data imports, dataset listing, global X-axis settings, and series configuration.
+ * Sidebar Component (v3.0 - Visibility, Search & Highlighting)
  */
 export const Sidebar: React.FC = () => {
-  const { datasets, series, xAxes, yAxes, axisTitles, removeDataset, updateDataset, moveDataset, views, saveView, applyView, deleteView, moveSeries, updateViewName, loadDemoData } = useGraphStore();
+  const { 
+    datasets, series, xAxes, yAxes, axisTitles, 
+    removeDataset, updateDataset, moveDataset, 
+    views, saveView, applyView, deleteView, 
+    moveSeries, updateViewName, loadDemoData,
+    bulkHideAllSeries, bulkShowAllSeries, setHighlightedSeries
+  } = useGraphStore();
+
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
@@ -31,6 +37,7 @@ export const Sidebar: React.FC = () => {
   const [showLicense, setShowLicense] = useState(false);
   const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
+  const [seriesSearch, setSeriesSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -41,6 +48,12 @@ export const Sidebar: React.FC = () => {
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile, isImporting } = useDataImport();
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  const filteredSeries = useMemo(() => {
+    if (!seriesSearch.trim()) return series;
+    const term = seriesSearch.toLowerCase();
+    return series.filter(s => (s.name || s.yColumn).toLowerCase().includes(term));
+  }, [series, seriesSearch]);
 
   const selectedDatasetForView = useMemo(() => {
     return datasets.find(d => d.id === viewingDatasetId);
@@ -57,7 +70,7 @@ export const Sidebar: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const newWidth = Math.max(200, Math.min(600, window.innerWidth - e.clientX));
+      const newWidth = Math.max(200, Math.min(800, window.innerWidth - e.clientX));
       setWidth(newWidth);
     };
 
@@ -81,7 +94,6 @@ export const Sidebar: React.FC = () => {
     };
   }, [isResizing]);
 
-  // Handle auto-resize on window resize (especially orientation change)
   useEffect(() => {
     const handleResize = () => {
       setWidth(prev => Math.min(prev, window.innerWidth * 0.9));
@@ -97,13 +109,12 @@ export const Sidebar: React.FC = () => {
     const svgContent = exportToSVG(
       datasets, 
       series, 
-      xAxes,
-      yAxes,
-      axisTitles,
+      xAxes, 
+      yAxes, 
+      axisTitles, 
       plotContainer.clientWidth, 
       plotContainer.clientHeight
     );
-
     downloadFile(svgContent, 'webgraphy-export.svg', 'image/svg+xml');
   };
 
@@ -114,9 +125,9 @@ export const Sidebar: React.FC = () => {
     const pngData = await exportToPNG(
       datasets, 
       series, 
-      xAxes,
-      yAxes,
-      axisTitles,
+      xAxes, 
+      yAxes, 
+      axisTitles, 
       plotContainer.clientWidth, 
       plotContainer.clientHeight
     );
@@ -128,7 +139,7 @@ export const Sidebar: React.FC = () => {
     if (!dataset) return;
 
     const { addSeries } = useGraphStore.getState();
-    
+
     // Find the first Y-axis that is not currently used by any series
     const usedAxisIds = new Set(series.map(s => s.yAxisId));
     let nextAxisId = 'axis-1';
@@ -139,14 +150,13 @@ export const Sidebar: React.FC = () => {
         break;
       }
     }
-    
-    // If all axes are already in use, fall back to a simple cycle
+
     if (usedAxisIds.size >= 9) {
       nextAxisId = `axis-${(series.length % 9) + 1}`;
     }
 
     const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
-    
+
     addSeries({
       id: crypto.randomUUID(),
       sourceId: datasetId,
@@ -157,463 +167,250 @@ export const Sidebar: React.FC = () => {
       pointColor: color,
       lineStyle: 'solid',
       lineColor: color,
-      lineWidth: 1.5
+      lineWidth: 1.5,
+      hidden: false
     });
   };
 
+  if (isCollapsed) {
+    return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} />;
+  }
+
   return (
     <>
-      {isCollapsed && (
-        <CollapsedMenuButton onClick={() => setIsCollapsed(false)} />
-      )}
+      <aside className="sidebar" style={{ width, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc', borderLeft: '1px solid #e2e8f0', boxShadow: '-2px 0 10px rgba(0,0,0,0.05)', flexShrink: 0, zIndex: 1000 }}>
+        {/* Resize Handle */}
+        <div 
+          onMouseDown={() => setIsResizing(true)}
+          style={{ position: 'absolute', left: -4, top: 0, bottom: 0, width: 8, cursor: 'col-resize', zIndex: 10 }} 
+        />
 
-      <aside 
-        className="sidebar" 
-        style={{ 
-          width: isCollapsed ? '0px' : `${width}px`, 
-          borderLeft: isCollapsed ? 'none' : '1px solid var(--border-color)',
-          padding: isCollapsed ? '0px' : '1rem',
-          position: 'relative',
-          overflow: isCollapsed ? 'hidden' : 'auto'
-        }}
-      >
-        <div className={`sidebar-content ${isCollapsed ? 'hidden' : ''}`}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--text-color)', paddingBottom: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="./favicon.svg" alt="logo" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
-              <h2 style={{ margin: 0, border: 'none', padding: 0 }}>WebGraphy</h2>
-              <button 
-                onClick={() => setShowHelp(true)}
-                title="Help & Interactions"
-                aria-label="Help & Interactions"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }}
-              >
-                <HelpCircle size={22} />
-              </button>
+        {/* Header */}
+        <header style={{ padding: '12px 16px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '6px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', borderRadius: '8px', color: '#fff' }}>
+              <Layout size={20} />
             </div>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }} title="Collapse Menu" aria-label="Collapse Menu">
-              <ChevronRight size={22} />
-            </button>
+            <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1e293b', letterSpacing: '-0.02em' }}>webgraphy</h1>
           </div>
-          
-          <div className="section">
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('sources')} aria-expanded={openSections.sources} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
-                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.sources ? 'rotate(90deg)' : 'none' }} />
-                <FilePlus size={18} style={{ marginRight: '5px' }} />
-                Data Sources
-              </button>
-              <button
-                disabled={isImporting}
-                onClick={() => fileInputRef.current?.click()}
-                style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Import Data Source"
-                aria-label="Import Data Source"
-              >
-                {isImporting ? '...' : <Upload size={18} />}
-              </button>
-              <input
-                type="file"
-                name="file-import"
-                ref={fileInputRef}
-                onChange={async (e) => {
-                   if (e.target.files?.[0]) {
-                     importFile(e.target.files[0]);
-                   }
-                }}
-                style={{ display: 'none' }}
-                accept=".csv,.json"
-              />
-            </div>
-            {openSections.sources && <div className="sources-list" style={{ marginBottom: '1rem' }}>
-              {datasets.map(d => (
-                <div key={d.id} style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div
-                      onDoubleClick={() => setViewingDatasetId(d.id)}
-                      style={{ fontWeight: 'bold', fontSize: 'var(--mobile-font-size)', flex: '1 1 100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}
-                      title={`${d.name} (Double-click to view data table)`}
-                    >
-                      {d.name}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
-                      {/* X Axis selection */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <select
-                          name={`dataset-x-column-${d.id}`}
-                          aria-label={`X Column for ${d.name}`}
-                          value={d.xAxisColumn}
-                          onChange={(e) => updateDataset(d.id, { xAxisColumn: e.target.value })}
-                          style={{ width: '90px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, border: '1px solid #cbd5e1', color: '#475569', borderRadius: '4px', background: '#f8fafc' }}
-                          title="X Column (Source Wide)"
-                        >
-                          {d.columns.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <button
-                          onClick={() => {
-                            const currentXIdx = parseInt(d.xAxisId?.split('-')[1]) || 1;
-                            const nextXIdx = (currentXIdx % 9) + 1;
-                            updateDataset(d.id, { xAxisId: `axis-${nextXIdx}` });
-                          }}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
-                          title="Cycle X-Axis (1-9)"
-                          aria-label="Cycle X-Axis">
-                          {parseInt(d.xAxisId?.split('-')[1]) || 1}
-                        </button>
-                        <button
-                          onClick={() => {
-                            const axisId = d.xAxisId || 'axis-1';
-                            const currentMode = xAxes.find(a => a.id === axisId)?.xMode || 'date';
-                            const { updateXAxis } = useGraphStore.getState();
-                            updateXAxis(axisId, { xMode: currentMode === 'date' ? 'numeric' : 'date' });
-                          }}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
-                          title={xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? "Switch to Decimal Mode" : "Switch to Time Mode"}
-                          aria-label="Toggle X-Axis Mode"
-                        >
-                          {xAxes.find(a => a.id === (d.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={16} /> : <Hash size={16} />}
-                        </button>
-                      </div>
+          <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px', borderRadius: '4px' }} title="Collapse Sidebar">
+            <X size={20} />
+          </button>
+        </header>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
-                          <button
-                            onClick={() => moveDataset(d.id, -1)}
-                            disabled={datasets.indexOf(d) === 0}
-                            style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: datasets.indexOf(d) === 0 ? 0.3 : 1 }}
-                            title="Move Up"
-                            aria-label="Move Up"
-                          >
-                            <ChevronUp size={16} strokeWidth={3} />
-                          </button>
-                          <button
-                            onClick={() => moveDataset(d.id, 1)}
-                            disabled={datasets.indexOf(d) === datasets.length - 1}
-                            style={{ padding: '0', cursor: 'pointer', background: 'none', border: 'none', color: '#475569', height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: datasets.indexOf(d) === datasets.length - 1 ? 0.3 : 1 }}
-                            title="Move Down"
-                            aria-label="Move Down"
-                          >
-                            <ChevronDown size={16} strokeWidth={3} />
-                          </button>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            if (window.confirm(`Are you sure you want to remove the data source "${d.name}"?`)) {
-                              await persistence.deleteDataset(d.id);
-                              removeDataset(d.id);
-                            }
-                          }}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Remove data source"
-                          aria-label="Remove data source"
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          
+          {/* Data Sources Section */}
+          <section style={{ marginBottom: '24px' }}>
+            <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Sources</h2>
+              {openSections.sources ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+            </div>
+
+            {openSections.sources && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)' }}
+                >
+                  <FilePlus size={18} /> Import File (CSV/JSON)
+                </button>
+                <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
+
+                {datasets.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '24px 16px', border: '2px dashed #e2e8f0', borderRadius: '12px', color: '#94a3b8' }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem' }}>No data loaded</p>
+                    <button onClick={loadDemoData} style={{ background: 'none', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#64748b', cursor: 'pointer' }}>Load Demo Data</button>
+                  </div>
+                )}
+
+                {datasets.map((ds, idx) => (
+                  <div key={ds.id} style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <div style={{ padding: '10px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name}</span>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }} title="Add Calculated Column"><Calculator size={16} /></button>
+                        <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }} title="View Data"><Eye size={16} /></button>
+                        <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }} title="Delete Dataset"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                    
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#94a3b8' }}>X-Axis Column</label>
+                        <select 
+                          value={ds.xAxisColumn} 
+                          onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
+                          style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', maxWidth: '120px' }}
                         >
-                          <Trash2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => setCalculatingDatasetId(d.id)}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Add Calculated Series"
-                          aria-label="Add Calculated Series"
-                        >
-                          <Calculator size={18} />
-                        </button>
+                          {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      
+                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px' }}>Series / Columns</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
+                        {ds.columns.map((col) => {
+                          const isUsed = series.some(s => s.sourceId === ds.id && s.yColumn === col);
+                          const isX = ds.xAxisColumn === col;
+                          if (isX) return null;
+                          return (
+                            <button 
+                              key={col} 
+                              onClick={() => createSeries(ds.id, col)}
+                              disabled={isUsed}
+                              style={{ 
+                                fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0', 
+                                border: isUsed ? '1px solid #e2e8f0' : '1px solid #3b82f6', 
+                                backgroundColor: isUsed ? '#f1f5f9' : '#eff6ff',
+                                color: isUsed ? '#94a3b8' : '#3b82f6',
+                                cursor: isUsed ? 'default' : 'pointer',
+                                fontWeight: '600'
+                              }}
+                            >
+                              {col.includes(': ') ? col.split(': ')[1] : col}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
-                  <details>
-                    <summary style={{ fontSize: 'var(--mobile-font-size)', cursor: 'pointer', userSelect: 'none', marginBottom: '8px', color: '#64748b', display: 'flex', alignItems: 'center', padding: '6px 0' }}>
-                      <ChevronRight size={18} className="details-chevron" />
-                      <span style={{ flex: 1 }}>Columns ({d.columns.length}) &mdash; {d.rowCount.toLocaleString()} rows</span>
-                    </summary>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-                      <input
-                        type="text"
-                        name={`column-filter-${d.id}`}
-                        aria-label={`Filter columns for ${d.name}`}
-                        autoComplete="off"
-                        placeholder="Filter..."
-                        maxLength={100}
-                        value={columnFilters[d.id] || ''}
-                        onChange={(e) => setColumnFilters({ ...columnFilters, [d.id]: e.target.value })}
-                        style={{ width: '100%', padding: '8px 30px 8px 8px', fontSize: 'var(--mobile-font-size)', border: '1px solid #ced4da', borderRadius: '4px', boxSizing: 'border-box', outline: 'none', height: 'var(--touch-target-size)' }}
-                      />
-                      {columnFilters[d.id] && (
-                        <button
-                          onClick={() => setColumnFilters({ ...columnFilters, [d.id]: '' })}
-                          aria-label="Clear filter"
-                          title="Clear filter"
-                          style={{ position: 'absolute', right: '4px', background: 'none', border: 'none', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 'var(--touch-target-size)', minHeight: 'var(--touch-target-size)' }}
-                        >
-                          <X size={18} style={{ color: '#999' }} />
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(() => {
-                        const filterVal = (columnFilters[d.id] || '').toLowerCase();
-                        const filteredColumns = d.columns.filter(col => col.toLowerCase().includes(filterVal));
+                ))}
+              </div>
+            )}
+          </section>
 
-                        if (filteredColumns.length === 0) {
-                          return <span style={{ fontSize: 'var(--mobile-font-size)', color: '#999', padding: '4px' }}>No columns found.</span>;
-                        }
-
-                        return filteredColumns.map(col => (
-                          <button
-                            key={col}
-                            onClick={() => createSeries(d.id, col)}
-                            style={{ fontSize: 'var(--mobile-font-size)', padding: '6px 10px', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#475569', minHeight: 'var(--touch-target-size)' }}
-                          >
-                            {col}
-                          </button>
-                        ));
-                      })()}
-                    </div>
-                  </details>
-                </div>
-              ))}
-            </div>}
-          </div>
-
-          <div className="section">
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('series')} aria-expanded={openSections.series} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
-                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.series ? 'rotate(90deg)' : 'none' }} />
-                <Layout size={18} style={{ marginRight: '5px' }} />
-                Data Series
-              </button>
+          {/* Series Configuration Section */}
+          <section style={{ marginBottom: '24px' }}>
+            <div onClick={() => toggleSection('series')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Series Config</h2>
+              {openSections.series ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
             </div>
-            {openSections.series && <div className="series-list" style={{ marginBottom: '1rem' }}>
-              {series.length === 0 && <p style={{ fontSize: 'var(--mobile-font-size)', color: '#666', padding: '8px' }}>Click a column above to add a series.</p>}
-              {series.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', padding: '4px 0', borderBottom: '2px solid var(--border-color)', color: '#64748b', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--sidebar-bg)', zIndex: 1 }}>
-                  <div title="Order" style={{ display: 'flex', justifyContent: 'center' }}><ArrowUpDown size={14} /></div>
-                  <div title="Y-Axis #" style={{ display: 'flex', justifyContent: 'center' }}><Hash size={14} /></div>
-                  <div title="Side (L/R)" style={{ display: 'flex', justifyContent: 'center' }}><MoveHorizontal size={14} /></div>
-                  <div title="Grid" style={{ display: 'flex', justifyContent: 'center' }}><Rows size={14} /></div>
-                  <div title="Line Style" style={{ display: 'flex', justifyContent: 'center' }}><Minus size={14} /></div>
-                  <div title="Line Width" style={{ display: 'flex', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>W</div>
-                  <div title="Point Style" style={{ display: 'flex', justifyContent: 'center' }}><Circle size={12} /></div>
-                  <div title="Color" style={{ display: 'flex', justifyContent: 'center' }}><Palette size={14} /></div>
-                  <div title="Data Column" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>COL</div>
-                  <div title="Series Name" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>NAME</div>
-                  <div />
-                </div>
-              )}
-              {[...series].reverse().map((s, i) => {
-                const dataset = datasets.find(d => d.id === s.sourceId);
-                return (
-                  <SeriesConfigUI
-                    key={s.id}
-                    series={s}
-                    dataset={dataset}
-                    isFirst={i === 0}
-                    isLast={i === series.length - 1}
-                    onMove={(delta) => moveSeries(s.id, delta)}
-                  />
-                );
-              })}
-            </div>}
-          </div>
 
-          <div className="section" style={{ marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-              <button onClick={() => toggleSection('views')} aria-expanded={openSections.views} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, background: 'none', border: 'none', padding: '4px 0', textAlign: 'left', font: 'inherit', color: 'inherit', minHeight: 'var(--touch-target-size)' }}>
-                <ChevronRight size={18} style={{ marginRight: '4px', transition: 'transform 0.15s', transform: openSections.views ? 'rotate(90deg)' : 'none' }} />
-                <Eye size={18} style={{ marginRight: '5px' }} />
-                Data Views
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); saveView(''); }}
-                style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Save Data View"
-                aria-label="Save Data View"
-              >
-                <Bookmark size={18} />
-              </button>
-            </div>
-            {openSections.views && <div style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', background: '#fff', marginBottom: '1rem' }}>
-              
-              {customViews.length === 0 && (
-                <div style={{ fontSize: 'var(--mobile-font-size)', color: '#64748b', textAlign: 'center', padding: '8px' }}>No saved views.</div>
-              )}
-              
-              {customViews.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {customViews.map(v => (
-                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                      {editingViewId === v.id ? (
-                        <input
-                          autoFocus
-                          name="view-name"
-                          aria-label="Rename view"
-                          autoComplete="off"
-                          maxLength={50}
-                          value={tempViewName}
-                          onChange={(e) => setTempViewName(e.target.value)}
-                          onBlur={() => {
-                            if (tempViewName.trim()) updateViewName(v.id, tempViewName.trim());
-                            setEditingViewId(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              if (tempViewName.trim()) updateViewName(v.id, tempViewName.trim());
-                              setEditingViewId(null);
-                            }
-                            if (e.key === 'Escape') setEditingViewId(null);
-                          }}
-                          style={{ flex: 1, fontSize: 'var(--mobile-font-size)', padding: '0 4px', height: 'var(--touch-target-size)', marginRight: '8px' }}
+            {openSections.series && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {series.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input 
+                          type="text" 
+                          placeholder="Search series..." 
+                          value={seriesSearch}
+                          onChange={(e) => setSeriesSearch(e.target.value)}
+                          style={{ width: '100%', padding: '6px 8px 6px 28px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#fff' }}
                         />
-                      ) : (
-                        <span 
-                          onClick={() => { setEditingViewId(v.id); setTempViewName(v.name); }}
-                          style={{ fontSize: 'var(--mobile-font-size)', fontWeight: 'bold', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', cursor: 'text', padding: '4px 0' }}
-                          title="Click to rename"
-                        >
-                          {v.name}
-                        </span>
-                      )}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          onClick={() => applyView(v.id)}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Apply view bounds"
-                          aria-label="Apply view bounds"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button 
-                          onClick={() => deleteView(v.id)}
-                          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', cursor: 'pointer', background: 'none', border: 'none', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Delete view"
-                          aria-label="Delete view"
-                        >
-                          <Trash2 size={18} />
-                        </button>
                       </div>
+                      <button onClick={bulkShowAllSeries} style={{ padding: '6px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', color: '#64748b', cursor: 'pointer' }} title="Show All"><Eye size={16} /></button>
+                      <button onClick={bulkHideAllSeries} style={{ padding: '6px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', color: '#64748b', cursor: 'pointer' }} title="Hide All"><EyeOff size={16} /></button>
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {series.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {filteredSeries.map((s, idx) => (
+                      <div 
+                        key={s.id} 
+                        onMouseEnter={() => setHighlightedSeries(s.id)}
+                        onMouseLeave={() => setHighlightedSeries(null)}
+                        style={{ transition: 'background 0.2s', borderRadius: '6px' }}
+                      >
+                        <SeriesConfigUI 
+                          series={s} 
+                          dataset={datasets.find(d => d.id === s.sourceId)} 
+                          isFirst={idx === 0} 
+                          isLast={idx === series.length - 1} 
+                          onMove={moveSeries}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Views Section */}
+          <section style={{ marginBottom: '24px' }}>
+            <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saved Views</h2>
+              {openSections.views ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+            </div>
+
+            {openSections.views && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => {
+                      const name = prompt('Enter view name:', `View ${customViews.length + 1}`);
+                      if (name) saveView(name);
+                    }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#fff', border: '1px solid #3b82f6', color: '#3b82f6', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    <Bookmark size={16} /> Save Current View
+                  </button>
                 </div>
-              )}
-            </div>}
-          </div>
 
-          <div className="section" style={{ paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <button
-                onClick={handleExportSVG}
-                style={{ flex: 1, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
-              >
-                <FileImage size={18} /> Export SVG
-              </button>
-              <button
-                onClick={handleExportPNG}
-                style={{ flex: 1, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-color)', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
-              >
-                <Image size={18} /> Export PNG
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={async () => {
-                  if (confirm('Restore demo data? Current settings will be cleared.')) {
-                    await persistence.clearAppState();
-                    const db = await indexedDB.open('webgraphy-db');
-                    db.onsuccess = () => {
-                      const database = db.result;
-                      const transaction = database.transaction(['datasets'], 'readwrite');
-                      transaction.objectStore('datasets').clear();
-                      transaction.oncomplete = () => {
-                        loadDemoData().then(() => window.location.reload());
-                      };
-                    };
-                  }
-                }}
-                style={{ flex: 1, padding: '12px', cursor: 'pointer', background: '#fff', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
-              >
-                <RotateCcw size={18} /> Demo
-              </button>
-              <button
-                onClick={async () => {
-                  if (confirm('Delete all datasets and reset all settings?')) {
-                    await persistence.clearAppState();
-                    localStorage.setItem('webgraphy-cleared', '1');
-                    const db = await indexedDB.open('webgraphy-db');
-                    db.onsuccess = () => {
-                      const database = db.result;
-                      const transaction = database.transaction(['datasets'], 'readwrite');
-                      transaction.objectStore('datasets').clear();
-                      transaction.oncomplete = () => window.location.reload();
-                    };
-                  }
-                }}
-                style={{ flex: 1, padding: '12px', cursor: 'pointer', background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: 'var(--mobile-font-size)', minHeight: '44px' }}
-              >
-                <RotateCcw size={18} /> Reset
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#999', paddingBottom: '1rem' }}>
-            <span>v0.3.4</span>
-            <span>|</span>
-            <button 
-              onClick={() => setShowImprint(true)} 
-              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: '4px', fontSize: '12px' }}
-            >
-              Imprint
-            </button>
-            <span>|</span>
-            <button 
-              onClick={() => setShowLicense(true)} 
-              style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', textDecoration: 'underline', padding: '4px', fontSize: '12px' }}
-            >
-              License
-            </button>
-          </div>
+                {customViews.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {customViews.map(view => (
+                      <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        {editingViewId === view.id ? (
+                          <input 
+                            autoFocus
+                            value={tempViewName}
+                            onChange={(e) => setTempViewName(e.target.value)}
+                            onBlur={() => { updateViewName(view.id, tempViewName); setEditingViewId(null); }}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget.blur())}
+                            style={{ flex: 1, fontSize: '0.85rem', border: '1px solid #3b82f6', borderRadius: '4px', padding: '2px 4px' }}
+                          />
+                        ) : (
+                          <span 
+                            onClick={() => applyView(view.id)} 
+                            onDoubleClick={() => { setEditingViewId(view.id); setTempViewName(view.name); }}
+                            style={{ flex: 1, fontSize: '0.85rem', fontWeight: '600', color: '#334155', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {view.name}
+                          </span>
+                        )}
+                        <button onClick={() => applyView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6' }} title="Apply"><RotateCcw size={14} /></button>
+                        <button onClick={() => deleteView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }} title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Resizer overlay positioned relative to sidebar */}
-        {!isCollapsed && (
-          <div 
-            onMouseDown={() => setIsResizing(true)}
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: '5px',
-              cursor: 'col-resize',
-              background: isResizing ? '#3b82f6' : 'transparent',
-              zIndex: 10,
-              transition: 'background 0.2s'
-            }}
-          />
-        )}
+        {/* Footer */}
+        <footer style={{ padding: '16px', backgroundColor: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button onClick={handleExportSVG} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}><FileImage size={16} /> SVG</button>
+            <button onClick={handleExportPNG} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}><Image size={16} /> PNG</button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+            <button onClick={() => setShowHelp(true)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}><HelpCircle size={14} /> Help</button>
+            <button onClick={() => setShowLicense(true)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.75rem' }}>License</button>
+            <button onClick={() => setShowImprint(true)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.75rem' }}>Imprint</button>
+          </div>
+        </footer>
       </aside>
+
+      {/* Modals */}
+      {pendingFile && <ImportSettingsDialog file={pendingFile} onConfirm={confirmImport} onCancel={cancelImport} />}
+      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
+      {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
-      {pendingFile && (
-        <ImportSettingsDialog
-          fileName={pendingFile.file.name}
-          fileContent={pendingFile.preview}
-          fileType={pendingFile.type}
-          onConfirm={confirmImport}
-          onCancel={cancelImport}
-        />
-      )}
-      {selectedDatasetForView && (
-        <DataViewModal
-          dataset={selectedDatasetForView}
-          onClose={() => setViewingDatasetId(null)}
-        />
-      )}
-      {selectedDatasetForCalc && (
-        <CalculatedColumnModal
-          dataset={selectedDatasetForCalc}
-          onClose={() => setCalculatingDatasetId(null)}
-        />
-      )}
     </>
   );
 };

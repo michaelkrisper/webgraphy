@@ -13,8 +13,9 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
   const [name, setName] = useState('New Series');
   const [formula, setFormula] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -28,11 +29,18 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
       return;
     }
 
-    const result = addCalculatedColumn(dataset.id, name.trim(), formula.trim());
-    if (result.success) {
-      onClose();
-    } else {
-      setError(result.error || 'Failed to create calculated column.');
+    setIsCalculating(true);
+    try {
+      const result = await addCalculatedColumn(dataset.id, name.trim(), formula.trim());
+      if (result.success) {
+        onClose();
+      } else {
+        setError(result.error || 'Failed to create calculated column.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+    } finally {
+      setIsCalculating(false);
     }
   };
 
@@ -134,18 +142,32 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: 'pointer' }}
+              disabled={isCalculating}
+              style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? 0.6 : 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}
+              disabled={isCalculating}
+              style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#3b82f6', color: '#fff', cursor: isCalculating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: isCalculating ? 0.8 : 1 }}
             >
-              <Check size={18} /> Create Series
+              {isCalculating ? (
+                <>
+                  <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  <span>Calculating...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={18} /> Create Series
+                </>
+              )}
             </button>
           </div>
         </form>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
       </div>
     </div>
   );

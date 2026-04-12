@@ -3,7 +3,6 @@ import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxis
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 import { getColumnIndex } from '../utils/columns';
 import { compileFormula } from '../utils/formula';
-import { processRawColumn } from '../utils/data-processing';
 
 interface GraphState {
   datasets: Dataset[];
@@ -13,17 +12,22 @@ interface GraphState {
   axisTitles: { x: string; y: string };
   views: ViewSnapshot[];
   isLoaded: boolean;
+  highlightedSeriesId: string | null;
   
   // Actions
   addDataset: (dataset: Dataset) => void;
-  addCalculatedColumn: (datasetId: string, name: string, formula: string) => { success: boolean, error?: string };
+  addCalculatedColumn: (datasetId: string, name: string, formula: string) => Promise<{ success: boolean, error?: string }>;
   updateDataset: (id: string, updates: Partial<Dataset>) => void;
   removeDataset: (id: string) => void;
   moveDataset: (id: string, delta: -1 | 1) => void;
 
   addSeries: (series: SeriesConfig) => void;
   updateSeries: (id: string, updates: Partial<SeriesConfig>) => void;
+  updateSeriesVisibility: (id: string, hidden: boolean) => void;
   removeSeries: (id: string) => void;
+  setHighlightedSeries: (id: string | null) => void;
+  bulkHideAllSeries: () => void;
+  bulkShowAllSeries: () => void;
   
   updateXAxis: (id: string, updates: Partial<XAxisConfig>) => void;
   updateYAxis: (id: string, updates: Partial<YAxisConfig>) => void;
@@ -72,8 +76,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
   views: [],
   isLoaded: false,
+  highlightedSeriesId: null,
 
-  addCalculatedColumn: (datasetId, name, formula) => {
+  addCalculatedColumn: async (datasetId, name, formula) => {
     const state = get();
     const dataset = state.datasets.find(d => d.id === datasetId);
     if (!dataset) return { success: false, error: 'Dataset not found' };
@@ -84,49 +89,54 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       return { success: false, error: `Column "${trimmedName}" already exists` };
     }
 
-    const { evaluate, usedColumnIndices, error } = compileFormula(formula, dataset.columns);
+    const { usedColumnIndices, error } = compileFormula(formula, dataset.columns);
     if (error) return { success: false, error };
 
-    try {
-      const rowCount = dataset.rowCount;
-      const resultData = new Float64Array(rowCount);
-      const columnData = usedColumnIndices.map(idx => dataset.data[idx]);
-
-      const rowValues = new Array(usedColumnIndices.length);
-      for (let i = 0; i < rowCount; i++) {
-        for (let j = 0; j < usedColumnIndices.length; j++) {
-          rowValues[j] = columnData[j].data[i] + columnData[j].refPoint;
-        }
-        resultData[i] = evaluate(rowValues);
-      }
-
-      const processed = processRawColumn(resultData);
-      const newColumn = {
-        isFloat64: false,
-        refPoint: processed.refPoint,
-        bounds: processed.bounds,
-        data: processed.data,
-        chunkMin: processed.chunkMin,
-        chunkMax: processed.chunkMax
-      };
-
-      const updatedDataset = {
-        ...dataset,
-        columns: [...dataset.columns, trimmedName],
-        data: [...dataset.data, newColumn]
-      };
-
-      set((state) => ({
-        datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d)
+    return new Promise((resolve) => {
+      const worker = new Worker(new URL('../workers/formula.worker.ts', import.meta.url), { type: 'module' });
+      
+      const columnData = usedColumnIndices.map(idx => ({
+        data: dataset.data[idx].data,
+        refPoint: dataset.data[idx].refPoint
       }));
 
-      persistence.saveDataset(updatedDataset);
-      if (get().isLoaded) debouncedSaveState();
+      worker.onmessage = (event) => {
+        const { type, newColumn, error: workerError } = event.data;
+        if (type === 'success') {
+          const updatedDataset = {
+            ...dataset,
+            columns: [...dataset.columns, trimmedName],
+            data: [...dataset.data, newColumn]
+          };
 
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
-    }
+          set((state) => ({
+            datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d)
+          }));
+
+          persistence.saveDataset(updatedDataset);
+          if (get().isLoaded) debouncedSaveState();
+          
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: workerError || 'Worker calculation failed' });
+        }
+        worker.terminate();
+      };
+
+      worker.onerror = (err) => {
+        resolve({ success: false, error: err.message });
+        worker.terminate();
+      };
+
+      worker.postMessage({
+        datasetId,
+        name: trimmedName,
+        formula,
+        columns: dataset.columns,
+        rowCount: dataset.rowCount,
+        columnData
+      });
+    });
   },
 
   addDataset: (dataset) => {
@@ -136,7 +146,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         dataset.xAxisColumn = potentialX;
       }
 
-      // Automatically assign first unused X-axis
       if (!dataset.xAxisId) {
         const usedXAxisIds = new Set(state.datasets.map(d => d.xAxisId));
         const unusedAxis = state.xAxes.find(a => !usedXAxisIds.has(a.id)) || state.xAxes[0];
@@ -216,6 +225,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     if (get().isLoaded) debouncedSaveState();
   },
 
+  updateSeriesVisibility: (id, hidden) => {
+    set((state) => ({
+      series: state.series.map(s => s.id === id ? { ...s, hidden } : s)
+    }));
+    if (get().isLoaded) debouncedSaveState();
+  },
+
   removeSeries: (id) => {
     set((state) => {
       const newSeries = state.series.filter(s => s.id !== id);
@@ -232,6 +248,24 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       }
       return { series: newSeries };
     });
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  setHighlightedSeries: (id) => {
+    set({ highlightedSeriesId: id });
+  },
+
+  bulkHideAllSeries: () => {
+    set((state) => ({
+      series: state.series.map(s => ({ ...s, hidden: true }))
+    }));
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  bulkShowAllSeries: () => {
+    set((state) => ({
+      series: state.series.map(s => ({ ...s, hidden: false }))
+    }));
     if (get().isLoaded) debouncedSaveState();
   },
 
@@ -271,7 +305,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   saveView: (name) => {
     set((state) => {
-      // SECURITY ENHANCEMENT: Input length limit to prevent DoS via large strings
       let finalName = name.trim().slice(0, 100);
       if (!finalName) {
         const userViews = state.views.filter(v => v.id !== 'default-view');
@@ -300,7 +333,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   updateViewName: (id, name) => {
-    // SECURITY ENHANCEMENT: Input length limit to prevent DoS via large strings
     const finalName = name.trim().slice(0, 100);
     set((state) => ({
       views: state.views.map(v => v.id === id ? { ...v, name: finalName } : v)
@@ -316,7 +348,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       if (savedState.series) {
         savedState.series = savedState.series.map(s => ({
           ...s,
-          lineWidth: s.lineWidth ?? 1.5
+          lineWidth: s.lineWidth ?? 1.5,
+          hidden: s.hidden ?? false
         }));
       }
       set({ ...savedState, datasets: allDatasets, isLoaded: true });
@@ -327,7 +360,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       localStorage.removeItem('webgraphy-cleared');
       set({ isLoaded: true });
     } else {
-      // First time open: Load demo data
       const { loadDemoData } = get();
       await loadDemoData();
     }
@@ -338,7 +370,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const demoState = getDemoAppState(demoDataset);
 
     await persistence.saveDataset(demoDataset);
-    // Force immediate save to avoid race conditions with window.location.reload()
     await persistence.saveAppState(demoState);
 
     set({

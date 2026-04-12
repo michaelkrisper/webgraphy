@@ -157,9 +157,46 @@ export function compileFormula(formula: string, availableColumns: string[]): For
     }
 
     // 4. Create Evaluator
+    const generateJsExpression = (): string => {
+      const stack: string[] = [];
+      for (const token of outputQueue) {
+        if (token.type === 'NUMBER') stack.push(token.value.toString());
+        else if (token.type === 'CONST') stack.push(token.value.toString());
+        else if (token.type === 'VAR') stack.push(`v[${token.index}]`);
+        else if (token.type === 'FUNC') {
+          const a = stack.pop()!;
+          if (token.value === 'log') stack.push(`Math.log10(${a})`);
+        } else if (token.type === 'OP') {
+          if (token.unary) {
+            const a = stack.pop()!;
+            if (token.value === 'u-') stack.push(`(-(${a}))`);
+          } else {
+            const b = stack.pop()!;
+            const a = stack.pop()!;
+            if (token.value === '+') stack.push(`(${a}+${b})`);
+            else if (token.value === '-') stack.push(`(${a}-${b})`);
+            else if (token.value === '*') stack.push(`(${a}*${b})`);
+            else if (token.value === '/') stack.push(`(${a}/${b})`);
+            else if (token.value === '^') stack.push(`Math.pow(${a},${b})`);
+          }
+        }
+      }
+      return stack[0];
+    };
+
+    let fastEvaluate: ((v: number[]) => number) | null = null;
+    try {
+      const expression = generateJsExpression();
+      fastEvaluate = new Function('v', `return ${expression};`) as (v: number[]) => number;
+    } catch (e) {
+      console.warn('Formula JIT failed, falling back to interpreter:', e);
+    }
+
     return {
       usedColumnIndices,
       evaluate: (rowValues: number[]) => {
+        if (fastEvaluate) return fastEvaluate(rowValues);
+        
         const stack: number[] = [];
         for (const token of outputQueue) {
           if (token.type === 'NUMBER') stack.push(token.value);

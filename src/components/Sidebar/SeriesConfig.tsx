@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
@@ -12,15 +12,18 @@ interface Props {
 }
 
 /**
- * SeriesConfigUI Component
- * Provides an extremely compact UI for configuring an individual data series in a single row.
+ * SeriesConfigUI Component (v3.0 - Visibility & Layout Polish)
  */
 export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
-  const { updateSeries, removeSeries, yAxes, updateYAxis } = useGraphStore();
+  const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
     updateSeries(series.id, updates);
+  };
+
+  const toggleVisibility = () => {
+    updateSeriesVisibility(series.id, !series.hidden);
   };
 
   const currentYAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
@@ -68,7 +71,18 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   return (
-    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', alignItems: 'center' }}>
+    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
+      
+      {/* Visibility Toggle */}
+      <button
+        onClick={toggleVisibility}
+        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: series.hidden ? '#94a3b8' : '#3b82f6' }}
+        title={series.hidden ? "Show Series" : "Hide Series"}
+        aria-label={series.hidden ? "Show Series" : "Hide Series"}
+      >
+        {series.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+
       {/* Reorder Buttons (UP/DOWN) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
         <button
