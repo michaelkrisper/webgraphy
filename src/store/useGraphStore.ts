@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from '../services/persistence';
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 import { getColumnIndex } from '../utils/columns';
+import { compileFormula } from '../utils/formula';
+import { processRawColumn } from '../utils/data-processing';
 
 interface GraphState {
   datasets: Dataset[];
@@ -14,6 +16,7 @@ interface GraphState {
   
   // Actions
   addDataset: (dataset: Dataset) => void;
+  addCalculatedColumn: (datasetId: string, name: string, formula: string) => { success: boolean, error?: string };
   updateDataset: (id: string, updates: Partial<Dataset>) => void;
   removeDataset: (id: string) => void;
   moveDataset: (id: string, delta: -1 | 1) => void;
@@ -69,6 +72,62 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
   views: [],
   isLoaded: false,
+
+  addCalculatedColumn: (datasetId, name, formula) => {
+    const state = get();
+    const dataset = state.datasets.find(d => d.id === datasetId);
+    if (!dataset) return { success: false, error: 'Dataset not found' };
+
+    const trimmedName = name.trim();
+    if (!trimmedName) return { success: false, error: 'Column name cannot be empty' };
+    if (dataset.columns.includes(trimmedName)) {
+      return { success: false, error: `Column "${trimmedName}" already exists` };
+    }
+
+    const { evaluate, usedColumnIndices, error } = compileFormula(formula, dataset.columns);
+    if (error) return { success: false, error };
+
+    try {
+      const rowCount = dataset.rowCount;
+      const resultData = new Float64Array(rowCount);
+      const columnData = usedColumnIndices.map(idx => dataset.data[idx]);
+
+      const rowValues = new Array(usedColumnIndices.length);
+      for (let i = 0; i < rowCount; i++) {
+        for (let j = 0; j < usedColumnIndices.length; j++) {
+          rowValues[j] = columnData[j].data[i] + columnData[j].refPoint;
+        }
+        resultData[i] = evaluate(rowValues);
+      }
+
+      const processed = processRawColumn(resultData);
+      const newColumn = {
+        isFloat64: false,
+        refPoint: processed.refPoint,
+        bounds: processed.bounds,
+        data: processed.data,
+        chunkMin: processed.chunkMin,
+        chunkMax: processed.chunkMax
+      };
+
+      const updatedDataset = {
+        ...dataset,
+        columns: [...dataset.columns, trimmedName],
+        data: [...dataset.data, newColumn]
+      };
+
+      set((state) => ({
+        datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d)
+      }));
+
+      persistence.saveDataset(updatedDataset);
+      if (get().isLoaded) debouncedSaveState();
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  },
 
   addDataset: (dataset) => {
     set((state) => {
