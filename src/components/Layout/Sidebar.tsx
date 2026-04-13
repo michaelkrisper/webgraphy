@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -281,6 +281,20 @@ export const Sidebar: React.FC = () => {
                   <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', padding: '4px 0', borderBottom: '2px solid #e2e8f0', color: '#94a3b8', alignItems: 'center', position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
+                      <div title="Visibility" style={{ display: 'flex', justifyContent: 'center' }}><Eye size={12} /></div>
+                      <div title="Order" style={{ display: 'flex', justifyContent: 'center' }}><ArrowUpDown size={12} /></div>
+                      <div title="Y-Axis #" style={{ display: 'flex', justifyContent: 'center' }}><Hash size={12} /></div>
+                      <div title="Side (L/R)" style={{ display: 'flex', justifyContent: 'center' }}><MoveHorizontal size={12} /></div>
+                      <div title="Grid" style={{ display: 'flex', justifyContent: 'center' }}><Rows size={12} /></div>
+                      <div title="Line Style" style={{ display: 'flex', justifyContent: 'center' }}><Minus size={12} /></div>
+                      <div title="Line Width" style={{ display: 'flex', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>W</div>
+                      <div title="Point Style" style={{ display: 'flex', justifyContent: 'center' }}><Circle size={10} /></div>
+                      <div title="Color" style={{ display: 'flex', justifyContent: 'center' }}><Palette size={12} /></div>
+                      <div title="Data Column" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>COL</div>
+                      <div title="Series Name" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>NAME</div>
+                      <div />
+                    </div>
                     {series.map((s, idx) => (
                       <div 
                         key={s.id} 
