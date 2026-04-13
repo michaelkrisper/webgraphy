@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { persistence } from '../../services/persistence';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronUp, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Upload, Clock, Hash, Calculator, ArrowUpDown, MoveHorizontal, Minus, Circle, Palette, Rows, Search, EyeOff } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator, Search, EyeOff } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -24,7 +23,7 @@ const COLOR_PALETTE = [
 export const Sidebar: React.FC = () => {
   const { 
     datasets, series, xAxes, yAxes, axisTitles, 
-    removeDataset, updateDataset, moveDataset, 
+    removeDataset, updateDataset,
     views, saveView, applyView, deleteView, 
     moveSeries, updateViewName, loadDemoData,
     bulkHideAllSeries, bulkShowAllSeries, setHighlightedSeries
@@ -46,8 +45,7 @@ export const Sidebar: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
-  const { importFile, confirmImport, cancelImport, pendingFile, isImporting } = useDataImport();
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
 
   const filteredSeries = useMemo(() => {
     if (!seriesSearch.trim()) return series;
@@ -225,7 +223,7 @@ export const Sidebar: React.FC = () => {
                   </div>
                 )}
 
-                {datasets.map((ds, idx) => (
+                {datasets.map((ds) => (
                   <div key={ds.id} style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                     <div style={{ padding: '10px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name}</span>
@@ -324,7 +322,7 @@ export const Sidebar: React.FC = () => {
                           dataset={datasets.find(d => d.id === s.sourceId)} 
                           isFirst={idx === 0} 
                           isLast={idx === series.length - 1} 
-                          onMove={moveSeries}
+                          onMove={(delta) => moveSeries(s.id, delta)}
                         />
                       </div>
                     ))}
@@ -405,7 +403,7 @@ export const Sidebar: React.FC = () => {
       </aside>
 
       {/* Modals */}
-      {pendingFile && <ImportSettingsDialog file={pendingFile} onConfirm={confirmImport} onCancel={cancelImport} />}
+      {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
       {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}

@@ -307,7 +307,6 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 const SNAP_PX = 30;
 
 const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange }: CrosshairProps) => {
-  const isMobile = width < 768 || height < 500;
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -758,7 +757,7 @@ const ChartContainer: React.FC = () => {
     if (series.length > prevSeriesRef.current.length) {
       const added = series[series.length - 1]; if (added) handleAutoScaleY(added.yAxisId);
     } else {
-      series.forEach((s, i) => {
+      series.forEach((s) => {
         const prev = prevSeriesRef.current.find(ps => ps.id === s.id);
         if (prev && (prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId)) handleAutoScaleY(s.yAxisId);
       });
@@ -885,7 +884,7 @@ const ChartContainer: React.FC = () => {
         return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series, datasets]);
+  }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>

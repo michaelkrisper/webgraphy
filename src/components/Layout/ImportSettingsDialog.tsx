@@ -8,7 +8,7 @@ interface ImportSettingsDialogProps {
   fileName: string;
   fileContent: string; // Preview content
   fileType: 'csv' | 'json';
-  onConfirm: (settings: ImportSettings) => void;
+  onConfirm: (settings: ImportSettings) => void | Promise<void>;
   onCancel: () => void;
 }
 
