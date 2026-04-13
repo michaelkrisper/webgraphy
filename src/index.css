@@ -108,6 +108,16 @@ body, html, #root {
   }
 }
 
+html.dark body,
+html.dark #root {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+html.dark .plot-area {
+  background-color: #0f172a;
+}
+
 details > summary {
   list-style: none;
 }
