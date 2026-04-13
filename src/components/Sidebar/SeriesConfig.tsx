@@ -92,15 +92,15 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {/* Reorder Buttons (UP/DOWN) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0', background: bg2, padding: '0' }}>
         <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
+          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
           disabled={isFirst}
           style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? border : color, height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isFirst ? 0.3 : 1 }}
-          title="Move Up (Layer Forward)"
+          title="Move Up"
          aria-label="Move Up">
           <ChevronUp size={16} strokeWidth={3} />
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
+          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
           disabled={isLast}
           style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? border : color, height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isLast ? 0.3 : 1 }}
           title="Move Down (Layer Backward)"
