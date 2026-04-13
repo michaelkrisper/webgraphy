@@ -116,19 +116,54 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '6px' }}>Shortcuts</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {['+', '-', '*', '/', '^', '(', ')', 'log(', 'pi', 'e'].map(op => (
-                <button
-                  key={op}
-                  type="button"
-                  onClick={() => insertOperator(op)}
-                  style={{ fontSize: '12px', padding: '4px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {op}
-                </button>
-              ))}
-            </div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '8px' }}>Shortcuts</div>
+            {[
+              {
+                label: 'Operators',
+                items: [
+                  { label: '+', insert: '+', title: '' },
+                  { label: '−', insert: '-', title: '' },
+                  { label: '×', insert: '*', title: '' },
+                  { label: '÷', insert: '/', title: '' },
+                  { label: 'xⁿ', insert: '^', title: 'Power / exponent' },
+                  { label: '(', insert: '(', title: '' },
+                  { label: ')', insert: ')', title: '' },
+                ],
+              },
+              {
+                label: 'Constants',
+                items: [
+                  { label: 'π', insert: 'pi', title: 'Pi (3.14159…)' },
+                  { label: 'e', insert: 'e', title: "Euler's number (2.71828…)" },
+                ],
+              },
+              {
+                label: 'Functions',
+                items: [
+                  { label: 'log(x)', insert: 'log(', title: 'Base-10 logarithm' },
+                  { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over last N rows: avgN(col). Variants: avg10, avg100, …' },
+                  { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs (seconds), avgNm (minutes), avgNh (hours), avgNd (days). Requires a date/time X-axis column.' },
+                  { label: 'filter(x)', insert: 'filter(', title: 'Kalman filter (adaptive noise smoothing)' },
+                ],
+              },
+            ].map(group => (
+              <div key={group.label} style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{group.label}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {group.items.map(item => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => insertOperator(item.insert)}
+                      title={item.title}
+                      style={{ fontSize: '12px', padding: '4px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {error && (
