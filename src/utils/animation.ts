@@ -1,6 +1,6 @@
 import { useGraphStore } from '../store/useGraphStore';
 
-export const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
+const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
 
 export const applyKeyboardZoom = (
   state: ReturnType<typeof useGraphStore.getState>,
