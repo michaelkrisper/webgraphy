@@ -138,19 +138,86 @@ function processCSVRow(
   actualRowCount: number,
   data: Float64Array[]
 ) {
-  const values = line.split(delimiter);
-  for (let k = 0; k < numActive; k++) {
-    const j = activeCols[k];
-    let val = values[j];
+  // Optimization: When the delimiter is a single character, avoiding String.split()
+  // and manually iterating over the string provides a significant performance boost
+  // because it prevents the allocation of intermediate arrays and strings for discarded columns.
+  const delimLen = delimiter.length;
 
-    if (val !== undefined) {
-       val = val.trim();
-       if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
-           val = val.substring(1, val.length - 1);
-       }
+  if (delimLen === 1) {
+    let start = 0;
+    let currentCol = 0;
+    const delimChar = delimiter.charCodeAt(0);
+    const lineLen = line.length;
+
+    for (let k = 0; k < numActive; k++) {
+      const targetCol = activeCols[k];
+
+      // Fast forward to target column
+      while (currentCol < targetCol && start < lineLen) {
+        while (start < lineLen && line.charCodeAt(start) !== delimChar) {
+          start++;
+        }
+        if (start < lineLen) {
+          start++;
+          currentCol++;
+        }
+      }
+
+      let val = '';
+      if (start < lineLen) {
+        let end = start;
+        while (end < lineLen && line.charCodeAt(end) !== delimChar) {
+          end++;
+        }
+
+        let vStart = start;
+        let vEnd = end - 1;
+
+        // Inline trim() logic
+        while (vStart <= vEnd && line.charCodeAt(vStart) <= 32) vStart++;
+        while (vEnd >= vStart && line.charCodeAt(vEnd) <= 32) vEnd--;
+
+        if (vStart <= vEnd) {
+          // Handle surrounding quotes
+          if (line.charCodeAt(vStart) === 34 && line.charCodeAt(vEnd) === 34 && vEnd > vStart) {
+            vStart++;
+            vEnd--;
+          }
+          val = line.substring(vStart, vEnd + 1);
+        }
+
+        start = end + 1;
+        currentCol++;
+      } else if (start === lineLen) {
+        // Handle empty value at the very end of line if we expect it
+        if (currentCol < targetCol) {
+            val = '';
+        }
+        // Move past so we don't process it again
+        start++;
+        currentCol++;
+      }
+
+      data[k][actualRowCount] = parseValue(val, configsByIndex[activeCols[k]], isComma, categoricalMaps[k]);
     }
+  } else {
+    // Fallback for multi-character delimiters
+    const values = line.split(delimiter);
+    for (let k = 0; k < numActive; k++) {
+      const j = activeCols[k];
+      let val = values[j];
 
-    data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+      if (val !== undefined) {
+         val = val.trim();
+         if (val.length > 1 && val.charCodeAt(0) === 34 && val.charCodeAt(val.length - 1) === 34) {
+             val = val.substring(1, val.length - 1);
+         }
+      } else {
+          val = '';
+      }
+
+      data[k][actualRowCount] = parseValue(val, configsByIndex[j], isComma, categoricalMaps[k]);
+    }
   }
 }
 
