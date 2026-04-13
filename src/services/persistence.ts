@@ -26,7 +26,7 @@ export interface Dataset {
   xAxisId: string;
 }
 
-export type AxisPosition = 'left' | 'right';
+
 
 export interface XAxisConfig {
   id: string;
@@ -42,7 +42,7 @@ export interface YAxisConfig {
   name: string;
   min: number;
   max: number;
-  position: AxisPosition;
+  position: 'left' | 'right';
   color: string;
   showGrid: boolean;
 }
@@ -144,7 +144,7 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
     return col;
   });
   if (dataset.xAxisColumn === undefined) {
-    const potentialX = dataset.columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date')) || dataset.columns[0];
+    const potentialX = dataset.columns.find(c => { const lower = c.toLowerCase(); return lower.includes('time') || lower.includes('date'); }) || dataset.columns[0];
     dataset.xAxisColumn = potentialX;
   }
   if (dataset.xAxisId === undefined) {
