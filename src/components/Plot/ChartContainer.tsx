@@ -353,7 +353,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
   const seriesMetadata = useMemo(() => {
     return series.filter(s => !s.hidden).map(s => {
-      const ds = datasetsByIdLocal.get(s.sourceId); const axis = yAxesByIdLocal.get(s.yAxisId); const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
+      const ds = datasetsById.get(s.sourceId); const axis = yAxesById.get(s.yAxisId); const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
       if (!ds || !axis || !xAxis) return null;
       const xIdx = getColumnIndex(ds, ds.xAxisColumn); const yIdx = getColumnIndex(ds, s.yColumn);
       if (xIdx === -1 || yIdx === -1) return null;
@@ -521,12 +521,6 @@ const ChartContainer: React.FC = () => {
     return map;
   }, [xAxes]);
 
-  const yAxesById = useMemo(() => {
-    const map = new Map<string, YAxisConfig>();
-    yAxes.forEach(a => map.set(a.id, a));
-    return map;
-  }, [yAxes]);
-  
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
