@@ -659,7 +659,13 @@ const ChartContainer: React.FC = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => { for (const entry of entries) { setWidth(entry.contentRect.width); setHeight(entry.contentRect.height); } });
+    const observer = new ResizeObserver((entries) => {
+      if (entries.length > 0) {
+        const entry = entries[entries.length - 1];
+        setWidth(entry.contentRect.width);
+        setHeight(entry.contentRect.height);
+      }
+    });
     observer.observe(containerRef.current); return () => observer.disconnect();
   }, []);
 
