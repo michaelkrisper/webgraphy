@@ -1,0 +1,85 @@
+To address the performance issue, we will lift the `datasetsById` and `xAxesById` map creation out of the repeated hot paths.
+In `ChartContainer.tsx`, `datasetsById` is created in:
+- `Crosshair` component's `seriesMetadata` useMemo
+- `ChartContainer` component's `useEffect` (around line 634)
+- `ChartContainer` component's `handleAutoScaleY` useCallback (around line 699)
+
+We should use component-level `useMemo` hooks for these inside both `Crosshair` and `ChartContainer` (though `Crosshair` already does it inside `useMemo`, it recreates them when `seriesMetadata` updates, which is fine as it's cached). The real problem is in `useEffect` and `handleAutoScaleY` inside `ChartContainer` because `handleAutoScaleY` can be called repeatedly and it iterates over all datasets to build maps.
+Actually, if we put `datasetsById` and `xAxesById` in a `useMemo` in `ChartContainer`, we can just consume them directly in `handleAutoScaleY` and the `useEffect`.
+
+```tsx
+  const datasetsById = useMemo(() => {
+    const map = new Map<string, Dataset>();
+    datasets.forEach(d => map.set(d.id, d));
+    return map;
+  }, [datasets]);
+
+  const xAxesById = useMemo(() => {
+    const map = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [xAxes]);
+```
+
+We just add `datasetsById` and `xAxesById` to the component body of `ChartContainer`.
+Then remove `const datasetsById = new Map<string, Dataset>(); state.datasets.forEach(d => datasetsById.set(d.id, d));` from:
+1. `useEffect` (around line 634)
+2. `handleAutoScaleY` (around line 699)
+And similarly for `xAxesById` from line 636 and line 700.
+
+Also verify `yAxesById`. I only see it in `seriesMetadata` useMemo in `Crosshair`.
+
+Wait, inside `useEffect` (line 629) and `handleAutoScaleY` (line 697), it fetches `state` via `useGraphStore.getState()`, but that is because state updates might not be immediately reflected in closures or they want to avoid exhaustive dependencies. BUT `datasets` and `xAxes` are ALREADY dependencies of the `useEffect` (line 658: `[isLoaded, startAnimation, series, yAxes, activeYAxes, datasets]`) and `handleAutoScaleY` doesn't include them in the dependency array. If `handleAutoScaleY` doesn't include them, then it must use `useGraphStore.getState()` for safety.
+If we use `useMemo` maps from the component, we MUST add them to the dependency array of `handleAutoScaleY`, OR we can use the WeakMap trick, OR use `useRef` to store the latest maps, OR add a selector in the store that memoizes them.
+
+Wait, if we use the component-level `datasetsById`, then `handleAutoScaleY` will have a stale reference unless we add it to the dependency array.
+Adding `datasetsById` and `xAxesById` to `handleAutoScaleY`'s dependency array means `handleAutoScaleY` changes reference every time `datasets` or `xAxes` change.
+Is that bad? Let's check `ChartContainer` line 725 (where `handleAutoScaleY` dependencies are defined).
+`[padding.top, chartHeight, startAnimation]`
+It does NOT depend on `series` or `datasets`, because it calls `useGraphStore.getState()`.
+If we add `datasetsById` to dependencies, `handleAutoScaleY` updates. And `prevSeriesRef` effect (line 726) depends on `handleAutoScaleY`. If `handleAutoScaleY` changes, `prevSeriesRef` effect triggers. But wait! The `prevSeriesRef` effect is only meant to run when `series` changes. If `handleAutoScaleY` changes due to `datasets` change, it might trigger the `prevSeriesRef` effect unexpectedly.
+```tsx
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (series.length > prevSeriesRef.current.length) {
+      const added = series[series.length - 1]; if (added) handleAutoScaleY(added.yAxisId);
+    } else {
+      series.forEach((s, i) => {
+        const prev = prevSeriesRef.current.find(ps => ps.id === s.id);
+        if (prev && (prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId)) handleAutoScaleY(s.yAxisId);
+      });
+    }
+    prevSeriesRef.current = series;
+  }, [series, isLoaded, handleAutoScaleY]);
+```
+Yes, if `handleAutoScaleY` changes, this effect runs! That might cause unnecessary auto-scales if `datasets` updates (e.g. new data streaming in).
+So we SHOULD NOT add `datasetsById` to the dependency array of `handleAutoScaleY` if we can avoid it.
+
+How to avoid it?
+Option A: Use `useGraphStore.getState()` inside `handleAutoScaleY`, but cache the maps using a module-level `WeakMap`:
+```tsx
+const datasetsMapCache = new WeakMap<Dataset[], Map<string, Dataset>>();
+function getDatasetsMap(datasets: Dataset[]) {
+  let map = datasetsMapCache.get(datasets);
+  if (!map) {
+    map = new Map();
+    datasets.forEach(d => map.set(d.id, d));
+    datasetsMapCache.set(datasets, map);
+  }
+  return map;
+}
+
+const xAxesMapCache = new WeakMap<XAxisConfig[], Map<string, XAxisConfig>>();
+function getXAxesMap(xAxes: XAxisConfig[]) {
+  let map = xAxesMapCache.get(xAxes);
+  if (!map) {
+    map = new Map();
+    xAxes.forEach(a => map.set(a.id, a));
+    xAxesMapCache.set(xAxes, map);
+  }
+  return map;
+}
+```
+This is brilliant, perfectly aligns with the memory directive:
+"Performance Pattern: When looking up column indices by name in high-frequency operations... cache the results using a WeakMap... This replaces O(N) array traversals ... with O(1) lookups."
+Even though it's datasets/axes rather than columns, the `WeakMap` technique is robust and stateless!

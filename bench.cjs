@@ -1,68 +1,48 @@
 const { performance } = require('perf_hooks');
 
-const NUM_AXES = 10;
-const leftAxes = Array.from({ length: NUM_AXES }, (_, i) => ({ id: `L${i}`, position: 'left' }));
-const rightAxes = Array.from({ length: NUM_AXES }, (_, i) => ({ id: `R${i}`, position: 'right' }));
-const yAxes = [];
-for (let i = 0; i < NUM_AXES; i++) {
-  yAxes.push(leftAxes[i]);
-  yAxes.push(rightAxes[i]);
+const datasets = Array.from({ length: 100 }, (_, i) => ({ id: `ds-${i}`, data: [] }));
+
+function withMapCreation() {
+  const map = new Map();
+  datasets.forEach(d => map.set(d.id, d));
+  return map.get('ds-50');
 }
 
-const axisLayout = {};
-yAxes.forEach(a => {
-  axisLayout[a.id] = { total: 40, label: 30 };
-});
+const precomputedMap = new Map();
+datasets.forEach(d => precomputedMap.set(d.id, d));
 
-function baseline() {
-  let count = 0;
-  for (let i = 0; i < 10000; i++) {
-    yAxes.map((axis) => {
-      const isLeft = axis.position === 'left', sideIdx = isLeft ? leftAxes.indexOf(axis) : rightAxes.indexOf(axis);
-      const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
-      let xPos = 0;
-      if (isLeft) {
-        let offset = 0; for(let j=0; j<sideIdx; j++) offset += axisLayout[leftAxes[j].id]?.total || 40;
-        xPos = 100 - offset - axisMetrics.total;
-      } else {
-        let offset = 0; for(let j=0; j<sideIdx; j++) offset += axisLayout[rightAxes[j].id]?.total || 40;
-        xPos = 500 + offset;
-      }
-      count += xPos;
-    });
+function withPrecomputed() {
+  return precomputedMap.get('ds-50');
+}
+
+const datasetsMapCache = new WeakMap();
+function getDatasetsMap(arr) {
+  let map = datasetsMapCache.get(arr);
+  if (!map) {
+    map = new Map();
+    arr.forEach(d => map.set(d.id, d));
+    datasetsMapCache.set(arr, map);
   }
-  return count;
+  return map;
 }
 
-function optimized() {
-  let count = 0;
-  for (let i = 0; i < 10000; i++) {
-    let leftOffset = 0;
-    let rightOffset = 0;
-    yAxes.map((axis) => {
-      const isLeft = axis.position === 'left';
-      const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
-      let xPos = 0;
-      if (isLeft) {
-        xPos = 100 - leftOffset - axisMetrics.total;
-        leftOffset += axisMetrics.total;
-      } else {
-        xPos = 500 + rightOffset;
-        rightOffset += axisMetrics.total;
-      }
-      count += xPos;
-    });
-  }
-  return count;
+function withWeakMap() {
+  return getDatasetsMap(datasets).get('ds-50');
 }
 
-const start1 = performance.now();
-baseline();
-const end1 = performance.now();
+const ITERATIONS = 10000;
 
-const start2 = performance.now();
-optimized();
-const end2 = performance.now();
+let start = performance.now();
+for (let i = 0; i < ITERATIONS; i++) {
+  withMapCreation();
+}
+const timeCreation = performance.now() - start;
 
-console.log(`Baseline: ${(end1 - start1).toFixed(2)}ms`);
-console.log(`Optimized: ${(end2 - start2).toFixed(2)}ms`);
+start = performance.now();
+for (let i = 0; i < ITERATIONS; i++) {
+  withWeakMap();
+}
+const timeWeakMap = performance.now() - start;
+
+console.log(`With creation: ${timeCreation.toFixed(2)}ms`);
+console.log(`With WeakMap cache: ${timeWeakMap.toFixed(2)}ms`);
