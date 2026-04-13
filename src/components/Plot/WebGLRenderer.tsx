@@ -300,9 +300,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       const numPoints = endIdx - startIdx + 1;
       const yData = colY.data;
 
-      // LOD Selection (Level of Detail)
-      const useLOD = numPoints > 2000 && colY.chunkMin && colY.chunkMax;
-      const drawStep = (!useLOD && isInteracting && numPoints > 50000) ? Math.max(1, Math.floor(numPoints / 20000)) : 1;
+      const drawStep = (isInteracting && numPoints > 50000) ? Math.max(1, Math.floor(numPoints / 20000)) : 1;
 
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
@@ -341,41 +339,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.disableVertexAttribArray(locs.tLoc);
           gl.disableVertexAttribArray(locs.distStartLoc);
           
-          if (useLOD) {
-            const CHUNK_SIZE = 512;
-            const startChunk = Math.floor(startIdx / CHUNK_SIZE);
-            const endChunk = Math.floor(endIdx / CHUNK_SIZE);
-            const numChunks = endChunk - startChunk + 1;
-            const lodPoints = numChunks * 2;
-            const sharedArr = getSharedBuffer(lodPoints * 2);
-            
-            for (let i = 0; i < numChunks; i++) {
-              const cIdx = startChunk + i;
-              const cx = xData[Math.min(cIdx * CHUNK_SIZE, xData.length - 1)];
-              const cMin = colY.chunkMin![cIdx];
-              const cMax = colY.chunkMax![cIdx];
-              const off = i * 4;
-              sharedArr[off] = cx; sharedArr[off + 1] = cMin;
-              sharedArr[off + 2] = cx; sharedArr[off + 3] = cMax;
-            }
-            
-            const lodBufferKey = `lod-${ds.id}-${xIdx}-${yIdx}`;
-            let lodBuffer = buffersRef.current.get(lodBufferKey);
-            if (!lodBuffer) {
-              lodBuffer = gl.createBuffer()!;
-              buffersRef.current.set(lodBufferKey, lodBuffer);
-            }
-            gl.bindBuffer(gl.ARRAY_BUFFER, lodBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, lodPoints * 2), gl.STREAM_DRAW);
-            
-            gl.enableVertexAttribArray(locs.xLoc);
-            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 8, 0);
-            gl.enableVertexAttribArray(locs.yLoc);
-            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
-            
-            gl.lineWidth(baseLineWidth * dpr);
-            gl.drawArrays(gl.LINES, 0, lodPoints);
-          } else {
             gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
             gl.enableVertexAttribArray(locs.xLoc);
             gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
@@ -386,7 +349,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
             gl.lineWidth(baseLineWidth * dpr);
             gl.drawArrays(gl.LINE_STRIP, 0, Math.floor(numPoints / drawStep));
-          }
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
           const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
