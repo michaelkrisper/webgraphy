@@ -374,7 +374,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
             
             gl.lineWidth(baseLineWidth * dpr);
-            gl.drawArrays(gl.LINE_STRIP, 0, lodPoints);
+            gl.drawArrays(gl.LINES, 0, lodPoints);
           } else {
             gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
             gl.enableVertexAttribArray(locs.xLoc);
