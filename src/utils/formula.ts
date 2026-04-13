@@ -35,11 +35,15 @@ type Token =
   | { type: 'LPAREN' }
   | { type: 'RPAREN' };
 
+const columnMapCache = new WeakMap<string[], Map<string, number>>();
+
 export function compileFormula(formula: string, availableColumns: string[]): FormulaResult {
   try {
     const usedColumnIndices: number[] = [];
     const columnMap = new Map<string, number>();
     let funcIdCounter = 0;
+
+    let availableColumnsMap = columnMapCache.get(availableColumns);
 
     // 1. Identify and extract column names in brackets
     const columnRegex = /\[([^\]]+)\]/g;
@@ -49,10 +53,25 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       const colName = match[1];
 
       if (!columnMap.has(fullMatch)) {
-        let colIndex = availableColumns.indexOf(colName);
-        if (colIndex === -1) {
-          colIndex = availableColumns.findIndex(c => c.endsWith(`: ${colName}`) || c === colName);
+        if (!availableColumnsMap) {
+          availableColumnsMap = new Map<string, number>();
+          for (let i = 0; i < availableColumns.length; i++) {
+            const col = availableColumns[i];
+            if (!availableColumnsMap.has(col)) {
+              availableColumnsMap.set(col, i);
+            }
+            const colonIdx = col.indexOf(': ');
+            if (colonIdx !== -1) {
+              const suffix = col.substring(colonIdx + 2);
+              if (!availableColumnsMap.has(suffix)) {
+                availableColumnsMap.set(suffix, i);
+              }
+            }
+          }
+          columnMapCache.set(availableColumns, availableColumnsMap);
         }
+
+        const colIndex = availableColumnsMap.has(colName) ? availableColumnsMap.get(colName)! : -1;
 
         if (colIndex === -1) {
           return { evaluate: () => NaN, usedColumnIndices: [], error: `Column not found: ${colName}` };
