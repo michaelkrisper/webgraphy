@@ -392,9 +392,9 @@ export const Sidebar: React.FC = () => {
                 {customViews.length === 0 ? (
                   <p style={{ margin: 0, fontSize: '0.85rem', color: t.textLight, textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {customViews.map(view => (
-                      <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', backgroundColor: t.bg, borderRadius: '8px', border: `1px solid ${t.border}` }}>
+                  <div style={{ border: `1px solid ${t.border}`, borderRadius: '8px', overflow: 'hidden' }}>
+                    {customViews.map((view, idx) => (
+                      <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', backgroundColor: t.bg, borderTop: idx > 0 ? `1px solid ${t.border}` : 'none' }}>
                         {editingViewId === view.id ? (
                           <input
                             autoFocus
