@@ -26,7 +26,7 @@ export interface Dataset {
   xAxisId: string;
 }
 
-export type AxisPosition = 'left' | 'right';
+
 
 export interface XAxisConfig {
   id: string;
@@ -42,7 +42,7 @@ export interface YAxisConfig {
   name: string;
   min: number;
   max: number;
-  position: AxisPosition;
+  position: 'left' | 'right';
   color: string;
   showGrid: boolean;
 }
