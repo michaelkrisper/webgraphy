@@ -334,11 +334,11 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   }, [containerRef, padding, width, height, isPanning]);
 
   const seriesMetadata = useMemo(() => {
-    const datasetsById = new Map<string, Dataset>(); datasets.forEach(d => datasetsById.set(d.id, d));
-    const yAxesById = new Map<string, YAxisConfig>(); yAxes.forEach(a => yAxesById.set(a.id, a));
-    const xAxesById = new Map<string, XAxisConfig>(); xAxes.forEach(a => xAxesById.set(a.id, a));
+    const datasetsByIdLocal = new Map<string, Dataset>(); datasets.forEach(d => datasetsByIdLocal.set(d.id, d));
+    const yAxesByIdLocal = new Map<string, YAxisConfig>(); yAxes.forEach(a => yAxesByIdLocal.set(a.id, a));
+    const xAxesByIdLocal = new Map<string, XAxisConfig>(); xAxes.forEach(a => xAxesByIdLocal.set(a.id, a));
     return series.filter(s => !s.hidden).map(s => {
-      const ds = datasetsById.get(s.sourceId); const axis = yAxesById.get(s.yAxisId); const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
+      const ds = datasetsByIdLocal.get(s.sourceId); const axis = yAxesByIdLocal.get(s.yAxisId); const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
       if (!ds || !axis || !xAxis) return null;
       const xIdx = getColumnIndex(ds, ds.xAxisColumn); const yIdx = getColumnIndex(ds, s.yColumn);
       if (xIdx === -1 || yIdx === -1) return null;
@@ -493,6 +493,24 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
+
+  const datasetsById = useMemo(() => {
+    const map = new Map<string, Dataset>();
+    datasets.forEach(d => map.set(d.id, d));
+    return map;
+  }, [datasets]);
+
+  const xAxesById = useMemo(() => {
+    const map = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [xAxes]);
+
+  const yAxesById = useMemo(() => {
+    const map = new Map<string, YAxisConfig>();
+    yAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [yAxes]);
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -654,7 +672,7 @@ const ChartContainer: React.FC = () => {
       });
       startAnimation();
     }
-  }, [isLoaded, startAnimation, series, yAxes, activeYAxes, datasets]);
+  }, [isLoaded, startAnimation, series, yAxes, activeYAxes, datasetsById, xAxesById]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -721,7 +739,7 @@ const ChartContainer: React.FC = () => {
       else { nMin = yMin - p; nMax = yMax + p; }
       targetYs.current[axisId] = { min: nMin, max: nMax }; startAnimation();
     }
-  }, [padding.top, chartHeight, startAnimation]);
+  }, [padding.top, chartHeight, startAnimation, datasetsById, xAxesById]);
 
   const prevSeriesRef = useRef(series);
   useEffect(() => {
