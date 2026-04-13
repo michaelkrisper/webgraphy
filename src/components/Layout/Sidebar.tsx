@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Layout, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator, Search, EyeOff } from 'lucide-react';
+import { FilePlus, Layout, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -26,7 +26,7 @@ export const Sidebar: React.FC = () => {
     removeDataset, updateDataset,
     views, saveView, applyView, deleteView, 
     moveSeries, updateViewName, loadDemoData,
-    bulkHideAllSeries, bulkShowAllSeries, setHighlightedSeries
+    setHighlightedSeries
   } = useGraphStore();
 
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
@@ -36,7 +36,6 @@ export const Sidebar: React.FC = () => {
   const [showLicense, setShowLicense] = useState(false);
   const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
-  const [seriesSearch, setSeriesSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -46,12 +45,6 @@ export const Sidebar: React.FC = () => {
   const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
-
-  const filteredSeries = useMemo(() => {
-    if (!seriesSearch.trim()) return series;
-    const term = seriesSearch.toLowerCase();
-    return series.filter(s => (s.name || s.yColumn).toLowerCase().includes(term));
-  }, [series, seriesSearch]);
 
   const selectedDatasetForView = useMemo(() => {
     return datasets.find(d => d.id === viewingDatasetId);
@@ -201,20 +194,17 @@ export const Sidebar: React.FC = () => {
           
           {/* Data Sources Section */}
           <section style={{ marginBottom: '24px' }}>
-            <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Sources</h2>
-              {openSections.sources ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Data Sources</h2>
+                {openSections.sources ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+              </div>
+              <button onClick={() => fileInputRef.current?.click()} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6' }} title="Import File (CSV/JSON)"><FilePlus size={16} /></button>
             </div>
+            <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
 
             {openSections.sources && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)' }}
-                >
-                  <FilePlus size={18} /> Import File (CSV/JSON)
-                </button>
-                <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
 
                 {datasets.length === 0 && (
                   <div style={{ textAlign: 'center', padding: '24px 16px', border: '2px dashed #e2e8f0', borderRadius: '12px', color: '#94a3b8' }}>
@@ -287,30 +277,11 @@ export const Sidebar: React.FC = () => {
 
             {openSections.series && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {series.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                        <input 
-                          type="text" 
-                          placeholder="Search series..." 
-                          value={seriesSearch}
-                          onChange={(e) => setSeriesSearch(e.target.value)}
-                          style={{ width: '100%', padding: '6px 8px 6px 28px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#fff' }}
-                        />
-                      </div>
-                      <button onClick={bulkShowAllSeries} style={{ padding: '6px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', color: '#64748b', cursor: 'pointer' }} title="Show All"><Eye size={16} /></button>
-                      <button onClick={bulkHideAllSeries} style={{ padding: '6px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', color: '#64748b', cursor: 'pointer' }} title="Hide All"><EyeOff size={16} /></button>
-                    </div>
-                  </div>
-                )}
-
                 {series.length === 0 ? (
                   <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {filteredSeries.map((s, idx) => (
+                    {series.map((s, idx) => (
                       <div 
                         key={s.id} 
                         onMouseEnter={() => setHighlightedSeries(s.id)}
@@ -334,25 +305,20 @@ export const Sidebar: React.FC = () => {
 
           {/* Views Section */}
           <section style={{ marginBottom: '24px' }}>
-            <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saved Views</h2>
-              {openSections.views ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saved Views</h2>
+                {openSections.views ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#64748b" />}
+              </div>
+              <button
+                onClick={() => { const name = prompt('Enter view name:', `View ${customViews.length + 1}`); if (name) saveView(name); }}
+                style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6' }}
+                title="Save Current View"
+              ><Bookmark size={16} /></button>
             </div>
 
             {openSections.views && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    onClick={() => {
-                      const name = prompt('Enter view name:', `View ${customViews.length + 1}`);
-                      if (name) saveView(name);
-                    }}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#fff', border: '1px solid #3b82f6', color: '#3b82f6', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <Bookmark size={16} /> Save Current View
-                  </button>
-                </div>
-
                 {customViews.length === 0 ? (
                   <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
                 ) : (
@@ -390,6 +356,10 @@ export const Sidebar: React.FC = () => {
 
         {/* Footer */}
         <footer style={{ padding: '16px', backgroundColor: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button onClick={loadDemoData} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>Demo Data</button>
+            <button onClick={() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#ef4444', cursor: 'pointer' }}>Reset</button>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <button onClick={handleExportSVG} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}><FileImage size={16} /> SVG</button>
             <button onClick={handleExportPNG} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}><Image size={16} /> PNG</button>

@@ -71,7 +71,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   return (
-    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '4px', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
+    <div style={{ borderBottom: '1px solid #e2e8f0', padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
       
       {/* Visibility Toggle */}
       <button
@@ -84,7 +84,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </button>
 
       {/* Reorder Buttons (UP/DOWN) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f1f5f9', borderRadius: '3px', padding: '1px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0', background: '#f1f5f9', padding: '0' }}>
         <button
           onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
           disabled={isFirst}
@@ -106,7 +106,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {/* Y Axis Cycle Button (1-9) */}
       <button
         onClick={cycleYAxis}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
+        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '0', fontWeight: 'bold', flexShrink: 0, color: '#475569' }}
         title="Cycle Y-Axis (1-9)"
        aria-label="Cycle Y-Axis">
         {currentYAxisIndex}
@@ -116,7 +116,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { position: currentYAxis.position === 'left' ? 'right' : 'left' })}
-          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
+          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
           title={currentYAxis.position === 'left' ? "Left Axis" : "Right Axis"}
          aria-label="Toggle Left/Right Axis">
           {currentYAxis.position === 'left' ? (
@@ -135,7 +135,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })}
-          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#f1f5f9' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#475569' }}
+          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? '#f1f5f9' : '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#475569' }}
           title="Toggle Grid"
          aria-label="Toggle Grid">
           {currentYAxis.showGrid ? <Rows size={16} /> : <Square size={16} />}
@@ -149,7 +149,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
           handleUpdate({ lineStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
         title={`Line Style: ${series.lineStyle}`}
        aria-label="Cycle Line Style">
         {renderLineStyleIcon()}
@@ -162,7 +162,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = widths[(widths.indexOf(series.lineWidth) + 1) % widths.length];
           handleUpdate({ lineWidth: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
+        style={{ padding: '0', cursor: 'pointer', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
         title={`Line Width: ${series.lineWidth}`}
        aria-label="Cycle Line Width">
         {renderLineWidthIcon()}
@@ -175,7 +175,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
           handleUpdate({ pointStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
+        style={{ padding: '0', cursor: 'pointer', background: 'none', border: '1px solid #cbd5e1', borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: '#475569' }}
         title="Point Style"
        aria-label="Cycle Point Style">
         {renderPointStyleIcon()}
@@ -191,7 +191,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const color = (e.target as HTMLInputElement).value;
           handleUpdate({ lineColor: color, pointColor: color });
         }}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '4px' }}
+        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '0' }}
         title="Color"
       />
 
@@ -202,7 +202,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           aria-label={`Y Column for ${series.name || series.yColumn}`}
           value={series.yColumn}
           onChange={(e) => handleUpdate({ yColumn: e.target.value })}
-          style={{ width: '100px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, borderRadius: '4px', border: '1px solid #cbd5e1', color: '#475569', background: '#f8fafc' }}
+          style={{ width: '100px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, borderRadius: '0', border: '1px solid #cbd5e1', color: '#475569', background: '#f8fafc' }}
           title="Y Column"
         >
           {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
