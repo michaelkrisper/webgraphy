@@ -209,7 +209,7 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       outputQueue.push(top);
     }
 
-    // 4. Create Evaluator
+    // 4. Create Evaluator (RPN interpreter, no new Function())
     const createContext = (): FormulaContext => {
       const ctx: FormulaContext = {
         queues: {},
@@ -268,66 +268,10 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       return ctx;
     };
 
-    const generateJsExpression = (): string => {
-      const stack: string[] = [];
-      for (const token of outputQueue) {
-        if (token.type === 'NUMBER') stack.push(token.value.toString());
-        else if (token.type === 'CONST') stack.push(token.value.toString());
-        else if (token.type === 'VAR') stack.push(`v[${token.index}]`);
-        else if (token.type === 'FUNC') {
-          const a = stack.pop()!;
-          if (token.value === 'log') stack.push(`Math.log10(${a})`);
-          else if (token.value === 'filter') stack.push(`c.filter(${token.id}, ${a})`);
-          else {
-            const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
-            if (m) {
-              const num = parseInt(m[1], 10);
-              const unit = m[2];
-              if (unit) {
-                let w = num;
-                if (unit === 'm') w = num * 60;
-                else if (unit === 'h') w = num * 3600;
-                else if (unit === 'd') w = num * 86400;
-                stack.push(`c.avgTime(${token.id}, ${a}, v[${timeVarIdx}], ${w})`);
-              } else {
-                stack.push(`c.avgN(${token.id}, ${a}, ${num})`);
-              }
-            }
-          }
-        } else if (token.type === 'OP') {
-          if (token.unary) {
-            const a = stack.pop()!;
-            if (token.value === 'u-') stack.push(`(-(${a}))`);
-          } else {
-            const b = stack.pop()!;
-            const a = stack.pop()!;
-            if (token.value === '+') stack.push(`(${a}+${b})`);
-            else if (token.value === '-') stack.push(`(${a}-${b})`);
-            else if (token.value === '*') stack.push(`(${a}*${b})`);
-            else if (token.value === '/') stack.push(`(${a}/${b})`);
-            else if (token.value === '^') stack.push(`Math.pow(${a},${b})`);
-          }
-        }
-      }
-      return stack[0];
-    };
-
-    let fastEvaluate: ((v: number[], c?: FormulaContext) => number) | null = null;
-    let expressionStr = '';
-    try {
-      expressionStr = generateJsExpression();
-      fastEvaluate = new Function('v', 'c', `return ${expressionStr};`) as (v: number[], c?: FormulaContext) => number;
-    } catch (e) {
-      console.warn('Formula JIT failed, falling back to interpreter:', e);
-    }
-
     return {
       usedColumnIndices,
       createContext,
-      expression: expressionStr,
       evaluate: (rowValues: number[], ctx?: FormulaContext) => {
-        if (fastEvaluate) return fastEvaluate(rowValues, ctx);
-        
         const stack: number[] = [];
         for (const token of outputQueue) {
           if (token.type === 'NUMBER') stack.push(token.value);
