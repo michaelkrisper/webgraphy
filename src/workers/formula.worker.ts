@@ -6,7 +6,7 @@ self.onmessage = (event) => {
   const { datasetId, name, formula, columns, rowCount, columnData } = event.data;
 
   try {
-    const { evaluate, usedColumnIndices, error } = compileFormula(formula, columns);
+    const { evaluate, usedColumnIndices, error, createContext } = compileFormula(formula, columns);
     if (error) {
       self.postMessage({ type: 'error', error });
       return;
@@ -15,12 +15,13 @@ self.onmessage = (event) => {
     const resultData = new Float64Array(rowCount);
     // columnData contains { data: Float32Array, refPoint: number } for each used column
     const rowValues = new Array(usedColumnIndices.length);
+    const ctx = createContext ? createContext() : undefined;
 
     for (let i = 0; i < rowCount; i++) {
       for (let j = 0; j < usedColumnIndices.length; j++) {
         rowValues[j] = columnData[j].data[i] + columnData[j].refPoint;
       }
-      resultData[i] = evaluate(rowValues);
+      resultData[i] = evaluate(rowValues, ctx);
     }
 
     const processed = processRawColumn(resultData);
