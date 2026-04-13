@@ -493,6 +493,16 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
+  const datasetsById = useMemo(() => {
+    const map = new Map<string, Dataset>();
+    datasets.forEach(d => map.set(d.id, d));
+    return map;
+  }, [datasets]);
+  const xAxesById = useMemo(() => {
+    const map = new Map<string, typeof xAxes[0]>();
+    xAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [xAxes]);
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -631,9 +641,9 @@ const ChartContainer: React.FC = () => {
     if (state.series.length === 0 && state.datasets.length === 0) { wasEmptyRef.current = true; return; }
     if (wasEmptyRef.current && (state.xAxes[0].min !== 0 || state.xAxes[0].max !== 100)) wasEmptyRef.current = false;
     let shouldReset = wasEmptyRef.current;
-    const datasetsById = new Map<string, Dataset>(); state.datasets.forEach(d => datasetsById.set(d.id, d));
+
     if (!shouldReset && state.datasets.length > 0) {
-       let anyDataVisible = false; const xAxesById = new Map<string, (typeof state.xAxes)[0]>(); state.xAxes.forEach(a => xAxesById.set(a.id, a));
+       let anyDataVisible = false;
        state.series.forEach(s => {
          const ds = datasetsById.get(s.sourceId), xAxis = xAxesById.get(ds?.xAxisId || 'axis-1'); if (!ds || !xAxis) return;
          const xIdx = getColumnIndex(ds, ds.xAxisColumn), xCol = ds.data[xIdx];
@@ -696,8 +706,8 @@ const ChartContainer: React.FC = () => {
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState(); const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
-    let yMin = Infinity, yMax = -Infinity; const datasetsById = new Map<string, Dataset>(); state.datasets.forEach(d => datasetsById.set(d.id, d));
-    const xAxesById = new Map<string, (typeof state.xAxes)[0]>(); state.xAxes.forEach(a => xAxesById.set(a.id, a));
+    let yMin = Infinity, yMax = -Infinity;
+
     axisSeries.forEach(s => {
       const ds = datasetsById.get(s.sourceId), xAxis = xAxesById.get(ds?.xAxisId || 'axis-1'); if (!ds || !xAxis) return;
       const xIdx = getColumnIndex(ds, ds.xAxisColumn), yIdx = getColumnIndex(ds, s.yColumn); if (xIdx === -1 || yIdx === -1) return;
