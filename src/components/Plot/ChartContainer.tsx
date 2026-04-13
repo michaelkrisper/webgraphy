@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { useDarkMode } from '../../hooks/useDarkMode';
+import { useTheme } from '../../hooks/useTheme';
+import { THEMES } from '../../themes';
 import { applyKeyboardZoom, animateXAxes, animateYAxes } from '../../utils/animation';
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
@@ -35,7 +36,7 @@ interface GridLinesProps {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
-  isDark: boolean;
+  gridColor: string;
 }
 
 interface XAxisMetrics {
@@ -59,7 +60,10 @@ interface AxesLayerProps {
   axisLayout: Record<string, { total: number; label: number }>;
   allXAxes: XAxisConfig[];
   xAxesMetrics: XAxisMetrics[];
-  isDark: boolean;
+  axisColor: string;
+  zeroLineColor: string;
+  labelColor: string;
+  secLabelBg: string;
 }
 
 interface CrosshairProps {
@@ -73,7 +77,12 @@ interface CrosshairProps {
   datasets: Dataset[];
   series: SeriesConfig[];
   measureRange: { startX: number, startY: number, endX: number, endY: number } | null;
-  isDark: boolean;
+  tooltipBg: string;
+  tooltipColor: string;
+  tooltipBorder: string;
+  snapLineColor: string;
+  tooltipDividerColor: string;
+  tooltipSubColor: string;
 }
 
 type PanTarget = 'all' | { xAxisId: string } | { yAxisId: string };
@@ -95,8 +104,7 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric') => {
   };
 };
 
-const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, isDark }: GridLinesProps) => {
-  const gridColor = isDark ? '#1e3a5f' : '#f1f5f9';
+const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, gridColor }: GridLinesProps) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
       {xAxes.length > 0 && (() => {
@@ -125,12 +133,8 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, isDark }: 
   );
 });
 
-const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics, isDark }: AxesLayerProps) => {
+const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg }: AxesLayerProps) => {
   const isMobile = width < 768 || height < 500;
-  const axisColor = isDark ? '#64748b' : '#475569';
-  const zeroLineColor = isDark ? '#475569' : '#94a3b8';
-  const labelColor = isDark ? '#94a3b8' : '#475569';
-  const secLabelBg = isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.8)';
 
   const mainXConf = useMemo(() => allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!, [allXAxes, xAxes]);
 
@@ -315,13 +319,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
 const SNAP_PX = 30;
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange, isDark }: CrosshairProps) => {
-  const tooltipBg = isDark ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.95)';
-  const tooltipColor = isDark ? '#f1f5f9' : '#1e293b';
-  const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
-  const snapLineColor = isDark ? '#475569' : '#cbd5e1';
-  const tooltipDividerColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-  const tooltipSubColor = isDark ? '#94a3b8' : '#666';
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange, tooltipBg, tooltipColor, tooltipBorder, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -522,7 +520,8 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
-  const [isDark] = useDarkMode();
+  const [themeName] = useTheme();
+  const themeColors = THEMES[themeName];
 
   const datasetsById = useMemo(() => {
     const map = new Map<string, Dataset>();
@@ -903,14 +902,14 @@ const ChartContainer: React.FC = () => {
   }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: isDark ? '#0f172a' : '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
-      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: isDark ? '#334155' : '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
-      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} isDark={isDark} />
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}><WebGLRenderer datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} /></div>
-      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} isDark={isDark} />
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
+      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: themeColors.noDataColor, fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
+      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}><WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} /></div>
+      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} isDark={isDark} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
     </main>
   );

@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
-import { useDarkMode } from '../../hooks/useDarkMode';
+import { useTheme } from '../../hooks/useTheme';
+import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Monitor, Sparkles } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -18,49 +19,22 @@ const COLOR_PALETTE = [
   '#2563eb', '#e11d48', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c'
 ];
 
-const lightTheme = {
-  bg: '#ffffff',
-  bg2: '#f8fafc',
-  bg3: '#f1f5f9',
-  border: '#e2e8f0',
-  border2: '#cbd5e1',
-  text: '#1e293b',
-  textMid: '#334155',
-  textMuted: '#64748b',
-  textLight: '#94a3b8',
-  accent: '#3b82f6',
-  danger: '#ef4444',
-  shadow: 'rgba(0,0,0,0.05)',
-  selectBg: '#f8fafc',
-  selectColor: '#475569',
-  btnBorder: '#e2e8f0',
-  btnColor: '#475569',
-  cardBorder: '#e2e8f0',
-  sectionHeaderBg: '#f8fafc',
-  seriesBorder: '#e2e8f0',
+const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
+  light: <Sun size={18} />,
+  dark: <Moon size={18} />,
+  matrix: <Terminal size={18} />,
+  classic: <Monitor size={18} />,
+  unicorn: <Sparkles size={18} />,
 };
 
-const darkTheme = {
-  bg: '#1e293b',
-  bg2: '#0f172a',
-  bg3: '#1e293b',
-  border: '#334155',
-  border2: '#475569',
-  text: '#f1f5f9',
-  textMid: '#e2e8f0',
-  textMuted: '#94a3b8',
-  textLight: '#64748b',
-  accent: '#60a5fa',
-  danger: '#f87171',
-  shadow: 'rgba(0,0,0,0.3)',
-  selectBg: '#1e293b',
-  selectColor: '#e2e8f0',
-  btnBorder: '#334155',
-  btnColor: '#94a3b8',
-  cardBorder: '#334155',
-  sectionHeaderBg: '#0f172a',
-  seriesBorder: '#334155',
+const THEME_LABELS: Record<ThemeName, string> = {
+  light: 'Light Mode',
+  dark: 'Dark Mode',
+  matrix: 'Matrix Mode',
+  classic: 'Classic Mode',
+  unicorn: 'Unicorn Kitty Mode',
 };
+
 
 /**
  * Sidebar Component
@@ -74,8 +48,8 @@ export const Sidebar: React.FC = () => {
     setHighlightedSeries
   } = useGraphStore();
 
-  const [isDark, toggleDark] = useDarkMode();
-  const t = isDark ? darkTheme : lightTheme;
+  const [themeName, cycleTheme] = useTheme();
+  const t = THEMES[themeName];
 
   const [editingViewId, setEditingViewId] = useState<string | null>(null);
   const [tempViewName, setTempViewName] = useState('');
@@ -229,12 +203,12 @@ export const Sidebar: React.FC = () => {
         {/* Header */}
         <header style={{ padding: '12px 16px', backgroundColor: t.bg, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/favicon.svg" style={{ width: 32, height: 32 }} alt="webgraphy logo" />
+            <img src="./favicon.svg" style={{ width: 32, height: 32 }} alt="webgraphy logo" />
             <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: t.text, letterSpacing: '-0.02em' }}>webgraphy</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button onClick={toggleDark} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title={THEME_LABELS[themeName]}>
+              {THEME_ICONS[themeName]}
             </button>
             <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '4px', borderRadius: '4px' }} title="Collapse Sidebar">
               <X size={20} />
@@ -303,7 +277,7 @@ export const Sidebar: React.FC = () => {
                               style={{
                                 fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
                                 border: isUsed ? `1px solid ${t.border}` : `1px solid ${t.accent}`,
-                                backgroundColor: isUsed ? t.bg3 : (isDark ? '#1e3a5f' : '#eff6ff'),
+                                backgroundColor: isUsed ? t.bg3 : t.bg3,
                                 color: isUsed ? t.textLight : t.accent,
                                 cursor: isUsed ? 'default' : 'pointer',
                                 fontWeight: '600'
@@ -363,7 +337,7 @@ export const Sidebar: React.FC = () => {
                           isFirst={idx === 0}
                           isLast={idx === series.length - 1}
                           onMove={(delta) => moveSeries(s.id, delta)}
-                          isDark={isDark}
+                          themeName={themeName}
                         />
                       </div>
                     ))}

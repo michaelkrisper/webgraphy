@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
+import { THEMES, type ThemeName } from '../../themes';
 import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
@@ -9,18 +10,19 @@ interface Props {
   isFirst?: boolean;
   isLast?: boolean;
   onMove?: (delta: -1 | 1) => void;
-  isDark?: boolean;
+  themeName?: ThemeName;
 }
 
-export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove, isDark = false }) => {
+export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove, themeName = 'light' }) => {
+  const t = THEMES[themeName];
   const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
-  const bg = isDark ? '#1e293b' : '#f8fafc';
-  const bg2 = isDark ? '#0f172a' : '#f1f5f9';
-  const border = isDark ? '#334155' : '#cbd5e1';
-  const rowBorder = isDark ? '#334155' : '#e2e8f0';
-  const color = isDark ? '#94a3b8' : '#475569';
+  const bg = t.bg2;
+  const bg2 = t.bg3;
+  const border = t.border2;
+  const rowBorder = t.border;
+  const color = t.textMuted;
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
     updateSeries(series.id, updates);
@@ -242,7 +244,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </div>
 
       {/* Delete Button */}
-      <button onClick={() => removeSeries(series.id)} style={{ padding: '8px', cursor: 'pointer', color: isDark ? '#f87171' : '#ef4444', border: 'none', background: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} title="Delete" aria-label="Delete Series">
+      <button onClick={() => removeSeries(series.id)} style={{ padding: '8px', cursor: 'pointer', color: t.danger, border: 'none', background: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} title="Delete" aria-label="Delete Series">
         <Trash2 size={20} />
       </button>
     </div>
