@@ -2,6 +2,44 @@ import { describe, it, expect } from 'vitest';
 import { compileFormula } from '../formula';
 
 describe('compileFormula', () => {
+  it('should handle averaging functions', () => {
+    const cols = ['Timestamp', 'Temp'];
+    const { evaluate, createContext } = compileFormula('avg3([Temp])', cols);
+    const ctx = createContext!();
+
+    // Test count-based average
+    expect(evaluate([10], ctx)).toBe(10); // 10/1
+    expect(evaluate([20], ctx)).toBe(15); // (10+20)/2
+    expect(evaluate([30], ctx)).toBe(20); // (10+20+30)/3
+    expect(evaluate([40], ctx)).toBe(30); // (20+30+40)/3
+  });
+
+  it('should handle time-based averaging functions', () => {
+    const cols = ['Timestamp', 'Temp'];
+    const { evaluate, createContext } = compileFormula('avg2s([Temp])', cols);
+    const ctx = createContext!();
+
+    // Test time-based average (2 seconds window)
+    expect(evaluate([10, 1000], ctx)).toBe(10);
+    expect(evaluate([20, 1001], ctx)).toBe(15);
+    expect(evaluate([30, 1002], ctx)).toBe(25); // (10+20+30)/3
+    expect(evaluate([40, 1003], ctx)).toBe(35); // 10 is dropped because it's <= 1003-2=1001? Wait:
+    // cutoff is t - 2. 1003 - 2 = 1001. 10 is at 1000 <= 1001 (dropped). 20 is at 1001 <= 1001 (dropped).
+    // So only 30 and 40 remain? The logic is `q[0].t <= cutoff`.
+  });
+
+  it('should handle filter function', () => {
+    const cols = ['Timestamp', 'Temp'];
+    const { evaluate, createContext } = compileFormula('filter([Temp])', cols);
+    const ctx = createContext!();
+
+    const v1 = evaluate([10], ctx);
+    expect(v1).toBe(10);
+    const v2 = evaluate([20], ctx);
+    expect(v2).toBeGreaterThan(10);
+    expect(v2).toBeLessThan(20);
+  });
+
   const columns = ['A: Temp', 'A: Hum', 'A: Press'];
 
   it('should handle basic arithmetic', () => {

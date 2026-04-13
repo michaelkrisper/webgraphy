@@ -7,25 +7,43 @@
  * Implements a Shunting-yard algorithm to evaluate expressions without using eval() or new Function().
  */
 
+export interface FormulaContext {
+  queues: Record<number, number[]>;
+  sums: Record<number, number>;
+  timeQueues: Record<number, {t: number, v: number}[]>;
+  timeSums: Record<number, number>;
+  filterState: Record<number, { estimate: number, errorCov: number, measurementNoise: number }>;
+  avgN: (id: number, val: number, n: number) => number;
+  avgTime: (id: number, val: number, t: number, windowSec: number) => number;
+  filter: (id: number, val: number) => number;
+}
+
 export interface FormulaResult {
-  evaluate: (rowValues: number[]) => number;
+  evaluate: (rowValues: number[], ctx?: FormulaContext) => number;
   usedColumnIndices: number[];
   error?: string;
+  createContext?: () => FormulaContext;
+  expression?: string;
 }
 
 type Token =
   | { type: 'NUMBER', value: number }
   | { type: 'VAR', index: number }
   | { type: 'OP', value: string, prec: number, assoc: 'L' | 'R', unary?: boolean }
-  | { type: 'FUNC', value: string }
+  | { type: 'FUNC', value: string, id?: number }
   | { type: 'CONST', value: number }
   | { type: 'LPAREN' }
   | { type: 'RPAREN' };
+
+const columnMapCache = new WeakMap<string[], Map<string, number>>();
 
 export function compileFormula(formula: string, availableColumns: string[]): FormulaResult {
   try {
     const usedColumnIndices: number[] = [];
     const columnMap = new Map<string, number>();
+    let funcIdCounter = 0;
+
+    let availableColumnsMap = columnMapCache.get(availableColumns);
 
     // 1. Identify and extract column names in brackets
     const columnRegex = /\[([^\]]+)\]/g;
@@ -35,10 +53,25 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       const colName = match[1];
 
       if (!columnMap.has(fullMatch)) {
-        let colIndex = availableColumns.indexOf(colName);
-        if (colIndex === -1) {
-          colIndex = availableColumns.findIndex(c => c.endsWith(`: ${colName}`) || c === colName);
+        if (!availableColumnsMap) {
+          availableColumnsMap = new Map<string, number>();
+          for (let i = 0; i < availableColumns.length; i++) {
+            const col = availableColumns[i];
+            if (!availableColumnsMap.has(col)) {
+              availableColumnsMap.set(col, i);
+            }
+            const colonIdx = col.indexOf(': ');
+            if (colonIdx !== -1) {
+              const suffix = col.substring(colonIdx + 2);
+              if (!availableColumnsMap.has(suffix)) {
+                availableColumnsMap.set(suffix, i);
+              }
+            }
+          }
+          columnMapCache.set(availableColumns, availableColumnsMap);
         }
+
+        const colIndex = availableColumnsMap.has(colName) ? availableColumnsMap.get(colName)! : -1;
 
         if (colIndex === -1) {
           return { evaluate: () => NaN, usedColumnIndices: [], error: `Column not found: ${colName}` };
@@ -47,6 +80,19 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         usedColumnIndices.push(colIndex);
       }
     }
+
+    let timeVarIdx = -1;
+    const ensureTimeColumn = () => {
+      if (timeVarIdx !== -1) return timeVarIdx;
+      let colIndex = availableColumns.findIndex(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date'));
+      if (colIndex === -1) colIndex = 0;
+      timeVarIdx = usedColumnIndices.indexOf(colIndex);
+      if (timeVarIdx === -1) {
+        timeVarIdx = usedColumnIndices.length;
+        usedColumnIndices.push(colIndex);
+      }
+      return timeVarIdx;
+    };
 
     // 2. Tokenize the formula
     const tokens: Token[] = [];
@@ -86,6 +132,13 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         if (name === 'pi') tokens.push({ type: 'CONST', value: Math.PI });
         else if (name === 'e') tokens.push({ type: 'CONST', value: Math.E });
         else if (name === 'log') tokens.push({ type: 'FUNC', value: 'log' });
+        else if (/^avg\d+(s|m|h|d)?$/.test(name)) {
+          if (/[smhd]$/.test(name)) ensureTimeColumn();
+          tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
+        }
+        else if (name === 'filter') {
+          tokens.push({ type: 'FUNC', value: 'filter', id: funcIdCounter++ });
+        }
         else throw new Error(`Unknown function or constant: ${name}`);
         continue;
       }
@@ -156,90 +209,113 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       outputQueue.push(top);
     }
 
-    // 4. Create Evaluator (using an optimized RPN interpreter instead of new Function())
-    const bytecode: number[] = [];
-    for (const token of outputQueue) {
-      if (token.type === 'NUMBER') {
-        bytecode.push(0, token.value);
-      } else if (token.type === 'VAR') {
-        bytecode.push(1, token.index);
-      } else if (token.type === 'CONST') {
-        bytecode.push(2, token.value);
-      } else if (token.type === 'FUNC') {
-        if (token.value === 'log') bytecode.push(9);
-      } else if (token.type === 'OP') {
-        if (token.unary) {
-          if (token.value === 'u-') bytecode.push(8);
-        } else {
-          if (token.value === '+') bytecode.push(3);
-          else if (token.value === '-') bytecode.push(4);
-          else if (token.value === '*') bytecode.push(5);
-          else if (token.value === '/') bytecode.push(6);
-          else if (token.value === '^') bytecode.push(7);
-        }
-      }
-    }
+    // 4. Create Evaluator (RPN interpreter, no new Function())
+    const createContext = (): FormulaContext => {
+      const ctx: FormulaContext = {
+        queues: {},
+        sums: {},
+        timeQueues: {},
+        timeSums: {},
+        filterState: {},
 
-    const stack = new Float64Array(256);
+        avgN: (id: number, val: number, n: number) => {
+          if (!ctx.queues[id]) { ctx.queues[id] = []; ctx.sums[id] = 0; }
+          const q = ctx.queues[id];
+          q.push(val);
+          ctx.sums[id] += val;
+          if (q.length > n) {
+            ctx.sums[id] -= q.shift()!;
+          }
+          return ctx.sums[id] / q.length;
+        },
+
+        avgTime: (id: number, val: number, t: number, windowSec: number) => {
+          if (!ctx.timeQueues[id]) { ctx.timeQueues[id] = []; ctx.timeSums[id] = 0; }
+          const q = ctx.timeQueues[id];
+          q.push({ t, v: val });
+          ctx.timeSums[id] += val;
+
+          const isMs = t > 1e11;
+          const cutoff = t - (isMs ? windowSec * 1000 : windowSec);
+
+          while (q.length > 0 && q[0].t <= cutoff) {
+            ctx.timeSums[id] -= q.shift()!.v;
+          }
+          return q.length > 0 ? ctx.timeSums[id] / q.length : 0;
+        },
+
+        filter: (id: number, val: number) => {
+          if (!ctx.filterState[id]) {
+            ctx.filterState[id] = { estimate: val, errorCov: 1, measurementNoise: 0.1 };
+            return val;
+          }
+          const state = ctx.filterState[id];
+          const processNoise = 1e-3;
+          const priorEstimate = state.estimate;
+          const priorErrorCov = state.errorCov + processNoise;
+
+          const residual = val - priorEstimate;
+          state.measurementNoise = 0.95 * state.measurementNoise + 0.05 * (residual * residual);
+          const boundedMeasurementNoise = Math.max(1e-4, Math.min(100, state.measurementNoise));
+
+          const kalmanGain = priorErrorCov / (priorErrorCov + boundedMeasurementNoise);
+          state.estimate = priorEstimate + kalmanGain * residual;
+          state.errorCov = (1 - kalmanGain) * priorErrorCov;
+
+          return state.estimate;
+        }
+      };
+      return ctx;
+    };
 
     return {
       usedColumnIndices,
-      evaluate: (rowValues: number[]) => {
-        let sp = 0;
-        for (let i = 0; i < bytecode.length; ) {
-          const op = bytecode[i++];
-          switch (op) {
-            case 0: // NUMBER
-              stack[sp++] = bytecode[i++];
-              break;
-            case 1: // VAR
-              stack[sp++] = rowValues[bytecode[i++]];
-              break;
-            case 2: // CONST
-              stack[sp++] = bytecode[i++];
-              break;
-            case 3: { // ADD
-              const b = stack[--sp];
-              const a = stack[--sp];
-              stack[sp++] = a + b;
-              break;
+      createContext,
+      evaluate: (rowValues: number[], ctx?: FormulaContext) => {
+        const stack: number[] = [];
+        for (const token of outputQueue) {
+          if (token.type === 'NUMBER') stack.push(token.value);
+          else if (token.type === 'CONST') stack.push(token.value);
+          else if (token.type === 'VAR') stack.push(rowValues[token.index]);
+          else if (token.type === 'FUNC') {
+            const a = stack.pop()!;
+            if (token.value === 'log') stack.push(Math.log10(a));
+            else if (token.value === 'filter' && ctx) stack.push(ctx.filter(token.id!, a));
+            else if (ctx) {
+              const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                const unit = m[2];
+                if (unit) {
+                  let w = num;
+                  if (unit === 'm') w = num * 60;
+                  else if (unit === 'h') w = num * 3600;
+                  else if (unit === 'd') w = num * 86400;
+                  stack.push(ctx.avgTime(token.id!, a, rowValues[timeVarIdx], w));
+                } else {
+                  stack.push(ctx.avgN(token.id!, a, num));
+                }
+              }
             }
-            case 4: { // SUB
-              const b = stack[--sp];
-              const a = stack[--sp];
-              stack[sp++] = a - b;
-              break;
+          } else if (token.type === 'OP') {
+            if (token.unary) {
+              const a = stack.pop()!;
+              if (token.value === 'u-') stack.push(-a);
+            } else {
+              const b = stack.pop()!;
+              const a = stack.pop()!;
+              if (token.value === '+') stack.push(a + b);
+              else if (token.value === '-') stack.push(a - b);
+              else if (token.value === '*') stack.push(a * b);
+              else if (token.value === '/') stack.push(a / b);
+              else if (token.value === '^') stack.push(Math.pow(a, b));
             }
-            case 5: { // MUL
-              const b = stack[--sp];
-              const a = stack[--sp];
-              stack[sp++] = a * b;
-              break;
-            }
-            case 6: { // DIV
-              const b = stack[--sp];
-              const a = stack[--sp];
-              stack[sp++] = a / b;
-              break;
-            }
-            case 7: { // POW
-              const b = stack[--sp];
-              const a = stack[--sp];
-              stack[sp++] = Math.pow(a, b);
-              break;
-            }
-            case 8: // NEG
-              stack[sp - 1] = -stack[sp - 1];
-              break;
-            case 9: // LOG
-              stack[sp - 1] = Math.log10(stack[sp - 1]);
-              break;
           }
         }
         return stack[0];
       }
     };
   } catch (err) {
-    return { evaluate: () => NaN, usedColumnIndices: [], error: err instanceof Error ? err.message : String(err) };
+    return { evaluate: () => NaN, usedColumnIndices: [], error: err instanceof Error ? err.message : String(err), createContext: () => ({} as FormulaContext) };
   }
 }

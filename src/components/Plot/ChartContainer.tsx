@@ -334,11 +334,11 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   }, [containerRef, padding, width, height, isPanning]);
 
   const seriesMetadata = useMemo(() => {
-    const datasetsById = new Map<string, Dataset>(); datasets.forEach(d => datasetsById.set(d.id, d));
-    const yAxesById = new Map<string, YAxisConfig>(); yAxes.forEach(a => yAxesById.set(a.id, a));
-    const xAxesById = new Map<string, XAxisConfig>(); xAxes.forEach(a => xAxesById.set(a.id, a));
+    const datasetsByIdLocal = new Map<string, Dataset>(); datasets.forEach(d => datasetsByIdLocal.set(d.id, d));
+    const yAxesByIdLocal = new Map<string, YAxisConfig>(); yAxes.forEach(a => yAxesByIdLocal.set(a.id, a));
+    const xAxesByIdLocal = new Map<string, XAxisConfig>(); xAxes.forEach(a => xAxesByIdLocal.set(a.id, a));
     return series.filter(s => !s.hidden).map(s => {
-      const ds = datasetsById.get(s.sourceId); const axis = yAxesById.get(s.yAxisId); const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
+      const ds = datasetsByIdLocal.get(s.sourceId); const axis = yAxesByIdLocal.get(s.yAxisId); const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
       if (!ds || !axis || !xAxis) return null;
       const xIdx = getColumnIndex(ds, ds.xAxisColumn); const yIdx = getColumnIndex(ds, s.yColumn);
       if (xIdx === -1 || yIdx === -1) return null;
@@ -493,6 +493,24 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
+
+  const datasetsById = useMemo(() => {
+    const map = new Map<string, Dataset>();
+    datasets.forEach(d => map.set(d.id, d));
+    return map;
+  }, [datasets]);
+
+  const xAxesById = useMemo(() => {
+    const map = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [xAxes]);
+
+  const yAxesById = useMemo(() => {
+    const map = new Map<string, YAxisConfig>();
+    yAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [yAxes]);
   
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -631,11 +649,10 @@ const ChartContainer: React.FC = () => {
     if (state.series.length === 0 && state.datasets.length === 0) { wasEmptyRef.current = true; return; }
     if (wasEmptyRef.current && (state.xAxes[0].min !== 0 || state.xAxes[0].max !== 100)) wasEmptyRef.current = false;
     let shouldReset = wasEmptyRef.current;
-    const datasetsById = new Map<string, Dataset>(); state.datasets.forEach(d => datasetsById.set(d.id, d));
     if (!shouldReset && state.datasets.length > 0) {
-       let anyDataVisible = false; const xAxesById = new Map<string, (typeof state.xAxes)[0]>(); state.xAxes.forEach(a => xAxesById.set(a.id, a));
+       let anyDataVisible = false;
        state.series.forEach(s => {
-         const ds = datasetsById.get(s.sourceId), xAxis = xAxesById.get(ds?.xAxisId || 'axis-1'); if (!ds || !xAxis) return;
+         const ds = state.datasets.find(d => d.id === s.sourceId), xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1')); if (!ds || !xAxis) return;
          const xIdx = getColumnIndex(ds, ds.xAxisColumn), xCol = ds.data[xIdx];
          if (xCol && xCol.bounds) { if (Math.max(0, Math.min(xAxis.max, xCol.bounds.max) - Math.max(xAxis.min, xCol.bounds.min)) > 0 || (xAxis.min >= xCol.bounds.min && xAxis.max <= xCol.bounds.max)) anyDataVisible = true; }
        });
@@ -644,22 +661,28 @@ const ChartContainer: React.FC = () => {
     if (shouldReset && state.datasets.length > 0) {
       wasEmptyRef.current = false;
       const xBounds = new Map<string, { min: number, max: number }>();
-      state.series.forEach(s => { const ds = datasetsById.get(s.sourceId); if (!ds) return; const xIdx = getColumnIndex(ds, ds.xAxisColumn); const col = ds.data[xIdx]; if (!col || !col.bounds) return; const xId = ds.xAxisId || 'axis-1'; const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity }; xBounds.set(xId, { min: Math.min(cur.min, col.bounds.min), max: Math.max(cur.max, col.bounds.max) }); });
+      state.series.forEach(s => { const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return; const xIdx = getColumnIndex(ds, ds.xAxisColumn); const col = ds.data[xIdx]; if (!col || !col.bounds) return; const xId = ds.xAxisId || 'axis-1'; const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity }; xBounds.set(xId, { min: Math.min(cur.min, col.bounds.min), max: Math.max(cur.max, col.bounds.max) }); });
       xBounds.forEach((bounds, id) => { if (bounds.min !== Infinity) { const pad = (bounds.max - bounds.min || 1) * 0.05; const nextX = { min: bounds.min - pad, max: bounds.max + pad }; targetXAxes.current[id] = nextX; state.updateXAxis(id, nextX); } });
       const seriesByYAxisIdLocal = new Map<string, typeof state.series>(); state.series.forEach(s => { if (!seriesByYAxisIdLocal.has(s.yAxisId)) seriesByYAxisIdLocal.set(s.yAxisId, []); seriesByYAxisIdLocal.get(s.yAxisId)!.push(s); });
       activeYAxes.forEach(axis => {
         const axisSeries = seriesByYAxisIdLocal.get(axis.id) || []; if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
-        axisSeries.forEach(s => { const ds = datasetsById.get(s.sourceId); if (!ds) return; const yIdx = getColumnIndex(ds, s.yColumn), yCol = ds.data[yIdx]; if (!yCol || !yCol.bounds) return; if (yCol.bounds.min < yMin) yMin = yCol.bounds.min; if (yCol.bounds.max > yMax) yMax = yCol.bounds.max; });
+        axisSeries.forEach(s => { const ds = state.datasets.find(d => d.id === s.sourceId); if (!ds) return; const yIdx = getColumnIndex(ds, s.yColumn), yCol = ds.data[yIdx]; if (!yCol || !yCol.bounds) return; if (yCol.bounds.min < yMin) yMin = yCol.bounds.min; if (yCol.bounds.max > yMax) yMax = yCol.bounds.max; });
         if (yMin !== Infinity) { const pad = (yMax - yMin || 1) * 0.05; const nextY = { min: yMin - pad, max: yMax + pad }; targetYs.current[axis.id] = nextY; state.updateYAxis(axis.id, nextY); }
       });
       startAnimation();
     }
-  }, [isLoaded, startAnimation, series, yAxes, activeYAxes, datasets]);
+  }, [isLoaded, startAnimation, series, yAxes, activeYAxes, datasetsById, xAxesById]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => { for (const entry of entries) { setWidth(entry.contentRect.width); setHeight(entry.contentRect.height); } });
+    const observer = new ResizeObserver((entries) => {
+      if (entries.length > 0) {
+        const entry = entries[entries.length - 1];
+        setWidth(entry.contentRect.width);
+        setHeight(entry.contentRect.height);
+      }
+    });
     observer.observe(containerRef.current); return () => observer.disconnect();
   }, []);
 
@@ -690,10 +713,9 @@ const ChartContainer: React.FC = () => {
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState(); const axisSeries = state.series.filter(s => s.yAxisId === axisId); if (axisSeries.length === 0) return;
-    let yMin = Infinity, yMax = -Infinity; const datasetsById = new Map<string, Dataset>(); state.datasets.forEach(d => datasetsById.set(d.id, d));
-    const xAxesById = new Map<string, (typeof state.xAxes)[0]>(); state.xAxes.forEach(a => xAxesById.set(a.id, a));
+    let yMin = Infinity, yMax = -Infinity;
     axisSeries.forEach(s => {
-      const ds = datasetsById.get(s.sourceId), xAxis = xAxesById.get(ds?.xAxisId || 'axis-1'); if (!ds || !xAxis) return;
+      const ds = state.datasets.find(d => d.id === s.sourceId), xAxis = state.xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1')); if (!ds || !xAxis) return;
       const xIdx = getColumnIndex(ds, ds.xAxisColumn), yIdx = getColumnIndex(ds, s.yColumn); if (xIdx === -1 || yIdx === -1) return;
       const colX = ds.data[xIdx], colY = ds.data[yIdx]; if (!colX?.data || !colY?.data) return;
       const xData = colX.data, yData = colY.data, refX = colX.refPoint, refY = colY.refPoint;
@@ -717,7 +739,7 @@ const ChartContainer: React.FC = () => {
       else { nMin = yMin - p; nMax = yMax + p; }
       targetYs.current[axisId] = { min: nMin, max: nMax }; startAnimation();
     }
-  }, [padding.top, chartHeight, startAnimation]);
+  }, [padding.top, chartHeight, startAnimation, datasetsById, xAxesById]);
 
   const prevSeriesRef = useRef(series);
   useEffect(() => {

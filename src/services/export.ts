@@ -41,9 +41,8 @@ export const exportToSVG = (
       axisToMinDsIdx.set(xId, dsIdx);
     }
   });
-  const usedXAxisIds = Array.from(axisToMinDsIdx.keys());
   const activeXAxes = xAxes
-    .filter(a => usedXAxisIds.includes(a.id))
+    .filter(a => axisToMinDsIdx.has(a.id))
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
 
   const usedAxisIds = new Set(series.map(s => s.yAxisId));
@@ -158,6 +157,30 @@ export const exportToSVG = (
   // 4. Draw Axes
   svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="#333" stroke-width="2" />`;
 
+  // Pre-compute dataset and series relationships for O(1) lookups
+  const datasetsByXAxisId: Record<string, Dataset[]> = {};
+  const seriesByXAxisId: Record<string, SeriesConfig[]> = {};
+
+  // Group datasets by xAxisId, only including those that have at least one series
+  const activeDatasetIds = new Set(series.map(s => s.sourceId));
+  datasets.forEach(d => {
+    if (activeDatasetIds.has(d.id)) {
+      const xAxisId = d.xAxisId || 'axis-1';
+      if (!datasetsByXAxisId[xAxisId]) datasetsByXAxisId[xAxisId] = [];
+      datasetsByXAxisId[xAxisId].push(d);
+    }
+  });
+
+  // Group series by the xAxisId of their source dataset
+  const datasetXAxisMap = new Map(datasets.map(d => [d.id, d.xAxisId || 'axis-1']));
+  series.forEach(s => {
+    const xAxisId = datasetXAxisMap.get(s.sourceId);
+    if (xAxisId) {
+      if (!seriesByXAxisId[xAxisId]) seriesByXAxisId[xAxisId] = [];
+      seriesByXAxisId[xAxisId].push(s);
+    }
+  });
+
   activeXAxes.forEach((axis, idx) => {
     const xRange = axis.max - axis.min;
     const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
@@ -176,8 +199,8 @@ export const exportToSVG = (
       svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
     }
 
-    const datasetsForThisAxis = datasets.filter(d => (d.xAxisId || 'axis-1') === axis.id && series.some(s => s.sourceId === d.id));
-    const seriesForThisAxis = series.filter(s => datasetsForThisAxis.some(d => d.id === s.sourceId));
+    const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
+    const seriesForThisAxis = seriesByXAxisId[axis.id] || [];
     const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
     svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || '#333')}">${escapeHTML(title)}</text>`;
   });
