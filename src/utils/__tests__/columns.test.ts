@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { getColumnIndex } from '../columns';
 import { type Dataset } from '../../services/persistence';
 
@@ -73,5 +73,44 @@ describe('getColumnIndex', () => {
     const ds = mockDataset(['A: Time', 'Time']);
     // indexOf will find 'Time' at index 1 first
     expect(getColumnIndex(ds, 'Time')).toBe(1);
+  });
+
+  it('should cache negative lookup results (-1) across property mutations', () => {
+    const ds = mockDataset(['A', 'B', 'C']);
+
+    // First lookup - populates cache with -1
+    expect(getColumnIndex(ds, 'D')).toBe(-1);
+
+    // Mutate the array
+    (ds.columns as string[])[0] = 'D';
+
+    // Second lookup - should hit cache and still return -1
+    expect(getColumnIndex(ds, 'D')).toBe(-1);
+  });
+
+  it('should bypass indexOf and findIndex on cache hits', () => {
+    const ds = mockDataset(['A', 'B', 'C']);
+    const indexOfSpy = vi.spyOn(ds.columns, 'indexOf');
+    const findIndexSpy = vi.spyOn(ds.columns, 'findIndex');
+
+    // First lookup - populates cache, calls indexOf
+    expect(getColumnIndex(ds, 'B')).toBe(1);
+    expect(indexOfSpy).toHaveBeenCalledTimes(1);
+    expect(findIndexSpy).not.toHaveBeenCalled();
+
+    // Second lookup - cache hit, no array methods called
+    expect(getColumnIndex(ds, 'B')).toBe(1);
+    expect(indexOfSpy).toHaveBeenCalledTimes(1);
+    expect(findIndexSpy).not.toHaveBeenCalled();
+
+    // Suffix match lookup
+    expect(getColumnIndex(ds, 'Missing')).toBe(-1);
+    expect(indexOfSpy).toHaveBeenCalledTimes(2);
+    expect(findIndexSpy).toHaveBeenCalledTimes(1);
+
+    // Suffix cache hit
+    expect(getColumnIndex(ds, 'Missing')).toBe(-1);
+    expect(indexOfSpy).toHaveBeenCalledTimes(2);
+    expect(findIndexSpy).toHaveBeenCalledTimes(1);
   });
 });

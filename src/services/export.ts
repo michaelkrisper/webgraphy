@@ -41,9 +41,8 @@ export const exportToSVG = (
       axisToMinDsIdx.set(xId, dsIdx);
     }
   });
-  const usedXAxisIds = Array.from(axisToMinDsIdx.keys());
   const activeXAxes = xAxes
-    .filter(a => usedXAxisIds.includes(a.id))
+    .filter(a => axisToMinDsIdx.has(a.id))
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
 
   const usedAxisIds = new Set(series.map(s => s.yAxisId));
