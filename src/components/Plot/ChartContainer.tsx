@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import { applyKeyboardZoom, animateXAxes, animateYAxes } from '../../utils/animation';
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
@@ -34,6 +35,7 @@ interface GridLinesProps {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
+  isDark: boolean;
 }
 
 interface XAxisMetrics {
@@ -57,6 +59,7 @@ interface AxesLayerProps {
   axisLayout: Record<string, { total: number; label: number }>;
   allXAxes: XAxisConfig[];
   xAxesMetrics: XAxisMetrics[];
+  isDark: boolean;
 }
 
 interface CrosshairProps {
@@ -70,6 +73,7 @@ interface CrosshairProps {
   datasets: Dataset[];
   series: SeriesConfig[];
   measureRange: { startX: number, startY: number, endX: number, endY: number } | null;
+  isDark: boolean;
 }
 
 type PanTarget = 'all' | { xAxisId: string } | { yAxisId: string };
@@ -91,7 +95,8 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric') => {
   };
 };
 
-const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLinesProps) => {
+const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, isDark }: GridLinesProps) => {
+  const gridColor = isDark ? '#1e3a5f' : '#f1f5f9';
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
       {xAxes.length > 0 && (() => {
@@ -104,7 +109,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
           const timestamp = typeof t === 'number' ? t : t.timestamp;
           const { x } = worldToScreen(timestamp, 0, vp);
           if (x < padding.left || x > width - padding.right) return null;
-          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#f1f5f9" strokeWidth="1" />;
+          return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" />;
         });
       })()}
       {yAxes.map((axis) => {
@@ -113,15 +118,19 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding }: GridLine
         return axis.ticks.map(t => {
           const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
           if (y < padding.top || y > height - padding.bottom) return null;
-          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f5f9" strokeWidth="1" />;
+          return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={gridColor} strokeWidth="1" />;
         });
       })}
     </svg>
   );
 });
 
-const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics }: AxesLayerProps) => {
+const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics, isDark }: AxesLayerProps) => {
   const isMobile = width < 768 || height < 500;
+  const axisColor = isDark ? '#64748b' : '#475569';
+  const zeroLineColor = isDark ? '#475569' : '#94a3b8';
+  const labelColor = isDark ? '#94a3b8' : '#475569';
+  const secLabelBg = isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.8)';
 
   const mainXConf = useMemo(() => allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!, [allXAxes, xAxes]);
 
@@ -162,17 +171,17 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={axisColor} />
           </marker>
         </defs>
-        
-        <path 
-          d={`M${padding.left},${height - padding.bottom} V${padding.top} H${width - padding.right} V${height - padding.bottom}`} 
-          fill="none" 
-          stroke="#475569"
-          strokeWidth="2" 
+
+        <path
+          d={`M${padding.left},${height - padding.bottom} V${padding.top} H${width - padding.right} V${height - padding.bottom}`}
+          fill="none"
+          stroke={axisColor}
+          strokeWidth="2"
         />
-        
+
         {xAxes.map((axis, idx) => {
           const axisConf = mainXConf.id === axis.id ? mainXConf : allXAxesById.get(axis.id)!;
           const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
@@ -181,14 +190,14 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
           return (
             <g key={`x-axis-spine-${axis.id}`}>
-              <line x1={padding.left} y1={y} x2={width - padding.right + 8} y2={y} stroke="#475569" strokeWidth="1" markerEnd="url(#arrow)" />
+              <line x1={padding.left} y1={y} x2={width - padding.right + 8} y2={y} stroke={axisColor} strokeWidth="1" markerEnd="url(#arrow)" />
               {axis.ticks.result.map((t: number | TimeTick) => {
                 const { x } = worldToScreen(typeof t === 'number' ? t : t.timestamp, 0, vp);
                 if (x < padding.left || x > width - padding.right) return null;
-                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke="#475569" strokeWidth="1" />;
+                return <line key={`xt-${axis.id}-${typeof t === 'number' ? t : t.timestamp}`} x1={x} y1={y} x2={x} y2={y + 6} stroke={axisColor} strokeWidth="1" />;
               })}
               {axisConf.min <= 0 && axisConf.max >= 0 && idx === 0 && (
-                <line x1={worldToScreen(0, 0, vp).x} y1={height - padding.bottom} x2={worldToScreen(0, 0, vp).x} y2={padding.top - 8} stroke="#94a3b8" strokeWidth="1" strokeDasharray="4 4" markerEnd="url(#arrow)" />
+                <line x1={worldToScreen(0, 0, vp).x} y1={height - padding.bottom} x2={worldToScreen(0, 0, vp).x} y2={padding.top - 8} stroke={zeroLineColor} strokeWidth="1" strokeDasharray="4 4" markerEnd="url(#arrow)" />
               )}
             </g>
           );
@@ -199,7 +208,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: mainAxis.min, yMax: mainAxis.max, width, height, padding };
           if (mainAxis.min <= 0 && mainAxis.max >= 0) {
             return (
-              <line x1={padding.left} y1={worldToScreen(mainXConf.min, 0, axisVp).y} x2={width - padding.right + 8} y2={worldToScreen(mainXConf.min, 0, axisVp).y} stroke="#94a3b8" strokeWidth="1" strokeDasharray="4 4" markerEnd="url(#arrow)" />
+              <line x1={padding.left} y1={worldToScreen(mainXConf.min, 0, axisVp).y} x2={width - padding.right + 8} y2={worldToScreen(mainXConf.min, 0, axisVp).y} stroke={zeroLineColor} strokeWidth="1" strokeDasharray="4 4" markerEnd="url(#arrow)" />
             );
           }
           return null;
@@ -222,13 +231,13 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
           return (
             <g key={axis.id}>
-              <line x1={axisLineX} y1={height - padding.bottom} x2={axisLineX} y2={padding.top - 8} stroke="#475569" strokeWidth="1" markerEnd="url(#arrow)" />
+              <line x1={axisLineX} y1={height - padding.bottom} x2={axisLineX} y2={padding.top - 8} stroke={axisColor} strokeWidth="1" markerEnd="url(#arrow)" />
               {axis.ticks.map(t => {
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const x1 = isLeft ? axisLineX - 5 : axisLineX;
                 const x2 = isLeft ? axisLineX : axisLineX + 5;
-                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke="#475569" strokeWidth="1" />;
+                return <line key={`yt-${axis.id}-${t}`} x1={x1} y1={y} x2={x2} y2={y} stroke={axisColor} strokeWidth="1" />;
               })}
             </g>
           );
@@ -253,7 +262,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 if (nextX < x + labelWidth + 10) x = nextX - labelWidth - 10;
                 if (x + labelWidth > padding.left && x < width - padding.right) {
                   return (
-                    <div key={`sl-${axis.id}-${sl.timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.secLabelBottom, fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, backgroundColor: 'rgba(255,255,255,0.8)', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', borderLeft: currentX > padding.left ? `2px solid ${axis.color}` : 'none', zIndex: 10 }}>{sl.label}</div>
+                    <div key={`sl-${axis.id}-${sl.timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.secLabelBottom, fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, backgroundColor: secLabelBg, padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', borderLeft: currentX > padding.left ? `2px solid ${axis.color}` : 'none', zIndex: 10 }}>{sl.label}</div>
                   );
                 }
                 return null;
@@ -293,9 +302,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
                 if (y < padding.top || y > height - padding.bottom) return null;
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
-                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: isMobile ? '10px' : '9px', color: '#475569', width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
+                return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: isMobile ? '10px' : '9px', color: labelColor, width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || '#475569', padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || labelColor, padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             </React.Fragment>
           );
         })}
@@ -306,7 +315,13 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
 const SNAP_PX = 30;
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange }: CrosshairProps) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange, isDark }: CrosshairProps) => {
+  const tooltipBg = isDark ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.95)';
+  const tooltipColor = isDark ? '#f1f5f9' : '#1e293b';
+  const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
+  const snapLineColor = isDark ? '#475569' : '#cbd5e1';
+  const tooltipDividerColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  const tooltipSubColor = isDark ? '#94a3b8' : '#666';
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -418,7 +433,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const label = s.name || s.yColumn;
       const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
       const xLab = xAxis.xMode === 'date' ? formatFullDate(xVal) : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
-      const xAxisName = xAxis.name || `X-Axis ${ds.xAxisId}`;
+      const xAxisName = ds.xAxisColumn || xAxis.name || `X-Axis ${ds.xAxisId}`;
       const groupKey = `${xLab}|${xAxisName}`;
       let group = entriesMap.get(groupKey);
       if (!group) { group = { xLabel: xLab, xAxisName, items: [] }; entriesMap.set(groupKey, group); }
@@ -462,7 +477,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-        {snap && <line x1={snap.snapScreenX} y1={padding.top} x2={snap.snapScreenX} y2={height - padding.bottom} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />}
+        {snap && <line x1={snap.snapScreenX} y1={padding.top} x2={snap.snapScreenX} y2={height - padding.bottom} stroke={snapLineColor} strokeWidth="1" strokeDasharray="3 3" />}
         {measurement && (
           <g>
             <rect x={Math.min(measurement.startX, measurement.endX)} y={padding.top} width={Math.abs(measurement.endX - measurement.startX)} height={height - padding.top - padding.bottom} fill="rgba(59, 130, 246, 0.1)" stroke="rgba(59, 130, 246, 0.3)" strokeWidth="1" />
@@ -476,23 +491,23 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           position: 'absolute',
           left: (snap?.snapScreenX || pos?.x || 0) + 12,
           top: (pos?.y || 0) + 15,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          color: '#1e293b', padding: '8px 12px', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', whiteSpace: 'pre', maxWidth: 360
+          backgroundColor: tooltipBg,
+          color: tooltipColor, padding: '8px 12px', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: `1px solid ${tooltipBorder}`, whiteSpace: 'pre', maxWidth: 360
         }}>
           {measurement && (
-            <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', color: '#2563eb', fontWeight: 'bold' }}>
+            <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: `1px solid ${tooltipBorder}`, color: '#2563eb', fontWeight: 'bold' }}>
               ΔX: {measurement.dx}
             </div>
           )}
           {snap?.entries.map((group, groupIdx) => (
             <React.Fragment key={`group-${groupIdx}`}>
-              <div style={{ color: '#666', fontSize: '9px', borderTop: groupIdx > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
-                <span style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '10px' }}>{group.xLabel}</span> ({group.xAxisName})
+              <div style={{ color: tooltipSubColor, fontSize: '9px', borderTop: groupIdx > 0 ? `1px solid ${tooltipDividerColor}` : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
+                <span style={{ fontWeight: 'bold', color: tooltipColor, fontSize: '10px' }}>{group.xLabel}</span> ({group.xAxisName})
               </div>
               {group.items.map((item, itemIdx) => (
                 <div key={`item-${groupIdx}-${itemIdx}`} style={{ color: item.color, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                   <span>{item.label}:</span>
-                  <span style={{ color: '#333', fontWeight: 'bold' }}>{item.value.toPrecision(7)}</span>
+                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{item.value.toPrecision(7)}</span>
                 </div>
               ))}
             </React.Fragment>
@@ -507,6 +522,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
+  const [isDark] = useDarkMode();
 
   const datasetsById = useMemo(() => {
     const map = new Map<string, Dataset>();
@@ -887,14 +903,14 @@ const ChartContainer: React.FC = () => {
   }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
-      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
-      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} />
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: isDark ? '#0f172a' : '#fff', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
+      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: isDark ? '#334155' : '#ccc', fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
+      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} isDark={isDark} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}><WebGLRenderer datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} /></div>
-      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} />
+      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} isDark={isDark} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} isDark={isDark} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
     </main>
   );

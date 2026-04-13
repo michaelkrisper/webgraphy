@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, RotateCcw, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -413,7 +413,7 @@ export const Sidebar: React.FC = () => {
                             {view.name}
                           </span>
                         )}
-                        <button onClick={() => applyView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.accent }} title="Apply"><RotateCcw size={14} /></button>
+                        <button onClick={() => applyView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.accent }} title="Apply"><Eye size={14} /></button>
                         <button onClick={() => deleteView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete"><Trash2 size={14} /></button>
                       </div>
                     ))}
