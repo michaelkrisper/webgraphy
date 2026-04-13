@@ -1,6 +1,7 @@
 export type ThemeName = 'light' | 'dark' | 'matrix' | 'classic' | 'unicorn';
 
 export interface Theme {
+  fontFamily: string;
   // Sidebar / UI
   bg: string;
   bg2: string;
@@ -40,6 +41,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   // Publication White — print-ready, IEEE/Nature journal standard
   // Palette: GitHub Primer Light (battle-tested, WCAG AA throughout)
   light: {
+    fontFamily: '"Inter", "SF Pro Text", system-ui, -apple-system, sans-serif',
     bg:             '#ffffff',  // pure white — prints clean
     bg2:            '#f6f8fa',  // sidebar body — barely-there tint
     bg3:            '#eaeef2',  // tertiary surface
@@ -74,6 +76,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   // Engineering Dark — OLED-friendly, VS Code / JetBrains standard
   // Palette: GitHub Primer Dark (same system — consistent semantics)
   dark: {
+    fontFamily: '"Inter", "SF Pro Text", system-ui, -apple-system, sans-serif',
     bg:             '#161b22',  // card surface
     bg2:            '#0d1117',  // page background — true dark
     bg3:            '#1c2128',  // inset / tertiary
@@ -105,6 +108,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     noDataColor:    '#21262d',
   },
   matrix: {
+    fontFamily: '"Courier New", "Lucida Console", monospace',
     bg: '#001400', bg2: '#000a00', bg3: '#001a00',
     border: '#003300', border2: '#005500',
     text: '#00ff41', textMid: '#00cc33', textMuted: '#009922', textLight: '#005500',
@@ -120,6 +124,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     noDataColor: '#003300',
   },
   classic: {
+    fontFamily: '"MS Sans Serif", "Segoe UI", "Tahoma", sans-serif',
     bg: '#ffffff', bg2: '#c0c0c0', bg3: '#d4d0c8',
     border: '#808080', border2: '#404040',
     text: '#000000', textMid: '#000000', textMuted: '#333333', textLight: '#808080',
@@ -135,6 +140,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     noDataColor: '#aaaaaa',
   },
   unicorn: {
+    fontFamily: '"Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive',
     bg: '#fff0f9', bg2: '#fce4f0', bg3: '#fad4e8',
     border: '#f9a8d4', border2: '#f472b6',
     text: '#7b2d8b', textMid: '#9333a1', textMuted: '#c026d3', textLight: '#e879f9',
