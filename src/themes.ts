@@ -1,4 +1,4 @@
-export type ThemeName = 'light' | 'dark' | 'matrix' | 'classic' | 'unicorn';
+export type ThemeName = 'light' | 'dark' | 'matrix' | 'unicorn';
 
 export interface Theme {
   fontFamily: string;
@@ -123,22 +123,6 @@ export const THEMES: Record<ThemeName, Theme> = {
     snapLineColor: '#006600', tooltipDividerColor: 'rgba(0,255,65,0.1)', tooltipSubColor: '#009922',
     noDataColor: '#003300',
   },
-  classic: {
-    fontFamily: '"MS Sans Serif", "Segoe UI", "Tahoma", sans-serif',
-    bg: '#ffffff', bg2: '#c0c0c0', bg3: '#d4d0c8',
-    border: '#808080', border2: '#404040',
-    text: '#000000', textMid: '#000000', textMuted: '#333333', textLight: '#808080',
-    accent: '#000080', danger: '#800000',
-    shadow: 'rgba(0,0,0,0.3)',
-    selectBg: '#ffffff', selectColor: '#000000',
-    btnBorder: '#808080', btnColor: '#000000',
-    cardBorder: '#808080', sectionHeaderBg: '#c0c0c0',
-    plotBg: '#ffffff', axisColor: '#000000', zeroLineColor: '#808080', gridColor: '#e0e0e0',
-    labelColor: '#000000', secLabelBg: 'rgba(192,192,192,0.92)',
-    tooltipBg: 'rgba(255,255,255,0.98)', tooltipColor: '#000000', tooltipBorder: '#000000',
-    snapLineColor: '#808080', tooltipDividerColor: 'rgba(0,0,0,0.15)', tooltipSubColor: '#444444',
-    noDataColor: '#aaaaaa',
-  },
   unicorn: {
     fontFamily: '"Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive',
     bg: '#fff0f9', bg2: '#fce4f0', bg3: '#fad4e8',
@@ -157,4 +141,4 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
 };
 
-export const THEME_CYCLE: ThemeName[] = ['light', 'dark', 'matrix', 'classic', 'unicorn'];
+export const THEME_CYCLE: ThemeName[] = ['light', 'dark', 'matrix', 'unicorn'];
