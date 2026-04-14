@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
+import { smoothArray } from '../../utils/data-processing';
+
+const smoothedCache = new WeakMap<Float32Array, Float32Array>();
 
 const VERTEX_SHADER_SOURCE = `
       attribute float a_x;
@@ -271,6 +274,16 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       if (!colX || !colY) return;
 
       const xData = colX.data;
+      let yData = colY.data;
+
+      if (s.smooth) {
+        let smoothed = smoothedCache.get(colY.data);
+        if (!smoothed) {
+          smoothed = smoothArray(colY.data, 5);
+          smoothedCache.set(colY.data, smoothed);
+        }
+        yData = smoothed;
+      }
       const xRef = colX.refPoint;
       let startIdx = 0;
       let endIdx = xData.length - 1;
@@ -298,7 +311,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       const numPoints = endIdx - startIdx + 1;
-      const yData = colY.data;
 
       const drawStep = (isInteracting && numPoints > 50000) ? Math.max(1, Math.floor(numPoints / 20000)) : 1;
 
@@ -314,7 +326,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         buffersRef.current.set(xBufferKey, xBuffer);
       }
 
-      const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
+      const yBufferKey = `buf-y-${ds.id}-${yIdx}${s.smooth ? '-smooth' : ''}`;
       let yBuffer = buffersRef.current.get(yBufferKey);
       if (!yBuffer) {
         yBuffer = gl.createBuffer()!;
