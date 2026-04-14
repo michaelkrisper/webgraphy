@@ -1,7 +1,7 @@
 
 /**
  * Formula utility for evaluating mathematical expressions on dataset columns.
- * Supports +, -, *, /, ^, log (base 10), pi, e, and brackets.
+ * Supports basic arithmetic, trig functions, sqrt, log, averages, and grouping.
  * Column names should be enclosed in square brackets, e.g., [Column Name].
  *
  * Implements a Shunting-yard algorithm to evaluate expressions without using eval() or new Function().
@@ -12,9 +12,14 @@ export interface FormulaContext {
   sums: Record<number, number>;
   timeQueues: Record<number, {t: number, v: number}[]>;
   timeSums: Record<number, number>;
+  groupSums: Record<number, number>;
+  groupCounts: Record<number, number>;
+  groupLastKey: Record<number, string | number>;
   filterState: Record<number, { estimate: number, errorCov: number, measurementNoise: number }>;
   avgN: (id: number, val: number, n: number) => number;
   avgTime: (id: number, val: number, t: number, windowSec: number) => number;
+  avgGroup: (id: number, val: number, key: string | number) => number;
+  sumGroup: (id: number, val: number, key: string | number) => number;
   filter: (id: number, val: number) => number;
 }
 
@@ -30,10 +35,11 @@ type Token =
   | { type: 'NUMBER', value: number }
   | { type: 'VAR', index: number }
   | { type: 'OP', value: string, prec: number, assoc: 'L' | 'R', unary?: boolean }
-  | { type: 'FUNC', value: string, id?: number }
+  | { type: 'FUNC', value: string, id?: number, args?: number }
   | { type: 'CONST', value: number }
   | { type: 'LPAREN' }
-  | { type: 'RPAREN' };
+  | { type: 'RPAREN' }
+  | { type: 'COMMA' };
 
 const columnMapCache = new WeakMap<string[], Map<string, number>>();
 
@@ -42,8 +48,30 @@ export function compileFormula(formula: string, availableColumns: string[]): For
     const usedColumnIndices: number[] = [];
     const columnMap = new Map<string, number>();
     let funcIdCounter = 0;
+    let usesAllColumns = false;
 
     let availableColumnsMap = columnMapCache.get(availableColumns);
+
+    const ensureAvailableColumnsMap = () => {
+      if (!availableColumnsMap) {
+        availableColumnsMap = new Map<string, number>();
+        for (let i = 0; i < availableColumns.length; i++) {
+          const col = availableColumns[i];
+          if (!availableColumnsMap.has(col)) {
+            availableColumnsMap.set(col, i);
+          }
+          const colonIdx = col.indexOf(': ');
+          if (colonIdx !== -1) {
+            const suffix = col.substring(colonIdx + 2);
+            if (!availableColumnsMap.has(suffix)) {
+              availableColumnsMap.set(suffix, i);
+            }
+          }
+        }
+        columnMapCache.set(availableColumns, availableColumnsMap);
+      }
+      return availableColumnsMap;
+    };
 
     // 1. Identify and extract column names in brackets
     const columnRegex = /\[([^\]]+)\]/g;
@@ -53,25 +81,8 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       const colName = match[1];
 
       if (!columnMap.has(fullMatch)) {
-        if (!availableColumnsMap) {
-          availableColumnsMap = new Map<string, number>();
-          for (let i = 0; i < availableColumns.length; i++) {
-            const col = availableColumns[i];
-            if (!availableColumnsMap.has(col)) {
-              availableColumnsMap.set(col, i);
-            }
-            const colonIdx = col.indexOf(': ');
-            if (colonIdx !== -1) {
-              const suffix = col.substring(colonIdx + 2);
-              if (!availableColumnsMap.has(suffix)) {
-                availableColumnsMap.set(suffix, i);
-              }
-            }
-          }
-          columnMapCache.set(availableColumns, availableColumnsMap);
-        }
-
-        const colIndex = availableColumnsMap.has(colName) ? availableColumnsMap.get(colName)! : -1;
+        const map = ensureAvailableColumnsMap();
+        const colIndex = map.has(colName) ? map.get(colName)! : -1;
 
         if (colIndex === -1) {
           return { evaluate: () => NaN, usedColumnIndices: [], error: `Column not found: ${colName}` };
@@ -92,6 +103,23 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         usedColumnIndices.push(colIndex);
       }
       return timeVarIdx;
+    };
+
+    const dataColumnIndices: number[] = [];
+    const ensureAllDataColumns = () => {
+      dataColumnIndices.length = 0;
+      for (let i = 0; i < availableColumns.length; i++) {
+        const lower = availableColumns[i].toLowerCase();
+        if (lower.includes('time') || lower.includes('date')) continue;
+
+        let varIdx = usedColumnIndices.indexOf(i);
+        if (varIdx === -1) {
+          varIdx = usedColumnIndices.length;
+          usedColumnIndices.push(i);
+        }
+        dataColumnIndices.push(varIdx);
+      }
+      return dataColumnIndices;
     };
 
     // 2. Tokenize the formula
@@ -131,7 +159,10 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         name = name.toLowerCase();
         if (name === 'pi') tokens.push({ type: 'CONST', value: Math.PI });
         else if (name === 'e') tokens.push({ type: 'CONST', value: Math.E });
-        else if (name === 'log') tokens.push({ type: 'FUNC', value: 'log' });
+        else if (['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'abs', 'exp', 'log', 'ln', 'round', 'floor', 'ceil', 'min', 'max', 'avg', 'sum', 'avgday', 'sumday', 'avghour', 'sumhour'].includes(name)) {
+          if (['avgday', 'sumday', 'avghour', 'sumhour'].includes(name)) ensureTimeColumn();
+          tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
+        }
         else if (/^avg\d+(s|m|h|d)?$/.test(name)) {
           if (/[smhd]$/.test(name)) ensureTimeColumn();
           tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
@@ -145,6 +176,7 @@ export function compileFormula(formula: string, availableColumns: string[]): For
 
       if (char === '(') { tokens.push({ type: 'LPAREN' }); i++; continue; }
       if (char === ')') { tokens.push({ type: 'RPAREN' }); i++; continue; }
+      if (char === ',') { tokens.push({ type: 'COMMA' }); i++; continue; }
 
       const opMap: Record<string, { prec: number, assoc: 'L' | 'R' }> = {
         '+': { prec: 2, assoc: 'L' },
@@ -156,7 +188,7 @@ export function compileFormula(formula: string, availableColumns: string[]): For
 
       if (opMap[char]) {
         // Handle unary minus
-        if (char === '-' && (!prevToken || prevToken.type === 'OP' || prevToken.type === 'LPAREN' || prevToken.type === 'FUNC')) {
+        if (char === '-' && (!prevToken || prevToken.type === 'OP' || prevToken.type === 'LPAREN' || prevToken.type === 'FUNC' || prevToken.type === 'COMMA')) {
           tokens.push({ type: 'OP', value: 'u-', prec: 5, assoc: 'R', unary: true });
         } else {
           tokens.push({ type: 'OP', value: char, ...opMap[char] });
@@ -171,12 +203,24 @@ export function compileFormula(formula: string, availableColumns: string[]): For
     // 3. Convert to RPN (Reverse Polish Notation) using Shunting-yard
     const outputQueue: Token[] = [];
     const operatorStack: Token[] = [];
+    const argCountStack: number[] = [];
 
-    for (const token of tokens) {
+    for (let j = 0; j < tokens.length; j++) {
+      const token = tokens[j];
       if (token.type === 'NUMBER' || token.type === 'VAR' || token.type === 'CONST') {
         outputQueue.push(token);
       } else if (token.type === 'FUNC') {
         operatorStack.push(token);
+        argCountStack.push(0);
+      } else if (token.type === 'COMMA') {
+        while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type !== 'LPAREN') {
+          outputQueue.push(operatorStack.pop()!);
+        }
+        if (argCountStack.length > 0) {
+          argCountStack[argCountStack.length - 1]++;
+        } else {
+          throw new Error('Unexpected comma');
+        }
       } else if (token.type === 'OP') {
         while (operatorStack.length > 0) {
           const top = operatorStack[operatorStack.length - 1];
@@ -198,8 +242,18 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         }
         if (operatorStack.length === 0) throw new Error('Mismatched parentheses');
         operatorStack.pop(); // remove LPAREN
+
         if (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type === 'FUNC') {
-          outputQueue.push(operatorStack.pop()!);
+          const func = operatorStack.pop()! as Extract<Token, { type: 'FUNC' }>;
+          let args = argCountStack.pop()!;
+          const prevWasLparen = tokens[j - 1] && tokens[j - 1].type === 'LPAREN';
+          if (!prevWasLparen) args++;
+          func.args = args;
+          outputQueue.push(func);
+
+          if (args === 0 && (func.value === 'avg' || func.value === 'sum')) {
+             usesAllColumns = true;
+          }
         }
       }
     }
@@ -209,6 +263,8 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       outputQueue.push(top);
     }
 
+    const finalDataColumnIndices = usesAllColumns ? [...ensureAllDataColumns()] : [];
+
     // 4. Create Evaluator (RPN interpreter, no new Function())
     const createContext = (): FormulaContext => {
       const ctx: FormulaContext = {
@@ -216,6 +272,9 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         sums: {},
         timeQueues: {},
         timeSums: {},
+        groupSums: {},
+        groupCounts: {},
+        groupLastKey: {},
         filterState: {},
 
         avgN: (id: number, val: number, n: number) => {
@@ -242,6 +301,26 @@ export function compileFormula(formula: string, availableColumns: string[]): For
             ctx.timeSums[id] -= q.shift()!.v;
           }
           return q.length > 0 ? ctx.timeSums[id] / q.length : 0;
+        },
+
+        avgGroup: (id: number, val: number, key: string | number) => {
+           if (ctx.groupLastKey[id] !== key) {
+             ctx.groupSums[id] = 0;
+             ctx.groupCounts[id] = 0;
+             ctx.groupLastKey[id] = key;
+           }
+           ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
+           ctx.groupCounts[id] = (ctx.groupCounts[id] || 0) + 1;
+           return ctx.groupSums[id] / ctx.groupCounts[id];
+        },
+
+        sumGroup: (id: number, val: number, key: string | number) => {
+          if (ctx.groupLastKey[id] !== key) {
+            ctx.groupSums[id] = 0;
+            ctx.groupLastKey[id] = key;
+          }
+          ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
+          return ctx.groupSums[id];
         },
 
         filter: (id: number, val: number) => {
@@ -278,9 +357,63 @@ export function compileFormula(formula: string, availableColumns: string[]): For
           else if (token.type === 'CONST') stack.push(token.value);
           else if (token.type === 'VAR') stack.push(rowValues[token.index]);
           else if (token.type === 'FUNC') {
-            const a = stack.pop()!;
-            if (token.value === 'log') stack.push(Math.log10(a));
+            const argCount = token.args !== undefined ? token.args : 1;
+            const args: number[] = [];
+            for (let j = 0; j < argCount; j++) args.push(stack.pop()!);
+            args.reverse();
+
+            const a = args[0];
+            if (token.value === 'sin') stack.push(Math.sin(a));
+            else if (token.value === 'cos') stack.push(Math.cos(a));
+            else if (token.value === 'tan') stack.push(Math.tan(a));
+            else if (token.value === 'asin') stack.push(Math.asin(a));
+            else if (token.value === 'acos') stack.push(Math.acos(a));
+            else if (token.value === 'atan') stack.push(Math.atan(a));
+            else if (token.value === 'sqrt') stack.push(Math.sqrt(a));
+            else if (token.value === 'abs') stack.push(Math.abs(a));
+            else if (token.value === 'exp') stack.push(Math.exp(a));
+            else if (token.value === 'log') stack.push(Math.log10(a));
+            else if (token.value === 'ln') stack.push(Math.log(a));
+            else if (token.value === 'round') stack.push(Math.round(a));
+            else if (token.value === 'floor') stack.push(Math.floor(a));
+            else if (token.value === 'ceil') stack.push(Math.ceil(a));
+            else if (token.value === 'min') stack.push(Math.min(...args));
+            else if (token.value === 'max') stack.push(Math.max(...args));
+            else if (token.value === 'sum') {
+              if (argCount === 0) {
+                let s = 0;
+                for (let j = 0; j < finalDataColumnIndices.length; j++) {
+                  s += rowValues[finalDataColumnIndices[j]];
+                }
+                stack.push(s);
+              } else {
+                stack.push(args.reduce((s, v) => s + v, 0));
+              }
+            }
+            else if (token.value === 'avg') {
+              if (argCount === 0) {
+                let s = 0;
+                for (let j = 0; j < finalDataColumnIndices.length; j++) {
+                  s += rowValues[finalDataColumnIndices[j]];
+                }
+                stack.push(finalDataColumnIndices.length > 0 ? s / finalDataColumnIndices.length : 0);
+              } else {
+                stack.push(args.reduce((s, v) => s + v, 0) / argCount);
+              }
+            }
             else if (token.value === 'filter' && ctx) stack.push(ctx.filter(token.id!, a));
+            else if (ctx && (token.value === 'avgday' || token.value === 'sumday' || token.value === 'avghour' || token.value === 'sumhour')) {
+                const t = rowValues[timeVarIdx];
+                const date = new Date(t * (t > 1e11 ? 1 : 1000));
+                let key: string;
+                if (token.value.endsWith('day')) {
+                  key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                } else {
+                  key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+                }
+                if (token.value.startsWith('avg')) stack.push(ctx.avgGroup(token.id!, a, key));
+                else stack.push(ctx.sumGroup(token.id!, a, key));
+            }
             else if (ctx) {
               const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
               if (m) {
@@ -295,7 +428,11 @@ export function compileFormula(formula: string, availableColumns: string[]): For
                 } else {
                   stack.push(ctx.avgN(token.id!, a, num));
                 }
+              } else {
+                stack.push(a); // Fallback
               }
+            } else {
+              stack.push(a); // Fallback
             }
           } else if (token.type === 'OP') {
             if (token.unary) {

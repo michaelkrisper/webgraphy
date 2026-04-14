@@ -140,6 +140,13 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
               {
                 label: 'Functions',
                 items: [
+                  { label: 'avg()', insert: 'avg()', title: 'Average of ALL numeric columns in this row' },
+                  { label: 'avgDay(x)', insert: 'avgDay(', title: 'Cumulative average resetting every Day' },
+                  { label: 'avgHour(x)', insert: 'avgHour(', title: 'Cumulative average resetting every Hour' },
+                  { label: 'sqrt(x)', insert: 'sqrt(', title: 'Square root' },
+                  { label: 'sin(x)', insert: 'sin(', title: 'Sine (radians)' },
+                  { label: 'cos(x)', insert: 'cos(', title: 'Cosine (radians)' },
+                  { label: 'tan(x)', insert: 'tan(', title: 'Tangent (radians)' },
                   { label: 'log(x)', insert: 'log(', title: 'Base-10 logarithm' },
                   { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over last N rows: avgN(col). Variants: avg10, avg100, …' },
                   { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs (seconds), avgNm (minutes), avgNh (hours), avgNd (days). Requires a date/time X-axis column.' },

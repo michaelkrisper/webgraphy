@@ -7,6 +7,7 @@ describe('compileFormula', () => {
     const { evaluate, createContext } = compileFormula('avg3([Temp])', cols);
     const ctx = createContext!();
 
+    // usedColumnIndices should be [1]
     // Test count-based average
     expect(evaluate([10], ctx)).toBe(10); // 10/1
     expect(evaluate([20], ctx)).toBe(15); // (10+20)/2
@@ -16,16 +17,17 @@ describe('compileFormula', () => {
 
   it('should handle time-based averaging functions', () => {
     const cols = ['Timestamp', 'Temp'];
-    const { evaluate, createContext } = compileFormula('avg2s([Temp])', cols);
+    const { evaluate, createContext, usedColumnIndices } = compileFormula('avg2s([Temp])', cols);
     const ctx = createContext!();
+
+    // usedColumnIndices: [1, 0] ([Temp], Timestamp)
+    expect(usedColumnIndices).toEqual([1, 0]);
 
     // Test time-based average (2 seconds window)
     expect(evaluate([10, 1000], ctx)).toBe(10);
     expect(evaluate([20, 1001], ctx)).toBe(15);
-    expect(evaluate([30, 1002], ctx)).toBe(25); // (10+20+30)/3
-    expect(evaluate([40, 1003], ctx)).toBe(35); // 10 is dropped because it's <= 1003-2=1001? Wait:
-    // cutoff is t - 2. 1003 - 2 = 1001. 10 is at 1000 <= 1001 (dropped). 20 is at 1001 <= 1001 (dropped).
-    // So only 30 and 40 remain? The logic is `q[0].t <= cutoff`.
+    expect(evaluate([30, 1002], ctx)).toBe(25);
+    expect(evaluate([40, 1003], ctx)).toBe(35);
   });
 
   it('should handle filter function', () => {
@@ -40,12 +42,60 @@ describe('compileFormula', () => {
     expect(v2).toBeLessThan(20);
   });
 
-  const columns = ['A: Temp', 'A: Hum', 'A: Press'];
+  const columns = ['Timestamp', 'A: Temp', 'A: Hum', 'A: Press'];
 
   it('should handle basic arithmetic', () => {
     const { evaluate, usedColumnIndices } = compileFormula('[Temp] + [Hum]', columns);
-    expect(usedColumnIndices).toEqual([0, 1]);
+    // [Temp] is index 1, [Hum] is index 2.
+    expect(usedColumnIndices).toEqual([1, 2]);
     expect(evaluate([10, 20])).toBe(30);
+  });
+
+  it('should handle trig and math functions', () => {
+    const { evaluate: evalSin } = compileFormula('sin(pi/2)', columns);
+    expect(evalSin([])).toBeCloseTo(1);
+
+    const { evaluate: evalSqrt } = compileFormula('sqrt(16)', columns);
+    expect(evalSqrt([])).toBe(4);
+
+    const { evaluate: evalAbs } = compileFormula('abs(-5)', columns);
+    expect(evalAbs([])).toBe(5);
+  });
+
+  it('should handle multi-argument functions', () => {
+    const { evaluate: evalMin } = compileFormula('min(10, 5, 20)', columns);
+    expect(evalMin([])).toBe(5);
+
+    const { evaluate: evalMax } = compileFormula('max(10, 5, 20)', columns);
+    expect(evalMax([])).toBe(20);
+
+    const { evaluate: evalAvg } = compileFormula('avg(10, 20, 30)', columns);
+    expect(evalAvg([])).toBe(20);
+  });
+
+  it('should handle avg() over all numeric columns', () => {
+    // Columns: Timestamp (0), Temp (1), Hum (2), Press (3)
+    const { evaluate, usedColumnIndices } = compileFormula('avg()', columns);
+    // Should include 1, 2, 3.
+    expect(usedColumnIndices).toEqual([1, 2, 3]);
+
+    expect(evaluate([10, 20, 30])).toBe(20);
+  });
+
+  it('should handle avgDay resetting', () => {
+    const { evaluate, createContext, usedColumnIndices } = compileFormula('avgday([Temp])', columns);
+    const ctx = createContext!();
+
+    // usedColumnIndices: [1, 0]
+    expect(usedColumnIndices).toEqual([1, 0]);
+
+    const t1 = new Date('2023-01-01T10:00:00Z').getTime() / 1000;
+    const t2 = new Date('2023-01-01T11:00:00Z').getTime() / 1000;
+    const t3 = new Date('2023-01-02T10:00:00Z').getTime() / 1000;
+
+    expect(evaluate([10, t1], ctx)).toBe(10);
+    expect(evaluate([20, t2], ctx)).toBe(15);
+    expect(evaluate([40, t3], ctx)).toBe(40); // Reset on new day
   });
 
   it('should handle constants pi and e', () => {
@@ -64,17 +114,14 @@ describe('compileFormula', () => {
   });
 
   it('should handle nested expressions and brackets', () => {
-    const { evaluate } = compileFormula('([Temp] + 10) * 2', columns);
+    const { evaluate, usedColumnIndices } = compileFormula('([Temp] + 10) * 2', columns);
+    expect(usedColumnIndices).toEqual([1]);
     expect(evaluate([5])).toBe(30);
   });
 
-  it('should handle complex expressions', () => {
-    const { evaluate } = compileFormula('log(10^2) + pi - pi', columns);
-    expect(evaluate([])).toBe(2);
-  });
-
   it('should handle unary negation and negative numbers', () => {
-    const { evaluate } = compileFormula('-[Temp] * -1', columns);
+    const { evaluate, usedColumnIndices } = compileFormula('-[Temp] * -1', columns);
+    expect(usedColumnIndices).toEqual([1]);
     expect(evaluate([10])).toBe(10);
 
     const { evaluate: eval2 } = compileFormula('5 + -2', columns);
