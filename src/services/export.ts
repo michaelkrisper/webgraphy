@@ -2,6 +2,7 @@ import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } f
 import { worldToScreen } from '../utils/coords';
 import { lttb } from '../utils/lttb';
 import { getColumnIndex } from '../utils/columns';
+import { type Theme } from '../themes';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
@@ -30,7 +31,8 @@ export const exportToSVG = (
   yAxes: YAxisConfig[],
   _axisTitles: { x: string, y: string },
   width: number,
-  height: number
+  height: number,
+  theme: Theme
 ): string => {
   // 1. Determine active axes and layout
   const axisToMinDsIdx = new Map<string, number>();
@@ -93,9 +95,9 @@ export const exportToSVG = (
   const chartWidth = Math.max(0, width - padding.left - padding.right);
   const chartHeight = Math.max(0, height - padding.top - padding.bottom);
   
-  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: white; font-family: sans-serif;">`;
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${theme.plotBg}; font-family: ${theme.fontFamily};">`;
   
-  svg += `<rect width="100%" height="100%" fill="white" />`;
+  svg += `<rect width="100%" height="100%" fill="${theme.plotBg}" />`;
 
   // 2. Draw Grid
   const gridAxis = activeYAxes.find(a => a.showGrid) || activeYAxes[0];
@@ -107,7 +109,7 @@ export const exportToSVG = (
     const vp = { xMin: gridXAxis.min, xMax: gridXAxis.max, yMin: gridAxis.min, yMax: gridAxis.max, width, height, padding };
     for (let t = firstYTick; t <= gridAxis.max; t += yStep) {
       const { y } = worldToScreen(gridXAxis.min, t, vp);
-      svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="#f0f0f0" stroke-width="1" />`;
+      svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${theme.gridColor}" stroke-width="1" />`;
     }
 
     const xRange = gridXAxis.max - gridXAxis.min;
@@ -115,7 +117,7 @@ export const exportToSVG = (
     const firstXTick = Math.ceil(gridXAxis.min / xStep) * xStep;
     for (let t = firstXTick; t <= gridXAxis.max; t += xStep) {
       const { x } = worldToScreen(t, gridAxis.min, vp);
-      svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="#f0f0f0" stroke-width="1" />`;
+      svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="${theme.gridColor}" stroke-width="1" />`;
     }
   }
 
@@ -155,7 +157,7 @@ export const exportToSVG = (
   });
 
   // 4. Draw Axes
-  svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="#333" stroke-width="2" />`;
+  svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="${theme.axisColor}" stroke-width="2" />`;
 
   // Pre-compute dataset and series relationships for O(1) lookups
   const datasetsByXAxisId: Record<string, Dataset[]> = {};
@@ -189,20 +191,20 @@ export const exportToSVG = (
     const vp = { xMin: axis.min, xMax: axis.max, yMin: 0, yMax: 100, width, height, padding };
     const baseY = height - padding.bottom + idx * 60;
 
-    svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="#333" stroke-width="1" />`;
+    svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="${theme.axisColor}" stroke-width="1" />`;
 
     for (let t = firstXTick; t <= axis.max; t += xStep) {
       const { x } = worldToScreen(t, 0, vp);
       if (x < padding.left || x > width - padding.right) continue;
-      svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="#333" stroke-width="1" />`;
+      svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${theme.axisColor}" stroke-width="1" />`;
       const label = axis.xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
-      svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="#666">${label}</text>`;
+      svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="${theme.labelColor}">${label}</text>`;
     }
 
     const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
     const seriesForThisAxis = seriesByXAxisId[axis.id] || [];
     const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
-    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || '#333')}">${escapeHTML(title)}</text>`;
+    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || theme.axisColor)}">${escapeHTML(title)}</text>`;
   });
 
   activeYAxes.forEach(axis => {
@@ -221,15 +223,15 @@ export const exportToSVG = (
 
     // Axis Line
     const lineX = xPos + (isLeft ? axisWidth : 0);
-    svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="#333" stroke-width="1" />`;
+    svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="${theme.axisColor}" stroke-width="1" />`;
 
     // Ticks and Labels (Right-Aligned)
     const mainXConf = activeXAxes[0] || xAxes[0];
     for (let t = firstTick; t <= axis.max; t += step) {
       const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
-      svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="#333" stroke-width="1" />`;
+      svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${theme.axisColor}" stroke-width="1" />`;
       const labelX = xPos + axisWidth - 8;
-      svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="#333">${t.toFixed(precision)}</text>`;
+      svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="${theme.labelColor}">${t.toFixed(precision)}</text>`;
     }
 
     const axisSeries = series.filter(s => s.yAxisId === axis.id);
@@ -238,8 +240,8 @@ export const exportToSVG = (
     const titleY = padding.top + chartHeight / 2, rotate = isLeft ? -90 : 90;
     const estW = Math.min(chartHeight, title.length * 6 + 8);
     svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
-    svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="rgba(255, 255, 255, 0.8)" rx="2" />`;
-    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(axisSeries[0]?.lineColor || '#333')}">${escapeHTML(title)}</text></g>`;
+    svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="${theme.secLabelBg}" rx="2" />`;
+    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(axisSeries[0]?.lineColor || theme.axisColor)}">${escapeHTML(title)}</text></g>`;
   });
 
   svg += `</svg>`; return svg;
@@ -252,14 +254,14 @@ export const formatDate = (val: number, step: number) => {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 };
 
-export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number): Promise<string> => {
-  const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height);
+export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number, theme: Theme): Promise<string> => {
+  const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height, theme);
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr; canvas.height = height * dpr;
     const ctx = canvas.getContext('2d')!; ctx.scale(dpr, dpr);
     const img = new Image(), svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }), url = URL.createObjectURL(svgBlob);
-    img.onload = () => { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
+    img.onload = () => { ctx.fillStyle = theme.plotBg; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load SVG into image for PNG export')); };
     img.src = url;
   });
