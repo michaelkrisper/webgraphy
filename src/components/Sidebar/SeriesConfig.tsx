@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { THEMES, type ThemeName } from '../../themes';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
@@ -77,7 +77,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   };
 
   return (
-    <div style={{ borderBottom: `1px solid ${rowBorder}`, padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
+    <div style={{ borderBottom: `1px solid ${rowBorder}`, padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
 
       {/* Visibility Toggle */}
       <button
@@ -185,6 +185,15 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         title="Point Style"
        aria-label="Cycle Point Style">
         {renderPointStyleIcon()}
+      </button>
+
+      {/* Smoothing Toggle */}
+      <button
+        onClick={() => handleUpdate({ smooth: !series.smooth })}
+        style={{ padding: '0', cursor: 'pointer', background: series.smooth ? bg2 : bg, border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: series.smooth ? '#3b82f6' : color }}
+        title={series.smooth ? "Disable Smoothing" : "Enable Smoothing"}
+        aria-label="Toggle Smoothing">
+        <Spline size={16} />
       </button>
 
       {/* Color Picker */}

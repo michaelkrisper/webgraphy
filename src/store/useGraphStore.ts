@@ -349,7 +349,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         savedState.series = savedState.series.map(s => ({
           ...s,
           lineWidth: s.lineWidth ?? 1.5,
-          hidden: s.hidden ?? false
+          hidden: s.hidden ?? false,
+          smooth: s.smooth ?? false
         }));
       }
       set({ ...savedState, datasets: allDatasets, isLoaded: true });
