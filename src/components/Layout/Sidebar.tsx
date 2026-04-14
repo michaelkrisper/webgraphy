@@ -123,7 +123,8 @@ export const Sidebar: React.FC = () => {
       yAxes,
       axisTitles,
       plotContainer.clientWidth,
-      plotContainer.clientHeight
+      plotContainer.clientHeight,
+      t
     );
     downloadFile(svgContent, 'webgraphy-export.svg', 'image/svg+xml');
   };
@@ -139,7 +140,8 @@ export const Sidebar: React.FC = () => {
       yAxes,
       axisTitles,
       plotContainer.clientWidth,
-      plotContainer.clientHeight
+      plotContainer.clientHeight,
+      t
     );
     downloadFile(pngData, 'webgraphy-export.png', 'image/png');
   };
