@@ -535,6 +535,12 @@ const ChartContainer: React.FC = () => {
     return map;
   }, [xAxes]);
 
+  const yAxesById = useMemo(() => {
+    const map = new Map<string, YAxisConfig>();
+    yAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [yAxes]);
+
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
@@ -712,7 +718,7 @@ const ChartContainer: React.FC = () => {
 
   const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as { xAxisId: string }).xAxisId)!];
+      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get((target as { xAxisId: string }).xAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return; const vp = { xMin: axis.min, xMax: axis.max, yMin: 0, yMax: 100, width, height, padding }; const worldMouse = screenToWorld(mouseX, 0, vp);
         const currentX = targetXAxes.current[axis.id] || { min: axis.min, max: axis.max }, newXRange = (currentX.max - currentX.min) * zoomFactor, weight = (mouseX - padding.left) / chartWidth;
@@ -720,7 +726,7 @@ const ChartContainer: React.FC = () => {
       });
     }
     if ((target === 'all' && !shiftKey) || (typeof target === 'object' && 'yAxisId' in target)) {
-      const axesToZoom = target === 'all' ? activeYAxes : [activeYAxes.find(a => a.id === (target as { yAxisId: string }).yAxisId)!];
+      const axesToZoom = target === 'all' ? activeYAxes : [yAxesById.get((target as { yAxisId: string }).yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return; const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding }; const worldMouse = screenToWorld(0, mouseY, axisVp);
         const currentTarget = targetYs.current[axis.id] || { min: axis.min, max: axis.max }, newYRange = (currentTarget.max - currentTarget.min) * zoomFactor, weight = (height - padding.bottom - mouseY) / chartHeight;
@@ -728,7 +734,7 @@ const ChartContainer: React.FC = () => {
       });
     }
     startAnimation();
-  }, [activeXAxesUsed, activeYAxes, width, height, padding, chartWidth, chartHeight, startAnimation]);
+  }, [activeXAxesUsed, activeYAxes, xAxesById, yAxesById, width, height, padding, chartWidth, chartHeight, startAnimation]);
 
   const handleWheel = (e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9; const rect = containerRef.current?.getBoundingClientRect();
@@ -809,13 +815,13 @@ const ChartContainer: React.FC = () => {
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [activeXAxesUsed.find(a => a.id === (target as any).xAxisId)!];
+      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get((target as any).xAxisId)!];
       axes.forEach(axis => { if (!axis) return; const xr = axis.max - axis.min, xm = chartWidth > 0 ? (dx / chartWidth) * xr : 0, next = { min: axis.min - xm, max: axis.max - xm }; state.updateXAxis(axis.id, next); targetXAxes.current[axis.id] = next; });
     }
     const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
-    const yAxesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedY ? [activeYAxes.find(a => a.id === draggedY)!] : []);
+    const yAxesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedY ? [yAxesById.get(draggedY)!] : []);
     yAxesToPan.forEach(axis => { if (!axis) return; const cur = state.yAxes.find(a => a.id === axis.id)!, yr = cur.max - cur.min, ym = chartHeight > 0 ? (dy / chartHeight) * yr : 0, next = { min: cur.min + ym, max: cur.max + ym }; state.updateYAxis(axis.id, next); targetYs.current[axis.id] = next; });
-  }, [activeXAxesUsed, activeYAxes, chartWidth, chartHeight]);
+  }, [activeXAxesUsed, activeYAxes, xAxesById, yAxesById, chartWidth, chartHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
