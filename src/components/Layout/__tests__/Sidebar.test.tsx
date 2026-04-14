@@ -57,10 +57,12 @@ window.confirm = mockConfirm;
 // Mock localStorage
 const mockRemoveItem = vi.fn();
 const mockSetItem = vi.fn();
+const mockGetItem = vi.fn();
 Object.defineProperty(window, 'localStorage', {
   value: {
     removeItem: mockRemoveItem,
     setItem: mockSetItem,
+    getItem: mockGetItem,
   },
 });
 

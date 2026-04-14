@@ -4,7 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Monitor, Sparkles } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -23,7 +23,6 @@ const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
   light: <Sun size={18} />,
   dark: <Moon size={18} />,
   matrix: <Terminal size={18} />,
-  classic: <Monitor size={18} />,
   unicorn: <Sparkles size={18} />,
 };
 
@@ -31,7 +30,6 @@ const THEME_LABELS: Record<ThemeName, string> = {
   light: 'Light Mode',
   dark: 'Dark Mode',
   matrix: 'Matrix Mode',
-  classic: 'Classic Mode',
   unicorn: 'Unicorn Kitty Mode',
 };
 
