@@ -77,7 +77,6 @@ interface CrosshairProps {
   yAxes: YAxisConfig[];
   datasets: Dataset[];
   series: SeriesConfig[];
-  measureRange: { startX: number, startY: number, endX: number, endY: number } | null;
   tooltipBg: string;
   tooltipColor: string;
   tooltipBorder: string;
@@ -320,7 +319,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
 const SNAP_PX = 30;
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, measureRange, tooltipBg, tooltipColor, tooltipBorder, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, tooltipBg, tooltipColor, tooltipBorder, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -443,19 +442,6 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return { snapScreenX, entries };
   }, [pos, seriesMetadata, width, height, padding, snapMetadata]);
 
-  const measurement = useMemo(() => {
-    if (!measureRange || !snapMetadata || seriesMetadata.length === 0) return null;
-    const { xAxisConf } = snapMetadata;
-    const vp = { xMin: xAxisConf.min, xMax: xAxisConf.max, yMin: 0, yMax: 100, width, height, padding };
-    const w1 = screenToWorld(measureRange.startX, measureRange.startY, vp);
-    const w2 = screenToWorld(measureRange.endX, measureRange.endY, vp);
-    
-    const dx = Math.abs(w2.x - w1.x);
-    const dxFormatted = xAxisConf.xMode === 'date' ? `${(dx / 3600).toFixed(2)}h / ${(dx / 86400).toFixed(2)}d` : dx.toPrecision(5);
-    
-    return { dx: dxFormatted, startX: measureRange.startX, endX: measureRange.endX };
-  }, [measureRange, snapMetadata, seriesMetadata, width, height, padding]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
@@ -471,21 +457,15 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [snap]);
 
-  if (!pos && !measurement) return null;
+  if (!pos) return null;
 
   return (
     <>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
         {snap && <line x1={snap.snapScreenX} y1={padding.top} x2={snap.snapScreenX} y2={height - padding.bottom} stroke={snapLineColor} strokeWidth="1" strokeDasharray="3 3" />}
-        {measurement && (
-          <g>
-            <rect x={Math.min(measurement.startX, measurement.endX)} y={padding.top} width={Math.abs(measurement.endX - measurement.startX)} height={height - padding.top - padding.bottom} fill="rgba(59, 130, 246, 0.1)" stroke="rgba(59, 130, 246, 0.3)" strokeWidth="1" />
-            <line x1={measurement.startX} y1={padding.top} x2={measurement.startX} y2={height - padding.bottom} stroke="#3b82f6" strokeWidth="1" />
-            <line x1={measurement.endX} y1={padding.top} x2={measurement.endX} y2={height - padding.bottom} stroke="#3b82f6" strokeWidth="1" />
-          </g>
-        )}
+
       </svg>
-      {(snap || measurement) && (
+      {snap && (
         <div style={{
           position: 'absolute',
           left: (snap?.snapScreenX || pos?.x || 0) + 12,
@@ -493,11 +473,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           backgroundColor: tooltipBg,
           color: tooltipColor, padding: '8px 12px', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: `1px solid ${tooltipBorder}`, whiteSpace: 'pre', maxWidth: 360
         }}>
-          {measurement && (
-            <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: `1px solid ${tooltipBorder}`, color: '#2563eb', fontWeight: 'bold' }}>
-              ΔX: {measurement.dx}
-            </div>
-          )}
+
           {snap?.entries.map((group, groupIdx) => (
             <React.Fragment key={`group-${groupIdx}`}>
               <div style={{ color: tooltipSubColor, fontSize: '9px', borderTop: groupIdx > 0 ? `1px solid ${tooltipDividerColor}` : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
@@ -545,7 +521,7 @@ const ChartContainer: React.FC = () => {
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
-  const [measureRange, setMeasureRange] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
+
   const lastTouchPos = useRef<{ x: number, y: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
   const lastTouchTime = useRef<number>(0);
@@ -832,8 +808,7 @@ const ChartContainer: React.FC = () => {
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
     const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    if (e.shiftKey && target === 'all') { setMeasureRange({ startX: x, startY: y, endX: x, endY: y }); }
-    else if (e.ctrlKey && target === 'all') { if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) { const box = { startX: x, startY: y, endX: x, endY: y }; zoomBoxStartRef.current = box; setZoomBoxState(box); } }
+    if (e.ctrlKey && target === 'all') { if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) { const box = { startX: x, startY: y, endX: x, endY: y }; zoomBoxStartRef.current = box; setZoomBoxState(box); } }
     else { isPanningRef.current = true; setPanTarget(target); lastMousePos.current = { x: e.clientX, y: e.clientY }; }
   };
 
@@ -855,14 +830,13 @@ const ChartContainer: React.FC = () => {
     const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     hoveredAxisIdRef.current = getHoveredYAxis(mx, my); hoveredXAxisIdRef.current = getHoveredXAxis(mx, my);
-    if (measureRange) { setMeasureRange({ ...measureRange, endX: mx, endY: my }); return; }
+
     if (zoomBoxStartRef.current) { const box = zoomBoxStartRef.current; box.endX = Math.max(padding.left, Math.min(width - padding.right, mx)); box.endY = Math.max(padding.top, Math.min(height - padding.bottom, my)); setZoomBoxState({ ...box }); return; }
     if (!panTarget || !lastMousePos.current) return; performPan(e.clientX - lastMousePos.current.x, e.clientY - lastMousePos.current.y, panTarget, e.shiftKey); lastMousePos.current = { x: e.clientX, y: e.clientY };
-  }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan, measureRange]);
+  }, [panTarget, padding, width, height, getHoveredYAxis, getHoveredXAxis, performPan]);
 
   useEffect(() => {
     const handleMouseUp = () => {
-      if (measureRange) setMeasureRange(null);
       if (zoomBoxStartRef.current) {
         const box = zoomBoxStartRef.current; zoomBoxStartRef.current = null; setZoomBoxState(null);
         const minX = Math.min(box.startX, box.endX), maxX = Math.max(box.startX, box.endX), minY = Math.min(box.startY, box.endY), maxY = Math.max(box.startY, box.endY);
@@ -876,7 +850,7 @@ const ChartContainer: React.FC = () => {
     };
     window.addEventListener('mousemove', handleMouseMoveRaw); window.addEventListener('mouseup', handleMouseUp); window.addEventListener('touchmove', handleTouchMoveRaw, { passive: false }); window.addEventListener('touchend', () => { isPanningRef.current = false; setPanTarget(null); lastTouchPos.current = null; lastPinchDist.current = null; });
     return () => { window.removeEventListener('mousemove', handleMouseMoveRaw); window.removeEventListener('mouseup', handleMouseUp); window.removeEventListener('touchmove', handleTouchMoveRaw); };
-  }, [handleMouseMoveRaw, handleTouchMoveRaw, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation, isShiftPressed, xAxes, measureRange]);
+  }, [handleMouseMoveRaw, handleTouchMoveRaw, activeXAxesUsed, activeYAxes, width, height, padding, startAnimation, isShiftPressed, xAxes]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -914,14 +888,14 @@ const ChartContainer: React.FC = () => {
   }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
 
   return (
-    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed || measureRange ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
+    <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
       {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: themeColors.noDataColor, fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}><WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} /></div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {series.length > 0 && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
       {datasets.length > 0 && (
