@@ -4,6 +4,7 @@ import { THEMES } from '../../themes';
 import { applyKeyboardZoom, animateXAxes, animateYAxes } from '../../utils/animation';
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
+import { ChartLegend } from './ChartLegend';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
@@ -917,6 +918,7 @@ const ChartContainer: React.FC = () => {
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
+      {series.length > 0 && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
     </main>
   );
 };
