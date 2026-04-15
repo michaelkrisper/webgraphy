@@ -10,6 +10,7 @@ import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
+import { exportSession, importSession } from '../../services/session';
 import { ImprintModal } from './ImprintModal';
 import { HelpModal } from './HelpModal';
 import { LicenseModal } from './LicenseModal';
@@ -57,6 +58,7 @@ export const Sidebar: React.FC = () => {
   const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sessionInputRef = useRef<HTMLInputElement>(null);
 
   const [width, setWidth] = useState(() => Math.min(600, window.innerWidth * 0.35));
   const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768 || window.innerHeight < 500);
@@ -144,6 +146,27 @@ export const Sidebar: React.FC = () => {
       t
     );
     downloadFile(pngData, 'webgraphy-export.png', 'image/png');
+  };
+
+  const handleExportSession = async () => {
+    const json = await exportSession();
+    downloadFile(json, 'webgraphy-session.json', 'application/json');
+  };
+
+  const handleImportSession = async (file: File) => {
+    try {
+      const text = await file.text();
+      const { appState, datasets: importedDatasets } = await importSession(text);
+      useGraphStore.setState({
+        ...appState,
+        datasets: importedDatasets,
+        isLoaded: true,
+      });
+      // Trigger re-save
+      importedDatasets.forEach(() => {});
+    } catch (err) {
+      alert('Failed to import session: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const createSeries = (datasetId: string, columnName: string) => {
@@ -408,6 +431,11 @@ export const Sidebar: React.FC = () => {
             <button onClick={handleExportSVG} style={footerBtnStyle}><FileImage size={16} /> SVG</button>
             <button onClick={handleExportPNG} style={footerBtnStyle}><Image size={16} /> PNG</button>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button onClick={handleExportSession} style={footerBtnStyle}>Save Session</button>
+            <button onClick={() => sessionInputRef.current?.click()} style={footerBtnStyle}>Load Session</button>
+          </div>
+          <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
             <button onClick={() => setShowHelp(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}><HelpCircle size={14} /> Help</button>
             <button onClick={() => setShowLicense(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>License</button>
