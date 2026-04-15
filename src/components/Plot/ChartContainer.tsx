@@ -919,6 +919,22 @@ const ChartContainer: React.FC = () => {
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} measureRange={measureRange} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {series.length > 0 && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
+      {datasets.length > 0 && (
+        <div style={{ position: 'absolute', bottom: padding.bottom + 8, right: padding.right + 8, zIndex: 25, display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => { handleAutoScaleX(); activeYAxes.forEach(a => handleAutoScaleY(a.id)); }}
+            title="Fit All (Double-click plot also works)"
+            style={{
+              padding: '4px 10px', fontSize: '11px', fontWeight: 600,
+              background: themeColors.tooltipBg, border: `1px solid ${themeColors.tooltipBorder}`,
+              borderRadius: '4px', cursor: 'pointer', color: themeColors.tooltipColor,
+              boxShadow: `0 1px 4px ${themeColors.shadow}`, fontFamily: themeColors.fontFamily,
+            }}
+          >
+            Fit All
+          </button>
+        </div>
+      )}
     </main>
   );
 };
