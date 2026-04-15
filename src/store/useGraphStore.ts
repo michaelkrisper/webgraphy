@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from '../services/persistence';
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 import { getColumnIndex } from '../utils/columns';
+import { findInterestingSpots } from '../utils/interesting-spots';
 import { compileFormula } from '../utils/formula';
 
 interface GraphState {
@@ -41,6 +42,7 @@ interface GraphState {
   deleteView: (id: string) => void;
   updateViewName: (id: string, name: string) => void;
 
+  autoDetectViews: () => void;
   loadPersistedState: () => Promise<void>;
   loadDemoData: () => Promise<void>;
 }
@@ -337,6 +339,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set((state) => ({
       views: state.views.map(v => v.id === id ? { ...v, name: finalName } : v)
     }));
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  autoDetectViews: () => {
+    const state = get();
+    const newViews = findInterestingSpots(state.datasets, state.series, state.xAxes);
+    if (newViews.length === 0) return;
+    set((s) => ({ views: [...s.views, ...newViews] }));
     if (get().isLoaded) debouncedSaveState();
   },
 

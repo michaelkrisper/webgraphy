@@ -595,7 +595,12 @@ const ChartContainer: React.FC = () => {
     const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
     if (!view) return;
     view.xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
-    view.yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
+    if (view.yAxes.length > 0) {
+      view.yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
+    } else {
+      // Auto-scale Y axes when view has no Y axis data (e.g. auto-detected views)
+      activeYAxes.forEach(a => handleAutoScaleY(a.id));
+    }
     startAnimation();
   }, [lastAppliedViewId, startAnimation]);
 

@@ -4,7 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2 } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -44,7 +44,7 @@ export const Sidebar: React.FC = () => {
     removeDataset, updateDataset,
     views, saveView, applyView, deleteView,
     moveSeries, updateViewName, loadDemoData,
-    setHighlightedSeries
+    setHighlightedSeries, autoDetectViews
   } = useGraphStore();
 
   const [themeName, cycleTheme] = useTheme();
@@ -377,11 +377,18 @@ export const Sidebar: React.FC = () => {
                 <h2 style={sectionHeadingStyle}>Saved Views</h2>
                 {openSections.views ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
               </div>
-              <button
-                onClick={() => { const name = prompt('Enter view name:', `View ${customViews.length + 1}`); if (name) saveView(name); }}
-                style={iconBtnStyle}
-                title="Save Current View"
-              ><Bookmark size={16} /></button>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                <button
+                  onClick={autoDetectViews}
+                  style={iconBtnStyle}
+                  title="Auto-detect interesting spots (extrema, steep changes, intersections)"
+                ><Wand2 size={16} /></button>
+                <button
+                  onClick={() => { const name = prompt('Enter view name:', `View ${customViews.length + 1}`); if (name) saveView(name); }}
+                  style={iconBtnStyle}
+                  title="Save Current View"
+                ><Bookmark size={16} /></button>
+              </div>
             </div>
 
             {openSections.views && (
