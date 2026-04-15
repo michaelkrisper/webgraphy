@@ -1,7 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Check, Calculator, AlertCircle } from 'lucide-react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset } from '../../services/persistence';
+import { compileFormula } from '../../utils/formula';
+
+const BRACKET_PAIRS: Record<string, string> = { '(': ')', '[': ']' };
+const CLOSING_BRACKETS = new Set([')', ']']);
+
+const ALL_FUNCTIONS = [
+  'sin(', 'cos(', 'tan(', 'asin(', 'acos(', 'atan(',
+  'sqrt(', 'abs(', 'exp(', 'log(', 'ln(', 'round(', 'floor(', 'ceil(',
+  'min(', 'max(', 'avg(', 'sum(',
+  'avg5(', 'avg10(', 'avg50(', 'avg100(',
+  'avg5s(', 'avg5m(', 'avg1h(', 'avg1d(',
+  'avgDay(', 'avgHour(', 'sumDay(', 'sumHour(',
+  'filter(',
+];
 
 interface CalculatedColumnModalProps {
   dataset: Dataset;
@@ -14,6 +28,130 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
   const [formula, setFormula] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+  const [validationMsg, setValidationMsg] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Live validation
+  useEffect(() => {
+    if (!formula.trim()) { setValidationMsg(null); return; }
+    const result = compileFormula(formula, dataset.columns);
+    if (result.error) setValidationMsg(result.error);
+    else setValidationMsg(null);
+  }, [formula, dataset.columns]);
+
+  const getCompletions = useCallback((text: string, cursorPos: number) => {
+    // Check if we're typing a column name inside brackets
+    const beforeCursor = text.slice(0, cursorPos);
+    const bracketMatch = beforeCursor.match(/\[([^\]]*)$/);
+    if (bracketMatch) {
+      const partial = bracketMatch[1].toLowerCase();
+      const cols = dataset.columns
+        .map(c => c.includes(': ') ? c.split(': ')[1] : c)
+        .filter(c => c.toLowerCase().startsWith(partial))
+        .slice(0, 8);
+      return cols.map(c => `${c}]`);
+    }
+    // Check if we're typing a function name
+    const funcMatch = beforeCursor.match(/([a-zA-Z]\w*)$/);
+    if (funcMatch) {
+      const partial = funcMatch[1].toLowerCase();
+      if (partial.length < 2) return [];
+      return ALL_FUNCTIONS
+        .filter(f => f.toLowerCase().startsWith(partial))
+        .slice(0, 8);
+    }
+    return [];
+  }, [dataset.columns]);
+
+  const handleFormulaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    const { selectionStart, selectionEnd, value } = ta;
+
+    // Auto-close brackets
+    if (BRACKET_PAIRS[e.key]) {
+      e.preventDefault();
+      const closing = BRACKET_PAIRS[e.key];
+      const before = value.slice(0, selectionStart);
+      const selected = value.slice(selectionStart, selectionEnd);
+      const after = value.slice(selectionEnd);
+      const newFormula = before + e.key + selected + closing + after;
+      setFormula(newFormula);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = selectionStart + 1 + selected.length;
+      });
+      return;
+    }
+
+    // Skip over closing brackets if already there
+    if (CLOSING_BRACKETS.has(e.key) && value[selectionStart] === e.key) {
+      e.preventDefault();
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = selectionStart + 1;
+      });
+      return;
+    }
+
+    // Handle suggestions navigation
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSuggestion(s => Math.min(s + 1, suggestions.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSuggestion(s => Math.max(s - 1, 0));
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        if (suggestions[selectedSuggestion]) {
+          e.preventDefault();
+          applySuggestion(suggestions[selectedSuggestion], value, selectionStart);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSuggestions([]);
+        return;
+      }
+    }
+  }, [suggestions, selectedSuggestion]);
+
+  const applySuggestion = useCallback((suggestion: string, currentValue: string, cursorPos: number) => {
+    const before = currentValue.slice(0, cursorPos);
+    const after = currentValue.slice(cursorPos);
+
+    // Find what we're completing (inside brackets or function name)
+    const bracketMatch = before.match(/\[([^\]]*)$/);
+    const funcMatch = before.match(/([a-zA-Z]\w*)$/);
+
+    let replaceStart = cursorPos;
+    if (bracketMatch) replaceStart = cursorPos - bracketMatch[1].length;
+    else if (funcMatch) replaceStart = cursorPos - funcMatch[1].length;
+
+    const newFormula = before.slice(0, replaceStart) + suggestion + after;
+    setFormula(newFormula);
+    setSuggestions([]);
+
+    const newPos = replaceStart + suggestion.length;
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
+        textareaRef.current.focus();
+      }
+    });
+  }, []);
+
+  const handleFormulaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setFormula(newValue);
+    const completions = getCompletions(newValue, e.target.selectionStart);
+    setSuggestions(completions);
+    setSelectedSuggestion(0);
+  }, [getCompletions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,15 +226,47 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             />
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px', position: 'relative' }}>
             <label htmlFor="formula" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Formula</label>
             <textarea
+              ref={textareaRef}
               id="formula"
               value={formula}
-              onChange={(e) => setFormula(e.target.value)}
+              onChange={handleFormulaChange}
+              onKeyDown={handleFormulaKeyDown}
               placeholder="e.g. [Temperature] * -1 + 273.15"
-              style={{ width: '100%', height: '80px', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '14px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+              style={{ width: '100%', height: '80px', padding: '8px', borderRadius: '4px', border: `1px solid ${validationMsg ? '#ef4444' : formula.trim() && !validationMsg ? '#22c55e' : '#ced4da'}`, fontSize: '14px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
             />
+            {validationMsg && (
+              <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '2px' }}>{validationMsg}</div>
+            )}
+            {!validationMsg && formula.trim() && (
+              <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '2px' }}>✓ Valid formula</div>
+            )}
+            {suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', left: 8, right: 8, top: '100%', marginTop: '2px',
+                backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '4px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '150px', overflowY: 'auto',
+              }}>
+                {suggestions.map((s, i) => (
+                  <div
+                    key={s}
+                    onClick={() => {
+                      if (textareaRef.current) {
+                        applySuggestion(s, formula, textareaRef.current.selectionStart);
+                      }
+                    }}
+                    style={{
+                      padding: '6px 10px', cursor: 'pointer', fontSize: '13px', fontFamily: 'monospace',
+                      backgroundColor: i === selectedSuggestion ? '#e0f2fe' : '#fff',
+                    }}
+                  >
+                    {s}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: '16px' }}>
