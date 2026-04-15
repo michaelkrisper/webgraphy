@@ -24,6 +24,25 @@ self.onmessage = (event) => {
       resultData[i] = evaluate(rowValues, ctx);
     }
 
+    // Center-align rolling averages: shift output left by half the window size
+    // Detect avgN pattern in formula and apply shift
+    const avgMatch = formula.match(/avg(\d+)\s*\(/i);
+    if (avgMatch && !formula.match(/avg\d+[smhd]\s*\(/i)) {
+      const windowSize = parseInt(avgMatch[1], 10);
+      const shift = Math.floor(windowSize / 2);
+      if (shift > 0 && shift < rowCount) {
+        const shifted = new Float64Array(rowCount);
+        for (let i = 0; i < rowCount - shift; i++) {
+          shifted[i] = resultData[i + shift];
+        }
+        // Fill tail with last valid values
+        for (let i = rowCount - shift; i < rowCount; i++) {
+          shifted[i] = resultData[rowCount - 1];
+        }
+        resultData.set(shifted);
+      }
+    }
+
     const processed = processRawColumn(resultData);
     
     const newColumn = {
