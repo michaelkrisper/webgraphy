@@ -1,8 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { THEMES, type ThemeName } from '../../themes';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline, BarChart3 } from 'lucide-react';
+import { getColumnIndex } from '../../utils/columns';
+
+interface SeriesStats {
+  min: number;
+  max: number;
+  mean: number;
+  std: number;
+  count: number;
+}
+
+function computeStats(dataset: Dataset, yColumn: string): SeriesStats | null {
+  const idx = getColumnIndex(dataset, yColumn);
+  if (idx === -1) return null;
+  const col = dataset.data[idx];
+  if (!col?.data || col.data.length === 0) return null;
+  const arr = col.data;
+  const ref = col.refPoint || 0;
+  const n = arr.length;
+  let min = Infinity, max = -Infinity, sum = 0;
+  for (let i = 0; i < n; i++) {
+    const v = arr[i] + ref;
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v;
+  }
+  const mean = sum / n;
+  let sqSum = 0;
+  for (let i = 0; i < n; i++) {
+    const d = (arr[i] + ref) - mean;
+    sqSum += d * d;
+  }
+  const std = Math.sqrt(sqSum / n);
+  return { min, max, mean, std, count: n };
+}
 
 interface Props {
   series: SeriesConfig;
@@ -17,6 +51,12 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   const t = THEMES[themeName];
   const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
+  const stats = useMemo(() => {
+    if (!showStats || !dataset) return null;
+    return computeStats(dataset, series.yColumn);
+  }, [showStats, dataset, series.yColumn]);
 
   const bg = t.bg2;
   const bg2 = t.bg3;
@@ -256,6 +296,33 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       <button onClick={() => removeSeries(series.id)} style={{ padding: '8px', cursor: 'pointer', color: t.danger, border: 'none', background: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} title="Delete" aria-label="Delete Series">
         <Trash2 size={20} />
       </button>
+
+      {/* Stats Toggle - spans full row */}
+      <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center' }}>
+        <button
+          onClick={() => setShowStats(s => !s)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: showStats ? t.accent : color, fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px' }}
+          title="Toggle Statistics"
+        >
+          <BarChart3 size={11} />
+          <span style={{ fontWeight: 600 }}>Stats</span>
+        </button>
+        {showStats && stats && (
+          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color, padding: '2px 8px', flexWrap: 'wrap' }}>
+            <span>n={stats.count.toLocaleString()}</span>
+            <span>min={formatStat(stats.min)}</span>
+            <span>max={formatStat(stats.max)}</span>
+            <span>μ={formatStat(stats.mean)}</span>
+            <span>σ={formatStat(stats.std)}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
+function formatStat(v: number): string {
+  if (Math.abs(v) >= 1e6 || (Math.abs(v) < 0.01 && v !== 0)) return v.toExponential(3);
+  if (Number.isInteger(v)) return v.toLocaleString();
+  return v.toFixed(3);
+}
