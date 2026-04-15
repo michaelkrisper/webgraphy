@@ -15,6 +15,7 @@ const ALL_FUNCTIONS = [
   'avg5s(', 'avg5m(', 'avg1h(', 'avg1d(',
   'avgDay(', 'avgHour(', 'sumDay(', 'sumHour(',
   'filter(',
+  'linreg(', 'polyreg(', 'expreg(', 'logreg(', 'kde(',
 ];
 
 interface CalculatedColumnModalProps {
@@ -36,6 +37,19 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
   // Live validation
   useEffect(() => {
     if (!formula.trim()) { setValidationMsg(null); return; }
+    // Skip validation for regression formulas (handled by worker)
+    const isRegression = /^(?:linreg|polyreg|expreg|logreg|kde)\s*\(/i.test(formula.trim());
+    if (isRegression) {
+      const colMatch = formula.match(/\[([^\]]+)\]/);
+      if (colMatch) {
+        const colName = colMatch[1];
+        const found = dataset.columns.some(c => c === colName || c.endsWith(`: ${colName}`));
+        setValidationMsg(found ? null : `Column not found: ${colName}`);
+      } else {
+        setValidationMsg('Expected: function([column])');
+      }
+      return;
+    }
     const result = compileFormula(formula, dataset.columns);
     if (result.error) setValidationMsg(result.error);
     else setValidationMsg(null);
@@ -321,6 +335,16 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
                   { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over last N rows: avgN(col). Variants: avg10, avg100, …' },
                   { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs (seconds), avgNm (minutes), avgNh (hours), avgNd (days). Requires a date/time X-axis column.' },
                   { label: 'filter(x)', insert: 'filter(', title: 'Kalman filter (adaptive noise smoothing)' },
+                ],
+              },
+              {
+                label: 'Regression & Fitting',
+                items: [
+                  { label: 'linreg', insert: 'linreg(', title: 'Linear regression: linreg([col])' },
+                  { label: 'polyreg', insert: 'polyreg(', title: 'Polynomial regression: polyreg([col], degree). Default degree=3' },
+                  { label: 'expreg', insert: 'expreg(', title: 'Exponential regression: expreg([col])' },
+                  { label: 'logreg', insert: 'logreg(', title: 'Logistic regression: logreg([col])' },
+                  { label: 'kde', insert: 'kde(', title: 'KDE smoothing: kde([col]) or kde([col], bandwidth)' },
                 ],
               },
             ].map(group => (

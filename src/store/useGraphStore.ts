@@ -91,16 +91,32 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       return { success: false, error: `Column "${trimmedName}" already exists` };
     }
 
-    const { usedColumnIndices, error } = compileFormula(formula, dataset.columns);
-    if (error) return { success: false, error };
+    // Check if this is a regression formula (needs special column handling)
+    const regressionMatch = formula.trim().match(/^(?:linreg|polyreg|expreg|logreg|kde)\(\[([^\]]+)\]/i);
+    let columnData: { data: Float32Array; refPoint: number }[];
 
-    return new Promise((resolve) => {
-      const worker = new Worker(new URL('../workers/formula.worker.ts', import.meta.url), { type: 'module' });
-      
-      const columnData = usedColumnIndices.map(idx => ({
+    if (regressionMatch) {
+      const yColName = regressionMatch[1];
+      const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
+      let yColIdx = dataset.columns.indexOf(yColName);
+      if (yColIdx === -1) yColIdx = dataset.columns.findIndex(c => c.endsWith(`: ${yColName}`) || c === yColName);
+      if (xColIdx === -1 || yColIdx === -1) return { success: false, error: `Column not found: ${yColName}` };
+
+      columnData = [
+        { data: dataset.data[xColIdx].data, refPoint: dataset.data[xColIdx].refPoint },
+        { data: dataset.data[yColIdx].data, refPoint: dataset.data[yColIdx].refPoint },
+      ];
+    } else {
+      const { usedColumnIndices, error } = compileFormula(formula, dataset.columns);
+      if (error) return { success: false, error };
+      columnData = usedColumnIndices.map(idx => ({
         data: dataset.data[idx].data,
         refPoint: dataset.data[idx].refPoint
       }));
+    }
+
+    return new Promise((resolve) => {
+      const worker = new Worker(new URL('../workers/formula.worker.ts', import.meta.url), { type: 'module' });
 
       worker.onmessage = (event) => {
         const { type, newColumn, error: workerError } = event.data;
@@ -117,7 +133,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
           persistence.saveDataset(updatedDataset);
           if (get().isLoaded) debouncedSaveState();
-          
+
           resolve({ success: true });
         } else {
           resolve({ success: false, error: workerError || 'Worker calculation failed' });
@@ -136,7 +152,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         formula,
         columns: dataset.columns,
         rowCount: dataset.rowCount,
-        columnData
+        columnData,
+        xColumnIndex: getColumnIndex(dataset, dataset.xAxisColumn)
       });
     });
   },
