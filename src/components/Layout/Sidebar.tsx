@@ -184,7 +184,7 @@ export const Sidebar: React.FC = () => {
   };
 
   if (isCollapsed) {
-    return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} />;
+    return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} theme={t} />;
   }
 
   const sectionHeadingStyle: React.CSSProperties = { margin: 0, fontSize: '0.85rem', fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' };
