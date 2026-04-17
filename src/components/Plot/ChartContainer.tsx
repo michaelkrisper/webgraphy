@@ -278,7 +278,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.ticks.precision)) : t.label;
                 return <div key={`xl-${axis.id}-${timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.labelBottom, transform: 'translateX(-50%)', fontSize: isMobile ? '10px' : '9px', color: axis.color }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', bottom: baseY - metrics.titleBottom, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>{axis.title}</div>
+              <div style={{ position: 'absolute', bottom: baseY - metrics.titleBottom, left: padding.left + (width - padding.left - padding.right) / 2, transform: 'translateX(-50%)', fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: axis.color, whiteSpace: 'nowrap', maxWidth: width - padding.left - padding.right, overflow: 'hidden', textOverflow: 'ellipsis' }}>{axis.title}</div>
             </React.Fragment>
           );
         })}
@@ -471,7 +471,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           left: (snap?.snapScreenX || pos?.x || 0) + 12,
           top: (pos?.y || 0) + 15,
           backgroundColor: tooltipBg,
-          color: tooltipColor, padding: '8px 12px', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: `1px solid ${tooltipBorder}`, whiteSpace: 'pre', maxWidth: 360
+          color: tooltipColor, padding: '8px 12px', borderRadius: '8px', fontSize: '10px', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: `1px solid ${tooltipBorder}`, whiteSpace: 'pre', maxWidth: 360
         }}>
 
           {snap?.entries.map((group, groupIdx) => (
@@ -496,7 +496,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId } = useGraphStore();
+  const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId, legendVisible } = useGraphStore();
   const [themeName] = useTheme();
   const themeColors = THEMES[themeName];
 
@@ -897,7 +897,7 @@ const ChartContainer: React.FC = () => {
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
-      {series.length > 0 && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
+      {series.length > 0 && legendVisible && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
       {datasets.length > 0 && (
         <div style={{ position: 'absolute', bottom: padding.bottom + 8, right: padding.right + 8, zIndex: 25, display: 'flex', gap: '4px' }}>
           <button
@@ -907,7 +907,7 @@ const ChartContainer: React.FC = () => {
               padding: '4px 10px', fontSize: '11px', fontWeight: 600,
               background: themeColors.tooltipBg, border: `1px solid ${themeColors.tooltipBorder}`,
               borderRadius: '4px', cursor: 'pointer', color: themeColors.tooltipColor,
-              boxShadow: `0 1px 4px ${themeColors.shadow}`, fontFamily: themeColors.fontFamily,
+              boxShadow: `0 1px 4px ${themeColors.shadow}`,
             }}
           >
             Fit All
