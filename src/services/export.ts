@@ -95,7 +95,7 @@ export const exportToSVG = (
   const chartWidth = Math.max(0, width - padding.left - padding.right);
   const chartHeight = Math.max(0, height - padding.top - padding.bottom);
   
-  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${theme.plotBg}; font-family: ${theme.fontFamily};">`;
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${theme.plotBg}; font-family: ${escapeHTML(theme.fontFamily)};">`;
   
   svg += `<rect width="100%" height="100%" fill="${theme.plotBg}" />`;
 

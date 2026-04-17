@@ -4,7 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2 } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -44,7 +44,8 @@ export const Sidebar: React.FC = () => {
     removeDataset, updateDataset,
     views, saveView, applyView, deleteView,
     moveSeries, updateViewName, loadDemoData,
-    setHighlightedSeries, autoDetectViews
+    setHighlightedSeries, autoDetectViews,
+    legendVisible, setLegendVisible
   } = useGraphStore();
 
   const [themeName, cycleTheme] = useTheme();
@@ -212,7 +213,13 @@ export const Sidebar: React.FC = () => {
 
   const sectionHeadingStyle: React.CSSProperties = { margin: 0, fontSize: '0.85rem', fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' };
   const iconBtnStyle: React.CSSProperties = { padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.accent };
-  const footerBtnStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: t.bg2, border: `1px solid ${t.btnBorder}`, borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: t.btnColor, cursor: 'pointer' };
+  const hdrBtn = (onClick: () => void, icon: React.ReactNode, title: string, color?: string) => (
+    <button onClick={onClick} title={title} style={{ background: 'none', border: 'none', cursor: 'pointer', color: color ?? t.textMuted, padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
+      {icon}
+    </button>
+  );
+  const hdrSep = <span style={{ width: 1, height: 16, background: t.border, margin: '0 2px' }} />;
+
 
   return (
     <>
@@ -224,18 +231,23 @@ export const Sidebar: React.FC = () => {
         />
 
         {/* Header */}
-        <header style={{ padding: '12px 16px', backgroundColor: t.bg, borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="./favicon.svg" style={{ width: 32, height: 32 }} alt="webgraphy logo" />
-            <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: t.text, letterSpacing: '-0.02em' }}>webgraphy</h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title={THEME_LABELS[themeName]}>
-              {THEME_ICONS[themeName]}
-            </button>
-            <button onClick={() => setIsCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '4px', borderRadius: '4px' }} title="Collapse Sidebar">
-              <X size={20} />
-            </button>
+        <header style={{ padding: '6px 10px', backgroundColor: t.bg, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <img src="./favicon.svg" style={{ width: 24, height: 24, flexShrink: 0, marginRight: '4px' }} alt="webgraphy logo" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'nowrap', flex: 1 }}>
+            {hdrBtn(loadDemoData, <FlaskConical size={16} />, 'Load Demo Data')}
+            {hdrBtn(() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }, <RotateCcw size={16} />, 'Reset', t.danger)}
+            {hdrSep}
+            {hdrBtn(handleExportSVG, <FileImage size={16} />, 'Export SVG')}
+            {hdrBtn(handleExportPNG, <Image size={16} />, 'Export PNG')}
+            {hdrSep}
+            {hdrBtn(handleExportSession, <Save size={16} />, 'Save Session')}
+            {hdrBtn(() => sessionInputRef.current?.click(), <FolderOpen size={16} />, 'Load Session')}
+            {hdrSep}
+            <span style={{ flex: 1 }} />
+            {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? t.accent : t.textMuted)}
+            {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
+            {hdrSep}
+            {hdrBtn(() => setIsCollapsed(true), <X size={16} />, 'Collapse Sidebar')}
           </div>
         </header>
 
@@ -428,26 +440,12 @@ export const Sidebar: React.FC = () => {
           </section>
         </div>
 
-        {/* Footer */}
-        <footer style={{ padding: '16px', backgroundColor: t.bg, borderTop: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button onClick={loadDemoData} style={footerBtnStyle}>Demo Data</button>
-            <button onClick={() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }} style={{ ...footerBtnStyle, color: t.danger }}>Reset</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button onClick={handleExportSVG} style={footerBtnStyle}><FileImage size={16} /> SVG</button>
-            <button onClick={handleExportPNG} style={footerBtnStyle}><Image size={16} /> PNG</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button onClick={handleExportSession} style={footerBtnStyle}>Save Session</button>
-            <button onClick={() => sessionInputRef.current?.click()} style={footerBtnStyle}>Load Session</button>
-          </div>
-          <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
-            <button onClick={() => setShowHelp(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}><HelpCircle size={14} /> Help</button>
-            <button onClick={() => setShowLicense(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>License</button>
-            <button onClick={() => setShowImprint(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>Imprint</button>
-          </div>
+        <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
+
+        <footer style={{ padding: '8px 16px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'center', gap: '16px' }}>
+          <button onClick={() => setShowHelp(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}><HelpCircle size={13} /> Help</button>
+          <button onClick={() => setShowLicense(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>License</button>
+          <button onClick={() => setShowImprint(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>Imprint</button>
         </footer>
       </aside>
 

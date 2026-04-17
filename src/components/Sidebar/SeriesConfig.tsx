@@ -1,42 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { THEMES, type ThemeName } from '../../themes';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline, BarChart3 } from 'lucide-react';
-import { getColumnIndex } from '../../utils/columns';
-
-interface SeriesStats {
-  min: number;
-  max: number;
-  mean: number;
-  std: number;
-  count: number;
-}
-
-function computeStats(dataset: Dataset, yColumn: string): SeriesStats | null {
-  const idx = getColumnIndex(dataset, yColumn);
-  if (idx === -1) return null;
-  const col = dataset.data[idx];
-  if (!col?.data || col.data.length === 0) return null;
-  const arr = col.data;
-  const ref = col.refPoint || 0;
-  const n = arr.length;
-  let min = Infinity, max = -Infinity, sum = 0;
-  for (let i = 0; i < n; i++) {
-    const v = arr[i] + ref;
-    if (v < min) min = v;
-    if (v > max) max = v;
-    sum += v;
-  }
-  const mean = sum / n;
-  let sqSum = 0;
-  for (let i = 0; i < n; i++) {
-    const d = (arr[i] + ref) - mean;
-    sqSum += d * d;
-  }
-  const std = Math.sqrt(sqSum / n);
-  return { min, max, mean, std, count: n };
-}
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
@@ -51,17 +17,11 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   const t = THEMES[themeName];
   const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-
-  const stats = useMemo(() => {
-    if (!showStats || !dataset) return null;
-    return computeStats(dataset, series.yColumn);
-  }, [showStats, dataset, series.yColumn]);
 
   const bg = t.bg2;
   const bg2 = t.bg3;
   const border = t.border2;
-  const rowBorder = t.border;
+
   const color = t.textMuted;
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
@@ -116,13 +76,16 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
     );
   };
 
+  const sep = `1px solid ${border}`;
+  const btnBase: React.CSSProperties = { padding: 0, cursor: 'pointer', background: bg, border: 'none', borderRight: sep, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color };
+
   return (
-    <div style={{ borderBottom: `1px solid ${rowBorder}`, padding: '4px 0', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', opacity: series.hidden ? 0.5 : 1 }}>
+    <div style={{ border: sep, borderRadius: '3px', marginBottom: '3px', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', overflow: 'hidden', opacity: series.hidden ? 0.5 : 1 }}>
 
       {/* Visibility Toggle */}
       <button
         onClick={toggleVisibility}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: series.hidden ? '#94a3b8' : '#3b82f6' }}
+        style={{ ...btnBase, background: 'none', color: series.hidden ? '#94a3b8' : '#3b82f6' }}
         title={series.hidden ? "Show Series" : "Hide Series"}
         aria-label={series.hidden ? "Show Series" : "Hide Series"}
       >
@@ -130,31 +93,28 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </button>
 
       {/* Reorder Buttons (UP/DOWN) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0', background: bg2, padding: '0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', background: bg2, borderRight: sep, height: 'var(--touch-target-size)' }}>
         <button
           onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
           disabled={isFirst}
-          style={{ padding: '0', cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', color: isFirst ? border : color, height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isFirst ? 0.3 : 1 }}
-          title="Move Up"
-         aria-label="Move Up">
-          <ChevronUp size={16} strokeWidth={3} />
+          style={{ padding: 0, cursor: isFirst ? 'default' : 'pointer', background: 'none', border: 'none', borderBottom: sep, color: isFirst ? border : color, height: '50%', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isFirst ? 0.3 : 1 }}
+          title="Move Up" aria-label="Move Up">
+          <ChevronUp size={14} strokeWidth={3} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
           disabled={isLast}
-          style={{ padding: '0', cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? border : color, height: 'calc(var(--touch-target-size) / 2)', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isLast ? 0.3 : 1 }}
-          title="Move Down (Layer Backward)"
-         aria-label="Move Down">
-          <ChevronDown size={16} strokeWidth={3} />
+          style={{ padding: 0, cursor: isLast ? 'default' : 'pointer', background: 'none', border: 'none', color: isLast ? border : color, height: '50%', width: 'var(--touch-target-size)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isLast ? 0.3 : 1 }}
+          title="Move Down" aria-label="Move Down">
+          <ChevronDown size={14} strokeWidth={3} />
         </button>
       </div>
 
       {/* Y Axis Cycle Button (1-9) */}
       <button
         onClick={cycleYAxis}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: bg, border: `1px solid ${border}`, borderRadius: '0', fontWeight: 'bold', flexShrink: 0, color }}
-        title="Cycle Y-Axis (1-9)"
-       aria-label="Cycle Y-Axis">
+        style={{ ...btnBase, fontSize: 'var(--mobile-font-size)', fontWeight: 'bold' }}
+        title="Cycle Y-Axis (1-9)" aria-label="Cycle Y-Axis">
         {currentYAxisIndex}
       </button>
 
@@ -162,9 +122,9 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { position: currentYAxis.position === 'left' ? 'right' : 'left' })}
-          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', fontSize: 'var(--mobile-font-size)', padding: '0', cursor: 'pointer', background: bg2, border: `1px solid ${border}`, borderRadius: '0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}
+          style={{ ...btnBase, background: bg2 }}
           title={currentYAxis.position === 'left' ? "Left Axis" : "Right Axis"}
-         aria-label="Toggle Left/Right Axis">
+          aria-label="Toggle Left/Right Axis">
           {currentYAxis.position === 'left' ? (
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 13V2m-2 3l2-3 2 3M3 13h11m-3-2l3 2-3 2" />
@@ -175,18 +135,17 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
             </svg>
           )}
         </button>
-      ) : <div style={{ width: 'var(--touch-target-size)' }} />}
+      ) : <div style={{ borderRight: sep, width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} />}
 
       {/* Grid Toggle */}
       {currentYAxis ? (
         <button
           onClick={() => updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })}
-          style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: '0', cursor: 'pointer', background: currentYAxis.showGrid ? bg2 : bg, border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color }}
-          title="Toggle Grid"
-         aria-label="Toggle Grid">
+          style={{ ...btnBase, background: currentYAxis.showGrid ? bg2 : bg }}
+          title="Toggle Grid" aria-label="Toggle Grid">
           {currentYAxis.showGrid ? <Rows size={16} /> : <Square size={16} />}
         </button>
-      ) : <div style={{ width: 'var(--touch-target-size)' }} />}
+      ) : <div style={{ borderRight: sep, width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} />}
 
       {/* Line Style Cycle */}
       <button
@@ -195,9 +154,8 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
           handleUpdate({ lineStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: bg, border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color }}
-        title={`Line Style: ${series.lineStyle}`}
-       aria-label="Cycle Line Style">
+        style={btnBase}
+        title={`Line Style: ${series.lineStyle}`} aria-label="Cycle Line Style">
         {renderLineStyleIcon()}
       </button>
 
@@ -208,9 +166,8 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = widths[(widths.indexOf(series.lineWidth) + 1) % widths.length];
           handleUpdate({ lineWidth: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: bg, border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color }}
-        title={`Line Width: ${series.lineWidth}`}
-       aria-label="Cycle Line Width">
+        style={btnBase}
+        title={`Line Width: ${series.lineWidth}`} aria-label="Cycle Line Width">
         {renderLineWidthIcon()}
       </button>
 
@@ -221,16 +178,15 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const next = styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
           handleUpdate({ pointStyle: next });
         }}
-        style={{ padding: '0', cursor: 'pointer', background: 'none', border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color }}
-        title="Point Style"
-       aria-label="Cycle Point Style">
+        style={btnBase}
+        title="Point Style" aria-label="Cycle Point Style">
         {renderPointStyleIcon()}
       </button>
 
       {/* Smoothing Toggle */}
       <button
         onClick={() => handleUpdate({ smooth: !series.smooth })}
-        style={{ padding: '0', cursor: 'pointer', background: series.smooth ? bg2 : bg, border: `1px solid ${border}`, borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color: series.smooth ? '#3b82f6' : color }}
+        style={{ ...btnBase, background: series.smooth ? bg2 : bg, color: series.smooth ? '#3b82f6' : color }}
         title={series.smooth ? "Disable Smoothing" : "Enable Smoothing"}
         aria-label="Toggle Smoothing">
         <Spline size={16} />
@@ -246,26 +202,24 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
           const inputColor = (e.target as HTMLInputElement).value;
           handleUpdate({ lineColor: inputColor, pointColor: inputColor });
         }}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: 0, border: 'none', cursor: 'pointer', flexShrink: 0, borderRadius: '0' }}
+        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: 0, border: 'none', borderRight: sep, cursor: 'pointer', flexShrink: 0 }}
         title="Color"
       />
 
       {/* Y Column Selector */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-        <select
-          name={`series-y-column-${series.id}`}
-          aria-label={`Y Column for ${series.name || series.yColumn}`}
-          value={series.yColumn}
-          onChange={(e) => handleUpdate({ yColumn: e.target.value })}
-          style={{ width: '100px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, borderRadius: '0', border: `1px solid ${border}`, color, background: bg }}
-          title="Y Column"
-        >
-          {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
+      <select
+        name={`series-y-column-${series.id}`}
+        aria-label={`Y Column for ${series.name || series.yColumn}`}
+        value={series.yColumn}
+        onChange={(e) => handleUpdate({ yColumn: e.target.value })}
+        style={{ width: '100px', fontSize: 'var(--mobile-font-size)', padding: '2px', height: 'var(--touch-target-size)', minWidth: 0, flexShrink: 1, border: 'none', borderRight: sep, color, background: bg }}
+        title="Y Column"
+      >
+        {dataset?.columns.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
 
       {/* Editable Title */}
-      <div style={{ flex: '1 1 150px', minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      <div style={{ minWidth: '40px', display: 'flex', alignItems: 'center', overflow: 'hidden', borderRight: sep, height: 'var(--touch-target-size)', paddingLeft: '4px' }}>
         {isEditingTitle ? (
           <input
             autoFocus
@@ -279,12 +233,12 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
               if (e.key === 'Enter') { handleUpdate({ name: e.currentTarget.value }); setIsEditingTitle(false); }
               if (e.key === 'Escape') { setIsEditingTitle(false); }
             }}
-            style={{ width: '100%', fontSize: 'var(--mobile-font-size)', padding: '4px', height: 'var(--touch-target-size)', background: bg, color, border: `1px solid ${border}` }}
+            style={{ width: '100%', fontSize: 'var(--mobile-font-size)', padding: '2px 4px', height: '100%', background: bg, color, border: 'none', outline: 'none' }}
           />
         ) : (
           <span
             onClick={() => setIsEditingTitle(true)}
-            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', color: series.lineColor, fontSize: 'var(--mobile-font-size)', cursor: 'text', width: '100%', padding: '4px 0' }}
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', color: series.lineColor, fontSize: 'var(--mobile-font-size)', cursor: 'text', width: '100%' }}
             title="Click to rename"
           >
             {series.name || series.yColumn}
@@ -293,36 +247,12 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       </div>
 
       {/* Delete Button */}
-      <button onClick={() => removeSeries(series.id)} style={{ padding: '8px', cursor: 'pointer', color: t.danger, border: 'none', background: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)' }} title="Delete" aria-label="Delete Series">
-        <Trash2 size={20} />
+      <button onClick={() => removeSeries(series.id)} style={{ ...btnBase, background: 'none', borderRight: 'none', color: t.danger }} title="Delete" aria-label="Delete Series">
+        <Trash2 size={16} />
       </button>
 
-      {/* Stats Toggle - spans full row */}
-      <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center' }}>
-        <button
-          onClick={() => setShowStats(s => !s)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: showStats ? t.accent : color, fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px' }}
-          title="Toggle Statistics"
-        >
-          <BarChart3 size={11} />
-          <span style={{ fontWeight: 600 }}>Stats</span>
-        </button>
-        {showStats && stats && (
-          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color, padding: '2px 8px', flexWrap: 'wrap' }}>
-            <span>n={stats.count.toLocaleString()}</span>
-            <span>min={formatStat(stats.min)}</span>
-            <span>max={formatStat(stats.max)}</span>
-            <span>μ={formatStat(stats.mean)}</span>
-            <span>σ={formatStat(stats.std)}</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
 
-function formatStat(v: number): string {
-  if (Math.abs(v) >= 1e6 || (Math.abs(v) < 0.01 && v !== 0)) return v.toExponential(3);
-  if (Number.isInteger(v)) return v.toLocaleString();
-  return v.toFixed(3);
-}
+

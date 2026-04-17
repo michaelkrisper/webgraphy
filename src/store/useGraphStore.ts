@@ -14,7 +14,9 @@ interface GraphState {
   views: ViewSnapshot[];
   isLoaded: boolean;
   highlightedSeriesId: string | null;
-  
+  legendVisible: boolean;
+  setLegendVisible: (visible: boolean) => void;
+
   // Actions
   addDataset: (dataset: Dataset) => void;
   addCalculatedColumn: (datasetId: string, name: string, formula: string) => Promise<{ success: boolean, error?: string }>;
@@ -79,6 +81,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   views: [],
   isLoaded: false,
   highlightedSeriesId: null,
+  legendVisible: localStorage.getItem('legendVisible') === 'true',
+  setLegendVisible: (visible) => { localStorage.setItem('legendVisible', String(visible)); set({ legendVisible: visible }); },
 
   addCalculatedColumn: async (datasetId, name, formula) => {
     const state = get();

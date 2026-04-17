@@ -11,7 +11,6 @@ interface ChartLegendProps {
 
 export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggleVisibility, onHighlight }) => {
   const [position, setPosition] = useState({ x: 20, y: 20 });
-  const [collapsed, setCollapsed] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -57,31 +56,19 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggl
         backgroundColor: theme.tooltipBg,
         border: `1px solid ${theme.tooltipBorder}`,
         borderRadius: '6px',
-        padding: collapsed ? '4px 8px' : '6px 10px',
+        padding: '6px 10px',
         cursor: 'grab',
         userSelect: 'none',
         fontSize: '11px',
-        fontFamily: theme.fontFamily,
+
         color: theme.tooltipColor,
         boxShadow: `0 2px 8px ${theme.shadow}`,
         maxWidth: '300px',
         maxHeight: '400px',
-        overflowY: collapsed ? 'hidden' : 'auto',
+        overflowY: 'auto',
       }}
     >
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: collapsed ? 0 : '4px' }}
-      >
-        <span style={{ fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: theme.tooltipSubColor }}>Legend</span>
-        <button
-          data-legend-item
-          onClick={(e) => { e.stopPropagation(); setCollapsed(c => !c); }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.tooltipSubColor, fontSize: '10px', padding: '0 2px', lineHeight: 1 }}
-        >
-          {collapsed ? '▼' : '▲'}
-        </button>
-      </div>
-      {!collapsed && visibleSeries.map(s => (
+      {visibleSeries.map(s => (
         <div
           key={s.id}
           data-legend-item
