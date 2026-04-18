@@ -6,9 +6,24 @@ import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { ChartLegend } from './ChartLegend';
 import { useGraphStore } from '../../store/useGraphStore';
-import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
+import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset, type DataColumn } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
 import { getColumnIndex } from '../../utils/columns';
+
+// Type definitions for axis grouping and pan target
+interface SeriesMetadata {
+  series: SeriesConfig;
+  ds: Dataset;
+  axis: YAxisConfig;
+  xAxis: XAxisConfig;
+  xIdx: number;
+  yIdx: number;
+  xCol: DataColumn;
+  yCol: DataColumn;
+}
+
+type DatasetsByAxisId = Record<string, Dataset[]>;
+type SeriesByAxisId = Record<string, SeriesConfig[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
@@ -372,7 +387,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xCol = ds.data[xIdx]; const yCol = ds.data[yIdx];
       if (!xCol?.data || !yCol?.data) return null;
       return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
-    }).filter(Boolean) as any[];
+    }).filter(Boolean) as SeriesMetadata[];
   }, [datasetsById, yAxesById, xAxesById, series]);
 
   const snapMetadata = useMemo(() => {
@@ -797,7 +812,7 @@ const ChartContainer: React.FC = () => {
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get((target as any).xAxisId)!];
+      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get(((target as any).xAxisId))!];
       axes.forEach(axis => { if (!axis) return; const xr = axis.max - axis.min, xm = chartWidth > 0 ? (dx / chartWidth) * xr : 0, next = { min: axis.min - xm, max: axis.max - xm }; state.updateXAxis(axis.id, next); targetXAxes.current[axis.id] = next; });
     }
     const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
@@ -868,9 +883,9 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
-    const activeDsIds = new Set(series.map(s => s.sourceId)), dsByX = {} as any, dsToX = {} as any;
+    const activeDsIds = new Set(series.map(s => s.sourceId)), dsByX: DatasetsByAxisId = {}, dsToX: Record<string, string> = {};
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; dsToX[d.id] = xId; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
-    const sByX = {} as any; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
+    const sByX: SeriesByAxisId = {}; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
     return activeXAxesUsed.map(axis => {
       const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], srs = sByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = srs[0]?.lineColor || '#475569';
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false }, title, color };
