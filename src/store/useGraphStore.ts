@@ -81,8 +81,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   views: [],
   isLoaded: false,
   highlightedSeriesId: null,
-  legendVisible: localStorage.getItem('legendVisible') === 'true',
-  setLegendVisible: (visible) => { localStorage.setItem('legendVisible', String(visible)); set({ legendVisible: visible }); },
+  legendVisible: typeof localStorage !== 'undefined' ? localStorage.getItem('legendVisible') === 'true' : true,
+  setLegendVisible: (visible) => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem('legendVisible', String(visible));
+    set({ legendVisible: visible });
+  },
 
   addCalculatedColumn: async (datasetId, name, formula) => {
     const state = get();

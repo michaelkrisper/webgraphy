@@ -21,6 +21,7 @@ function loadFont(theme: ThemeName) {
 }
 
 function getSnapshot(): ThemeName {
+  if (typeof localStorage === 'undefined') return 'light';
   const stored = localStorage.getItem(STORAGE_KEY) as ThemeName | null;
   return THEME_CYCLE.includes(stored as ThemeName) ? (stored as ThemeName) : 'light';
 }
@@ -37,7 +38,7 @@ function subscribe(cb: () => void) {
 
 function applyTheme(t: ThemeName) {
   loadFont(t);
-  localStorage.setItem(STORAGE_KEY, t);
+  if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, t);
   document.documentElement.dataset.theme = t;
   document.documentElement.classList.toggle('dark', t === 'dark' || t === 'matrix');
   const theme = THEMES[t];
