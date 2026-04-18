@@ -15,18 +15,32 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
   '=': '&#061;'
 };
 
+/**
+ * Escapes HTML special characters to prevent XSS in SVG/HTML output.
+ * @param {string | undefined | null} str - Input string to escape
+ * @returns {string} HTML-safe string with entities replaced (e.g., & → &amp;)
+ */
 const escapeHTML = (str: string | undefined | null): string => {
   if (!str) return '';
   return String(str).replace(/[&<>"'=]/g, (s) => HTML_ESCAPE_MAP[s] || s);
 };
 
 /**
- * exportToSVG (v2.4 - Dynamic Spacing & Decimal Alignment)
- * Generates a high-quality SVG that matches the PlotArea visuals exactly.
+ * Generates a production-quality SVG that exactly matches the WebGL plot visuals.
+ * Handles multi-axis layouts, auto-scales ticks/labels, applies LTTB downsampling for large datasets.
+ * @param {Dataset[]} datasets - Array of imported datasets with parsed columns
+ * @param {SeriesConfig[]} series - Array of series configurations (styling, axis assignments)
+ * @param {XAxisConfig[]} xAxes - Array of X-axis configurations
+ * @param {YAxisConfig[]} yAxes - Array of Y-axis configurations (min, max, position, color)
+ * @param {{x: string, y: string}} _axisTitles - Axis labels (unused in current version)
+ * @param {number} width - SVG canvas width in pixels
+ * @param {number} height - SVG canvas height in pixels
+ * @param {Theme} theme - Theme object with colors, fonts, and styling
+ * @returns {string} SVG string ready for export or embedding
  */
 export const exportToSVG = (
-  datasets: Dataset[], 
-  series: SeriesConfig[], 
+  datasets: Dataset[],
+  series: SeriesConfig[],
   xAxes: XAxisConfig[],
   yAxes: YAxisConfig[],
   _axisTitles: { x: string, y: string },
@@ -247,6 +261,13 @@ export const exportToSVG = (
   svg += `</svg>`; return svg;
 };
 
+/**
+ * Formats Unix timestamp as a human-readable date/time string based on tick step.
+ * Adapts precision to grid granularity: days, hours, or minutes.
+ * @param {number} val - Unix timestamp (in seconds, not milliseconds)
+ * @param {number} step - Grid step size in seconds (determines format granularity)
+ * @returns {string} Formatted date/time label (e.g., "14.3." or "15:30")
+ */
 export const formatDate = (val: number, step: number) => {
   const d = new Date(val * 1000);
   if (step >= 86400) return d.getDate() + '.' + (d.getMonth() + 1) + '.';
@@ -254,6 +275,19 @@ export const formatDate = (val: number, step: number) => {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 };
 
+/**
+ * Converts plot to PNG by rendering SVG on canvas with device-pixel scaling.
+ * Returns data URL suitable for download or clipboard.
+ * @param {Dataset[]} datasets - Array of imported datasets
+ * @param {SeriesConfig[]} series - Series configurations
+ * @param {XAxisConfig[]} xAxes - X-axis array
+ * @param {YAxisConfig[]} yAxes - Y-axis array
+ * @param {{x: string, y: string}} axisTitles - Axis labels
+ * @param {number} width - Canvas width in logical pixels
+ * @param {number} height - Canvas height in logical pixels
+ * @param {Theme} theme - Theme for styling
+ * @returns {Promise<string>} PNG data URL (data:image/png;...)
+ */
 export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], xAxes: XAxisConfig[], yAxes: YAxisConfig[], axisTitles: { x: string, y: string }, width: number, height: number, theme: Theme): Promise<string> => {
   const svgString = exportToSVG(datasets, series, xAxes, yAxes, axisTitles, width, height, theme);
   return new Promise((resolve, reject) => {
@@ -267,6 +301,14 @@ export const exportToPNG = async (datasets: Dataset[], series: SeriesConfig[], x
   });
 };
 
+/**
+ * Triggers browser file download for SVG, PNG, or JSON content.
+ * Handles both data URLs (already encoded) and plain text content.
+ * @param {string} content - File content (data URL or text) to download
+ * @param {string} fileName - Name for the downloaded file (e.g., "chart.svg")
+ * @param {string} contentType - MIME type (e.g., "image/svg+xml", "application/json")
+ * @returns {void}
+ */
 export const downloadFile = (content: string, fileName: string, contentType: string) => {
   const a = document.createElement('a');
   const isDataUrl = content.startsWith('data:');
