@@ -56,6 +56,10 @@ const VERTEX_SHADER_SOURCE = `
 `;
 
 const FRAGMENT_SHADER_SOURCE = `
+      // === FRAGMENT SHADER ===
+      // Renders final pixel color based on shape type (circle, square, cross, line).
+      // Uses conditional dispatch via u_style uniform.
+      // Dashing (if enabled) is calculated using accumulated distance.
       precision highp float;
       varying highp float v_t;
       varying highp float v_len;
@@ -66,33 +70,41 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform float u_dpr;
 
       void drawCircle() {
+        // Use distance field: discard pixels outside circle radius (0.5)
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5) discard;
         gl_FragColor = u_color;
       }
 
       void drawSquare() {
+        // Square: accept all pixels in point region (no distance test)
         gl_FragColor = u_color;
       }
 
       void drawCross() {
         vec2 p = gl_PointCoord - 0.5;
+        // Cross: draw diagonal lines by rejecting pixels outside axes
         if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
         gl_FragColor = u_color;
       }
 
       void drawLineSegment() {
+        // Apply dash pattern if enabled (u_line_style: 0=solid, 1=dashed, 2=dotted)
         if (u_line_style > 0) {
+          // Calculate dash/gap lengths and total pattern period
           float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
           float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
           float total = (dashLen + gapLen) * u_dpr;
+          // Accumulated distance along line determines dash position
           float dist = mod(v_dist_start + v_t * v_len, total);
+          // Discard pixels in gap regions (device pixel ratio scales pattern)
           if (dist > dashLen * u_dpr) discard;
         }
         gl_FragColor = u_color;
       }
 
       void main() {
+        // Dispatch to shape renderer based on series style configuration
         if (u_style == 0) {
           drawCircle();
         } else if (u_style == 1) {
