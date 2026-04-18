@@ -8,6 +8,13 @@ export interface Viewport {
   padding?: { top: number; right: number; bottom: number; left: number };
 }
 
+/**
+ * Transforms world coordinates to screen/canvas coordinates.
+ * @param {number} x - World coordinate on X-axis
+ * @param {number} y - World coordinate on Y-axis
+ * @param {Viewport} view - Viewport configuration with bounds, dimensions, and padding
+ * @returns {{x: number, y: number}} Screen coordinates relative to canvas origin
+ */
 export const worldToScreen = (x: number, y: number, view: Viewport) => {
   const p = view.padding || { top: 0, right: 0, bottom: 0, left: 0 };
   const chartWidth = view.width - p.left - p.right;
@@ -18,6 +25,13 @@ export const worldToScreen = (x: number, y: number, view: Viewport) => {
   return { x: sx, y: sy };
 };
 
+/**
+ * Inverse transform: converts screen/canvas coordinates back to world coordinates.
+ * @param {number} sx - Screen X coordinate relative to canvas origin
+ * @param {number} sy - Screen Y coordinate relative to canvas origin
+ * @param {Viewport} view - Viewport configuration with bounds, dimensions, and padding
+ * @returns {{x: number, y: number}} World coordinates in data space
+ */
 export const screenToWorld = (sx: number, sy: number, view: Viewport) => {
   const p = view.padding || { top: 0, right: 0, bottom: 0, left: 0 };
   const chartWidth = view.width - p.left - p.right;

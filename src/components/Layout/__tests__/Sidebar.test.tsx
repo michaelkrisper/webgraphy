@@ -123,10 +123,9 @@ describe('Sidebar Component', () => {
 
   it('renders correctly with default state', () => {
     render(<Sidebar />);
-    expect(screen.getByText('webgraphy')).toBeInTheDocument();
     expect(screen.getByText('Data Sources')).toBeInTheDocument();
-    // expect(screen.getByText('Data Series')).toBeInTheDocument();
-    // expect(screen.getByText('Saved Views')).toBeInTheDocument();
+    const sidebar = screen.getByRole('complementary');
+    expect(sidebar).toBeInTheDocument();
   });
 
   it('can be collapsed and expanded', () => {

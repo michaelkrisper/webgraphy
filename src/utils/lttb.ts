@@ -5,6 +5,14 @@
 
 export type Point = { x: number; y: number };
 
+/**
+ * Calculates the average point of a given bucket range.
+ * @param {Point[]} data - Array of data points
+ * @param {number} bucketIndex - Index of the current bucket
+ * @param {number} bucketSize - Number of points per bucket
+ * @param {number} dataLength - Total length of the data array
+ * @returns {Point} Average point (x, y) for the bucket range
+ */
 function calculateBucketAverage(
   data: Point[],
   bucketIndex: number,
@@ -30,6 +38,18 @@ function calculateBucketAverage(
   };
 }
 
+/**
+ * Finds the point in a bucket with maximum triangle area to the average of the next bucket.
+ * Core LTTB algorithm: selects the most visually significant point per bucket.
+ * @param {Point[]} data - Array of data points
+ * @param {number} bucketIndex - Index of the current bucket
+ * @param {number} bucketSize - Number of points per bucket
+ * @param {number} pointAX - X-coordinate of the previous selected point (vertex A)
+ * @param {number} pointAY - Y-coordinate of the previous selected point (vertex A)
+ * @param {number} avgX - Average X of the next bucket (vertex C)
+ * @param {number} avgY - Average Y of the next bucket (vertex C)
+ * @returns {{maxAreaPoint: Point, nextA: number}} Selected point and its index for the next iteration
+ */
 function findMaxAreaPoint(
   data: Point[],
   bucketIndex: number,
@@ -63,6 +83,13 @@ function findMaxAreaPoint(
   return { maxAreaPoint, nextA };
 }
 
+/**
+ * Largest-Triangle-Three-Buckets: downsamples large datasets while preserving visual shape.
+ * Reduces point count to improve rendering performance without distorting chart appearance.
+ * @param {Point[]} data - Array of original data points sorted by X-axis
+ * @param {number} threshold - Target number of points after downsampling
+ * @returns {Point[]} Downsampled array; returns original if threshold >= data length
+ */
 export function lttb(data: Point[], threshold: number): Point[] {
   const dataLength = data.length;
   if (threshold >= dataLength || threshold <= 0) {

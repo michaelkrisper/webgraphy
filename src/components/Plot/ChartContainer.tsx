@@ -5,10 +5,26 @@ import { applyKeyboardZoom, animateXAxes, animateYAxes } from '../../utils/anima
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { WebGLRenderer } from './WebGLRenderer';
 import { ChartLegend } from './ChartLegend';
+import ErrorBoundary from '../ErrorBoundary';
 import { useGraphStore } from '../../store/useGraphStore';
-import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
+import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset, type DataColumn } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels, formatFullDate, type TimeTick, type SecondaryLabel } from '../../utils/time';
 import { getColumnIndex } from '../../utils/columns';
+
+// Type definitions for axis grouping and pan target
+interface SeriesMetadata {
+  series: SeriesConfig;
+  ds: Dataset;
+  axis: YAxisConfig;
+  xAxis: XAxisConfig;
+  xIdx: number;
+  yIdx: number;
+  xCol: DataColumn;
+  yCol: DataColumn;
+}
+
+type DatasetsByAxisId = Record<string, Dataset[]>;
+type SeriesByAxisId = Record<string, SeriesConfig[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
@@ -372,7 +388,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xCol = ds.data[xIdx]; const yCol = ds.data[yIdx];
       if (!xCol?.data || !yCol?.data) return null;
       return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
-    }).filter(Boolean) as any[];
+    }).filter(Boolean) as SeriesMetadata[];
   }, [datasetsById, yAxesById, xAxesById, series]);
 
   const snapMetadata = useMemo(() => {
@@ -797,7 +813,7 @@ const ChartContainer: React.FC = () => {
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get((target as any).xAxisId)!];
+      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get(((target as any).xAxisId))!];
       axes.forEach(axis => { if (!axis) return; const xr = axis.max - axis.min, xm = chartWidth > 0 ? (dx / chartWidth) * xr : 0, next = { min: axis.min - xm, max: axis.max - xm }; state.updateXAxis(axis.id, next); targetXAxes.current[axis.id] = next; });
     }
     const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
@@ -868,9 +884,9 @@ const ChartContainer: React.FC = () => {
   }, [activeYAxes, activeXAxesUsed, startAnimation]);
 
   const xAxesLayout = useMemo(() => {
-    const activeDsIds = new Set(series.map(s => s.sourceId)), dsByX = {} as any, dsToX = {} as any;
+    const activeDsIds = new Set(series.map(s => s.sourceId)), dsByX: DatasetsByAxisId = {}, dsToX: Record<string, string> = {};
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; dsToX[d.id] = xId; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
-    const sByX = {} as any; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
+    const sByX: SeriesByAxisId = {}; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
     return activeXAxesUsed.map(axis => {
       const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], srs = sByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = srs[0]?.lineColor || '#475569';
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false }, title, color };
@@ -891,7 +907,11 @@ const ChartContainer: React.FC = () => {
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
       {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: themeColors.noDataColor, fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} />
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}><WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} /></div>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        <ErrorBoundary level="component">
+          <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
+        </ErrorBoundary>
+      </div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}

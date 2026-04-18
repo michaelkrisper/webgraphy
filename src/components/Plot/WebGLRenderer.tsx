@@ -6,6 +6,10 @@ import { smoothArray } from '../../utils/data-processing';
 const smoothedCache = new WeakMap<Float32Array, Float32Array>();
 
 const VERTEX_SHADER_SOURCE = `
+      // === VERTEX SHADER ===
+      // Transforms world-space data coordinates to screen pixels.
+      // Uses segment-based geometry: each line segment is extruded on GPU.
+      // Attributes a_t and a_dist_start enable per-vertex dashing calculations.
       attribute float a_x;
       attribute float a_y;
       attribute vec2 a_other;
@@ -21,29 +25,41 @@ const VERTEX_SHADER_SOURCE = `
       varying highp float v_dist_start;
 
       vec2 toScreen(vec2 pos) {
+        // Convert world space to viewport-relative coordinates [0, 1]
+        // Then scale to screen space, accounting for padding
         float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
         float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-        
+
+        // Guard against zero-width viewports (avoid division by zero)
         float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
         float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
         
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
+        // Apply padding offsets and scale to full screen resolution
         return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
       }
 
       void main() {
+        // Transform both endpoints to screen space for distance calculation
         vec2 p = toScreen(vec2(a_x, a_y));
         vec2 other = toScreen(a_other);
         v_t = a_t;
+        // Store segment length for fragment shader line extrusion
+        // a_t parameter (0 to 1 along line) enables dashing patterns
         v_len = length(other - p);
         v_dist_start = a_dist_start;
         gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
+        // Point size controls circle/point marker dimensions on screen
         gl_PointSize = u_point_size;
       }
 `;
 
 const FRAGMENT_SHADER_SOURCE = `
+      // === FRAGMENT SHADER ===
+      // Renders final pixel color based on shape type (circle, square, cross, line).
+      // Uses conditional dispatch via u_style uniform.
+      // Dashing (if enabled) is calculated using accumulated distance.
       precision highp float;
       varying highp float v_t;
       varying highp float v_len;
@@ -54,33 +70,41 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform float u_dpr;
 
       void drawCircle() {
+        // Use distance field: discard pixels outside circle radius (0.5)
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5) discard;
         gl_FragColor = u_color;
       }
 
       void drawSquare() {
+        // Square: accept all pixels in point region (no distance test)
         gl_FragColor = u_color;
       }
 
       void drawCross() {
         vec2 p = gl_PointCoord - 0.5;
+        // Cross: draw diagonal lines by rejecting pixels outside axes
         if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
         gl_FragColor = u_color;
       }
 
       void drawLineSegment() {
+        // Apply dash pattern if enabled (u_line_style: 0=solid, 1=dashed, 2=dotted)
         if (u_line_style > 0) {
+          // Calculate dash/gap lengths and total pattern period
           float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
           float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
           float total = (dashLen + gapLen) * u_dpr;
+          // Accumulated distance along line determines dash position
           float dist = mod(v_dist_start + v_t * v_len, total);
+          // Discard pixels in gap regions (device pixel ratio scales pattern)
           if (dist > dashLen * u_dpr) discard;
         }
         gl_FragColor = u_color;
       }
 
       void main() {
+        // Dispatch to shape renderer based on series style configuration
         if (u_style == 0) {
           drawCircle();
         } else if (u_style == 1) {

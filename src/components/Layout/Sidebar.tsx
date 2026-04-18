@@ -4,6 +4,7 @@ import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
+import ErrorBoundary from '../ErrorBoundary';
 import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
@@ -255,80 +256,82 @@ export const Sidebar: React.FC = () => {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
 
           {/* Data Sources Section */}
-          <section style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
-                <h2 style={sectionHeadingStyle}>Data Sources</h2>
-                {openSections.sources ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
+          <ErrorBoundary level="component">
+            <section style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
+                  <h2 style={sectionHeadingStyle}>Data Sources</h2>
+                  {openSections.sources ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
+                </div>
+                <button onClick={() => fileInputRef.current?.click()} style={iconBtnStyle} title="Import File (CSV/JSON)"><FilePlus size={16} /></button>
               </div>
-              <button onClick={() => fileInputRef.current?.click()} style={iconBtnStyle} title="Import File (CSV/JSON)"><FilePlus size={16} /></button>
-            </div>
-            <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
+              <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
 
-            {openSections.sources && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {openSections.sources && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-                {datasets.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '24px 16px', border: `2px dashed ${t.border}`, borderRadius: '12px', color: t.textLight }}>
-                    <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem' }}>No data loaded</p>
-                    <button onClick={loadDemoData} style={{ background: 'none', border: `1px solid ${t.border2}`, padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', color: t.textMuted, cursor: 'pointer' }}>Load Demo Data</button>
-                  </div>
-                )}
+                  {datasets.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '24px 16px', border: `2px dashed ${t.border}`, borderRadius: '12px', color: t.textLight }}>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem' }}>No data loaded</p>
+                      <button onClick={loadDemoData} style={{ background: 'none', border: `1px solid ${t.border2}`, padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', color: t.textMuted, cursor: 'pointer' }}>Load Demo Data</button>
+                    </div>
+                  )}
 
-                {datasets.map((ds) => (
-                  <div key={ds.id} style={{ backgroundColor: t.bg, borderRadius: '10px', border: `1px solid ${t.cardBorder}`, overflow: 'hidden', boxShadow: `0 1px 3px ${t.shadow}` }}>
-                    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', fontSize: '0.9rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name}</span>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
-                        <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
-                        <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete Dataset"><Trash2 size={16} /></button>
+                  {datasets.map((ds) => (
+                    <div key={ds.id} style={{ backgroundColor: t.bg, borderRadius: '10px', border: `1px solid ${t.cardBorder}`, overflow: 'hidden', boxShadow: `0 1px 3px ${t.shadow}` }}>
+                      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.9rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name}</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
+                          <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
+                          <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete Dataset"><Trash2 size={16} /></button>
+                        </div>
+                      </div>
+
+                      <div style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Column</label>
+                          <select
+                            value={ds.xAxisColumn}
+                            onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
+                            style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '120px' }}
+                          >
+                            {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+
+                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
+                          {ds.columns.map((col) => {
+                            const isUsed = series.some(s => s.sourceId === ds.id && s.yColumn === col);
+                            const isX = ds.xAxisColumn === col;
+                            if (isX) return null;
+                            return (
+                              <button
+                                key={col}
+                                onClick={() => createSeries(ds.id, col)}
+                                disabled={isUsed}
+                                style={{
+                                  fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
+                                  border: isUsed ? `1px solid ${t.border}` : `1px solid ${t.accent}`,
+                                  backgroundColor: isUsed ? t.bg3 : t.bg3,
+                                  color: isUsed ? t.textLight : t.accent,
+                                  cursor: isUsed ? 'default' : 'pointer',
+                                  fontWeight: '600'
+                                }}
+                              >
+                                {col.includes(': ') ? col.split(': ')[1] : col}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-
-                    <div style={{ padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Column</label>
-                        <select
-                          value={ds.xAxisColumn}
-                          onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
-                          style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '120px' }}
-                        >
-                          {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-
-                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
-                        {ds.columns.map((col) => {
-                          const isUsed = series.some(s => s.sourceId === ds.id && s.yColumn === col);
-                          const isX = ds.xAxisColumn === col;
-                          if (isX) return null;
-                          return (
-                            <button
-                              key={col}
-                              onClick={() => createSeries(ds.id, col)}
-                              disabled={isUsed}
-                              style={{
-                                fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
-                                border: isUsed ? `1px solid ${t.border}` : `1px solid ${t.accent}`,
-                                backgroundColor: isUsed ? t.bg3 : t.bg3,
-                                color: isUsed ? t.textLight : t.accent,
-                                cursor: isUsed ? 'default' : 'pointer',
-                                fontWeight: '600'
-                              }}
-                            >
-                              {col.includes(': ') ? col.split(': ')[1] : col}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          </ErrorBoundary>
 
           {/* Series Configuration Section */}
           <section style={{ marginBottom: '24px' }}>
