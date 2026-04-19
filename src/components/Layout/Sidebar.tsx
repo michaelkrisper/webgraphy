@@ -203,7 +203,6 @@ export const Sidebar: React.FC = () => {
       pointColor: color,
       lineStyle: 'solid',
       lineColor: color,
-      lineWidth: 1.5,
       hidden: false
     });
   };

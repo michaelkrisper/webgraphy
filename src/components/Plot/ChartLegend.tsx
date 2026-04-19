@@ -90,7 +90,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggl
               <line
                 x1="0" y1="5" x2="20" y2="5"
                 stroke={s.lineColor}
-                strokeWidth={Math.min(s.lineWidth, 3)}
+                strokeWidth={1}
                 strokeDasharray={lineStyleDash(s.lineStyle)}
               />
             )}

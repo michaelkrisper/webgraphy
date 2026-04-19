@@ -191,7 +191,6 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
       pointColor: '#f97316', // Orange
       lineStyle: 'solid',
       lineColor: '#ea580c',
-      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -203,7 +202,6 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
       pointColor: '#3b82f6', // Blue
       lineStyle: 'solid',
       lineColor: '#2563eb',
-      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -215,7 +213,6 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
       pointColor: '#eab308', // Yellow
       lineStyle: 'solid',
       lineColor: '#ca8a04',
-      lineWidth: 1.5
     },
     {
       id: crypto.randomUUID(),
@@ -227,7 +224,6 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
       pointColor: '#14b8a6', // Teal
       lineStyle: 'solid',
       lineColor: '#0d9488',
-      lineWidth: 1.5
     }
   ];
 }
