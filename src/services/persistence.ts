@@ -70,9 +70,7 @@ export interface SeriesConfig {
   pointColor: string;
   lineStyle: 'solid' | 'dashed' | 'dotted' | 'none';
   lineColor: string;
-  lineWidth: number;
   hidden?: boolean;
-  smooth?: boolean;
 }
 
 export interface AppState {
@@ -85,7 +83,7 @@ export interface AppState {
 
 export const XAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), showGrid: z.boolean(), xMode: z.enum(['date', 'numeric']) });
 export const YAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), position: z.enum(['left', 'right']), color: z.string(), showGrid: z.boolean() });
-export const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), lineWidth: z.number(), hidden: z.boolean().optional(), smooth: z.boolean().optional() });
+export const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), hidden: z.boolean().optional() });
 export const ViewAxisSnapshotSchema = z.object({ id: z.string(), min: z.number(), max: z.number() });
 export const ViewSnapshotSchema = z.object({ id: z.string(), name: z.string(), xAxes: z.array(ViewAxisSnapshotSchema), yAxes: z.array(ViewAxisSnapshotSchema) });
 export const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }), views: z.array(ViewSnapshotSchema).optional() });

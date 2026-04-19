@@ -93,7 +93,6 @@ describe('WebGLRenderer Downsampling', () => {
         yAxisId: 'y1',
         lineColor: '#ff0000',
         pointColor: '#00ff00',
-        lineWidth: 1,
         lineStyle: 'solid',
         pointStyle: 'none'
       }],
@@ -132,7 +131,6 @@ describe('WebGLRenderer Downsampling', () => {
         yAxisId: 'y1',
         lineColor: '#ff0000',
         pointColor: '#00ff00',
-        lineWidth: 1,
         lineStyle: 'solid',
         pointStyle: 'none'
       }],
@@ -171,7 +169,6 @@ describe('WebGLRenderer Downsampling', () => {
         yAxisId: 'y1',
         lineColor: '#ff0000',
         pointColor: '#00ff00',
-        lineWidth: 1,
         lineStyle: 'solid',
         pointStyle: 'none'
       }],
@@ -210,7 +207,6 @@ describe('WebGLRenderer Downsampling', () => {
         yAxisId: 'y1',
         lineColor: '#ff0000',
         pointColor: '#00ff00',
-        lineWidth: 1,
         lineStyle: 'dashed',
         pointStyle: 'none'
       }],
@@ -252,7 +248,6 @@ describe('WebGLRenderer Downsampling', () => {
         yAxisId: 'y1',
         lineColor: '#ff0000',
         pointColor: '#00ff00',
-        lineWidth: 0,
         lineStyle: 'none',
         pointStyle: 'circle'
       }],

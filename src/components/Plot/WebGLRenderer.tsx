@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
-import { smoothArray } from '../../utils/data-processing';
 
-const smoothedCache = new WeakMap<Float32Array, Float32Array>();
+
+
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -299,15 +299,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
       const xData = colX.data;
       let yData = colY.data;
-
-      if (s.smooth) {
-        let smoothed = smoothedCache.get(colY.data);
-        if (!smoothed) {
-          smoothed = smoothArray(colY.data, 5);
-          smoothedCache.set(colY.data, smoothed);
-        }
-        yData = smoothed;
-      }
+      yData = colY.data;
       const xRef = colX.refPoint;
       let startIdx = 0;
       let endIdx = xData.length - 1;
@@ -350,7 +342,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         buffersRef.current.set(xBufferKey, xBuffer);
       }
 
-      const yBufferKey = `buf-y-${ds.id}-${yIdx}${s.smooth ? '-smooth' : ''}`;
+      const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
       let yBuffer = buffersRef.current.get(yBufferKey);
       if (!yBuffer) {
         yBuffer = gl.createBuffer()!;
@@ -360,7 +352,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       const isHighlighted = highlightedSeriesId === s.id;
-      const baseLineWidth = isHighlighted ? (s.lineWidth + 1.5) : s.lineWidth;
+      const baseLineWidth = isHighlighted ? 2.5 : 1;
 
       if (s.lineStyle !== 'none' && numPoints > 1) {
         const c = lineColorRgba;

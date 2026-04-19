@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { THEMES, type ThemeName } from '../../themes';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff, Spline } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   series: SeriesConfig;
@@ -68,19 +68,11 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
     );
   };
 
-  const renderLineWidthIcon = () => {
-    return (
-      <svg width="14" height="14" viewBox="0 0 16 16" style={{ display: 'block' }}>
-        <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth={Math.min(4.5, series.lineWidth * 1.5)} />
-      </svg>
-    );
-  };
-
   const sep = `1px solid ${border}`;
   const btnBase: React.CSSProperties = { padding: 0, cursor: 'pointer', background: bg, border: 'none', borderRight: sep, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0, color };
 
   return (
-    <div style={{ border: sep, borderRadius: '3px', marginBottom: '3px', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(8, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', overflow: 'hidden', opacity: series.hidden ? 0.5 : 1 }}>
+    <div style={{ border: sep, borderRadius: '3px', marginBottom: '3px', fontSize: 'var(--mobile-font-size)', display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(6, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', alignItems: 'center', overflow: 'hidden', opacity: series.hidden ? 0.5 : 1 }}>
 
       {/* Visibility Toggle */}
       <button
@@ -159,17 +151,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         {renderLineStyleIcon()}
       </button>
 
-      {/* Line Width Cycle */}
-      <button
-        onClick={() => {
-          const widths = [1, 1.5, 2, 2.5, 3];
-          const next = widths[(widths.indexOf(series.lineWidth) + 1) % widths.length];
-          handleUpdate({ lineWidth: next });
-        }}
-        style={btnBase}
-        title={`Line Width: ${series.lineWidth}`} aria-label="Cycle Line Width">
-        {renderLineWidthIcon()}
-      </button>
+
 
       {/* Point Style Cycle */}
       <button
@@ -183,14 +165,7 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
         {renderPointStyleIcon()}
       </button>
 
-      {/* Smoothing Toggle */}
-      <button
-        onClick={() => handleUpdate({ smooth: !series.smooth })}
-        style={{ ...btnBase, background: series.smooth ? bg2 : bg, color: series.smooth ? '#3b82f6' : color }}
-        title={series.smooth ? "Disable Smoothing" : "Enable Smoothing"}
-        aria-label="Toggle Smoothing">
-        <Spline size={16} />
-      </button>
+
 
       {/* Color Picker */}
       <input
