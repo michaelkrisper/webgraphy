@@ -9,46 +9,79 @@ npm run dev        # Start Vite dev server
 npm run build      # TypeScript type check + Vite bundle (outputs to /dist)
 npm run lint       # ESLint (strict mode)
 npm run preview    # Preview production build
+npm run test       # Run Vitest unit tests (jsdom environment)
 ```
 
-No test framework is configured.
+Run a single test file: `npx vitest run src/utils/__tests__/lttb.test.ts`
+
+`npm run build` runs `tsc -b` before bundling — fix all TypeScript errors before shipping.
 
 ## Architecture Overview
 
-**Webgraphy** is a browser-based data visualization tool — users import CSV/JSON files, configure multi-series plots with independent Y-axes, and interact via pan/zoom on a WebGL canvas.
+**Webgraphy** is a browser-based data visualization tool — users import CSV/JSON files, configure multi-series plots with up to 9 independent X- and Y-axes, and interact via pan/zoom on a WebGL canvas.
 
 ### Data Flow
 
 ```
-CSV/JSON file → Web Worker (data-parser.worker.ts) → Float32Array columns
-    → IndexedDB (datasets) + localStorage (UI state)
+CSV/JSON file → data-parser.worker.ts (Web Worker, transferable Float32Arrays)
+    → IndexedDB (datasets via idb) + localStorage (axes/series/UI state)
     → Zustand store (useGraphStore.ts)
+    → ChartContainer.tsx (layout, ticks, interaction)
     → WebGLRenderer.tsx (custom GLSL shaders)
 ```
 
-- Data columns are stored as `Float32Array` throughout — memory-efficient and directly usable by WebGL
-- Web Worker (`src/workers/data-parser.worker.ts`) parses files off the main thread using transferable objects
-- IndexedDB (via `idb`) stores datasets; `localStorage` stores serialized app state (series, axes, viewport)
-- On app mount (`App.tsx`), persisted state is rehydrated into the Zustand store
+- **Float32Array throughout** — columns stored as relative values (`value - refPoint`) with pre-computed `chunkMin`/`chunkMax` arrays (512-point chunks) for fast range queries
+- **Transferable objects** — worker ships parsed data to main thread zero-copy
+- On app mount, `loadPersistedState()` rehydrates from IndexedDB/localStorage; falls back to demo weather dataset
 
-### State Management
+### State Management (`src/store/useGraphStore.ts`)
 
-Single Zustand store in `src/store/useGraphStore.ts` holds:
-- `datasets` — imported data with column arrays
-- `series` — X/Y column references, styling, Y-axis assignment
-- `yAxes` — independent axes with custom min/max, position (left/right), color, gridlines
-- `viewport` — current pan/zoom state
-- Auto-saves to `src/services/persistence.ts` on change
+Single Zustand store:
+- `datasets` — imported data; each `DataColumn` holds `Float32Array data`, `refPoint`, `bounds`, `chunkMin`/`chunkMax`
+- `series` — X/Y column references (by dataset ID + column name), styling, axis assignment
+- `xAxes` / `yAxes` — up to 9 each, with custom min/max, position (left/right for Y), color, gridlines
+- `views` — saved zoom/pan snapshots
 
-### Rendering
+Auto-save: state changes trigger a 1 000 ms debounced `debouncedSaveState()` → IndexedDB + localStorage.
 
-`WebGLRenderer.tsx` uses custom GLSL shaders for anti-aliased line segments (segment-based geometry extrusion) and circle points. Coordinate math lives in `src/utils/coords.ts` (world↔screen transforms).
+**Auto-cleanup rule:** deleting a series removes any Y-axis that no longer has series referencing it.
 
-`src/utils/lttb.ts` implements Largest-Triangle-Three-Buckets downsampling used both in rendering and SVG/PNG export (`src/services/export.ts`).
+### Rendering (`src/components/Plot/`)
 
-### Key Patterns
+`ChartContainer.tsx` (≈940 lines) owns all interaction: pan/zoom via mouse/touch, Ctrl+Drag box-zoom, crosshair snapping, tick generation, and multi-axis layout (cumulative offset calculation for stacked left/right Y-axes). It renders SVG grid/axes/labels and delegates line drawing to `WebGLRenderer`.
 
-- **Auto-cleanup**: deleting a series removes orphaned Y-axes from the store
-- **Column addressing**: series reference columns by dataset ID + column name string
-- `PlotArea.tsx` owns pan/zoom event handling and passes viewport state down to `WebGLRenderer`
-- Sidebar is split: `Layout/Sidebar.tsx` handles file import/export/dataset list; `Sidebar/SeriesConfig.tsx` handles per-series styling
+`WebGLRenderer.tsx` — custom GLSL shaders:
+- Vertex: segment-based geometry extrusion (not polyline) for correct line width
+- Fragment: distance-field antialiasing; supports solid/dashed/dotted lines and circle/square/cross point markers
+- Uniforms `u_rel_viewport_x`/`u_rel_viewport_y` receive the current pan/zoom viewport; coordinate math in `src/utils/coords.ts`
+
+`src/utils/lttb.ts` — Largest-Triangle-Three-Buckets downsampling; used in both the renderer (when point count exceeds threshold) and SVG/PNG export (`src/services/export.ts`).
+
+### Formula & Regression System
+
+`src/utils/formula.ts` — safe expression compiler (Shunting-yard, no `eval`). Column references use `[Column Name]` syntax. Supports standard math functions plus `avgN()`, `avgTime()`, `avgGroup()`, `filter()` (Kalman).
+
+`src/workers/formula.worker.ts` — evaluates compiled formulas and runs regression fits off-thread: `linreg`, `polyreg`, `expreg`, `logreg`, `kde`. Results come back as Float64Array → converted to Float32Array on the main thread.
+
+### Persistence (`src/services/persistence.ts`)
+
+- **IndexedDB** (`webgraphy-db` v2): stores `datasets` and `app_state` objects
+- **localStorage**: `legendVisible`, `theme`, `webgraphy-cleared` (first-run flag)
+- `src/services/session.ts` handles full session serialization (export/import as JSON file)
+
+### Theme System (`src/themes.ts`)
+
+Four themes: `light`, `dark`, `matrix`, `unicorn`. Each defines ~40 CSS variables (chart colors, UI chrome, tooltip). Applied via `useTheme()` hook → written to document CSS variables + persisted in localStorage.
+
+### Key Conventions
+
+- **Column addressing** — series reference data by `{ datasetId, columnName }` strings, not numeric indices; use `src/utils/columns.ts` helpers to resolve them
+- **Coordinate math** — always go through `src/utils/coords.ts` (`worldToScreen` / `screenToWorld`); don't inline viewport math
+- **Viewport animation** — use `animateXAxes()` / `animateYAxes()` from `src/utils/animation.ts` for smooth transitions instead of direct state writes
+- **Sidebar split** — `src/components/Layout/Sidebar.tsx` handles file import/export/dataset list; `src/components/Sidebar/SeriesConfig.tsx` handles per-series styling
+- **Workers** — heavy parsing and formula evaluation must stay in workers; never block the main thread with large array iteration
+- **TypeScript strict** — `noUnusedLocals` and `noUnusedParameters` are enabled; clean up all unused symbols
+
+### Deployment
+
+GitHub Actions (`.github/workflows/deploy.yml`) runs `npm run build` on push to `master` and deploys `/dist` to GitHub Pages. The Vite config uses `base: './'` for relative asset paths.
