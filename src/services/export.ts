@@ -50,8 +50,9 @@ export const exportToSVG = (
 ): string => {
   // 1. Determine active axes and layout
   const axisToMinDsIdx = new Map<string, number>();
+  const activeDatasetIds = new Set(series.map(s => s.sourceId));
   datasets.forEach((d, dsIdx) => {
-    if (!series.some(s => s.sourceId === d.id)) return;
+    if (!activeDatasetIds.has(d.id)) return;
     const xId = d.xAxisId || 'axis-1';
     if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
       axisToMinDsIdx.set(xId, dsIdx);
@@ -136,10 +137,14 @@ export const exportToSVG = (
   }
 
   // 3. Draw Series Data
+  const datasetsMap = new Map(datasets.map(d => [d.id, d]));
+  const xAxesMap = new Map(xAxes.map(a => [a.id, a]));
+  const yAxesMap = new Map(yAxes.map(a => [a.id, a]));
+
   series.forEach(s => {
-    const ds = datasets.find(d => d.id === s.sourceId);
-    const xAxis = xAxes.find(a => a.id === (ds?.xAxisId || 'axis-1'));
-    const yAxis = yAxes.find(a => a.id === s.yAxisId);
+    const ds = datasetsMap.get(s.sourceId);
+    const xAxis = xAxesMap.get(ds?.xAxisId || 'axis-1');
+    const yAxis = yAxesMap.get(s.yAxisId);
     if (!ds || !xAxis || !yAxis) return;
 
     const xIdx = getColumnIndex(ds, ds.xAxisColumn);
@@ -178,7 +183,6 @@ export const exportToSVG = (
   const seriesByXAxisId: Record<string, SeriesConfig[]> = {};
 
   // Group datasets by xAxisId, only including those that have at least one series
-  const activeDatasetIds = new Set(series.map(s => s.sourceId));
   datasets.forEach(d => {
     if (activeDatasetIds.has(d.id)) {
       const xAxisId = d.xAxisId || 'axis-1';
