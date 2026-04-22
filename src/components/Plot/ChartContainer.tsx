@@ -393,9 +393,9 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
   const snapMetadata = useMemo(() => {
     if (seriesMetadata.length === 0) return null;
-    const firstDataset = datasets.find(d => series.some(s => s.sourceId === d.id));
-    const firstUsedXAxisId = firstDataset?.xAxisId || 'axis-1';
-    const xAxisConf = xAxes.find(a => a.id === firstUsedXAxisId);
+    const xAxisConf = seriesMetadata[0].xAxis;
+
+
     if (!xAxisConf) return null;
     const seriesByAxis: Record<string, string[]> = {};
     seriesMetadata.forEach(({ series: sr }) => {
@@ -405,7 +405,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const axisTitleMap: Record<string, string> = {};
     yAxes.forEach((axis: YAxisConfig) => { if (seriesByAxis[axis.id]) axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/'); });
     return { xAxisConf, axisTitleMap };
-  }, [datasets, series, xAxes, yAxes, seriesMetadata]);
+  }, [yAxes, seriesMetadata]);
 
   const snap = useMemo(() => {
     if (!pos || !snapMetadata || seriesMetadata.length === 0) return null;
