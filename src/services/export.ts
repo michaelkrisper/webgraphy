@@ -63,9 +63,20 @@ export const exportToSVG = (
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
 
   const usedAxisIds = new Set(series.map(s => s.yAxisId));
-  const activeYAxes = yAxes.filter(a => usedAxisIds.has(a.id));
-  const leftAxes = activeYAxes.filter(a => a.position === 'left');
-  const rightAxes = activeYAxes.filter(a => a.position === 'right');
+  const activeYAxes: YAxisConfig[] = [];
+  const leftAxes: YAxisConfig[] = [];
+  const rightAxes: YAxisConfig[] = [];
+  for (let i = 0; i < yAxes.length; i++) {
+    const a = yAxes[i];
+    if (usedAxisIds.has(a.id)) {
+      activeYAxes.push(a);
+      if (a.position === 'left') {
+        leftAxes.push(a);
+      } else if (a.position === 'right') {
+        rightAxes.push(a);
+      }
+    }
+  }
 
   // Helper to calculate required axis width
   const getAxisWidth = (axis: YAxisConfig) => {
