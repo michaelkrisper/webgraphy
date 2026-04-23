@@ -818,7 +818,7 @@ const ChartContainer: React.FC = () => {
     }
     const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
     const yAxesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedY ? [yAxesById.get(draggedY)!] : []);
-    yAxesToPan.forEach(axis => { if (!axis) return; const cur = state.yAxes.find(a => a.id === axis.id)!, yr = cur.max - cur.min, ym = chartHeight > 0 ? (dy / chartHeight) * yr : 0, next = { min: cur.min + ym, max: cur.max + ym }; state.updateYAxis(axis.id, next); targetYs.current[axis.id] = next; });
+    yAxesToPan.forEach(axis => { if (!axis) return; const cur = yAxesById.get(axis.id)!, yr = cur.max - cur.min, ym = chartHeight > 0 ? (dy / chartHeight) * yr : 0, next = { min: cur.min + ym, max: cur.max + ym }; state.updateYAxis(axis.id, next); targetYs.current[axis.id] = next; });
   }, [activeXAxesUsed, activeYAxes, xAxesById, yAxesById, chartWidth, chartHeight]);
 
   const handleMouseDown = (e: React.MouseEvent, target: PanTarget = 'all') => {
