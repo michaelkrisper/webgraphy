@@ -77,6 +77,14 @@ export const Sidebar: React.FC = () => {
     return datasets.find(d => d.id === calculatingDatasetId);
   }, [datasets, calculatingDatasetId]);
 
+  const datasetsById = useMemo(() => {
+    const map = new Map();
+    for (const d of datasets) {
+      map.set(d.id, d);
+    }
+    return map;
+  }, [datasets]);
+
   const customViews = useMemo(() => {
     return views ? views.filter(v => v.id !== 'default-view') : [];
   }, [views]);
@@ -370,7 +378,7 @@ export const Sidebar: React.FC = () => {
                       >
                         <SeriesConfigUI
                           series={s}
-                          dataset={datasets.find(d => d.id === s.sourceId)}
+                          dataset={datasetsById.get(s.sourceId)}
                           isFirst={idx === 0}
                           isLast={idx === series.length - 1}
                           onMove={(delta) => moveSeries(s.id, delta)}
