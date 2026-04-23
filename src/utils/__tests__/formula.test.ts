@@ -140,4 +140,38 @@ describe('compileFormula', () => {
     const { error } = compileFormula('window.alert(1)', columns);
     expect(error).toBeDefined();
   });
+
+  it('should handle error paths for invalid tokens and compilation errors', () => {
+    // Missing closing bracket
+    const res1 = compileFormula('[Temp', columns);
+    expect(res1.error).toContain('Missing closing bracket ]');
+    expect(res1.evaluate([])).toBeNaN();
+    expect(res1.usedColumnIndices).toEqual([]);
+
+    // Unknown function
+    const res2 = compileFormula('unknownfunc([Temp])', columns);
+    expect(res2.error).toContain('Unknown function or constant: unknownfunc');
+    expect(res2.evaluate([])).toBeNaN();
+
+    // Unexpected comma
+    const res3 = compileFormula('10, 20', columns);
+    expect(res3.error).toContain('Unexpected comma');
+    expect(res3.evaluate([])).toBeNaN();
+
+    // Mismatched parentheses - missing opening
+    const res4 = compileFormula('10 + 20)', columns);
+    expect(res4.error).toContain('Mismatched parentheses');
+    expect(res4.evaluate([])).toBeNaN();
+
+    // Mismatched parentheses - missing closing
+    const res5 = compileFormula('(10 + 20', columns);
+    expect(res5.error).toContain('Mismatched parentheses');
+    expect(res5.evaluate([])).toBeNaN();
+
+    // Unexpected character during lexing
+    const res6 = compileFormula('10 $ 20', columns);
+    expect(res6.error).toContain('Unexpected character: $');
+    expect(res6.evaluate([])).toBeNaN();
+    expect(res6.usedColumnIndices).toEqual([]);
+  });
 });
