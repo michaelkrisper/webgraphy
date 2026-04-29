@@ -1,17 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { THEMES, type ThemeName, COLOR_PALETTE } from '../../themes';
+import { COLOR_PALETTE } from '../../themes';
 import { Palette } from 'lucide-react';
 
 interface ColorPickerProps {
   color: string;
   onChange: (color: string) => void;
-  themeName: ThemeName;
   ariaLabel?: string;
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, themeName, ariaLabel }) => {
-  const t = THEMES[themeName];
+export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, ariaLabel }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const nativePickerRef = useRef<HTMLInputElement>(null);
@@ -58,86 +56,38 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, theme
   };
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', flexShrink: 0 }}>
-      {/* Current Color Indicator / Button */}
+    <div ref={containerRef} className="color-picker-wrapper">
       <button
         onClick={toggleOpen}
         title="Select Color"
         aria-label={ariaLabel || "Select Color"}
-        style={{
-          width: '100%',
-          height: '100%',
-          padding: 0,
-          border: 'none',
-          borderRight: `1px solid ${t.border2}`,
-          backgroundColor: color,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
+        className="color-picker-btn"
+        style={{ backgroundColor: color }}
       >
-        <div style={{
-          width: '12px',
-          height: '12px',
-          borderRadius: '2px',
-          border: '1px solid rgba(255,255,255,0.5)',
-          boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
-        }} />
+        <div className="color-picker-swatch" />
       </button>
 
-      {/* Popover using Portal */}
       {isOpen && createPortal(
         <div
           id="color-picker-popover"
-          style={{
-            position: 'absolute',
-            top: popoverCoords.top + 4,
-            left: popoverCoords.left,
-            zIndex: 10001,
-            backgroundColor: t.bg,
-            border: `1px solid ${t.border}`,
-            borderRadius: '4px',
-            boxShadow: `0 4px 12px ${t.shadow}`,
-            padding: '8px',
-            width: '120px'
-          }}
+          className="color-picker-popover"
+          style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
+          <div className="color-picker-grid">
             {COLOR_PALETTE.map((paletteColor) => (
               <button
                 key={paletteColor}
                 onClick={() => handleSelectTemplate(paletteColor)}
+                className="color-picker-palette-btn"
                 style={{
-                  width: '20px',
-                  height: '20px',
                   backgroundColor: paletteColor,
-                  border: color === paletteColor ? `2px solid ${t.text}` : `1px solid ${t.border}`,
-                  borderRadius: '2px',
-                  cursor: 'pointer',
-                  padding: 0
+                  border: color === paletteColor ? `2px solid var(--text-color)` : `1px solid var(--border-color)`
                 }}
                 title={paletteColor}
               />
             ))}
           </div>
-          <button
-            onClick={triggerNativePicker}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: '4px',
-              fontSize: '0.75rem',
-              backgroundColor: t.bg2,
-              border: `1px solid ${t.border}`,
-              borderRadius: '4px',
-              cursor: 'pointer',
-              color: t.text
-            }}
-          >
+          <button onClick={triggerNativePicker} className="color-picker-custom-btn">
             <Palette size={12} />
             <span>Custom</span>
           </button>
@@ -145,19 +95,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, theme
         document.body
       )}
 
-      {/* Hidden Native Picker */}
       <input
         ref={nativePickerRef}
         type="color"
         value={color}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          position: 'absolute',
-          opacity: 0,
-          width: 0,
-          height: 0,
-          pointerEvents: 'none'
-        }}
+        className="color-picker-native-input"
       />
     </div>
   );

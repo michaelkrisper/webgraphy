@@ -93,9 +93,7 @@ interface CrosshairProps {
   yAxes: YAxisConfig[];
   datasets: Dataset[];
   series: SeriesConfig[];
-  tooltipBg: string;
   tooltipColor: string;
-  tooltipBorder: string;
   snapLineColor: string;
   tooltipDividerColor: string;
   tooltipSubColor: string;
@@ -342,7 +340,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
 
 const SNAP_PX = 30;
 
-const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, tooltipBg, tooltipColor, tooltipBorder, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
+const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, tooltipColor, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current; if (!el) return;
@@ -409,14 +407,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (!seriesByAxis[sr.yAxisId]) seriesByAxis[sr.yAxisId] = [];
       seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
     });
-    const axisTitleMap: Record<string, string> = {};
-    yAxes.forEach((axis: YAxisConfig) => { if (seriesByAxis[axis.id]) axisTitleMap[axis.id] = seriesByAxis[axis.id].join('/'); });
-    return { xAxisConf, axisTitleMap };
+    return { xAxisConf };
   }, [yAxes, seriesMetadata]);
 
   const snap = useMemo(() => {
     if (!pos || !snapMetadata || seriesMetadata.length === 0) return null;
-    const { xAxisConf, axisTitleMap } = snapMetadata;
+    const { xAxisConf } = snapMetadata;
     const xWorldPerPx = (xAxisConf.max - xAxisConf.min) / Math.max(1, width - padding.left - padding.right);
     const xSnapWorld = SNAP_PX * xWorldPerPx;
     let bestDist = Infinity; let bestXWorld: number | null = null; let bestSeriesXConf: XAxisConfig | null = null;
@@ -445,12 +441,11 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const finalBestXWorld = bestXWorld as number;
     const finalXConf = bestSeriesXConf as XAxisConfig;
     const entriesMap = new Map<string, { xLabel: string, xAxisName: string, items: { label: string, value: number, color: string, xVal: number, isXDate: boolean }[] }>();
-    seriesMetadata.forEach(({ series: s, ds, axis, xAxis, xCol, yCol }) => {
+    seriesMetadata.forEach(({ series: s, ds, xAxis, xCol, yCol }) => {
       const xData = xCol.data, yData = yCol.data;
       const refX = xCol.refPoint, refY = yCol.refPoint;
       const bestI = closestIdxByDataset.get(ds.id) as number;
       const yVal = yData[bestI] + refY; const xVal = xData[bestI] + refX;
-      const axisTitle = axisTitleMap[axis.id] || '';
       const label = s.name || s.yColumn;
       const displayLabel = label;
       const xLab = xAxis.xMode === 'date' ? formatFullDate(xVal) : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
@@ -484,28 +479,27 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
   return (
     <>
-      <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
+      <svg width="100%" height="100%" className="chart-abs-fill" style={{ zIndex: 15 }}>
         {snap && <line x1={snap.snapScreenX} y1={padding.top} x2={snap.snapScreenX} y2={height - padding.bottom} stroke={snapLineColor} strokeWidth="1" strokeDasharray="3 3" />}
 
       </svg>
       {snap && (
-        <div style={{
-          position: 'absolute',
+        <div className="chart-tooltip" style={{
           left: (snap?.snapScreenX || pos?.x || 0) + 12,
           top: (pos?.y || 0) + 15,
-          backgroundColor: tooltipBg,
-          color: tooltipColor, padding: '8px 12px', borderRadius: '8px', fontSize: '10px', pointerEvents: 'none', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: `1px solid ${tooltipBorder}`, whiteSpace: 'pre', maxWidth: 360
+          whiteSpace: 'pre',
+          boxShadow: '0 10px 15px -3px var(--shadow)'
         }}>
 
           {snap?.entries.map((group, groupIdx) => (
             <React.Fragment key={`group-${groupIdx}`}>
               <div style={{ color: tooltipSubColor, fontSize: '9px', borderTop: groupIdx > 0 ? `1px solid ${tooltipDividerColor}` : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
-                <span style={{ fontWeight: 'bold', color: tooltipColor, fontSize: '10px' }}>{group.xAxisName}: {group.xLabel}</span>
+                <span className="chart-tooltip-x-label" style={{ color: tooltipColor }}>{group.xAxisName}: {group.xLabel}</span>
               </div>
               {group.items.map((item, itemIdx) => (
-                <div key={`item-${groupIdx}-${itemIdx}`} style={{ color: item.color, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                <div key={`item-${groupIdx}-${itemIdx}`} className="chart-tooltip-item" style={{ color: item.color }}>
                   <span>{item.label}:</span>
-                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{parseFloat(item.value.toPrecision(7)).toLocaleString()}</span>
+                  <span className="chart-tooltip-value" style={{ color: tooltipColor }}>{parseFloat(item.value.toPrecision(7)).toLocaleString()}</span>
                 </div>
               ))}
             </React.Fragment>
@@ -777,6 +771,20 @@ const ChartContainer: React.FC = () => {
     }
   }, [padding.top, chartHeight, startAnimation, datasetsById, xAxesById]);
 
+  useEffect(() => {
+    if (!lastAppliedViewId) return;
+    const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
+    if (!view) return;
+    view.xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
+    if (view.yAxes.length > 0) {
+      view.yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
+    } else {
+      // Auto-scale Y axes when view has no Y axis data (e.g. auto-detected views)
+      activeYAxes.forEach(a => handleAutoScaleY(a.id));
+    }
+    startAnimation();
+  }, [lastAppliedViewId, startAnimation, activeYAxes, handleAutoScaleY]);
+
   const prevSeriesRef = useRef(series);
   useEffect(() => {
     if (!isLoaded) return;
@@ -912,9 +920,9 @@ const ChartContainer: React.FC = () => {
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
-      {datasets.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none', color: themeColors.noDataColor, fontSize: '2rem', fontWeight: 'bold', textTransform: 'uppercase' }}>No data</div>}
+      {datasets.length === 0 && <div className="chart-no-data">No data</div>}
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} />
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+      <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
           <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
         </ErrorBoundary>
@@ -922,20 +930,15 @@ const ChartContainer: React.FC = () => {
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipBg={themeColors.tooltipBg} tooltipColor={themeColors.tooltipColor} tooltipBorder={themeColors.tooltipBorder} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
-      {zoomBoxState && <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
-      {series.length > 0 && legendVisible && <ChartLegend series={series} theme={themeColors} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipColor={themeColors.tooltipColor} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
+      {zoomBoxState && <svg width="100%" height="100%" className="chart-abs-fill" style={{ zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
+      {series.length > 0 && legendVisible && <ChartLegend series={series} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
       {datasets.length > 0 && (
-        <div style={{ position: 'absolute', bottom: padding.bottom + 8, right: padding.right + 8, zIndex: 25, display: 'flex', gap: '4px' }}>
+        <div className="chart-fit-btns" style={{ bottom: padding.bottom + 8, right: padding.right + 8 }}>
           <button
             onClick={() => { handleAutoScaleX(); activeYAxes.forEach(a => handleAutoScaleY(a.id)); }}
             title="Fit All (Double-click plot also works)"
-            style={{
-              padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-              background: themeColors.tooltipBg, border: `1px solid ${themeColors.tooltipBorder}`,
-              borderRadius: '4px', cursor: 'pointer', color: themeColors.tooltipColor,
-              boxShadow: `0 1px 4px ${themeColors.shadow}`,
-            }}
+            className="chart-fit-btn"
           >
             Fit All
           </button>

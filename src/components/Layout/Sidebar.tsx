@@ -215,19 +215,16 @@ export const Sidebar: React.FC = () => {
     return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} theme={t} />;
   }
 
-  const sectionHeadingStyle: React.CSSProperties = { margin: 0, fontSize: '0.85rem', fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' };
-  const iconBtnStyle: React.CSSProperties = { padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.accent };
   const hdrBtn = (onClick: () => void, icon: React.ReactNode, title: string, color?: string) => (
-    <button onClick={onClick} title={title} style={{ background: 'none', border: 'none', cursor: 'pointer', color: color ?? t.textMuted, padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
+    <button onClick={onClick} title={title} className="sb-hdr-btn" style={color ? { color } : undefined}>
       {icon}
     </button>
   );
-  const hdrSep = <span style={{ width: 1, height: 16, background: t.border, margin: '0 2px' }} />;
-
+  const hdrSep = <span className="sb-hdr-sep" />;
 
   return (
     <>
-      <aside className="sidebar" style={{ width, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg2, borderLeft: `1px solid ${t.border}`, boxShadow: `-2px 0 10px ${t.shadow}`, flexShrink: 0, zIndex: 1000 }}>
+      <aside className="sidebar" style={{ width, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg2)', borderLeft: '1px solid var(--border-color)', boxShadow: '-2px 0 10px var(--shadow)', flexShrink: 0, zIndex: 1000 }}>
         {/* Resize Handle */}
         <div
           onMouseDown={() => setIsResizing(true)}
@@ -235,20 +232,20 @@ export const Sidebar: React.FC = () => {
         />
 
         {/* Header */}
-        <header style={{ padding: '6px 10px', backgroundColor: t.bg, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
-          <img src="./favicon.svg" style={{ width: 24, height: 24, flexShrink: 0, marginRight: '4px' }} alt="webgraphy logo" />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'nowrap', flex: 1 }}>
+        <header className="sb-header">
+          <img src="./favicon.svg" className="sb-logo" alt="webgraphy logo" />
+          <div className="sb-hdr-btns">
             {hdrBtn(loadDemoData, <FlaskConical size={16} />, 'Load Demo Data')}
-            {hdrBtn(() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }, <RotateCcw size={16} />, 'Reset', t.danger)}
+            {hdrBtn(() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }, <RotateCcw size={16} />, 'Reset', 'var(--danger)')}
             {hdrSep}
             {hdrBtn(handleExportSVG, <FileImage size={16} />, 'Export SVG')}
             {hdrBtn(handleExportPNG, <Image size={16} />, 'Export PNG')}
             {hdrSep}
             {hdrBtn(handleExportSession, <Save size={16} />, 'Save Session')}
-            {hdrBtn(() => sessionInputRef.current?.click(), <FolderOpen size={16} />, 'Load Session')}
+            {hdrBtn(() => { if (sessionInputRef.current) sessionInputRef.current.click(); }, <FolderOpen size={16} />, 'Load Session')}
             {hdrSep}
-            <span style={{ flex: 1 }} />
-            {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? t.accent : t.textMuted)}
+            <span className="sb-spacer" />
+            {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}
             {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
             {hdrSep}
             {hdrBtn(() => setIsCollapsed(true), <X size={16} />, 'Collapse Sidebar')}
@@ -256,17 +253,17 @@ export const Sidebar: React.FC = () => {
         </header>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        <div className="sb-body">
 
           {/* Data Sources Section */}
           <ErrorBoundary level="component">
             <section style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div onClick={() => toggleSection('sources')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
-                  <h2 style={sectionHeadingStyle}>Data Sources</h2>
+                  <h2 className="sb-section-title">Data Sources</h2>
                   {openSections.sources ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
                 </div>
-                <button onClick={() => fileInputRef.current?.click()} style={iconBtnStyle} title="Import File (CSV/JSON)"><FilePlus size={16} /></button>
+                <button onClick={() => fileInputRef.current?.click()} className="sb-icon-btn" title="Import File (CSV/JSON)"><FilePlus size={16} /></button>
               </div>
               <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} style={{ display: 'none' }} />
 
@@ -363,32 +360,32 @@ export const Sidebar: React.FC = () => {
           </ErrorBoundary>
 
           {/* Series Configuration Section */}
-          <section style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div onClick={() => toggleSection('series')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
-                <h2 style={sectionHeadingStyle}>Series Config</h2>
-                {openSections.series ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
+          <section className="sb-section">
+            <div className="sb-section-header">
+              <div onClick={() => toggleSection('series')} className="sb-section-toggle">
+                <h2 className="sb-section-title">Series Config</h2>
+                {openSections.series ? <ChevronDown size={16} color="var(--text-muted-color)" /> : <ChevronRight size={16} color="var(--text-muted-color)" />}
               </div>
             </div>
 
             {openSections.series && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="sb-series-list">
                 {series.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: t.textLight, textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--touch-target-size) var(--touch-target-size) repeat(7, var(--touch-target-size)) 100px 1fr var(--touch-target-size)', gap: '0', padding: '4px 0', borderBottom: `2px solid ${t.border}`, color: t.textLight, alignItems: 'center', position: 'sticky', top: 0, background: t.sectionHeaderBg, zIndex: 1 }}>
-                      <div title="Visibility" style={{ display: 'flex', justifyContent: 'center' }}><Eye size={12} /></div>
-                      <div title="Order" style={{ display: 'flex', justifyContent: 'center' }}><ArrowUpDown size={12} /></div>
-                      <div title="Y-Axis #" style={{ display: 'flex', justifyContent: 'center' }}><Hash size={12} /></div>
-                      <div title="Side (L/R)" style={{ display: 'flex', justifyContent: 'center' }}><MoveHorizontal size={12} /></div>
-                      <div title="Grid" style={{ display: 'flex', justifyContent: 'center' }}><Rows size={12} /></div>
-                      <div title="Line Style" style={{ display: 'flex', justifyContent: 'center' }}><Minus size={12} /></div>
-                      <div title="Line Width" style={{ display: 'flex', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>W</div>
-                      <div title="Point Style" style={{ display: 'flex', justifyContent: 'center' }}><Circle size={10} /></div>
-                      <div title="Color" style={{ display: 'flex', justifyContent: 'center' }}><Palette size={12} /></div>
-                      <div title="Data Column" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>COL</div>
-                      <div title="Series Name" style={{ paddingLeft: '4px', fontSize: '10px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>NAME</div>
+                    <div className="sb-series-header">
+                      <div title="Visibility" className="sb-series-header-cell"><Eye size={12} /></div>
+                      <div title="Order" className="sb-series-header-cell"><ArrowUpDown size={12} /></div>
+                      <div title="Y-Axis #" className="sb-series-header-cell"><Hash size={12} /></div>
+                      <div title="Side (L/R)" className="sb-series-header-cell"><MoveHorizontal size={12} /></div>
+                      <div title="Grid" className="sb-series-header-cell"><Rows size={12} /></div>
+                      <div title="Line Style" className="sb-series-header-cell"><Minus size={12} /></div>
+                      <div title="Line Width" className="sb-series-header-cell" style={{ fontSize: '10px', fontWeight: 'bold' }}>W</div>
+                      <div title="Point Style" className="sb-series-header-cell"><Circle size={10} /></div>
+                      <div title="Color" className="sb-series-header-cell"><Palette size={12} /></div>
+                      <div title="Data Column" className="sb-series-header-cell--text">COL</div>
+                      <div title="Series Name" className="sb-series-header-cell--text">NAME</div>
                       <div />
                     </div>
                     {series.map((s, idx) => (
@@ -396,7 +393,7 @@ export const Sidebar: React.FC = () => {
                         key={s.id}
                         onMouseEnter={() => setHighlightedSeries(s.id)}
                         onMouseLeave={() => setHighlightedSeries(null)}
-                        style={{ transition: 'background 0.2s', borderRadius: '6px' }}
+                        className="sb-series-row"
                       >
                         <SeriesConfigUI
                           series={s}
@@ -404,7 +401,6 @@ export const Sidebar: React.FC = () => {
                           isFirst={idx === 0}
                           isLast={idx === series.length - 1}
                           onMove={(delta) => moveSeries(s.id, delta)}
-                          themeName={themeName}
                         />
                       </div>
                     ))}
@@ -415,34 +411,34 @@ export const Sidebar: React.FC = () => {
           </section>
 
           {/* Views Section */}
-          <section style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div onClick={() => toggleSection('views')} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}>
-                <h2 style={sectionHeadingStyle}>Saved Views</h2>
-                {openSections.views ? <ChevronDown size={16} color={t.textMuted} /> : <ChevronRight size={16} color={t.textMuted} />}
+          <section className="sb-section">
+            <div className="sb-section-header">
+              <div onClick={() => toggleSection('views')} className="sb-section-toggle">
+                <h2 className="sb-section-title">Saved Views</h2>
+                {openSections.views ? <ChevronDown size={16} color="var(--text-muted-color)" /> : <ChevronRight size={16} color="var(--text-muted-color)" />}
               </div>
-              <div style={{ display: 'flex', gap: '2px' }}>
+              <div className="sb-hdr-btns-row">
                 <button
                   onClick={autoDetectViews}
-                  style={iconBtnStyle}
+                  className="sb-icon-btn"
                   title="Auto-detect interesting spots (extrema, steep changes, intersections)"
                 ><Wand2 size={16} /></button>
                 <button
                   onClick={() => { const name = prompt('Enter view name:', `View ${customViews.length + 1}`); if (name) saveView(name); }}
-                  style={iconBtnStyle}
+                  className="sb-icon-btn"
                   title="Save Current View"
                 ><Bookmark size={16} /></button>
               </div>
             </div>
 
             {openSections.views && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="sb-views-list">
                 {customViews.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: t.textLight, textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
                 ) : (
-                  <div style={{ border: `1px solid ${t.border}`, borderRadius: '8px', overflow: 'hidden' }}>
-                    {customViews.map((view, idx) => (
-                      <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', backgroundColor: t.bg, borderTop: idx > 0 ? `1px solid ${t.border}` : 'none' }}>
+                  <div className="sb-view-list-wrap">
+                    {customViews.map((view) => (
+                      <div key={view.id} className="sb-view-item">
                         {editingViewId === view.id ? (
                           <input
                             autoFocus
@@ -450,19 +446,19 @@ export const Sidebar: React.FC = () => {
                             onChange={(e) => setTempViewName(e.target.value)}
                             onBlur={() => { updateViewName(view.id, tempViewName); setEditingViewId(null); }}
                             onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget.blur())}
-                            style={{ flex: 1, fontSize: '0.85rem', border: `1px solid ${t.accent}`, borderRadius: '4px', padding: '2px 4px', background: t.bg, color: t.text }}
+                            className="sb-view-name-input"
                           />
                         ) : (
                           <span
                             onClick={() => applyView(view.id)}
                             onDoubleClick={() => { setEditingViewId(view.id); setTempViewName(view.name); }}
-                            style={{ flex: 1, fontSize: '0.85rem', fontWeight: '600', color: t.textMid, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            className="sb-view-name"
                           >
                             {view.name}
                           </span>
                         )}
-                        <button onClick={() => applyView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.accent }} title="Apply"><Eye size={14} /></button>
-                        <button onClick={() => deleteView(view.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete"><Trash2 size={14} /></button>
+                        <button onClick={() => applyView(view.id)} className="sb-view-btn" title="Apply"><Eye size={14} /></button>
+                        <button onClick={() => deleteView(view.id)} className="sb-view-btn--danger" title="Delete"><Trash2 size={14} /></button>
                       </div>
                     ))}
                   </div>
@@ -474,16 +470,16 @@ export const Sidebar: React.FC = () => {
 
         <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
 
-        <footer style={{ padding: '8px 16px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'center', gap: '16px' }}>
-          <button onClick={() => setShowHelp(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}><HelpCircle size={13} /> Help</button>
-          <button onClick={() => setShowLicense(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>License</button>
-          <button onClick={() => setShowImprint(true)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', fontSize: '0.75rem' }}>Imprint</button>
+        <footer className="sb-footer">
+          <button onClick={() => setShowHelp(true)} className="sb-footer-btn"><HelpCircle size={13} /> Help</button>
+          <button onClick={() => setShowLicense(true)} className="sb-footer-btn">License</button>
+          <button onClick={() => setShowImprint(true)} className="sb-footer-btn">Imprint</button>
         </footer>
       </aside>
 
       {/* Modals */}
-      {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} theme={t} />}
-      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} theme={t} />}
+      {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
+      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
@@ -491,3 +487,4 @@ export const Sidebar: React.FC = () => {
     </>
   );
 };
+;

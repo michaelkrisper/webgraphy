@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Settings2, Table, Columns, FileType, ArrowRight, Hash, Clock, Type, EyeOff } from 'lucide-react';
+import { Check, Settings2, Table, FileType, ArrowRight, Hash, Clock, Type, EyeOff } from 'lucide-react';
 import { secureJSONParse } from '../../utils/json';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
 import { Modal } from './Modal';
-import { type Theme } from '../../themes';
 
 interface ImportSettingsDialogProps {
   fileName: string;
@@ -11,7 +10,6 @@ interface ImportSettingsDialogProps {
   fileType: 'csv' | 'json';
   onConfirm: (settings: ImportSettings) => void | Promise<void>;
   onCancel: () => void;
-  theme: Theme;
 }
 
 function detectDelimiter(fileContent: string, fileType: 'csv' | 'json'): string {
@@ -53,8 +51,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   fileContent,
   fileType,
   onConfirm,
-  onCancel,
-  theme: t
+  onCancel
 }) => {
   const [delimiter, setDelimiter] = useState<string>(() => detectDelimiter(fileContent, fileType));
   const [decimalPoint, setDecimalPoint] = useState<string>('.');
@@ -131,9 +128,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
     <Modal
       onClose={onCancel}
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FileType size={24} color={t.accent} />
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: t.text }}>Import Settings: {fileName}</h2>
+        <div className="isd-title-row">
+          <FileType size={24} color="var(--accent)" />
+          <h2 className="modal-title">Import Settings: {fileName}</h2>
         </div>
       }
       maxWidth="100%"
@@ -143,36 +140,30 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
       borderRadius="0"
       padding="0"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px', borderTop: `1px solid ${t.border}`, backgroundColor: t.bg2 }}>
-          <button
-            onClick={onCancel}
-            style={{ padding: '10px 24px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600' }}
-          >
+        <div className="isd-footer">
+          <button onClick={onCancel} className="isd-btn-cancel">
             Cancel
           </button>
-          <button
-            onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs, xAxisColumn })}
-            style={{ padding: '10px 24px', borderRadius: '6px', border: 'none', background: t.accent, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 'bold', boxShadow: `0 2px 4px ${t.shadow}` }}
-          >
+          <button onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs, xAxisColumn })} className="isd-btn-confirm">
             <Check size={18} /> Import Data
           </button>
         </div>
       }
     >
-      <div style={{ padding: '20px', backgroundColor: t.bg }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <Settings2 size={18} color={t.textMuted} />
-          <h3 style={{ margin: 0, fontSize: '0.9rem', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>General Settings</h3>
+      <div className="isd-body">
+        <div className="isd-section-header">
+          <Settings2 size={18} color="var(--text-muted-color)" />
+          <h3 className="isd-section-title">General Settings</h3>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '20px', marginBottom: '30px', padding: '20px', backgroundColor: t.bg2, borderRadius: '8px', border: `1px solid ${t.border}` }}>
+        <div className="isd-general-fields">
           {fileType === 'csv' && (
-            <div style={{ flex: '1 1 150px' }}>
-              <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Delimiter</label>
+            <div className="isd-field-group-md">
+              <label htmlFor="import-delimiter" className="isd-field-label">Delimiter</label>
               <select
                 id="import-delimiter"
                 value={delimiter}
                 onChange={e => setDelimiter(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, height: '40px', fontSize: '14px' }}
+                className="isd-select"
               >
                 <option value=",">Comma (,)</option>
                 <option value=";">Semicolon (;)</option>
@@ -181,34 +172,34 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               </select>
             </div>
           )}
-          <div style={{ flex: '1 1 150px' }}>
-            <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Decimal Point</label>
+          <div className="isd-field-group-md">
+            <label htmlFor="import-decimal" className="isd-field-label">Decimal Point</label>
             <select
               id="import-decimal"
               value={decimalPoint}
               onChange={e => setDecimalPoint(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, height: '40px', fontSize: '14px' }}
+              className="isd-select"
             >
               <option value=".">Dot (.)</option>
               <option value=",">Comma (,)</option>
             </select>
           </div>
           {fileType === 'csv' && (
-            <div style={{ flex: '1 1 100px' }}>
-              <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Start Row</label>
+            <div className="isd-field-group-sm">
+              <label htmlFor="import-start-row" className="isd-field-label">Start Row</label>
               <input
                 id="import-start-row"
                 type="number"
                 min="1"
                 value={startRow}
                 onChange={e => setStartRow(parseInt(e.target.value) || 1)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, height: '40px', fontSize: '14px' }}
+                className="isd-input"
               />
             </div>
           )}
-          <div style={{ flex: '2 1 200px' }}>
-            <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="isd-field-group-lg">
+            <label htmlFor="import-x-axis" className="isd-field-label">
+              <div className="isd-field-label-row">
                 X-Axis Column <ArrowRight size={14} />
               </div>
             </label>
@@ -216,7 +207,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               id="import-x-axis"
               value={xAxisColumn}
               onChange={e => setXAxisColumnOverride(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, height: '40px', fontSize: '14px' }}
+              className="isd-select"
             >
               {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
                 <option key={c.index} value={c.name}>{c.name}</option>
@@ -225,50 +216,29 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <Table size={18} color={t.textMuted} />
-          <h3 style={{ margin: 0, fontSize: '0.9rem', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Column Configuration & Preview</h3>
+        <div className="isd-section-header">
+          <Table size={18} color="var(--text-muted-color)" />
+          <h3 className="isd-section-title">Column Configuration & Preview</h3>
         </div>
 
-        <div style={{ position: 'relative', border: `1px solid ${t.border}`, borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px' }}>
+        <div className="isd-table-wrap">
+          <div className="isd-table-scroll">
+            <table className="isd-table">
               <thead>
                 <tr>
                   {columnConfigs.map((config, i) => (
-                    <th key={i} style={{
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 10,
-                      backgroundColor: t.bg2,
-                      borderBottom: `2px solid ${t.border}`,
-                      borderRight: i < columnConfigs.length - 1 ? `1px solid ${t.border}` : 'none',
-                      padding: '8px',
-                      textAlign: 'left',
-                      minWidth: '80px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <th key={i} className="isd-col-header" style={{ borderRight: i < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                      <div className="isd-col-name-row">
                         <input
                           type="text"
                           maxLength={100}
                           value={config.name}
                           aria-label={`Column ${i + 1} name`}
                           onChange={e => handleUpdateColumn(i, { name: e.target.value })}
-                          style={{
-                            flex: 1,
-                            fontWeight: 'bold',
-                            border: 'none',
-                            background: 'transparent',
-                            padding: '2px',
-                            fontSize: '12px',
-                            color: t.text,
-                            outline: 'none',
-                            borderBottom: `1px dashed ${t.border2}`,
-                            width: '100%'
-                          }}
+                          className="isd-col-name-input"
                         />
                       </div>
-                      <div style={{ display: 'flex', gap: '2px' }}>
+                      <div className="isd-type-btns">
                         {[
                           { type: 'numeric', icon: Hash, label: 'Numeric' },
                           { type: 'date', icon: Clock, label: 'Date/Time' },
@@ -279,19 +249,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                             key={opt.type}
                             title={`Type: ${opt.label}`}
                             onClick={() => handleUpdateColumn(i, { type: opt.type as ColumnType })}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '4px',
-                              border: `1px solid ${config.type === opt.type ? t.accent : t.border}`,
-                              background: config.type === opt.type ? t.accent : t.bg,
-                              color: config.type === opt.type ? '#fff' : t.textMuted,
-                              cursor: 'pointer',
-                              padding: 0
-                            }}
+                            className={config.type === opt.type ? 'isd-type-btn isd-type-btn--active' : 'isd-type-btn isd-type-btn--inactive'}
                           >
                             <opt.icon size={12} />
                           </button>
@@ -305,7 +263,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                           aria-label={`Column ${i + 1} date format`}
                           value={config.dateFormat || ''}
                           onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
-                          style={{ width: '100%', fontSize: '11px', padding: '4px 6px', border: `1px solid ${t.border}`, borderRadius: '4px', background: t.bg, color: t.text, marginTop: '4px' }}
+                          className="isd-date-input"
                         />
                       )}
                     </th>
@@ -314,19 +272,16 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               </thead>
               <tbody>
                 {previewData.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex} style={{ backgroundColor: rowIndex % 2 === 0 ? t.bg : t.bg2 }}>
+                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'isd-data-row-even' : 'isd-data-row-odd'}>
                     {columnConfigs.map((config, colIndex) => (
-                      <td key={colIndex} style={{
-                        borderBottom: `1px solid ${t.border}`,
-                        borderRight: colIndex < columnConfigs.length - 1 ? `1px solid ${t.border}` : 'none',
-                        padding: '4px 8px',
-                        color: config.type === 'ignore' ? t.textLight : t.text,
-                        backgroundColor: config.type === 'ignore' ? t.bg3 : 'transparent',
+                      <td key={colIndex} className="isd-td" style={{
+                        borderRight: colIndex < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none',
+                        color: config.type === 'ignore' ? 'var(--text-light)' : 'var(--text-color)',
+                        backgroundColor: config.type === 'ignore' ? 'var(--bg3)' : 'transparent',
                         opacity: config.type === 'ignore' ? 0.6 : 1,
-                        whiteSpace: 'nowrap',
+                        maxWidth: '120px',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '120px'
+                        textOverflow: 'ellipsis'
                       }}>
                         {fileType === 'json'
                           ? (row as Record<string, string>)[previewData.headers[colIndex]]
