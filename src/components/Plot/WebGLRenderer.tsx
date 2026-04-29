@@ -2,8 +2,23 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
 
+function stringHash(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return h;
+}
 
-
+function lttbCacheHash(dsIdHash: number, xIdx: number, yIdx: number, startIdx: number, endIdx: number, threshold: number): number {
+  let h = dsIdHash;
+  h = (Math.imul(h ^ xIdx, 0x9e3779b9) >>> 0);
+  h = (Math.imul(h ^ yIdx, 0x9e3779b9) >>> 0);
+  h = (Math.imul(h ^ startIdx, 0x9e3779b9) >>> 0);
+  h = (Math.imul(h ^ endIdx, 0x9e3779b9) >>> 0);
+  h = (Math.imul(h ^ threshold, 0x9e3779b9) >>> 0);
+  return h;
+}
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -206,7 +221,7 @@ function lttbFloat32(xData: Float32Array, yData: Float32Array, startIdx: number,
 interface LttbCacheEntry {
   xOut: Float32Array;
   yOut: Float32Array;
-  key: string;
+  key: number;
 }
 
 /**
@@ -221,7 +236,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const sharedBufferRef = useRef<Float32Array | null>(null);
-  const lttbCacheRef = useRef<Map<string, LttbCacheEntry>>(new Map());
+  const lttbCacheRef = useRef<Map<number, LttbCacheEntry>>(new Map());
+  const dsIdHashRef = useRef<Map<string, number>>(new Map());
 
   // Buffer pool to avoid per-frame allocations
   const getSharedBuffer = (size: number) => {
@@ -280,7 +296,11 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     buffersRef.current.forEach(buf => gl.deleteBuffer(buf));
     buffersRef.current.clear();
     segParamsRef.current.clear();
+    dsIdHashRef.current.clear();
     lttbCacheRef.current.clear();
+    datasets.forEach((ds: Dataset) => {
+      dsIdHashRef.current.set(ds.id, stringHash(ds.id));
+    });
   }, [datasets]);
 
   const seriesMetadata = useMemo(() => {
@@ -393,7 +413,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let drawCount: number;
 
       if (numPoints > lttbThreshold) {
-        const cacheKey = `lttb-${ds.id}-${xIdx}-${yIdx}-${startIdx}-${endIdx}-${lttbThreshold}`;
+        const dsHash = dsIdHashRef.current.get(ds.id) ?? stringHash(ds.id);
+        const cacheKey = lttbCacheHash(dsHash, xIdx, yIdx, startIdx, endIdx, lttbThreshold);
         let cached = lttbCacheRef.current.get(cacheKey);
         if (!cached || cached.key !== cacheKey) {
           const result = lttbFloat32(xData, yData, startIdx, endIdx, lttbThreshold);
