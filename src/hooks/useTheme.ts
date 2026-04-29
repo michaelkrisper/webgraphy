@@ -49,6 +49,29 @@ function applyTheme(t: ThemeName) {
   s.setProperty('--plot-bg', theme.plotBg);
   s.setProperty('--sidebar-bg', theme.bg2);
   s.setProperty('--border-color', theme.border);
+  s.setProperty('--bg', theme.bg);
+  s.setProperty('--bg2', theme.bg2);
+  s.setProperty('--bg3', theme.bg3);
+  s.setProperty('--border2', theme.border2);
+  s.setProperty('--accent', theme.accent);
+  s.setProperty('--danger', theme.danger);
+  s.setProperty('--shadow', theme.shadow);
+  s.setProperty('--text-mid', theme.textMid);
+  s.setProperty('--text-light', theme.textLight);
+  s.setProperty('--select-bg', theme.selectBg);
+  s.setProperty('--select-color', theme.selectColor);
+  s.setProperty('--btn-border', theme.btnBorder);
+  s.setProperty('--btn-color', theme.btnColor);
+  s.setProperty('--card-border', theme.cardBorder);
+  s.setProperty('--section-header-bg', theme.sectionHeaderBg);
+  s.setProperty('--axis-color', theme.axisColor);
+  s.setProperty('--tooltip-bg', theme.tooltipBg);
+  s.setProperty('--tooltip-color', theme.tooltipColor);
+  s.setProperty('--tooltip-border', theme.tooltipBorder);
+  s.setProperty('--snap-line-color', theme.snapLineColor);
+  s.setProperty('--tooltip-divider-color', theme.tooltipDividerColor);
+  s.setProperty('--tooltip-sub-color', theme.tooltipSubColor);
+  s.setProperty('--no-data-color', theme.noDataColor);
   listeners.forEach(cb => cb());
 }
 
