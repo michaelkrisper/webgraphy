@@ -67,9 +67,12 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock hooks
-vi.mock('../../../store/useGraphStore', () => ({
-  useGraphStore: vi.fn(),
-}));
+vi.mock('../../../store/useGraphStore', () => {
+  const store = vi.fn();
+  (store as any).getState = vi.fn();
+  (store as any).setState = vi.fn();
+  return { useGraphStore: store };
+});
 
 vi.mock('../../../hooks/useDataImport', () => ({
   useDataImport: vi.fn(),
@@ -230,6 +233,51 @@ describe('Sidebar Component', () => {
 
     render(<Sidebar />);
     expect(screen.getByTestId('import-settings-dialog')).toBeInTheDocument();
+  });
+
+  it('does not disable the button for an already used data column', () => {
+    const mockDatasets = [
+      { id: 'ds-1', name: 'Dataset 1', columns: ['time', 'value1', 'value2'], xAxisColumn: 'time', xAxisId: 'axis-1' }
+    ];
+    const mockSeries = [
+      { id: 's-1', sourceId: 'ds-1', yColumn: 'value1', yAxisId: 'axis-1', hidden: false }
+    ];
+    const mockXAxes = [{ id: 'axis-1', name: 'X-Axis 1', xMode: 'numeric' }];
+    const mockAddSeries = vi.fn();
+
+    (useGraphStore as unknown as Mock).mockReturnValue({
+      datasets: mockDatasets,
+      series: mockSeries,
+      xAxes: mockXAxes,
+      yAxes: [],
+      axisTitles: [],
+      views: [],
+      removeDataset: vi.fn(),
+      updateDataset: vi.fn(),
+      updateXAxis: vi.fn(),
+      setHighlightedSeries: vi.fn(),
+    });
+
+    // Mock useGraphStore.getState()
+    (useGraphStore.getState as unknown as Mock).mockReturnValue({
+      addSeries: mockAddSeries,
+    });
+
+    render(<Sidebar />);
+
+    // value1 is used, but its button should NOT be disabled anymore
+    const value1Button = screen.getByRole('button', { name: 'value1' });
+    expect(value1Button).not.toBeDisabled();
+    expect(value1Button).toHaveStyle({ opacity: '0.7' });
+
+    // Clicking it should call addSeries
+    fireEvent.click(value1Button);
+    expect(mockAddSeries).toHaveBeenCalled();
+
+    // value2 is not used, so its button should be enabled and full opacity
+    const value2Button = screen.getByRole('button', { name: 'value2' });
+    expect(value2Button).not.toBeDisabled();
+    expect(value2Button).toHaveStyle({ opacity: '1' });
   });
 
 });
