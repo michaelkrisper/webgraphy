@@ -1,15 +1,13 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { type SeriesConfig } from '../../services/persistence';
-import { type Theme } from '../../themes';
 
 interface ChartLegendProps {
   series: SeriesConfig[];
-  theme: Theme;
   onToggleVisibility: (id: string, hidden: boolean) => void;
   onHighlight: (id: string | null) => void;
 }
 
-export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggleVisibility, onHighlight }) => {
+export const ChartLegend: React.FC<ChartLegendProps> = ({ series, onToggleVisibility, onHighlight }) => {
   const [position, setPosition] = useState({ x: 20, y: 20 });
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,25 +46,8 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggl
     <div
       ref={containerRef}
       onMouseDown={handleMouseDown}
-      style={{
-        position: 'absolute',
-        left: position.x,
-        top: position.y,
-        zIndex: 25,
-        backgroundColor: theme.tooltipBg,
-        border: `1px solid ${theme.tooltipBorder}`,
-        borderRadius: '6px',
-        padding: '6px 10px',
-        cursor: 'grab',
-        userSelect: 'none',
-        fontSize: '11px',
-
-        color: theme.tooltipColor,
-        boxShadow: `0 2px 8px ${theme.shadow}`,
-        maxWidth: '300px',
-        maxHeight: '400px',
-        overflowY: 'auto',
-      }}
+      className="legend-container"
+      style={{ left: position.x, top: position.y }}
     >
       {visibleSeries.map(s => (
         <div
@@ -75,17 +56,10 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggl
           onClick={(e) => { e.stopPropagation(); onToggleVisibility(s.id, !s.hidden); }}
           onMouseEnter={() => onHighlight(s.id)}
           onMouseLeave={() => onHighlight(null)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '2px 0',
-            cursor: 'pointer',
-            opacity: s.hidden ? 0.35 : 1,
-            transition: 'opacity 0.15s',
-          }}
+          className="legend-item"
+          style={{ opacity: s.hidden ? 0.35 : 1, transition: 'opacity 0.15s' }}
         >
-          <svg width="20" height="10" style={{ flexShrink: 0 }}>
+          <svg width="20" height="10" className="legend-line-icon">
             {s.lineStyle !== 'none' && (
               <line
                 x1="0" y1="5" x2="20" y2="5"
@@ -98,10 +72,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, theme, onToggl
             {s.pointStyle === 'square' && <rect x="7.5" y="2.5" width="5" height="5" fill={s.pointColor} />}
             {s.pointStyle === 'cross' && <path d="M7.5 2.5 L12.5 7.5 M12.5 2.5 L7.5 7.5" stroke={s.pointColor} strokeWidth="1.5" />}
           </svg>
-          <span style={{
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            textDecoration: s.hidden ? 'line-through' : 'none',
-          }}>
+          <span className={`legend-label${s.hidden ? ' legend-label--hidden' : ''}`}>
             {s.name || s.yColumn}
           </span>
         </div>

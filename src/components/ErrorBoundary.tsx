@@ -54,49 +54,19 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.level === 'top') {
         return (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              height: '100vh',
-              fontFamily: 'sans-serif',
-              padding: '20px',
-              backgroundColor: '#f5f5f5',
-            }}
-          >
-            <h1 style={{ color: '#d32f2f', marginBottom: '20px' }}>
+          <div className="error-page">
+            <h1>
               Application Error
             </h1>
-            <p style={{ color: '#666', marginBottom: '10px' }}>
+            <p>
               {this.state.error?.message || 'An unexpected error occurred'}
             </p>
-            <pre
-              style={{
-                backgroundColor: '#fff',
-                padding: '10px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '200px',
-                overflow: 'auto',
-                marginBottom: '20px',
-                border: '1px solid #ccc',
-              }}
-            >
+            <pre>
               {this.state.errorInfo?.componentStack}
             </pre>
             <button
               onClick={this.handleReset}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#1976d2',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-              }}
+              className="error-page-reset"
             >
               Reset App
             </button>
@@ -104,32 +74,14 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         );
       } else {
         return (
-          <div
-            style={{
-              padding: '20px',
-              border: '1px solid #d32f2f',
-              borderRadius: '4px',
-              backgroundColor: '#ffebee',
-              color: '#d32f2f',
-              fontFamily: 'sans-serif',
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Rendering failed</h3>
-            <p style={{ fontSize: '14px' }}>
+          <div className="error-component">
+            <h3>Rendering failed</h3>
+            <p>
               {this.state.error?.message || 'An unexpected error occurred'}
             </p>
             <button
               onClick={this.handleReset}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#d32f2f',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                marginRight: '8px',
-              }}
+              className="error-component-reset"
             >
               Retry
             </button>

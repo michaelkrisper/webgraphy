@@ -68,9 +68,9 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock hooks
 vi.mock('../../../store/useGraphStore', () => {
-  const store = vi.fn();
-  (store as any).getState = vi.fn();
-  (store as any).setState = vi.fn();
+  const store = vi.fn() as ReturnType<typeof vi.fn> & { getState: ReturnType<typeof vi.fn>; setState: ReturnType<typeof vi.fn> };
+  store.getState = vi.fn();
+  store.setState = vi.fn();
   return { useGraphStore: store };
 });
 
@@ -137,8 +137,8 @@ describe('Sidebar Component', () => {
     render(<Sidebar />);
 
     // Check it's not collapsed (sidebar-content visible)
-    const sidebar = screen.getByRole('complementary');
-    // expect(sidebar.style.width).not.toBe('0px');
+    screen.getByRole('complementary');
+    // expect(screen.getByRole('complementary').style.width).not.toBe('0px');
 
     // Click collapse
     // const collapseBtn = screen.getByLabelText('Collapse Menu');

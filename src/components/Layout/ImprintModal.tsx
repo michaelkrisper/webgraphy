@@ -13,15 +13,15 @@ export const ImprintModal: React.FC<ImprintModalProps> = ({ onClose }) => {
       maxWidth="500px"
       ariaLabel="Close Imprint"
     >
-      <p style={{ lineHeight: '1.6', color: '#444' }}>
+      <p className="imprint-text">
         <strong>Michael Krisper</strong><br />
         GitHub Repository: <br />
-        <a href="https://github.com/michaelkrisper/webgraphy" target="_blank" rel="noopener noreferrer" style={{ color: '#007bff' }}>
+        <a href="https://github.com/michaelkrisper/webgraphy" target="_blank" rel="noopener noreferrer" className="imprint-link">
           https://github.com/michaelkrisper/webgraphy
         </a>
       </p>
 
-      <p style={{ fontSize: '0.85em', color: '#666', marginTop: '30px', lineHeight: '1.5' }}>
+      <p className="imprint-note">
         This open-source project provides high-performance data visualization in the browser.
       </p>
     </Modal>

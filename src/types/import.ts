@@ -11,6 +11,7 @@ export interface ImportSettings {
   delimiter: string;
   decimalPoint: string;
   startRow: number;
+  commentChar: string;
   columnConfigs: ColumnConfig[];
   xAxisColumn?: string;
 }

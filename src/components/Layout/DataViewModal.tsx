@@ -2,19 +2,17 @@ import React from 'react';
 import { type Dataset } from '../../services/persistence';
 import { formatFullDate } from '../../utils/time';
 import { Modal } from './Modal';
-import { type Theme } from '../../themes';
 
 interface DataViewModalProps {
   dataset: Dataset;
   onClose: () => void;
-  theme: Theme;
 }
 
 /**
  * DataViewModal Component
  * Displays a table of the dataset's values (up to 100 rows).
  */
-export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose, theme: t }) => {
+export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }) => {
   const maxRows = Math.min(dataset.rowCount, 100);
   const rows = Array.from({ length: maxRows }, (_, i) => i);
   const displayName = dataset.name.includes(': ') ? dataset.name.split(': ')[1] : dataset.name;
@@ -23,30 +21,33 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose, 
     <Modal
       onClose={onClose}
       title={`Data Source: ${displayName}`}
-      maxWidth="1000px"
-      width="95%"
+      maxWidth="100vw"
+      width="100vw"
+      height="100vh"
+      maxHeight="100vh"
       padding="16px"
+      borderRadius="0"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div className="dv-footer">
           <button
             onClick={onClose}
-            style={{ padding: '8px 24px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, cursor: 'pointer', fontWeight: 'bold', minHeight: '36px', fontSize: '0.9rem' }}
+            className="dv-close-btn"
           >
             Close
           </button>
         </div>
       }
     >
-      <div style={{ marginBottom: '12px', fontSize: '0.9rem', color: t.textMuted }}>
+      <div className="dv-meta">
         Showing first {maxRows} of {dataset.rowCount.toLocaleString()} rows.
       </div>
 
-      <div style={{ overflowX: 'auto', border: `1px solid ${t.border}`, borderRadius: '4px', backgroundColor: t.bg }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr style={{ backgroundColor: t.bg2, borderBottom: `2px solid ${t.border}` }}>
+      <div className="dv-table-wrap">
+        <table className="dv-table">
+          <thead className="dv-thead">
+            <tr>
               {(dataset.columns || []).map((col, i) => (
-                <th key={i} style={{ border: `1px solid ${t.border}`, padding: '6px 10px', textAlign: 'left', whiteSpace: 'nowrap', color: t.textMid }}>
+                <th key={i} className="dv-th">
                   {col.includes(': ') ? col.split(': ')[1] : col}
                 </th>
               ))}
@@ -54,7 +55,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose, 
           </thead>
           <tbody>
             {rows.map(rowIndex => (
-              <tr key={rowIndex} style={{ borderBottom: `1px solid ${t.border}`, backgroundColor: rowIndex % 2 === 0 ? t.bg : t.bg2 }}>
+              <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'dv-tr-even' : 'dv-tr-odd'}>
                 {(dataset.data || []).map((colData, colIndex) => {
                   const rawValue = colData.data[rowIndex];
                   const absoluteValue = rawValue + colData.refPoint;
@@ -72,7 +73,7 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose, 
                   }
 
                   return (
-                    <td key={colIndex} style={{ border: `1px solid ${t.border}`, padding: '4px 8px', color: t.text }}>
+                    <td key={colIndex} className="dv-td">
                       {displayValue}
                     </td>
                   );

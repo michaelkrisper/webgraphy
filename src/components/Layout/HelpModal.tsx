@@ -6,10 +6,10 @@ interface HelpModalProps {
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode; first?: boolean }> = ({ title, children, first }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '0 24px', marginBottom: '20px' }}>
-    {!first && <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #ddd', margin: '0 20px 16px' }} />}
-    <div style={{ fontSize: '1em', fontWeight: 600, color: '#111', paddingTop: '2px' }}>{title}</div>
-    <ul style={{ margin: 0, paddingLeft: '18px', color: '#444', lineHeight: '1.6' }}>
+  <div className="help-section">
+    {!first && <div className="help-section-divider" />}
+    <div className="help-section-title">{title}</div>
+    <ul className="help-section-list">
       {children}
     </ul>
   </div>
@@ -21,7 +21,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       onClose={onClose}
       title="Help & Interactions"
       maxWidth="720px"
-      padding="30px"
+      padding="16px"
       ariaLabel="Close Help"
     >
       <Section title="Plot Area" first>

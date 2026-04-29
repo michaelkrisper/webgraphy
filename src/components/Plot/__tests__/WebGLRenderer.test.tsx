@@ -70,8 +70,8 @@ describe('WebGLRenderer Downsampling', () => {
   };
 
   it('renders without downsampling when points <= 50000', () => {
-    const xData = new Float32Array(50000).map((_, i) => i);
-    const yData = new Float32Array(50000).map((_, i) => secureRandom());
+    const xData = new Float32Array(50000).map((_v, i) => i);
+    const yData = new Float32Array(50000).map(() => secureRandom());
 
     const props = {
       ...baseProps,
@@ -108,8 +108,8 @@ describe('WebGLRenderer Downsampling', () => {
   });
 
   it('renders with downsampling when points > 50000 and isInteracting', () => {
-    const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => secureRandom());
+    const xData = new Float32Array(100000).map((_v, i) => i);
+    const yData = new Float32Array(100000).map(() => secureRandom());
 
     const props = {
       ...baseProps,
@@ -146,8 +146,8 @@ describe('WebGLRenderer Downsampling', () => {
   });
 
   it('renders without downsampling when points > 50000 but not interacting', () => {
-    const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => secureRandom());
+    const xData = new Float32Array(100000).map((_v, i) => i);
+    const yData = new Float32Array(100000).map(() => secureRandom());
 
     const props = {
       ...baseProps,
@@ -184,8 +184,8 @@ describe('WebGLRenderer Downsampling', () => {
   });
 
   it('handles dashed lines downsampling appropriately', () => {
-    const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => secureRandom());
+    const xData = new Float32Array(100000).map((_v, i) => i);
+    const yData = new Float32Array(100000).map(() => secureRandom());
 
     const props = {
       ...baseProps,
@@ -225,8 +225,8 @@ describe('WebGLRenderer Downsampling', () => {
   });
 
   it('handles point styles downsampling appropriately', () => {
-    const xData = new Float32Array(100000).map((_, i) => i);
-    const yData = new Float32Array(100000).map((_, i) => secureRandom());
+    const xData = new Float32Array(100000).map((_v, i) => i);
+    const yData = new Float32Array(100000).map(() => secureRandom());
 
     const props = {
       ...baseProps,

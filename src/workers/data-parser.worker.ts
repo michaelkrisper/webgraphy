@@ -13,6 +13,7 @@ interface ParseSettings {
   delimiter?: string;
   decimalPoint?: string;
   startRow?: number;
+  commentChar?: string;
   columnConfigs?: ColumnConfigEntry[];
   xAxisColumn?: string;
 }
@@ -222,7 +223,7 @@ function processCSVRow(
 }
 
 async function parseCSV(file: File, settings?: ParseSettings) {
-  const { delimiter = ',', decimalPoint = '.', startRow = 1, columnConfigs = [] } = settings || {};
+  const { delimiter = ',', decimalPoint = '.', startRow = 1, commentChar, columnConfigs = [] } = settings || {};
 
   const stream = file.stream();
   const reader = stream.getReader();
@@ -270,6 +271,12 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
+      
+      // Skip lines that start with the comment character
+      if (commentChar && line.startsWith(commentChar)) {
+        continue;
+      }
+
       if (!line) {
         if (!done || i < lines.length - 1 || line.length > 0) {
             // Only increment lineCount if it's an actual empty line in the middle of the file
