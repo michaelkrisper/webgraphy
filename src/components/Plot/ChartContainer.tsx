@@ -54,6 +54,8 @@ interface GridLinesProps {
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
   gridColor: string;
+  xViewports: Array<{ id: string; xMin: number; xMax: number }>;
+  yViewports: Array<{ id: string; xMin: number; xMax: number; yMin: number; yMax: number }>;
 }
 
 interface XAxisMetrics {
@@ -118,27 +120,28 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric') => {
   };
 };
 
-const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, gridColor }: GridLinesProps) => {
+const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, gridColor, xViewports, yViewports }: GridLinesProps) => {
   return (
     <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
       {xAxes.length > 0 && (() => {
         const axis = xAxes[0];
-        const state = useGraphStore.getState();
-        const conf = state.xAxes.find(a => a.id === axis.id);
-        if (!conf) return null;
-        const vp = { xMin: conf.min, xMax: conf.max, yMin: 0, yMax: 100, width, height, padding };
+        const vp = xViewports.find(v => v.id === axis.id);
+        if (!vp) return null;
+        const viewport = { xMin: vp.xMin, xMax: vp.xMax, yMin: 0, yMax: 100, width, height, padding };
         return axis.ticks.result.map((t: number | TimeTick) => {
           const timestamp = typeof t === 'number' ? t : t.timestamp;
-          const { x } = worldToScreen(timestamp, 0, vp);
+          const { x } = worldToScreen(timestamp, 0, viewport);
           if (x < padding.left || x > width - padding.right) return null;
           return <line key={`gx-${timestamp}`} x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" />;
         });
       })()}
       {yAxes.map((axis) => {
         if (!axis.showGrid || height <= padding.top + padding.bottom) return null;
-        const mainXConf = useGraphStore.getState().xAxes[0];
+        const vp = yViewports.find(v => v.id === axis.id);
+        if (!vp) return null;
+        const viewport = { xMin: vp.xMin, xMax: vp.xMax, yMin: axis.min, yMax: axis.max, width, height, padding };
         return axis.ticks.map(t => {
-          const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
+          const { y } = worldToScreen(vp.xMin, t, viewport);
           if (y < padding.top || y > height - padding.bottom) return null;
           return <line key={`gy-${axis.id}-${t}`} x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={gridColor} strokeWidth="1" />;
         });
@@ -896,10 +899,26 @@ const ChartContainer: React.FC = () => {
     });
   }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]) as XAxisLayout[];
 
+  const gridXViewports = useMemo(() =>
+    activeXAxesUsed.map(axis => ({ id: axis.id, xMin: axis.min, xMax: axis.max })),
+    [activeXAxesUsed]
+  );
+
+  const gridYViewports = useMemo(() =>
+    activeYAxesLayout.map(axis => ({
+      id: axis.id,
+      xMin: xAxes[0]?.min ?? 0,
+      xMax: xAxes[0]?.max ?? 1,
+      yMin: axis.min,
+      yMax: axis.max,
+    })),
+    [activeYAxesLayout, xAxes]
+  );
+
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
-      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} />
+      <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
           <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
