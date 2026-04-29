@@ -71,8 +71,6 @@ interface AxesLayerProps {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
-  leftAxes: YAxisLayout[];
-  rightAxes: YAxisLayout[];
   series: SeriesConfig[];
   axisLayout: Record<string, { total: number; label: number }>;
   allXAxes: XAxisConfig[];
@@ -81,6 +79,8 @@ interface AxesLayerProps {
   zeroLineColor: string;
   labelColor: string;
   secLabelBg: string;
+  leftOffsets: Record<string, number>;
+  rightOffsets: Record<string, number>;
 }
 
 interface CrosshairProps {
@@ -147,7 +147,7 @@ const GridLines = React.memo(({ xAxes, yAxes, width, height, padding, gridColor 
   );
 });
 
-const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, rightAxes, series, axisLayout, allXAxes, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg }: AxesLayerProps) => {
+const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, axisLayout, allXAxes, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg, leftOffsets, rightOffsets }: AxesLayerProps) => {
   const isMobile = width < 768 || height < 500;
 
   const mainXConf = useMemo(() => allXAxes.find(a => a.id === (xAxes[0]?.id || 'axis-1'))!, [allXAxes, xAxes]);
@@ -167,22 +167,6 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
     }
     return grouped;
   }, [series]);
-
-  const { leftOffsets, rightOffsets } = useMemo(() => {
-    const leftOffsets: Record<string, number> = {};
-    let currentLeftOffset = 0;
-    for (let i = 0; i < leftAxes.length; i++) {
-      leftOffsets[leftAxes[i].id] = currentLeftOffset;
-      currentLeftOffset += axisLayout[leftAxes[i].id]?.total || 40;
-    }
-    const rightOffsets: Record<string, number> = {};
-    let currentRightOffset = 0;
-    for (let i = 0; i < rightAxes.length; i++) {
-      rightOffsets[rightAxes[i].id] = currentRightOffset;
-      currentRightOffset += axisLayout[rightAxes[i].id]?.total || 40;
-    }
-    return { leftOffsets, rightOffsets };
-  }, [leftAxes, rightAxes, axisLayout]);
 
   return (
     <>
@@ -921,7 +905,7 @@ const ChartContainer: React.FC = () => {
           <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
         </ErrorBoundary>
       </div>
-      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
+      <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
       {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; const xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipColor={themeColors.tooltipColor} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
