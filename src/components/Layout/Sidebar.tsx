@@ -5,7 +5,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { THEMES, type ThemeName } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -42,7 +42,7 @@ const THEME_LABELS: Record<ThemeName, string> = {
 export const Sidebar: React.FC = () => {
   const {
     datasets, series, xAxes, yAxes, axisTitles,
-    removeDataset, updateDataset,
+    removeDataset, updateDataset, updateXAxis,
     views, saveView, applyView, deleteView,
     moveSeries, updateViewName, loadDemoData,
     setHighlightedSeries, autoDetectViews,
@@ -298,13 +298,27 @@ export const Sidebar: React.FC = () => {
                       <div style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                           <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Column</label>
-                          <select
-                            value={ds.xAxisColumn}
-                            onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
-                            style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '120px' }}
-                          >
-                            {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <button
+                              onClick={() => {
+                                const axis = xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
+                                if (axis) {
+                                  updateXAxis(axis.id, { xMode: axis.xMode === 'date' ? 'numeric' : 'date' });
+                                }
+                              }}
+                              title={xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'))?.xMode === 'date' ? 'Switch to Numeric Axis' : 'Switch to Time Axis'}
+                              style={{ padding: '2px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '4px', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              {xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={14} /> : <Hash size={14} />}
+                            </button>
+                            <select
+                              value={ds.xAxisColumn}
+                              onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
+                              style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '100px' }}
+                            >
+                              {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
                         </div>
 
                         <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
