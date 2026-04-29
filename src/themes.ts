@@ -141,4 +141,8 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
 };
 
+export const COLOR_PALETTE = [
+  '#2563eb', '#e11d48', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c'
+];
+
 export const THEME_CYCLE: ThemeName[] = ['light', 'dark', 'matrix', 'unicorn'];
