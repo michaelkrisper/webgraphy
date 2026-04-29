@@ -411,7 +411,7 @@ export const Sidebar: React.FC = () => {
           </section>
 
           {/* Views Section */}
-          <section className="sb-section">
+          <section className="sb-section" style={{ marginTop: 'auto' }}>
             <div className="sb-section-header">
               <div onClick={() => toggleSection('views')} className="sb-section-toggle">
                 <h2 className="sb-section-title">Saved Views</h2>

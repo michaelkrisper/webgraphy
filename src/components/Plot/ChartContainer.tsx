@@ -465,7 +465,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
         if (!snap) return;
         const text = snap.entries.map(g => {
-          const itemsText = g.items.map(i => `${i.label}: ${i.value.toLocaleString('de-DE')}`).join('\n');
+          const itemsText = g.items.map(i => `${i.label}: ${i.value.toLocaleString(undefined, { maximumSignificantDigits: 7 })}`).join('\n');
           return `${g.xAxisName}: ${g.xLabel}\n${itemsText}`;
         }).join('\n\n');
         navigator.clipboard.writeText(text);
@@ -582,20 +582,6 @@ const ChartContainer: React.FC = () => {
       startAnimation();
     }
   }, [isLoaded, xAxes, yAxes, startAnimation]);
-
-  useEffect(() => {
-    if (!lastAppliedViewId) return;
-    const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
-    if (!view) return;
-    view.xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
-    if (view.yAxes.length > 0) {
-      view.yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
-    } else {
-      // Auto-scale Y axes when view has no Y axis data (e.g. auto-detected views)
-      activeYAxes.forEach(a => handleAutoScaleY(a.id));
-    }
-    startAnimation();
-  }, [lastAppliedViewId, startAnimation]);
 
   const activeYAxesLayout = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));

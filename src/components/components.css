@@ -709,7 +709,7 @@
 }
 .sb-hdr-sep { width: 1px; height: 16px; background: var(--border-color); margin: 0 2px; }
 .sb-spacer { flex: 1; }
-.sb-body { flex: 1; overflow-y: auto; padding: 16px; }
+.sb-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
 .sb-section { margin-bottom: 24px; }
 .sb-section-header {
   display: flex;

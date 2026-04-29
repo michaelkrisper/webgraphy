@@ -27,20 +27,22 @@ function detectDelimiter(fileContent: string, fileType: 'csv' | 'json'): string 
 
 
 function detectColumnTypeAndFormat(firstVal: string | undefined, decimalPoint: string): { type: ColumnType; dateFormat?: string } {
+  if (!firstVal || firstVal.trim() === '') {
+    return { type: 'ignore' };
+  }
+
   let type: ColumnType = 'numeric';
   let dateFormat: string | undefined;
 
-  if (firstVal) {
-    const normalized = firstVal.replace(decimalPoint, '.');
-    if (isNaN(Number(normalized)) || normalized.split('.').length > 2) {
-      if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
-        type = 'date';
-        if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
-        else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
-        else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
-      } else {
-        type = 'categorical';
-      }
+  const normalized = firstVal.replace(decimalPoint, '.');
+  if (isNaN(Number(normalized)) || normalized.split('.').length > 2) {
+    if (firstVal.includes('-') || firstVal.includes('.') || firstVal.includes('/')) {
+      type = 'date';
+      if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = 'YYYY-MM-DD';
+      else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = 'DD.MM.YYYY';
+      else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = 'DD/MM/YYYY';
+    } else {
+      type = 'categorical';
     }
   }
   return { type, dateFormat };
