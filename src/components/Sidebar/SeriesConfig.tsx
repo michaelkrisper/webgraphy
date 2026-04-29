@@ -3,6 +3,7 @@ import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { THEMES, type ThemeName } from '../../themes';
 import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { ColorPicker } from './ColorPicker';
 
 interface Props {
   series: SeriesConfig;
@@ -168,17 +169,11 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
 
 
       {/* Color Picker */}
-      <input
-        type="color"
-        name={`series-color-${series.id}`}
-        aria-label={`Color for ${series.name || series.yColumn}`}
-        value={series.lineColor}
-        onInput={(e) => {
-          const inputColor = (e.target as HTMLInputElement).value;
-          handleUpdate({ lineColor: inputColor, pointColor: inputColor });
-        }}
-        style={{ width: 'var(--touch-target-size)', height: 'var(--touch-target-size)', padding: 0, border: 'none', borderRight: sep, cursor: 'pointer', flexShrink: 0 }}
-        title="Color"
+      <ColorPicker
+        color={series.lineColor}
+        themeName={themeName}
+        onChange={(newColor) => handleUpdate({ lineColor: newColor, pointColor: newColor })}
+        ariaLabel={`Color for ${series.name || series.yColumn}`}
       />
 
       {/* Y Column Selector */}
