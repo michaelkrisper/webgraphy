@@ -312,7 +312,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
           const range = axis.max - axis.min;
           const chartHeight = Math.max(0, height - padding.top - padding.bottom);
           if (range <= 0 || chartHeight <= 0) return null;
-          const axisSeries = seriesByYAxisId[axis.id] || [], title = axisSeries.map((s: SeriesConfig) => s.name || s.yColumn).join(' / ');
+          const axisSeries = seriesByYAxisId[axis.id] || [];
           const spineX = isLeft ? xPos + axisMetrics.total : xPos;
           const labelX = isLeft ? spineX - 7 - axisMetrics.label : spineX + 7;
           const titleX = isLeft ? xPos + 7.5 : xPos + axisMetrics.total - 7.5;
@@ -324,7 +324,14 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
                 return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: isMobile ? '10px' : '9px', color: labelColor, width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: axisSeries[0]?.lineColor || labelColor, padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: labelColor, padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {axisSeries.map((s, i) => (
+                  <React.Fragment key={s.id}>
+                    {i > 0 && <span style={{ color: labelColor }}> / </span>}
+                    <span style={{ color: s.lineColor }}>{s.name || s.yColumn}</span>
+                  </React.Fragment>
+                ))}
+              </div>
             </React.Fragment>
           );
         })}
