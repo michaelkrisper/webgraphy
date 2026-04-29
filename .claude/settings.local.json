@@ -27,7 +27,12 @@
       "Skill(update-config)",
       "Bash(python3 -m scripts \"C:\\\\Users\\\\Michi\\\\.claude\\\\CLAUDE.md\")",
       "Bash(npx vite *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(cat)",
+      "Bash(node /tmp/check.js)",
+      "Read(//tmp/**)",
+      "Bash(awk '/^const AxesLayer = React.memo/,/^}\\\\\\);/' /c/Users/Michi/webgraphy/src/components/Plot/ChartContainer.tsx)",
+      "Bash(node *)"
     ]
   },
   "defaultShell": "powershell",

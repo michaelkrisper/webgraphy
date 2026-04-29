@@ -69,9 +69,11 @@ describe('WebGLRenderer Downsampling', () => {
     padding: { top: 0, right: 0, bottom: 0, left: 0 },
   };
 
-  it('renders without downsampling when points <= 50000', () => {
-    const xData = new Float32Array(50000).map((_v, i) => i);
-    const yData = new Float32Array(50000).map(() => secureRandom());
+  // lttbThreshold = Math.floor(width * LTTB_THRESHOLD_PER_PX) = Math.floor(800 * 2) = 1600
+
+  it('renders without downsampling when points <= lttbThreshold', () => {
+    const xData = new Float32Array(1000).map((_v, i) => i);
+    const yData = new Float32Array(1000).map(() => secureRandom());
 
     const props = {
       ...baseProps,
@@ -82,7 +84,7 @@ describe('WebGLRenderer Downsampling', () => {
         columns: ['X', 'Y'],
         xAxisColumn: 'X',
         data: [
-          { data: xData, refPoint: 0, min: 0, max: 49999 },
+          { data: xData, refPoint: 0, min: 0, max: 999 },
           { data: yData, refPoint: 0, min: 0, max: 1 }
         ]
       }],
@@ -96,18 +98,18 @@ describe('WebGLRenderer Downsampling', () => {
         lineStyle: 'solid',
         pointStyle: 'none'
       }],
-      xAxes: [{ id: 'x1', min: 0, max: 49999 }],
+      xAxes: [{ id: 'x1', min: 0, max: 999 }],
       yAxes: [{ id: 'y1', min: 0, max: 1 }],
       isInteracting: true
     };
 
     const { unmount } = render(<WebGLRenderer {...props} />);
 
-    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 50000);
+    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 1000);
     unmount();
   });
 
-  it('renders with downsampling when points > 50000 and isInteracting', () => {
+  it('renders with downsampling when points > lttbThreshold', () => {
     const xData = new Float32Array(100000).map((_v, i) => i);
     const yData = new Float32Array(100000).map(() => secureRandom());
 
@@ -141,11 +143,12 @@ describe('WebGLRenderer Downsampling', () => {
 
     const { unmount } = render(<WebGLRenderer {...props} />);
 
-    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 20000);
+    // lttbThreshold = floor(800 * 2) = 1600
+    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 1600);
     unmount();
   });
 
-  it('renders without downsampling when points > 50000 but not interacting', () => {
+  it('renders with downsampling regardless of isInteracting', () => {
     const xData = new Float32Array(100000).map((_v, i) => i);
     const yData = new Float32Array(100000).map(() => secureRandom());
 
@@ -179,7 +182,8 @@ describe('WebGLRenderer Downsampling', () => {
 
     const { unmount } = render(<WebGLRenderer {...props} />);
 
-    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 100000);
+    // lttbThreshold = floor(800 * 2) = 1600; isInteracting does not affect threshold
+    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINE_STRIP, 0, 1600);
     unmount();
   });
 
@@ -217,10 +221,8 @@ describe('WebGLRenderer Downsampling', () => {
 
     const { unmount } = render(<WebGLRenderer {...props} />);
 
-    // For dashed lines: gl.drawArrays(gl.LINES, 0, numSegs * 2);
-    // Draw step = 5, numPoints = 100000. numSegs = Math.floor((100000 - 1) / 5) = 19999
-    // Vertices = 19999 * 2 = 39998
-    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINES, 0, 39998);
+    // lttbThreshold = 1600, drawCount = 1600, numSegs = 1599, vertices = 1599 * 2 = 3198
+    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.LINES, 0, 3198);
     unmount();
   });
 
@@ -258,8 +260,8 @@ describe('WebGLRenderer Downsampling', () => {
 
     const { unmount } = render(<WebGLRenderer {...props} />);
 
-    // For point styles, drawArrays uses POINTS
-    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.POINTS, 0, 20000);
+    // lttbThreshold = 1600, drawCount = 1600
+    expect(mockGl.drawArrays).toHaveBeenCalledWith(mockGl.POINTS, 0, 1600);
     unmount();
   });
 });

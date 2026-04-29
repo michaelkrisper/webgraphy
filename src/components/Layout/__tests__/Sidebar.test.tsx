@@ -218,7 +218,7 @@ describe('Sidebar Component', () => {
     fireEvent.click(screen.getByText('License'));
     expect(screen.getByTestId('license-modal')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Help'));
+    fireEvent.click(screen.getByTitle('Help'));
     expect(screen.getByTestId('help-modal')).toBeInTheDocument();
   });
 

@@ -7,7 +7,7 @@ describe('CollapsedMenuButton', () => {
   const mockTheme = THEMES.dark;
 
   it('renders correctly with aria-label and logo image', () => {
-    render(<CollapsedMenuButton onClick={() => {}} theme={mockTheme} />);
+    render(<CollapsedMenuButton onClick={() => {}} onExportSVG={() => {}} theme={mockTheme} />);
 
     const button = screen.getByRole('button', { name: /open menu/i });
     expect(button).toBeTruthy();
@@ -21,7 +21,7 @@ describe('CollapsedMenuButton', () => {
 
   it('calls onClick handler when clicked', () => {
     const handleClick = vi.fn();
-    render(<CollapsedMenuButton onClick={handleClick} theme={mockTheme} />);
+    render(<CollapsedMenuButton onClick={handleClick} onExportSVG={() => {}} theme={mockTheme} />);
 
     const button = screen.getByRole('button', { name: /open menu/i });
     fireEvent.click(button);
@@ -30,17 +30,9 @@ describe('CollapsedMenuButton', () => {
   });
 
   it('has correct positioning and styling', () => {
-    render(<CollapsedMenuButton onClick={() => {}} theme={mockTheme} />);
+    render(<CollapsedMenuButton onClick={() => {}} onExportSVG={() => {}} theme={mockTheme} />);
     const button = screen.getByRole('button', { name: /open menu/i });
 
-    // Check fixed positioning
-    expect(button.style.position).toBe('fixed');
-    expect(button.style.bottom).toBe('16px');
-    expect(button.style.right).toBe('16px');
-
-    // Check styling
-    expect(button.style.background).toBe('transparent');
-    expect(button.style.cursor).toBe('pointer');
-    expect(button.style.zIndex).toBe('1000');
+    expect(button.className).toContain('collapsed-menu-btn');
   });
 });

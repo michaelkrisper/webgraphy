@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataViewModal } from '../DataViewModal';
 import { type Dataset } from '../../../services/persistence';
+import { THEMES } from '../../../themes';
 
 describe('DataViewModal', () => {
   it('renders with an empty dataset', () => {
