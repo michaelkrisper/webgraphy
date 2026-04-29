@@ -22,7 +22,7 @@ describe('DataViewModal', () => {
 
     const onClose = vi.fn();
 
-    render(<DataViewModal dataset={mockDataset} onClose={onClose} />);
+    render(<DataViewModal dataset={mockDataset} onClose={onClose} theme={THEMES.light} />);
 
     expect(screen.getByText('Data Source: Empty Dataset')).toBeInTheDocument();
     expect(screen.getByText('Showing first 0 of 0 rows.')).toBeInTheDocument();

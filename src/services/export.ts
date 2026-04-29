@@ -62,7 +62,11 @@ export const exportToSVG = (
     .filter(a => axisToMinDsIdx.has(a.id))
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
 
-  const usedAxisIds = new Set(series.map(s => s.yAxisId));
+  const usedAxisIds = new Set<string>();
+  for (let i = 0; i < series.length; i++) {
+    usedAxisIds.add(series[i].yAxisId);
+  }
+
   const activeYAxes: YAxisConfig[] = [];
   const leftAxes: YAxisConfig[] = [];
   const rightAxes: YAxisConfig[] = [];
