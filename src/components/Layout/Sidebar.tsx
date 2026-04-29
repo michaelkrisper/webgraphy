@@ -301,6 +301,18 @@ export const Sidebar: React.FC = () => {
                           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                             <button
                               onClick={() => {
+                                const currentId = ds.xAxisId || 'axis-1';
+                                const currentNum = parseInt(currentId.split('-')[1]) || 1;
+                                const nextNum = (currentNum % 9) + 1;
+                                updateDataset(ds.id, { xAxisId: `axis-${nextNum}` });
+                              }}
+                              title="Cycle X-Axis (1-9)"
+                              style={{ padding: '0 6px', height: '20px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '4px', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}
+                            >
+                              {(ds.xAxisId || 'axis-1').split('-')[1]}
+                            </button>
+                            <button
+                              onClick={() => {
                                 const axis = xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'));
                                 if (axis) {
                                   updateXAxis(axis.id, { xMode: axis.xMode === 'date' ? 'numeric' : 'date' });
@@ -319,17 +331,6 @@ export const Sidebar: React.FC = () => {
                               {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                           </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Assignment</label>
-                          <select
-                            value={ds.xAxisId}
-                            onChange={(e) => updateDataset(ds.id, { xAxisId: e.target.value })}
-                            style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '120px' }}
-                          >
-                            {xAxes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                          </select>
                         </div>
 
                         <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
