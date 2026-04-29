@@ -307,6 +307,17 @@ export const Sidebar: React.FC = () => {
                           </select>
                         </div>
 
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Assignment</label>
+                          <select
+                            value={ds.xAxisId}
+                            onChange={(e) => updateDataset(ds.id, { xAxisId: e.target.value })}
+                            style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '120px' }}
+                          >
+                            {xAxes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                          </select>
+                        </div>
+
                         <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
                           {ds.columns.map((col) => {
