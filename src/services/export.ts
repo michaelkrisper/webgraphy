@@ -62,7 +62,11 @@ export const exportToSVG = (
     .filter(a => axisToMinDsIdx.has(a.id))
     .sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
 
-  const usedAxisIds = new Set(series.map(s => s.yAxisId));
+  const usedAxisIds = new Set<string>();
+  for (let i = 0; i < series.length; i++) {
+    usedAxisIds.add(series[i].yAxisId);
+  }
+
   const activeYAxes: YAxisConfig[] = [];
   const leftAxes: YAxisConfig[] = [];
   const rightAxes: YAxisConfig[] = [];
@@ -231,7 +235,7 @@ export const exportToSVG = (
     }
 
     const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
-    const seriesForThisAxis = seriesByXAxisId[axis.id] || [];
+
     const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
     svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
   });

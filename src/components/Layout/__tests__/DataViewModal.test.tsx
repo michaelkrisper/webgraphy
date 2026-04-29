@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataViewModal } from '../DataViewModal';
+import { THEMES } from '../../../themes';
 
 describe('DataViewModal', () => {
   it('renders with an empty dataset', () => {
@@ -21,7 +22,7 @@ describe('DataViewModal', () => {
 
     const onClose = vi.fn();
 
-    render(<DataViewModal dataset={mockDataset} onClose={onClose} />);
+    render(<DataViewModal dataset={mockDataset} onClose={onClose} theme={THEMES.light} />);
 
     expect(screen.getByText('Data Source: Empty Dataset')).toBeInTheDocument();
     expect(screen.getByText('Showing first 0 of 0 rows.')).toBeInTheDocument();
@@ -42,7 +43,7 @@ describe('DataViewModal', () => {
 
     const onClose = vi.fn();
 
-    render(<DataViewModal dataset={mockDataset as any} onClose={onClose} />);
+    render(<DataViewModal dataset={mockDataset as any} onClose={onClose} theme={THEMES.light} />);
 
     expect(screen.getByText('Data Source: No Columns Dataset')).toBeInTheDocument();
     expect(screen.getByText('Showing first 0 of 0 rows.')).toBeInTheDocument();
@@ -65,7 +66,7 @@ describe('DataViewModal', () => {
     const onClose = vi.fn();
 
     // use `as any` as the `dataset` type might be more strict
-    render(<DataViewModal dataset={mockDataset as any} onClose={onClose} />);
+    render(<DataViewModal dataset={mockDataset as any} onClose={onClose} theme={THEMES.light} />);
 
     expect(screen.getByText('Data Source: Dataset With Data')).toBeInTheDocument();
     expect(screen.getByText('Showing first 1 of 1 rows.')).toBeInTheDocument();
