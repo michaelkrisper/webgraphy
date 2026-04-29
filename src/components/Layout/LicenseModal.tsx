@@ -13,7 +13,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
       maxWidth="600px"
       ariaLabel="Close License"
     >
-      <div style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#444', whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#f8f9fa', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+      <div className="license-text">
 {`MIT License
 
 Copyright (c) 2026 Michael Krisper
@@ -37,7 +37,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`}
       </div>
 
-      <p style={{ fontSize: '0.85em', color: '#666', marginTop: '20px', lineHeight: '1.5' }}>
+      <p className="license-note">
         This software is free to use, modify, and distribute, provided that the original copyright notice and this permission notice are included in all copies or substantial portions of the Software.
       </p>
     </Modal>

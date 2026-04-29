@@ -207,41 +207,34 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(2px)'
-    }}>
-      <div style={{
-        backgroundColor: '#fff', padding: '20px', borderRadius: '8px',
-        maxWidth: '500px', width: '95%', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calculator size={20} color="#3b82f6" />
-            <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Add Calculated Series</h2>
+    <div className="modal-overlay">
+      <div className="calc-modal-card">
+        <div className="calc-modal-header">
+          <div className="calc-modal-title-row">
+            <Calculator size={20} color="var(--accent)" />
+            <h2 className="modal-title">Add Calculated Series</h2>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }} aria-label="Close">
+          <button onClick={onClose} className="modal-close" aria-label="Close">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="col-name" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Column Name</label>
+          <div className="calc-field">
+            <label htmlFor="col-name" className="calc-label">Column Name</label>
             <input
               id="col-name"
               type="text"
+              className="calc-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Adjusted Temperature"
               maxLength={50}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
 
-          <div style={{ marginBottom: '16px', position: 'relative' }}>
-            <label htmlFor="formula" style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Formula</label>
+          <div className="calc-formula-wrapper">
+            <label htmlFor="formula" className="calc-label">Formula</label>
             <textarea
               ref={textareaRef}
               id="formula"
@@ -249,32 +242,26 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
               onChange={handleFormulaChange}
               onKeyDown={handleFormulaKeyDown}
               placeholder="e.g. [Temperature] * -1 + 273.15"
-              style={{ width: '100%', height: '80px', padding: '8px', borderRadius: '4px', border: `1px solid ${validationMsg ? '#ef4444' : formula.trim() && !validationMsg ? '#22c55e' : '#ced4da'}`, fontSize: '14px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+              style={{
+                width: '100%', height: '80px', padding: '8px', borderRadius: '4px',
+                border: `1px solid ${validationMsg ? '#ef4444' : formula.trim() && !validationMsg ? '#22c55e' : 'var(--border-color)'}`,
+                fontSize: '14px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', transition: 'border-color 0.2s'
+              }}
             />
-            {validationMsg && (
-              <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '2px' }}>{validationMsg}</div>
-            )}
-            {!validationMsg && formula.trim() && (
-              <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '2px' }}>✓ Valid formula</div>
-            )}
+            {validationMsg && <div className="calc-formula-msg calc-formula-msg--error">{validationMsg}</div>}
+            {!validationMsg && formula.trim() && <div className="calc-formula-msg calc-formula-msg--ok">✓ Valid formula</div>}
             {suggestions.length > 0 && (
-              <div style={{
-                position: 'absolute', left: 8, right: 8, top: '100%', marginTop: '2px',
-                backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '4px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '150px', overflowY: 'auto',
-              }}>
+              <div className="calc-suggestions">
                 {suggestions.map((s, i) => (
                   <div
                     key={s}
-                    onClick={() => {
+                    onMouseDown={() => {
                       if (textareaRef.current) {
                         applySuggestion(s, formula, textareaRef.current.selectionStart);
                       }
                     }}
-                    style={{
-                      padding: '6px 10px', cursor: 'pointer', fontSize: '13px', fontFamily: 'monospace',
-                      backgroundColor: i === selectedSuggestion ? '#e0f2fe' : '#fff',
-                    }}
+                    className="calc-suggestion-item"
+                    style={{ background: i === selectedSuggestion ? '#e0f2fe' : 'var(--bg)' }}
                   >
                     {s}
                   </div>
@@ -283,15 +270,15 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             )}
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '6px' }}>Available Columns (click to insert)</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '100px', overflowY: 'auto', padding: '4px', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
+          <div className="calc-field">
+            <div className="calc-shortcuts-label">Available Columns (click to insert)</div>
+            <div className="calc-col-list">
               {dataset.columns.map(col => (
                 <button
                   key={col}
                   type="button"
                   onClick={() => insertColumn(col)}
-                  style={{ fontSize: '11px', padding: '4px 8px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
+                  className="calc-col-btn"
                 >
                   {col.includes(': ') ? col.split(': ')[1] : col}
                 </button>
@@ -299,8 +286,8 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             </div>
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '8px' }}>Shortcuts</div>
+          <div className="calc-shortcuts">
+            <div className="calc-shortcuts-label">Shortcuts</div>
             {[
               {
                 label: 'Operators',
@@ -348,16 +335,16 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
                 ],
               },
             ].map(group => (
-              <div key={group.label} style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{group.label}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              <div key={group.label} className="calc-shortcut-group">
+                <div className="calc-shortcut-group-label">{group.label}</div>
+                <div className="calc-shortcut-btns">
                   {group.items.map(item => (
                     <button
                       key={item.label}
                       type="button"
                       onClick={() => insertOperator(item.insert)}
                       title={item.title}
-                      style={{ fontSize: '12px', padding: '4px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      className="calc-shortcut-btn"
                     >
                       {item.label}
                     </button>
@@ -368,42 +355,41 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
           </div>
 
           {error && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontSize: '14px', marginBottom: '16px', padding: '8px', background: '#fef2f2', borderRadius: '4px' }}>
+            <div className="calc-error">
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <div className="calc-actions">
             <button
               type="button"
               onClick={onClose}
               disabled={isCalculating}
-              style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ced4da', background: '#fff', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? 0.6 : 1 }}
+              className="calc-btn-cancel"
+              style={{ cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? 0.6 : 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isCalculating}
-              style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#3b82f6', color: '#fff', cursor: isCalculating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: isCalculating ? 0.8 : 1 }}
+              className="calc-btn-submit"
+              style={{ cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? 0.8 : 1 }}
             >
               {isCalculating ? (
                 <>
-                  <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  <div className="calc-spinner" />
                   <span>Calculating...</span>
                 </>
               ) : (
                 <>
-                  <Check size={18} /> Create Series
+                  <Check size={18} /> <span>Create Series</span>
                 </>
               )}
             </button>
           </div>
         </form>
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
       </div>
     </div>
   );
