@@ -233,7 +233,7 @@ export const exportToSVG = (
     const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
     const seriesForThisAxis = seriesByXAxisId[axis.id] || [];
     const title = Array.from(new Set(datasetsForThisAxis.map(d => d.xAxisColumn))).join(' / ');
-    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(seriesForThisAxis[0]?.lineColor || theme.axisColor)}">${escapeHTML(title)}</text>`;
+    svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
   });
 
   activeYAxes.forEach(axis => {
@@ -264,13 +264,18 @@ export const exportToSVG = (
     }
 
     const axisSeries = series.filter(s => s.yAxisId === axis.id);
-    const title = axisSeries.map(s => s.name || s.yColumn).join(' / ');
+    const fullTitle = axisSeries.map(s => s.name || s.yColumn).join(' / ');
     const titleX = isLeft ? (xPos + 5) : (xPos + axisWidth - 5);
     const titleY = padding.top + chartHeight / 2, rotate = isLeft ? -90 : 90;
-    const estW = Math.min(chartHeight, title.length * 6 + 8);
+    const estW = Math.min(chartHeight, fullTitle.length * 6 + 8);
     svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
     svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="${theme.secLabelBg}" rx="2" />`;
-    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(axisSeries[0]?.lineColor || theme.axisColor)}">${escapeHTML(title)}</text></g>`;
+    svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${theme.labelColor}">`;
+    axisSeries.forEach((s, i) => {
+      if (i > 0) svg += `<tspan fill="${theme.labelColor}"> / </tspan>`;
+      svg += `<tspan fill="${escapeHTML(s.lineColor)}">${escapeHTML(s.name || s.yColumn)}</tspan>`;
+    });
+    svg += `</text></g>`;
   });
 
   svg += `</svg>`; return svg;
