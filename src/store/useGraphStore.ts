@@ -198,9 +198,34 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   updateDataset: (id, updates) => {
-    set((state) => ({
-      datasets: state.datasets.map(d => d.id === id ? { ...d, ...updates } : d)
-    }));
+    set((state) => {
+      const dataset = state.datasets.find(d => d.id === id);
+      if (!dataset) return state;
+
+      const updatedDataset = { ...dataset, ...updates };
+      const nextDatasets = state.datasets.map(d => d.id === id ? updatedDataset : d);
+
+      let nextXAxes = state.xAxes;
+      if (updates.xAxisId !== undefined || updates.xAxisColumn !== undefined) {
+        const xColIdx = getColumnIndex(updatedDataset, updatedDataset.xAxisColumn);
+        const col = updatedDataset.data[xColIdx];
+        if (col) {
+          const bounds = col.bounds || { min: 0, max: 100 };
+          const isDate = col.isFloat64 || false;
+
+          nextXAxes = state.xAxes.map(a =>
+            a.id === updatedDataset.xAxisId
+              ? { ...a, min: bounds.min, max: bounds.max, xMode: (isDate ? 'date' : 'numeric') as 'date' | 'numeric' }
+              : a
+          );
+        }
+      }
+
+      return {
+        datasets: nextDatasets,
+        xAxes: nextXAxes
+      };
+    });
     if (get().isLoaded) debouncedSaveState();
   },
 
