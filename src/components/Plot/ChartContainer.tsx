@@ -888,7 +888,7 @@ const ChartContainer: React.FC = () => {
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; dsToX[d.id] = xId; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
     const sByX: SeriesByAxisId = {}; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
     return activeXAxesUsed.map(axis => {
-      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], srs = sByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = srs[0]?.lineColor || '#475569';
+      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = themeColors.labelColor;
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false }, title, color };
       if (!isDate) {
         let step; if (isPanningRef.current && lockedXSteps.current[axis.id]?.step) step = lockedXSteps.current[axis.id].step!;
@@ -901,7 +901,7 @@ const ChartContainer: React.FC = () => {
         return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
+  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]) as XAxisLayout[];
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
