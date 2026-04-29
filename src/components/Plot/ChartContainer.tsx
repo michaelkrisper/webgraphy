@@ -498,7 +498,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
               {group.items.map((item, itemIdx) => (
                 <div key={`item-${groupIdx}-${itemIdx}`} style={{ color: item.color, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                   <span>{item.label}:</span>
-                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{item.value.toPrecision(7)}</span>
+                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{Number(item.value.toPrecision(7))}</span>
                 </div>
               ))}
             </React.Fragment>
