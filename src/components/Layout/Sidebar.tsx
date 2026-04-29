@@ -338,14 +338,14 @@ export const Sidebar: React.FC = () => {
                               <button
                                 key={col}
                                 onClick={() => createSeries(ds.id, col)}
-                                disabled={isUsed}
                                 style={{
                                   fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
-                                  border: isUsed ? `1px solid ${t.border}` : `1px solid ${t.accent}`,
-                                  backgroundColor: isUsed ? t.bg3 : t.bg3,
-                                  color: isUsed ? t.textLight : t.accent,
-                                  cursor: isUsed ? 'default' : 'pointer',
-                                  fontWeight: '600'
+                                  border: `1px solid ${t.accent}`,
+                                  backgroundColor: t.bg3,
+                                  color: t.accent,
+                                  cursor: 'pointer',
+                                  fontWeight: '600',
+                                  opacity: isUsed ? 0.7 : 1
                                 }}
                               >
                                 {col.includes(': ') ? col.split(': ')[1] : col}
