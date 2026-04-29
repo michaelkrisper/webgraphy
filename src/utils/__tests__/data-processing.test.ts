@@ -20,7 +20,7 @@ describe('processRawColumn', () => {
 
   it('should handle NaNs and nulls at the beginning', () => {
     // We cast null to any here just to test runtime resilience if malicious/bad data gets passed
-    const data = [NaN, null as any, 10, 20];
+    const data = [NaN, null as unknown as number, 10, 20];
     const result = processRawColumn(data);
 
     expect(result.refPoint).toBe(10);
@@ -81,7 +81,7 @@ describe('processRawColumn', () => {
   });
 
   it('should handle an array of all NaNs/nulls', () => {
-    const data = [NaN, null as any, NaN];
+    const data = [NaN, null as unknown as number, NaN];
     const result = processRawColumn(data);
 
     expect(result.refPoint).toBe(0);

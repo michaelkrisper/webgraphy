@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { secureRandom } from '../random';
 
 describe('secureRandom', () => {
@@ -18,7 +18,7 @@ describe('secureRandom', () => {
     const spy = vi.spyOn(crypto, 'getRandomValues');
 
     // We don't know the exact current index, so let's exhaust the current buffer first
-    let callsBefore = spy.mock.calls.length;
+    const callsBefore = spy.mock.calls.length;
     while (spy.mock.calls.length === callsBefore) {
       secureRandom();
     }
@@ -41,15 +41,16 @@ describe('secureRandom', () => {
 
   it('correctly maps 32-bit unsigned integers to [0, 1)', async () => {
     // We need to mock crypto.getRandomValues to test the division logic
-    const spy = vi.spyOn(crypto, 'getRandomValues').mockImplementation((arr: any) => {
-      arr[0] = 0;
-      arr[1] = 2147483648; // half of 2^32
-      arr[2] = 4294967295; // 2^32 - 1
-      return arr;
+    const spy = vi.spyOn(crypto, 'getRandomValues').mockImplementation((arr: ArrayBufferView | null) => {
+      const typed = arr as Uint32Array;
+      typed[0] = 0;
+      typed[1] = 2147483648; // half of 2^32
+      typed[2] = 4294967295; // 2^32 - 1
+      return typed;
     });
 
     // Exhaust buffer to trigger refill
-    let callsBefore = spy.mock.calls.length;
+    const callsBefore = spy.mock.calls.length;
     let firstVal;
     while (spy.mock.calls.length === callsBefore) {
       firstVal = secureRandom();

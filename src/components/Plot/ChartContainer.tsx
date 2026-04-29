@@ -408,7 +408,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       seriesByAxis[sr.yAxisId].push(sr.name || sr.yColumn);
     });
     return { xAxisConf };
-  }, [yAxes, seriesMetadata]);
+  }, [seriesMetadata]);
 
   const snap = useMemo(() => {
     if (!pos || !snapMetadata || seriesMetadata.length === 0) return null;
@@ -755,7 +755,7 @@ const ChartContainer: React.FC = () => {
       else { nMin = yMin - p; nMax = yMax + p; }
       targetYs.current[axisId] = { min: nMin, max: nMax }; startAnimation();
     }
-  }, [padding.top, chartHeight, startAnimation, datasetsById, xAxesById]);
+  }, [padding.top, chartHeight, startAnimation]);
 
   useEffect(() => {
     if (!lastAppliedViewId) return;
@@ -814,7 +814,7 @@ const ChartContainer: React.FC = () => {
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey: boolean = false) => {
     const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get(((target as any).xAxisId))!];
+      const axes = (target === 'all' || shiftKey) ? activeXAxesUsed : [xAxesById.get(((target as { xAxisId: string }).xAxisId))!];
       axes.forEach(axis => { if (!axis) return; const xr = axis.max - axis.min, xm = chartWidth > 0 ? (dx / chartWidth) * xr : 0, next = { min: axis.min - xm, max: axis.max - xm }; state.updateXAxis(axis.id, next); targetXAxes.current[axis.id] = next; });
     }
     const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
@@ -830,6 +830,7 @@ const ChartContainer: React.FC = () => {
   };
 
   const handleTouchStart = (e: React.TouchEvent, target: PanTarget = 'all') => {
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now(), isDouble = now - lastTouchTime.current < 300; lastTouchTime.current = now;
     if (e.touches.length === 1) {
       const t = e.touches[0], rect = containerRef.current?.getBoundingClientRect(); if (!rect) return;
@@ -889,7 +890,7 @@ const ChartContainer: React.FC = () => {
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; dsToX[d.id] = xId; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
     const sByX: SeriesByAxisId = {}; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
     return activeXAxesUsed.map(axis => {
-      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = themeColors.labelColor;
+      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / '), color = themeColors.labelColor;
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false }, title, color };
       if (!isDate) {
         let step; if (isPanningRef.current && lockedXSteps.current[axis.id]?.step) step = lockedXSteps.current[axis.id].step!;
@@ -915,7 +916,7 @@ const ChartContainer: React.FC = () => {
       </div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} leftAxes={activeYAxesLayout.filter(a => a.position === 'left')} rightAxes={activeYAxesLayout.filter(a => a.position === 'right')} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} />
       {xAxesMetrics.map(m => { const bY = padding.bottom - m.cumulativeOffset - m.height; return <div key={`wheel-x-${m.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={(e) => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />; })}
-      {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; let xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
+      {activeYAxes.map(a => { const isL = a.position === 'left', am = axisLayout[a.id] || { total: 40 }; const xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0); return <div key={`wheel-${a.id}`} onWheel={(e) => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={(e) => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />; })}
       <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={!!panTarget || !!zoomBoxState} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipColor={themeColors.tooltipColor} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" className="chart-abs-fill" style={{ zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {series.length > 0 && legendVisible && <ChartLegend series={series} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}

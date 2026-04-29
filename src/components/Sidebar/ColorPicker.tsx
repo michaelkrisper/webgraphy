@@ -31,7 +31,7 @@ const rgbToHex = (r: number, g: number, b: number) => {
 const rgbToHsl = (r: number, g: number, b: number) => {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s, l = (max + min) / 2;
+  let h = 0, s; const l = (max + min) / 2;
   if (max === min) {
     h = s = 0;
   } else {
@@ -74,6 +74,7 @@ const hslToRgb = (h: number, s: number, l: number) => {
 export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localHex, setLocalHex] = useState(color);
+  const [prevColor, setPrevColor] = useState(color);
   const containerRef = useRef<HTMLDivElement>(null);
   const hueRef = useRef<HTMLDivElement>(null);
   const brightnessRef = useRef<HTMLDivElement>(null);
@@ -82,11 +83,12 @@ export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
   const hsl = rgbToHsl(hexToRgb(color).r, hexToRgb(color).g, hexToRgb(color).b);
   const [hue, setHue] = useState(hsl.h);
 
-  useEffect(() => {
+  if (color !== prevColor) {
+    setPrevColor(color);
     setLocalHex(color);
     const newHsl = rgbToHsl(hexToRgb(color).r, hexToRgb(color).g, hexToRgb(color).b);
-    if (newHsl.s > 1) setHue(newHsl.h); 
-  }, [color]);
+    if (newHsl.s > 1) setHue(newHsl.h);
+  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -108,20 +110,20 @@ export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
     setIsOpen(!isOpen);
   };
 
-  const handleHueMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleHueMove = (e: React.MouseEvent | React.TouchEvent | MouseEvent) => {
     if (!hueRef.current) return;
     const rect = hueRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
     const h = Math.max(0, Math.min(360, ((clientX - rect.left) / rect.width) * 360));
     setHue(h);
     const rgb = hslToRgb(h, 100, hsl.l || 50);
     onChange(rgbToHex(rgb.r, rgb.g, rgb.b));
   };
 
-  const handleBrightnessMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleBrightnessMove = (e: React.MouseEvent | React.TouchEvent | MouseEvent) => {
     if (!brightnessRef.current) return;
     const rect = brightnessRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
     const l = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     const rgb = hslToRgb(hue, 100, l);
     onChange(rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -177,7 +179,7 @@ export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
           <div
             ref={hueRef}
             className="color-picker-spectrum-hue"
-            onMouseDown={(e) => { handleHueMove(e); const move = (me: MouseEvent) => handleHueMove(me as any); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
+            onMouseDown={(e) => { handleHueMove(e); const move = (me: MouseEvent) => handleHueMove(me); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
           >
             <div className="color-picker-hue-cursor" style={{ left: `${(hue / 360) * 100}%` }} />
           </div>
@@ -187,7 +189,7 @@ export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
             ref={brightnessRef}
             className="color-picker-spectrum-brightness"
             style={{ background: `linear-gradient(to right, #000, hsl(${hue}, 100%, 50%), #fff)` }}
-            onMouseDown={(e) => { handleBrightnessMove(e); const move = (me: MouseEvent) => handleBrightnessMove(me as any); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
+            onMouseDown={(e) => { handleBrightnessMove(e); const move = (me: MouseEvent) => handleBrightnessMove(me); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
           >
             <div className="color-picker-brightness-cursor" style={{ left: `${hsl.l}%` }} />
           </div>

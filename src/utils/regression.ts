@@ -164,13 +164,11 @@ export function logisticRegression(x: Float64Array, y: Float64Array): Float64Arr
   // Simple gradient descent refinement (few iterations)
   for (let iter = 0; iter < 50; iter++) {
     let gradK = 0, gradX0 = 0;
-    let totalError = 0;
     for (let i = 0; i < n; i++) {
       const z = -k * (x[i] - x0);
       const ez = Math.exp(Math.max(-50, Math.min(50, z)));
       const pred = yMin + yRange / (1 + ez);
       const err = pred - y[i];
-      totalError += err * err;
       const denom = (1 + ez) * (1 + ez);
       const dSigma = yRange * ez / denom;
       gradK += err * dSigma * (-(x[i] - x0));

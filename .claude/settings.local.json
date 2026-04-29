@@ -25,8 +25,12 @@
       "Bash(git -C /c/Users/Michi/webgraphy/.claude/worktrees/lucid-clarke-dc3442 log --oneline -1)",
       "Bash(npm test *)",
       "Skill(update-config)",
-      "Bash(python3 -m scripts \"C:\\\\Users\\\\Michi\\\\.claude\\\\CLAUDE.md\")"
+      "Bash(python3 -m scripts \"C:\\\\Users\\\\Michi\\\\.claude\\\\CLAUDE.md\")",
+      "Bash(npx vite *)",
+      "Bash(python *)"
     ]
   },
-  "defaultShell": "powershell"
+  "defaultShell": "powershell",
+  "spinnerTipsEnabled": false,
+  "prefersReducedMotion": true
 }

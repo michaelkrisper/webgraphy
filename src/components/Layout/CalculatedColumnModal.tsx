@@ -79,6 +79,26 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
     return [];
   }, [dataset.columns]);
 
+  const applySuggestion = useCallback((suggestion: string, currentValue: string, cursorPos: number) => {
+    const before = currentValue.slice(0, cursorPos);
+    const after = currentValue.slice(cursorPos);
+    const bracketMatch = before.match(/\[([^\]]*)$/);
+    const funcMatch = before.match(/([a-zA-Z]\w*)$/);
+    let replaceStart = cursorPos;
+    if (bracketMatch) replaceStart = cursorPos - bracketMatch[1].length;
+    else if (funcMatch) replaceStart = cursorPos - funcMatch[1].length;
+    const newFormula = before.slice(0, replaceStart) + suggestion + after;
+    setFormula(newFormula);
+    setSuggestions([]);
+    const newPos = replaceStart + suggestion.length;
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
+        textareaRef.current.focus();
+      }
+    });
+  }, []);
+
   const handleFormulaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
     const { selectionStart, selectionEnd, value } = ta;
@@ -132,32 +152,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
         return;
       }
     }
-  }, [suggestions, selectedSuggestion]);
-
-  const applySuggestion = useCallback((suggestion: string, currentValue: string, cursorPos: number) => {
-    const before = currentValue.slice(0, cursorPos);
-    const after = currentValue.slice(cursorPos);
-
-    // Find what we're completing (inside brackets or function name)
-    const bracketMatch = before.match(/\[([^\]]*)$/);
-    const funcMatch = before.match(/([a-zA-Z]\w*)$/);
-
-    let replaceStart = cursorPos;
-    if (bracketMatch) replaceStart = cursorPos - bracketMatch[1].length;
-    else if (funcMatch) replaceStart = cursorPos - funcMatch[1].length;
-
-    const newFormula = before.slice(0, replaceStart) + suggestion + after;
-    setFormula(newFormula);
-    setSuggestions([]);
-
-    const newPos = replaceStart + suggestion.length;
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
-        textareaRef.current.focus();
-      }
-    });
-  }, []);
+  }, [suggestions, selectedSuggestion, applySuggestion]);
 
   const handleFormulaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;

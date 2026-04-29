@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
@@ -159,6 +159,8 @@ export const Sidebar: React.FC = () => {
     downloadFile(json, 'webgraphy-session.json', 'application/json');
   };
 
+  const handleLoadSession = useCallback(() => { sessionInputRef.current?.click(); }, []);
+
   const handleImportSession = async (file: File) => {
     try {
       const text = await file.text();
@@ -242,7 +244,8 @@ export const Sidebar: React.FC = () => {
             {hdrBtn(handleExportPNG, <Image size={16} />, 'Export PNG')}
             {hdrSep}
             {hdrBtn(handleExportSession, <Save size={16} />, 'Save Session')}
-            {hdrBtn(() => { if (sessionInputRef.current) sessionInputRef.current.click(); }, <FolderOpen size={16} />, 'Load Session')}
+            {/* eslint-disable-next-line react-hooks/refs */}
+            {hdrBtn(handleLoadSession, <FolderOpen size={16} />, 'Load Session')}
             {hdrSep}
             <span className="sb-spacer" />
             {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}

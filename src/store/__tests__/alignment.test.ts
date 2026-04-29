@@ -18,7 +18,7 @@ vi.mock('../../services/persistence', () => ({
 describe('useGraphStore Alignment', () => {
   beforeEach(() => {
     // Reset store state before each test
-    const store = useGraphStore.getState();
+    useGraphStore.getState();
     useGraphStore.setState({
       datasets: [],
       series: [],

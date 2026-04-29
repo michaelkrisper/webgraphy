@@ -27,7 +27,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('accepts level prop for component-level boundary', () => {
-    const { container } = render(
+    render(
       <ErrorBoundary level="component">
         <NormalComponent />
       </ErrorBoundary>
