@@ -452,7 +452,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const yVal = yData[bestI] + refY; const xVal = xData[bestI] + refX;
       const axisTitle = axisTitleMap[axis.id] || '';
       const label = s.name || s.yColumn;
-      const displayLabel = axisTitle && axisTitle !== label ? `${label} [${axisTitle}]` : label;
+      const displayLabel = label;
       const xLab = xAxis.xMode === 'date' ? formatFullDate(xVal) : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
       const xAxisName = ds.xAxisColumn || xAxis.name || `X-Axis ${ds.xAxisId}`;
       const groupKey = `${xLab}|${xAxisName}`;
@@ -500,12 +500,12 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           {snap?.entries.map((group, groupIdx) => (
             <React.Fragment key={`group-${groupIdx}`}>
               <div style={{ color: tooltipSubColor, fontSize: '9px', borderTop: groupIdx > 0 ? `1px solid ${tooltipDividerColor}` : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
-                <span style={{ fontWeight: 'bold', color: tooltipColor, fontSize: '10px' }}>{group.xLabel}</span> ({group.xAxisName})
+                <span style={{ fontWeight: 'bold', color: tooltipColor, fontSize: '10px' }}>{group.xAxisName}: {group.xLabel}</span>
               </div>
               {group.items.map((item, itemIdx) => (
                 <div key={`item-${groupIdx}-${itemIdx}`} style={{ color: item.color, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                   <span>{item.label}:</span>
-                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{item.value.toPrecision(7)}</span>
+                  <span style={{ color: tooltipColor, fontWeight: 'bold' }}>{parseFloat(item.value.toPrecision(7)).toLocaleString()}</span>
                 </div>
               ))}
             </React.Fragment>
@@ -895,7 +895,7 @@ const ChartContainer: React.FC = () => {
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; dsToX[d.id] = xId; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
     const sByX: SeriesByAxisId = {}; series.forEach(s => { const xId = dsToX[s.sourceId]; if (xId) { if (!sByX[xId]) sByX[xId] = []; sByX[xId].push(s); } });
     return activeXAxesUsed.map(axis => {
-      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], srs = sByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = srs[0]?.lineColor || '#475569';
+      const r = axis.max - axis.min, isDate = axis.xMode === 'date', dss = dsByX[axis.id] || [], title = Array.from(new Set(dss.map((d: any) => d.xAxisColumn))).join(' / '), color = themeColors.labelColor;
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false }, title, color };
       if (!isDate) {
         let step; if (isPanningRef.current && lockedXSteps.current[axis.id]?.step) step = lockedXSteps.current[axis.id].step!;
@@ -908,7 +908,7 @@ const ChartContainer: React.FC = () => {
         return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series, datasets]) as XAxisLayout[];
+  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]) as XAxisLayout[];
 
   return (
     <main className="plot-area" ref={containerRef} onMouseDown={(e) => handleMouseDown(e, 'all')} onTouchStart={(e) => handleTouchStart(e, 'all')} onWheel={(e) => handleWheel(e, 'all')} style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
