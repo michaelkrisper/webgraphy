@@ -76,38 +76,7 @@ body, html, #root {
   opacity: 1;
 }
 
-.sidebar h2 {
-  font-size: 1.2rem;
-  margin-top: 0;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--text-color);
-}
-
-@media (max-width: 768px) or (max-height: 500px) {
-  .sidebar h2 {
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
-  }
-}
-
-.section-title {
-  font-weight: bold;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  margin-top: 0.8rem;
-  margin-bottom: 0.5rem;
-  color: var(--text-muted-color);
-}
-
-@media (max-width: 768px) or (max-height: 500px) {
-  .section-title {
-    font-size: 1rem;
-    margin-top: 1rem;
-    margin-bottom: 0.6rem;
-  }
-}
-
+/* Legacy sidebar styles removed - now managed in components.css */
 
 details > summary {
   list-style: none;

@@ -21,7 +21,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       onClose={onClose}
       title="Help & Interactions"
       maxWidth="720px"
-      padding="30px"
+      padding="16px"
       ariaLabel="Close Help"
     >
       <Section title="Plot Area" first>

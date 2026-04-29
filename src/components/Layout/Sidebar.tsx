@@ -212,7 +212,7 @@ export const Sidebar: React.FC = () => {
   };
 
   if (isCollapsed) {
-    return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} theme={t} />;
+    return <CollapsedMenuButton onClick={() => setIsCollapsed(false)} onExportSVG={handleExportSVG} theme={t} />;
   }
 
   const hdrBtn = (onClick: () => void, icon: React.ReactNode, title: string, color?: string) => (
@@ -248,6 +248,7 @@ export const Sidebar: React.FC = () => {
             {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}
             {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
             {hdrSep}
+            {hdrBtn(() => setShowHelp(true), <HelpCircle size={16} />, 'Help')}
             {hdrBtn(() => setIsCollapsed(true), <X size={16} />, 'Collapse Sidebar')}
           </div>
         </header>
@@ -271,27 +272,18 @@ export const Sidebar: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
                   {datasets.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '24px 16px', border: `2px dashed ${t.border}`, borderRadius: '12px', color: t.textLight }}>
+                    <div style={{ textAlign: 'center', padding: '24px 16px', border: `2px dashed ${t.border}`, borderRadius: '0', color: t.textLight }}>
                       <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem' }}>No data loaded</p>
-                      <button onClick={loadDemoData} style={{ background: 'none', border: `1px solid ${t.border2}`, padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', color: t.textMuted, cursor: 'pointer' }}>Load Demo Data</button>
+                      <button onClick={loadDemoData} style={{ background: 'none', border: `1px solid ${t.border2}`, padding: '6px 12px', borderRadius: '0', fontSize: '0.8rem', color: t.textMuted, cursor: 'pointer' }}>Load Demo Data</button>
                     </div>
                   )}
 
                   {datasets.map((ds) => (
-                    <div key={ds.id} style={{ backgroundColor: t.bg, borderRadius: '10px', border: `1px solid ${t.cardBorder}`, overflow: 'hidden', boxShadow: `0 1px 3px ${t.shadow}` }}>
-                      <div style={{ padding: '6px 10px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '700', fontSize: '0.85rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name.includes(': ') ? ds.name.split(': ')[1] : ds.name}</span>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
-                          <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
-                          <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete Dataset"><Trash2 size={16} /></button>
-                        </div>
-                      </div>
-
-                      <div style={{ padding: '6px 10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Column</label>
-                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <div key={ds.id} style={{ backgroundColor: t.bg, borderRadius: '0', border: `1px solid ${t.cardBorder}`, overflow: 'hidden', boxShadow: `0 1px 3px ${t.shadow}` }}>
+                      <div style={{ padding: '6px 10px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.85rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }} title={ds.name}>{ds.name.includes(': ') ? ds.name.split(': ')[1] : ds.name}</span>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                          <div style={{ display: 'flex', gap: '0', alignItems: 'center' }}>
                             <button
                               onClick={() => {
                                 const currentId = ds.xAxisId || 'axis-1';
@@ -300,7 +292,7 @@ export const Sidebar: React.FC = () => {
                                 updateDataset(ds.id, { xAxisId: `axis-${nextNum}` });
                               }}
                               title="Cycle X-Axis (1-9)"
-                              style={{ padding: '0 6px', height: '20px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '4px', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}
+                              style={{ padding: '0 5px', height: '20px', background: 'none', border: `1px solid ${t.border}`, borderRight: 'none', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}
                             >
                               {(ds.xAxisId || 'axis-1').split('-')[1]}
                             </button>
@@ -312,21 +304,26 @@ export const Sidebar: React.FC = () => {
                                 }
                               }}
                               title={xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'))?.xMode === 'date' ? 'Switch to Numeric Axis' : 'Switch to Time Axis'}
-                              style={{ padding: '2px', background: 'none', border: `1px solid ${t.border}`, borderRadius: '4px', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              style={{ padding: '2px', background: 'none', border: `1px solid ${t.border}`, borderRight: 'none', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               {xAxes.find(a => a.id === (ds.xAxisId || 'axis-1'))?.xMode === 'date' ? <Clock size={14} /> : <Hash size={14} />}
                             </button>
                             <select
                               value={ds.xAxisColumn}
                               onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
-                              style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '100px' }}
+                              title="X-Axis"
+                              style={{ fontSize: '0.75rem', padding: '2px 4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '80px' }}
                             >
                               {ds.columns.map(c => <option key={c} value={c}>{c.includes(': ') ? c.split(': ')[1] : c}</option>)}
                             </select>
                           </div>
+                          <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
+                          <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
+                          <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete Dataset"><Trash2 size={16} /></button>
                         </div>
+                      </div>
 
-                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight, marginBottom: '6px' }}>Series / Columns</div>
+                      <div style={{ padding: '6px 10px' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
                           {ds.columns.map((col) => {
                             const isUsed = series.some(s => s.sourceId === ds.id && s.yColumn === col);
@@ -381,7 +378,6 @@ export const Sidebar: React.FC = () => {
                       <div title="Side (L/R)" className="sb-series-header-cell"><MoveHorizontal size={12} /></div>
                       <div title="Grid" className="sb-series-header-cell"><Rows size={12} /></div>
                       <div title="Line Style" className="sb-series-header-cell"><Minus size={12} /></div>
-                      <div title="Line Width" className="sb-series-header-cell" style={{ fontSize: '10px', fontWeight: 'bold' }}>W</div>
                       <div title="Point Style" className="sb-series-header-cell"><Circle size={10} /></div>
                       <div title="Color" className="sb-series-header-cell"><Palette size={12} /></div>
                       <div title="Data Column" className="sb-series-header-cell--text">COL</div>
@@ -471,8 +467,7 @@ export const Sidebar: React.FC = () => {
         <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
 
         <footer className="sb-footer">
-          <button onClick={() => setShowHelp(true)} className="sb-footer-btn"><HelpCircle size={13} /> Help</button>
-          <button onClick={() => setShowLicense(true)} className="sb-footer-btn">License</button>
+<button onClick={() => setShowLicense(true)} className="sb-footer-btn">License</button>
           <button onClick={() => setShowImprint(true)} className="sb-footer-btn">Imprint</button>
         </footer>
       </aside>

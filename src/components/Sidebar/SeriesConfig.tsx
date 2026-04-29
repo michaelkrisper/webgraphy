@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
 import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
-import { ColorPicker } from './ColorPicker';
+import ColorPicker from './ColorPicker';
 
 interface Props {
   series: SeriesConfig;
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
-  const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility } = useGraphStore();
+  const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility, series: allSeries } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const handleUpdate = (updates: Partial<SeriesConfig>) => {
@@ -29,7 +29,10 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
 
   const cycleYAxis = () => {
     const nextIndex = (currentYAxisIndex % 9) + 1;
-    handleUpdate({ yAxisId: `axis-${nextIndex}` });
+    const nextAxisId = `axis-${nextIndex}`;
+    const isUnused = !allSeries.some(s => s.id !== series.id && s.yAxisId === nextAxisId);
+    if (isUnused) updateYAxis(nextAxisId, { position: 'left' });
+    handleUpdate({ yAxisId: nextAxisId });
   };
 
   const renderPointStyleIcon = () => {

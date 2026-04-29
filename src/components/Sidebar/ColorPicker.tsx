@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { COLOR_PALETTE } from '../../themes';
-import { Palette } from 'lucide-react';
 
 interface ColorPickerProps {
   color: string;
@@ -9,50 +8,137 @@ interface ColorPickerProps {
   ariaLabel?: string;
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, ariaLabel }) => {
+// Helper: Hex to RGB
+const hexToRgb = (hex: string) => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+};
+
+// Helper: RGB to Hex
+const rgbToHex = (r: number, g: number, b: number) => {
+  const toHex = (n: number) => {
+    const h = Math.max(0, Math.min(255, n)).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+// Helper: RGB to HSL
+const rgbToHsl = (r: number, g: number, b: number) => {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+};
+
+// Helper: HSL to RGB
+const hslToRgb = (h: number, s: number, l: number) => {
+  h /= 360; s /= 100; l /= 100;
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+};
+
+export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [localHex, setLocalHex] = useState(color);
   const containerRef = useRef<HTMLDivElement>(null);
-  const nativePickerRef = useRef<HTMLInputElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+  const brightnessRef = useRef<HTMLDivElement>(null);
   const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: 0 });
+
+  const hsl = rgbToHsl(hexToRgb(color).r, hexToRgb(color).g, hexToRgb(color).b);
+  const [hue, setHue] = useState(hsl.h);
+
+  useEffect(() => {
+    setLocalHex(color);
+    const newHsl = rgbToHsl(hexToRgb(color).r, hexToRgb(color).g, hexToRgb(color).b);
+    if (newHsl.s > 1) setHue(newHsl.h); 
+  }, [color]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        // Check if the click was inside the portal-ed popover
         const popover = document.getElementById('color-picker-popover');
-        if (popover && popover.contains(event.target as Node)) {
-          return;
-        }
+        if (popover && popover.contains(event.target as Node)) return;
         setIsOpen(false);
       }
     };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   const toggleOpen = () => {
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setPopoverCoords({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX
-      });
+      setPopoverCoords({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX });
     }
     setIsOpen(!isOpen);
   };
 
-  const handleSelectTemplate = (selectedColor: string) => {
-    onChange(selectedColor);
-    setIsOpen(false);
+  const handleHueMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!hueRef.current) return;
+    const rect = hueRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const h = Math.max(0, Math.min(360, ((clientX - rect.left) / rect.width) * 360));
+    setHue(h);
+    const rgb = hslToRgb(h, 100, hsl.l || 50);
+    onChange(rgbToHex(rgb.r, rgb.g, rgb.b));
   };
 
-  const triggerNativePicker = () => {
-    nativePickerRef.current?.click();
-    setIsOpen(false);
+  const handleBrightnessMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!brightnessRef.current) return;
+    const rect = brightnessRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const l = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const rgb = hslToRgb(hue, 100, l);
+    onChange(rgbToHex(rgb.r, rgb.g, rgb.b));
+  };
+
+  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalHex(val);
+    if (/^#[0-9A-F]{6}$/i.test(val)) onChange(val.toLowerCase());
+  };
+
+  const rgb = hexToRgb(color);
+  const handleRgbChange = (part: 'r' | 'g' | 'b', val: string) => {
+    let n = parseInt(val);
+    if (isNaN(n)) n = 0;
+    const newRgb = { ...rgb, [part]: Math.min(255, n) };
+    onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
   };
 
   return (
@@ -64,7 +150,6 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, ariaL
         className="color-picker-btn"
         style={{ backgroundColor: color }}
       >
-        <div className="color-picker-swatch" />
       </button>
 
       {isOpen && createPortal(
@@ -73,35 +158,61 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, ariaL
           className="color-picker-popover"
           style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
         >
+          {/* 1. Template bar */}
           <div className="color-picker-grid">
-            {COLOR_PALETTE.map((paletteColor) => (
+            {COLOR_PALETTE.map((p) => (
               <button
-                key={paletteColor}
-                onClick={() => handleSelectTemplate(paletteColor)}
+                key={p}
+                onClick={() => { onChange(p); setIsOpen(false); }}
                 className="color-picker-palette-btn"
                 style={{
-                  backgroundColor: paletteColor,
-                  border: color === paletteColor ? `2px solid var(--text-color)` : `1px solid var(--border-color)`
+                  backgroundColor: p,
+                  border: color.toLowerCase() === p.toLowerCase() ? `2px solid var(--text)` : `1px solid var(--border)`
                 }}
-                title={paletteColor}
               />
             ))}
           </div>
-          <button onClick={triggerNativePicker} className="color-picker-custom-btn">
-            <Palette size={12} />
-            <span>Custom</span>
-          </button>
+
+          {/* 2. Hue Slider */}
+          <div
+            ref={hueRef}
+            className="color-picker-spectrum-hue"
+            onMouseDown={(e) => { handleHueMove(e); const move = (me: MouseEvent) => handleHueMove(me as any); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
+          >
+            <div className="color-picker-hue-cursor" style={{ left: `${(hue / 360) * 100}%` }} />
+          </div>
+
+          {/* 3. Lightness Slider (Black - Vivid - White) */}
+          <div
+            ref={brightnessRef}
+            className="color-picker-spectrum-brightness"
+            style={{ background: `linear-gradient(to right, #000, hsl(${hue}, 100%, 50%), #fff)` }}
+            onMouseDown={(e) => { handleBrightnessMove(e); const move = (me: MouseEvent) => handleBrightnessMove(me as any); const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }; document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); }}
+          >
+            <div className="color-picker-brightness-cursor" style={{ left: `${hsl.l}%` }} />
+          </div>
+
+          {/* 4. Inputs */}
+          <div className="color-picker-inputs">
+            <div className="color-picker-input-group">
+              <span className="color-picker-label">Hex</span>
+              <input type="text" value={localHex} onChange={handleHexChange} className="color-picker-input" spellCheck={false} />
+            </div>
+            <div className="color-picker-input-group">
+              <span className="color-picker-label">RGB</span>
+              <div className="color-picker-rgb-inputs">
+                {(['r', 'g', 'b'] as const).map(p => (
+                  <input key={p} type="text" value={rgb[p]} onChange={(e) => handleRgbChange(p, e.target.value)} className="color-picker-input" maxLength={3} />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>,
         document.body
       )}
-
-      <input
-        ref={nativePickerRef}
-        type="color"
-        value={color}
-        onChange={(e) => onChange(e.target.value)}
-        className="color-picker-native-input"
-      />
     </div>
   );
-};
+}
+
+export default ColorPicker;
+

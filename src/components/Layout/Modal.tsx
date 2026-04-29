@@ -6,6 +6,7 @@ interface ModalProps {
   title: string | React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  headerActions?: React.ReactNode;
   maxWidth?: string;
   width?: string;
   height?: string;
@@ -23,11 +24,12 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   footer,
+  headerActions,
   maxWidth = '600px',
   width = '90%',
   height,
   maxHeight = '90vh',
-  borderRadius = '8px',
+  borderRadius = '0',
   padding = '24px',
   ariaLabel
 }) => {
@@ -40,6 +42,7 @@ export const Modal: React.FC<ModalProps> = ({
           ) : (
             title
           )}
+          {headerActions}
           <button onClick={onClose} aria-label={ariaLabel || "Close dialog"} className="modal-close">
             <X size={24} />
           </button>

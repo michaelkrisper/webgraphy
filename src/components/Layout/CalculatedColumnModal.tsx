@@ -243,7 +243,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
               onKeyDown={handleFormulaKeyDown}
               placeholder="e.g. [Temperature] * -1 + 273.15"
               style={{
-                width: '100%', height: '80px', padding: '8px', borderRadius: '4px',
+                width: '100%', height: '80px', padding: '8px', borderRadius: '0',
                 border: `1px solid ${validationMsg ? '#ef4444' : formula.trim() && !validationMsg ? '#22c55e' : 'var(--border-color)'}`,
                 fontSize: '14px', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', transition: 'border-color 0.2s'
               }}

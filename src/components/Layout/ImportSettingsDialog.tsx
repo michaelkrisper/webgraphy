@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Settings2, Table, FileType, ArrowRight, Hash, Clock, Type, EyeOff } from 'lucide-react';
+import { Check, FileType, Hash, Clock, Type, EyeOff } from 'lucide-react';
 import { secureJSONParse } from '../../utils/json';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
 import { Modal } from './Modal';
@@ -58,6 +58,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
   const [delimiter, setDelimiter] = useState<string>(() => detectDelimiter(fileContent, fileType));
   const [decimalPoint, setDecimalPoint] = useState<string>('.');
   const [startRow, setStartRow] = useState<number>(1);
+  const [commentChar, setCommentChar] = useState<string>('#');
   // Stores per-column user overrides, keyed by column name
   const [columnOverrides, setColumnOverrides] = useState<Record<string, Partial<ColumnConfig>>>({});
   // null = auto-select best X axis column
@@ -69,23 +70,26 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
         const parsed = secureJSONParse(fileContent) as unknown;
         const rows = Array.isArray(parsed) ? parsed : [parsed];
         const headers = Object.keys((rows[0] as Record<string, unknown>) || {});
-        return { headers, rows: (rows as Record<string, string>[]).slice(0, 10) };
+        return { headers, rows: (rows as Record<string, string>[]).slice(0, 50) };
       } catch {
         return { headers: [], rows: [] as Record<string, string>[] };
       }
     }
 
-    const lines = fileContent.split(/\r?\n/).filter(l => l.trim());
+    const lines = fileContent.split(/\r?\n/).filter(l => {
+      const trimmed = l.trim();
+      return trimmed && (commentChar ? !trimmed.startsWith(commentChar) : true);
+    });
     if (lines.length === 0) return { headers: [], rows: [] as string[][] };
 
     const headerRowIndex = Math.max(0, startRow - 1);
     const headerLine = lines[headerRowIndex] || '';
     const headers = headerLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-    const rows = lines.slice(headerRowIndex + 1, headerRowIndex + 11).map(line =>
+    const rows = lines.slice(headerRowIndex + 1, headerRowIndex + 51).map(line =>
       line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
     );
     return { headers, rows };
-  }, [fileContent, fileType, delimiter, startRow]);
+  }, [fileContent, fileType, delimiter, startRow, commentChar]);
 
   // Derived column configs: auto-detected type + user overrides (keyed by column name)
   const columnConfigs = useMemo<ColumnConfig[]>(() => {
@@ -135,32 +139,19 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           <h2 className="modal-title">Import Settings: {fileName}</h2>
         </div>
       }
+      headerActions={null}
       maxWidth="100%"
       width="100%"
       height="100%"
       maxHeight="100vh"
       borderRadius="0"
       padding="0"
-      footer={
-        <div className="isd-footer">
-          <button onClick={onCancel} className="isd-btn-cancel">
-            Cancel
-          </button>
-          <button onClick={() => onConfirm({ delimiter, decimalPoint, startRow, columnConfigs, xAxisColumn })} className="isd-btn-confirm">
-            <Check size={18} /> Import Data
-          </button>
-        </div>
-      }
     >
       <div className="isd-body">
-        <div className="isd-section-header">
-          <Settings2 size={18} color="var(--text-muted-color)" />
-          <h3 className="isd-section-title">General Settings</h3>
-        </div>
         <div className="isd-general-fields">
           {fileType === 'csv' && (
             <div className="isd-field-group-md">
-              <label htmlFor="import-delimiter" className="isd-field-label">Delimiter</label>
+              <label htmlFor="import-delimiter" className="isd-field-label">Delimiter:</label>
               <select
                 id="import-delimiter"
                 value={delimiter}
@@ -175,7 +166,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </div>
           )}
           <div className="isd-field-group-md">
-            <label htmlFor="import-decimal" className="isd-field-label">Decimal Point</label>
+            <label htmlFor="import-decimal" className="isd-field-label">Decimal Point:</label>
             <select
               id="import-decimal"
               value={decimalPoint}
@@ -187,40 +178,35 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </select>
           </div>
           {fileType === 'csv' && (
-            <div className="isd-field-group-sm">
-              <label htmlFor="import-start-row" className="isd-field-label">Start Row</label>
-              <input
-                id="import-start-row"
-                type="number"
-                min="1"
-                value={startRow}
-                onChange={e => setStartRow(parseInt(e.target.value) || 1)}
-                className="isd-input"
-              />
-            </div>
-          )}
-          <div className="isd-field-group-lg">
-            <label htmlFor="import-x-axis" className="isd-field-label">
-              <div className="isd-field-label-row">
-                X-Axis Column <ArrowRight size={14} />
+            <>
+              <div className="isd-field-group-sm">
+                <label htmlFor="import-start-row" className="isd-field-label">Start Row:</label>
+                <input
+                  id="import-start-row"
+                  type="number"
+                  min="1"
+                  value={startRow}
+                  onChange={e => setStartRow(parseInt(e.target.value) || 1)}
+                  className="isd-input"
+                />
               </div>
-            </label>
-            <select
-              id="import-x-axis"
-              value={xAxisColumn}
-              onChange={e => setXAxisColumnOverride(e.target.value)}
-              className="isd-select"
-            >
-              {columnConfigs.filter(c => c.type !== 'ignore').map(c => (
-                <option key={c.index} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="isd-section-header">
-          <Table size={18} color="var(--text-muted-color)" />
-          <h3 className="isd-section-title">Column Configuration & Preview</h3>
+              <div className="isd-field-group-sm">
+                <label htmlFor="import-comment-char" className="isd-field-label">Comment:</label>
+                <input
+                  id="import-comment-char"
+                  type="text"
+                  maxLength={1}
+                  value={commentChar}
+                  onChange={e => setCommentChar(e.target.value)}
+                  className="isd-input"
+                  placeholder="#"
+                />
+              </div>
+            </>
+          )}
+          <button onClick={() => onConfirm({ delimiter, decimalPoint, startRow, commentChar, columnConfigs, xAxisColumn })} className="isd-btn-confirm" style={{ marginLeft: 'auto' }}>
+            <Check size={16} /> Import Data
+          </button>
         </div>
 
         <div className="isd-table-wrap">
@@ -229,7 +215,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               <thead>
                 <tr>
                   {columnConfigs.map((config, i) => (
-                    <th key={i} className="isd-col-header" style={{ borderRight: i < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                    <th key={i} className={`isd-col-header${xAxisColumn === config.name ? ' isd-col-header--xaxis' : ''}`} style={{ borderRight: i < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                       <div className="isd-col-name-row">
                         <input
                           type="text"
@@ -238,6 +224,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                           aria-label={`Column ${i + 1} name`}
                           onChange={e => handleUpdateColumn(i, { name: e.target.value })}
                           className="isd-col-name-input"
+                        />
+                        <input
+                          type="radio"
+                          name="xaxis-col"
+                          title="Set as X-Axis"
+                          checked={xAxisColumn === config.name}
+                          onChange={() => setXAxisColumnOverride(config.name)}
+                          className="isd-xaxis-radio"
                         />
                       </div>
                       <div className="isd-type-btns">
@@ -276,10 +270,10 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                 {previewData.rows.map((row, rowIndex) => (
                   <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'isd-data-row-even' : 'isd-data-row-odd'}>
                     {columnConfigs.map((config, colIndex) => (
-                      <td key={colIndex} className="isd-td" style={{
+                      <td key={colIndex} className={`isd-td${xAxisColumn === config.name ? ' isd-td--xaxis' : ''}`} style={{
                         borderRight: colIndex < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none',
                         color: config.type === 'ignore' ? 'var(--text-light)' : 'var(--text-color)',
-                        backgroundColor: config.type === 'ignore' ? 'var(--bg3)' : 'transparent',
+                        backgroundColor: config.type === 'ignore' ? 'var(--bg3)' : undefined,
                         opacity: config.type === 'ignore' ? 0.6 : 1,
                         maxWidth: '120px',
                         overflow: 'hidden',
@@ -292,6 +286,13 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                     ))}
                   </tr>
                 ))}
+                {previewData.rows.length >= 50 && (
+                  <tr>
+                    {columnConfigs.map((_, i) => (
+                      <td key={i} className="isd-td isd-td--more" style={{ borderRight: i < columnConfigs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>…</td>
+                    ))}
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

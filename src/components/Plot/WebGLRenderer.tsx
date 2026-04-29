@@ -153,10 +153,66 @@ const hexToRgba = (hex: string): number[] => {
   return [r, g, b];
 };
 
+const LTTB_THRESHOLD_PER_PX = 2;
+
+function lttbFloat32(xData: Float32Array, yData: Float32Array, startIdx: number, endIdx: number, threshold: number): { x: Float32Array; y: Float32Array } {
+  const numPoints = endIdx - startIdx + 1;
+  if (threshold >= numPoints || threshold <= 2) {
+    return { x: xData.subarray(startIdx, endIdx + 1), y: yData.subarray(startIdx, endIdx + 1) };
+  }
+
+  const outX = new Float32Array(threshold);
+  const outY = new Float32Array(threshold);
+
+  outX[0] = xData[startIdx];
+  outY[0] = yData[startIdx];
+
+  const bucketSize = (numPoints - 2) / (threshold - 2);
+  let a = 0;
+
+  for (let i = 0; i < threshold - 2; i++) {
+    // Centroid of next bucket
+    const nextBucketStart = Math.floor((i + 1) * bucketSize) + 1 + startIdx;
+    const nextBucketEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1 + startIdx, endIdx + 1);
+    let avgX = 0, avgY = 0;
+    for (let j = nextBucketStart; j < nextBucketEnd; j++) {
+      avgX += xData[j];
+      avgY += yData[j];
+    }
+    const avgLen = nextBucketEnd - nextBucketStart;
+    avgX /= avgLen;
+    avgY /= avgLen;
+
+    // Find max area point in current bucket
+    const bucketStart = Math.floor(i * bucketSize) + 1 + startIdx;
+    const bucketEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1 + startIdx, endIdx + 1);
+    const ax = xData[startIdx + a], ay = yData[startIdx + a];
+    let maxArea = -1, maxIdx = bucketStart;
+    for (let j = bucketStart; j < bucketEnd; j++) {
+      const area = Math.abs((ax - avgX) * (yData[j] - ay) - (ax - xData[j]) * (avgY - ay)) * 0.5;
+      if (area > maxArea) { maxArea = area; maxIdx = j; }
+    }
+    outX[i + 1] = xData[maxIdx];
+    outY[i + 1] = yData[maxIdx];
+    a = maxIdx - startIdx;
+  }
+
+  outX[threshold - 1] = xData[endIdx];
+  outY[threshold - 1] = yData[endIdx];
+
+  return { x: outX, y: outY };
+}
+
+interface LttbCacheEntry {
+  xOut: Float32Array;
+  yOut: Float32Array;
+  key: string;
+}
+
 /**
  * WebGLRenderer Component (v0.4.0 - LOD, Visibility, Highlighting & Optimized Buffer Pool)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, isInteracting, highlightedSeriesId }) => {
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -165,6 +221,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const sharedBufferRef = useRef<Float32Array | null>(null);
+  const lttbCacheRef = useRef<Map<string, LttbCacheEntry>>(new Map());
 
   // Buffer pool to avoid per-frame allocations
   const getSharedBuffer = (size: number) => {
@@ -223,6 +280,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     buffersRef.current.forEach(buf => gl.deleteBuffer(buf));
     buffersRef.current.clear();
     segParamsRef.current.clear();
+    lttbCacheRef.current.clear();
   }, [datasets]);
 
   const seriesMetadata = useMemo(() => {
@@ -328,9 +386,31 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       const numPoints = endIdx - startIdx + 1;
+      const lttbThreshold = Math.max(2, Math.floor(chartWidth * LTTB_THRESHOLD_PER_PX));
 
-      const drawStep = (isInteracting && numPoints > 50000) ? Math.max(1, Math.floor(numPoints / 20000)) : 1;
+      let drawX: Float32Array;
+      let drawY: Float32Array;
+      let drawCount: number;
 
+      if (numPoints > lttbThreshold) {
+        const cacheKey = `lttb-${ds.id}-${xIdx}-${yIdx}-${startIdx}-${endIdx}-${lttbThreshold}`;
+        let cached = lttbCacheRef.current.get(cacheKey);
+        if (!cached || cached.key !== cacheKey) {
+          const result = lttbFloat32(xData, yData, startIdx, endIdx, lttbThreshold);
+          cached = { xOut: result.x, yOut: result.y, key: cacheKey };
+          lttbCacheRef.current.set(cacheKey, cached);
+        }
+        drawX = cached.xOut;
+        drawY = cached.yOut;
+        drawCount = lttbThreshold;
+      } else {
+        drawX = xData.subarray(startIdx, endIdx + 1);
+        drawY = yData.subarray(startIdx, endIdx + 1);
+        drawCount = numPoints;
+      }
+
+      // drawX/drawY are slices of the original Float32Array (relative = value - refPoint),
+      // so uniforms stay in the same relative space regardless of LTTB
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
 
@@ -338,8 +418,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let xBuffer = buffersRef.current.get(xBufferKey);
       if (!xBuffer) {
         xBuffer = gl.createBuffer()!;
-        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
         buffersRef.current.set(xBufferKey, xBuffer);
       }
 
@@ -347,15 +425,18 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let yBuffer = buffersRef.current.get(yBufferKey);
       if (!yBuffer) {
         yBuffer = gl.createBuffer()!;
-        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
         buffersRef.current.set(yBufferKey, yBuffer);
       }
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, drawX, gl.STREAM_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, drawY, gl.STREAM_DRAW);
 
       const isHighlighted = highlightedSeriesId === s.id;
       const baseLineWidth = isHighlighted ? 2.5 : 1;
 
-      if (s.lineStyle !== 'none' && numPoints > 1) {
+      if (s.lineStyle !== 'none' && drawCount > 1) {
         const c = lineColorRgba;
         gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
         gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
@@ -367,27 +448,27 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.disableVertexAttribArray(locs.otherLoc);
           gl.disableVertexAttribArray(locs.tLoc);
           gl.disableVertexAttribArray(locs.distStartLoc);
-          
-            gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-            gl.enableVertexAttribArray(locs.xLoc);
-            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-            gl.enableVertexAttribArray(locs.yLoc);
-            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
+          gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+          gl.enableVertexAttribArray(locs.xLoc);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
 
-            gl.lineWidth(baseLineWidth * dpr);
-            gl.drawArrays(gl.LINE_STRIP, 0, Math.floor((numPoints - 1) / drawStep) + 1);
+          gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+          gl.enableVertexAttribArray(locs.yLoc);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
+
+          gl.lineWidth(baseLineWidth * dpr);
+          gl.drawArrays(gl.LINE_STRIP, 0, drawCount);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
+          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
           let segBuffer = buffersRef.current.get(segBufferKey);
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
             buffersRef.current.set(segBufferKey, segBuffer);
           }
 
-          const numSegs = Math.floor((numPoints - 1) / drawStep);
+          const numSegs = drawCount - 1;
           if (segParamsRef.current.get(segBufferKey) !== paramKey) {
             const reqSize = numSegs * 12;
             const sharedArr = getSharedBuffer(reqSize);
@@ -401,9 +482,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
             let cumDist = 0;
             for (let i = 0; i < numSegs; i++) {
-              const idxA = startIdx + i * drawStep;
-              const idxB = startIdx + (i + 1) * drawStep;
-              const ax = xData[idxA], ay = yData[idxA], bx = xData[idxB], by = yData[idxB];
+              const ax = drawX[i], ay = drawY[i], bx = drawX[i + 1], by = drawY[i + 1];
               const screenDx = (bx - ax) / xRange * pChartWidth;
               const screenDy = (by - ay) / yRange * pChartHeight;
               const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
@@ -442,24 +521,24 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 5.0) * dpr);
         const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
         gl.uniform1i(locs.styleLoc, pStyle);
-        
+
         gl.disableVertexAttribArray(locs.otherLoc);
         gl.disableVertexAttribArray(locs.tLoc);
         gl.disableVertexAttribArray(locs.distStartLoc);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
         gl.enableVertexAttribArray(locs.xLoc);
-        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
+        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
         gl.enableVertexAttribArray(locs.yLoc);
-        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
+        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
 
-        gl.drawArrays(gl.POINTS, 0, Math.floor((numPoints - 1) / drawStep) + 1);
+        gl.drawArrays(gl.POINTS, 0, drawCount);
       }
     });
     gl.disable(gl.SCISSOR_TEST);
-  }, [seriesMetadata, width, height, padding, program, locations, glReady, isInteracting, highlightedSeriesId]);
+  }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;

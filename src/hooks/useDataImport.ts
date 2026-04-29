@@ -34,7 +34,7 @@ export const useDataImport = () => {
       const preview = e.target?.result as string;
       setPendingFile({ file, preview, type });
     };
-    reader.readAsText(file.slice(0, 10240));
+    reader.readAsText(file.slice(0, 25600));
   }, []);
 
   const confirmImport = useCallback(async (settings: ImportSettings) => {

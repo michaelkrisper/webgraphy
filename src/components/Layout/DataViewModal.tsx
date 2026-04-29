@@ -21,9 +21,12 @@ export const DataViewModal: React.FC<DataViewModalProps> = ({ dataset, onClose }
     <Modal
       onClose={onClose}
       title={`Data Source: ${displayName}`}
-      maxWidth="1000px"
-      width="95%"
+      maxWidth="100vw"
+      width="100vw"
+      height="100vh"
+      maxHeight="100vh"
       padding="16px"
+      borderRadius="0"
       footer={
         <div className="dv-footer">
           <button

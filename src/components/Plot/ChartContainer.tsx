@@ -280,7 +280,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 if (nextX < x + labelWidth + 10) x = nextX - labelWidth - 10;
                 if (x + labelWidth > padding.left && x < width - padding.right) {
                   return (
-                    <div key={`sl-${axis.id}-${sl.timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.secLabelBottom, fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, backgroundColor: secLabelBg, padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', borderLeft: currentX > padding.left ? `2px solid ${axis.color}` : 'none', zIndex: 10 }}>{sl.label}</div>
+                    <div key={`sl-${axis.id}-${sl.timestamp}`} style={{ position: 'absolute', left: x, bottom: baseY - metrics.secLabelBottom, fontSize: isMobile ? '10px' : '10px', fontWeight: 'bold', color: axis.color, backgroundColor: secLabelBg, padding: '1px 4px', borderRadius: '0', whiteSpace: 'nowrap', borderLeft: currentX > padding.left ? `2px solid ${axis.color}` : 'none', zIndex: 10 }}>{sl.label}</div>
                   );
                 }
                 return null;
@@ -322,7 +322,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, leftAxes, 
                 const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
                 return <div key={`yl-${axis.id}-${t}`} style={{ position: 'absolute', left: labelX, top: y, transform: 'translateY(-50%)', fontSize: isMobile ? '10px' : '9px', color: labelColor, width: axisMetrics.label, textAlign: isLeft ? 'right' : 'left' }}>{label}</div>;
               })}
-              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: labelColor, padding: '2px 4px', borderRadius: '2px', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ position: 'absolute', top: padding.top + chartHeight / 2, left: titleX, transform: `translate(-50%, -50%) rotate(${isLeft ? -90 : 90}deg)`, fontSize: isMobile ? '14px' : '12px', fontWeight: 'bold', color: labelColor, padding: '2px 4px', borderRadius: '0', whiteSpace: 'nowrap', textAlign: 'center', maxWidth: chartHeight, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {axisSeries.map((s, i) => (
                   <React.Fragment key={s.id}>
                     {i > 0 && <span style={{ color: labelColor }}> / </span>}
