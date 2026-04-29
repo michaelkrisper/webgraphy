@@ -282,7 +282,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
         continue;
       }
 
-      if (isFirstLine && lineCount === 0) {
+      if (isFirstLine && lineCount === startRow - 1) {
         const headerResult = processCSVHeader(line, delimiter, columnConfigs, capacity);
         configsByIndex = headerResult.configsByIndex;
         activeCols = headerResult.activeCols;
@@ -293,7 +293,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
         isFirstLine = false;
       }
       
-      if (lineCount >= startRow) {
+      if (lineCount >= startRow && !isFirstLine) {
         // Ensure capacity
         if (actualRowCount >= capacity) {
           capacity *= 2;
