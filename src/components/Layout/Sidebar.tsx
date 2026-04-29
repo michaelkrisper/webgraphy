@@ -460,7 +460,7 @@ export const Sidebar: React.FC = () => {
       </aside>
 
       {/* Modals */}
-      {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
+      {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} theme={t} />}
       {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
