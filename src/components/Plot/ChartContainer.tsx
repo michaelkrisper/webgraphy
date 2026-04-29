@@ -513,7 +513,14 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 const ChartContainer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { series, xAxes, yAxes, isLoaded, lastAppliedViewId, datasets, highlightedSeriesId, legendVisible } = useGraphStore();
+  const series = useGraphStore(s => s.series);
+  const xAxes = useGraphStore(s => s.xAxes);
+  const yAxes = useGraphStore(s => s.yAxes);
+  const isLoaded = useGraphStore(s => s.isLoaded);
+  const lastAppliedViewId = useGraphStore(s => s.lastAppliedViewId);
+  const datasets = useGraphStore(s => s.datasets);
+  const highlightedSeriesId = useGraphStore(s => s.highlightedSeriesId);
+  const legendVisible = useGraphStore(s => s.legendVisible);
   const [themeName] = useTheme();
   const themeColors = THEMES[themeName];
 
