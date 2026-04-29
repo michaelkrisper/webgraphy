@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Settings2, Table, Columns, FileType, ArrowRight } from 'lucide-react';
+import { Check, Settings2, Table, Columns, FileType, ArrowRight, Hash, Clock, Type, EyeOff } from 'lucide-react';
 import { secureJSONParse } from '../../utils/json';
 import type { ImportSettings, ColumnConfig, ColumnType } from '../../types/import';
 import { Modal } from './Modal';
@@ -232,7 +232,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 
         <div style={{ position: 'relative', border: `1px solid ${t.border}`, borderRadius: '8px', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '14px' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px' }}>
               <thead>
                 <tr>
                   {columnConfigs.map((config, i) => (
@@ -243,12 +243,11 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       backgroundColor: t.bg2,
                       borderBottom: `2px solid ${t.border}`,
                       borderRight: i < columnConfigs.length - 1 ? `1px solid ${t.border}` : 'none',
-                      padding: '16px',
+                      padding: '8px',
                       textAlign: 'left',
-                      minWidth: '120px'
+                      minWidth: '80px'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                        <Columns size={14} color={t.accent} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                         <input
                           type="text"
                           maxLength={100}
@@ -260,34 +259,53 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                             fontWeight: 'bold',
                             border: 'none',
                             background: 'transparent',
-                            padding: '4px',
-                            fontSize: '14px',
+                            padding: '2px',
+                            fontSize: '12px',
                             color: t.text,
                             outline: 'none',
-                            borderBottom: `1px dashed ${t.border2}`
+                            borderBottom: `1px dashed ${t.border2}`,
+                            width: '100%'
                           }}
                         />
                       </div>
-                      <select
-                        value={config.type}
-                        aria-label={`Column ${i + 1} data type`}
-                        onChange={e => handleUpdateColumn(i, { type: e.target.value as ColumnType })}
-                        style={{ width: '100%', fontSize: '13px', marginBottom: config.type === 'date' ? '8px' : 0, height: '32px', borderRadius: '4px', background: t.bg, color: t.text, border: `1px solid ${t.border}` }}
-                      >
-                        <option value="numeric">Numeric</option>
-                        <option value="date">Date/Time</option>
-                        <option value="categorical">Categorical</option>
-                        <option value="ignore">Ignore</option>
-                      </select>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {[
+                          { type: 'numeric', icon: Hash, label: 'Numeric' },
+                          { type: 'date', icon: Clock, label: 'Date/Time' },
+                          { type: 'categorical', icon: Type, label: 'Categorical' },
+                          { type: 'ignore', icon: EyeOff, label: 'Ignore' }
+                        ].map(opt => (
+                          <button
+                            key={opt.type}
+                            title={`Type: ${opt.label}`}
+                            onClick={() => handleUpdateColumn(i, { type: opt.type as ColumnType })}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '4px',
+                              border: `1px solid ${config.type === opt.type ? t.accent : t.border}`,
+                              background: config.type === opt.type ? t.accent : t.bg,
+                              color: config.type === opt.type ? '#fff' : t.textMuted,
+                              cursor: 'pointer',
+                              padding: 0
+                            }}
+                          >
+                            <opt.icon size={12} />
+                          </button>
+                        ))}
+                      </div>
                       {config.type === 'date' && (
                         <input
                           type="text"
-                          placeholder="Format (e.g. YYYY-MM-DD)"
+                          placeholder="YYYY-MM-DD"
                           maxLength={50}
                           aria-label={`Column ${i + 1} date format`}
                           value={config.dateFormat || ''}
                           onChange={e => handleUpdateColumn(i, { dateFormat: e.target.value })}
-                          style={{ width: '100%', fontSize: '12px', padding: '6px 8px', border: `1px solid ${t.border}`, borderRadius: '4px', background: t.bg, color: t.text }}
+                          style={{ width: '100%', fontSize: '11px', padding: '4px 6px', border: `1px solid ${t.border}`, borderRadius: '4px', background: t.bg, color: t.text, marginTop: '4px' }}
                         />
                       )}
                     </th>
@@ -301,14 +319,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       <td key={colIndex} style={{
                         borderBottom: `1px solid ${t.border}`,
                         borderRight: colIndex < columnConfigs.length - 1 ? `1px solid ${t.border}` : 'none',
-                        padding: '12px 16px',
+                        padding: '4px 8px',
                         color: config.type === 'ignore' ? t.textLight : t.text,
                         backgroundColor: config.type === 'ignore' ? t.bg3 : 'transparent',
                         opacity: config.type === 'ignore' ? 0.6 : 1,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        maxWidth: '200px'
+                        maxWidth: '120px'
                       }}>
                         {fileType === 'json'
                           ? (row as Record<string, string>)[previewData.headers[colIndex]]

@@ -282,8 +282,8 @@ export const Sidebar: React.FC = () => {
 
                   {datasets.map((ds) => (
                     <div key={ds.id} style={{ backgroundColor: t.bg, borderRadius: '10px', border: `1px solid ${t.cardBorder}`, overflow: 'hidden', boxShadow: `0 1px 3px ${t.shadow}` }}>
-                      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '700', fontSize: '0.9rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name}</span>
+                      <div style={{ padding: '6px 10px', borderBottom: `1px solid ${t.bg3}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '700', fontSize: '0.85rem', color: t.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={ds.name}>{ds.name.includes(': ') ? ds.name.split(': ')[1] : ds.name}</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
                           <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
@@ -291,7 +291,7 @@ export const Sidebar: React.FC = () => {
                         </div>
                       </div>
 
-                      <div style={{ padding: '10px 12px' }}>
+                      <div style={{ padding: '6px 10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                           <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.textLight }}>X-Axis Column</label>
                           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -324,7 +324,7 @@ export const Sidebar: React.FC = () => {
                               onChange={(e) => updateDataset(ds.id, { xAxisColumn: e.target.value })}
                               style={{ fontSize: '0.75rem', padding: '2px 4px', borderRadius: '4px', border: `1px solid ${t.border}`, background: t.selectBg, color: t.selectColor, maxWidth: '100px' }}
                             >
-                              {ds.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                              {ds.columns.map(c => <option key={c} value={c}>{c.includes(': ') ? c.split(': ')[1] : c}</option>)}
                             </select>
                           </div>
                         </div>
@@ -483,7 +483,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Modals */}
       {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} theme={t} />}
-      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
+      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} theme={t} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
