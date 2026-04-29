@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
-import { THEMES, type ThemeName } from '../../themes';
+import { THEMES, type ThemeName, COLOR_PALETTE } from '../../themes';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
 import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
@@ -16,10 +16,6 @@ import { ImprintModal } from './ImprintModal';
 import { HelpModal } from './HelpModal';
 import { LicenseModal } from './LicenseModal';
 import { CollapsedMenuButton } from './CollapsedMenuButton';
-
-const COLOR_PALETTE = [
-  '#2563eb', '#e11d48', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c'
-];
 
 const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
   light: <Sun size={18} />,
