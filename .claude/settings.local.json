@@ -23,7 +23,10 @@
       "Bash(git branch:*)",
       "Bash(grep *)",
       "Bash(git -C /c/Users/Michi/webgraphy/.claude/worktrees/lucid-clarke-dc3442 log --oneline -1)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Skill(update-config)",
+      "Bash(python3 -m scripts \"C:\\\\Users\\\\Michi\\\\.claude\\\\CLAUDE.md\")"
     ]
-  }
+  },
+  "defaultShell": "powershell"
 }

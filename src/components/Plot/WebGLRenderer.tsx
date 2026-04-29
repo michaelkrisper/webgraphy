@@ -222,6 +222,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     if (!gl) return;
     buffersRef.current.forEach(buf => gl.deleteBuffer(buf));
     buffersRef.current.clear();
+    segParamsRef.current.clear();
   }, [datasets]);
 
   const seriesMetadata = useMemo(() => {
@@ -376,7 +377,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
             gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
             gl.lineWidth(baseLineWidth * dpr);
-            gl.drawArrays(gl.LINE_STRIP, 0, Math.floor(numPoints / drawStep));
+            gl.drawArrays(gl.LINE_STRIP, 0, Math.floor((numPoints - 1) / drawStep) + 1);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
           const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}`;
@@ -454,7 +455,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         gl.enableVertexAttribArray(locs.yLoc);
         gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, drawStep * 4, startIdx * 4);
 
-        gl.drawArrays(gl.POINTS, 0, Math.floor(numPoints / drawStep));
+        gl.drawArrays(gl.POINTS, 0, Math.floor((numPoints - 1) / drawStep) + 1);
       }
     });
     gl.disable(gl.SCISSOR_TEST);
