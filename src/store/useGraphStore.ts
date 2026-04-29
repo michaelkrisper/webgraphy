@@ -230,6 +230,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   removeDataset: (id) => {
+    persistence.deleteDataset(id);
     set((state) => {
       const newDatasets = state.datasets.filter(d => d.id !== id);
       const newSeries = state.series.filter(s => s.sourceId !== id);
