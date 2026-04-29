@@ -136,8 +136,11 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           <h2 style={{ margin: 0, fontSize: '1.25rem', color: t.text }}>Import Settings: {fileName}</h2>
         </div>
       }
-      maxWidth="1100px"
-      width="95%"
+      maxWidth="100%"
+      width="100%"
+      height="100%"
+      maxHeight="100vh"
+      borderRadius="0"
       padding="0"
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px', borderTop: `1px solid ${t.border}`, backgroundColor: t.bg2 }}>
@@ -161,9 +164,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           <Settings2 size={18} color={t.textMuted} />
           <h3 style={{ margin: 0, fontSize: '0.9rem', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>General Settings</h3>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px', padding: '20px', backgroundColor: t.bg2, borderRadius: '8px', border: `1px solid ${t.border}` }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '20px', marginBottom: '30px', padding: '20px', backgroundColor: t.bg2, borderRadius: '8px', border: `1px solid ${t.border}` }}>
           {fileType === 'csv' && (
-            <div>
+            <div style={{ flex: '1 1 150px' }}>
               <label htmlFor="import-delimiter" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Delimiter</label>
               <select
                 id="import-delimiter"
@@ -178,7 +181,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               </select>
             </div>
           )}
-          <div>
+          <div style={{ flex: '1 1 150px' }}>
             <label htmlFor="import-decimal" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Decimal Point</label>
             <select
               id="import-decimal"
@@ -191,7 +194,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
             </select>
           </div>
           {fileType === 'csv' && (
-            <div>
+            <div style={{ flex: '1 1 100px' }}>
               <label htmlFor="import-start-row" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>Start Row</label>
               <input
                 id="import-start-row"
@@ -203,7 +206,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
               />
             </div>
           )}
-          <div>
+          <div style={{ flex: '2 1 200px' }}>
             <label htmlFor="import-x-axis" style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: t.textMid }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 X-Axis Column <ArrowRight size={14} />
@@ -242,7 +245,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                       borderRight: i < columnConfigs.length - 1 ? `1px solid ${t.border}` : 'none',
                       padding: '16px',
                       textAlign: 'left',
-                      minWidth: '200px'
+                      minWidth: '120px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                         <Columns size={14} color={t.accent} />
@@ -305,7 +308,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        maxWidth: '300px'
+                        maxWidth: '200px'
                       }}>
                         {fileType === 'json'
                           ? (row as Record<string, string>)[previewData.headers[colIndex]]

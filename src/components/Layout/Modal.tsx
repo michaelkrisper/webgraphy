@@ -8,6 +8,9 @@ interface ModalProps {
   footer?: React.ReactNode;
   maxWidth?: string;
   width?: string;
+  height?: string;
+  maxHeight?: string;
+  borderRadius?: string;
   padding?: string;
   ariaLabel?: string;
 }
@@ -22,6 +25,9 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   maxWidth = '600px',
   width = '90%',
+  height,
+  maxHeight = '90vh',
+  borderRadius = '8px',
   padding = '24px',
   ariaLabel
 }) => {
@@ -42,12 +48,13 @@ export const Modal: React.FC<ModalProps> = ({
       <div style={{
         backgroundColor: '#fff',
         padding,
-        borderRadius: '8px',
+        borderRadius,
         maxWidth,
         width,
+        height,
         position: 'relative',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-        maxHeight: '90vh',
+        maxHeight,
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column'
