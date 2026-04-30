@@ -97,8 +97,7 @@ export function useAutoScale({
       });
       if (xMin !== Infinity) {
         const pad = (xMax - xMin || 1) * 0.05;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (xs as any)[id] = { min: xMin - pad, max: xMax + pad };
+        xs[id] = { min: xMin - pad, max: xMax + pad };
       }
     });
     startAnimation();
@@ -144,8 +143,7 @@ export function useAutoScale({
         if (bounds.min !== Infinity) {
           const pad = (bounds.max - bounds.min || 1) * 0.05;
           const nextX = { min: bounds.min - pad, max: bounds.max + pad };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (xs as any)[id] = nextX;
+          xs[id] = nextX;
           state.updateXAxis(id, nextX);
         }
       });
@@ -169,8 +167,7 @@ export function useAutoScale({
         if (yMin !== Infinity) {
           const pad = (yMax - yMin || 1) * 0.05;
           const nextY = { min: yMin - pad, max: yMax + pad };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (ys as any)[axis.id] = nextY;
+          ys[axis.id] = nextY;
           state.updateYAxis(axis.id, nextY);
         }
       });
@@ -184,12 +181,10 @@ export function useAutoScale({
     const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
     if (!view) return;
     const xs = targetXAxes.current;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    view.xAxes.forEach(axis => { (xs as any)[axis.id] = { min: axis.min, max: axis.max }; });
+    view.xAxes.forEach(axis => { xs[axis.id] = { min: axis.min, max: axis.max }; });
     if (view.yAxes.length > 0) {
       const ys = targetYs.current;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      view.yAxes.forEach(axis => { (ys as any)[axis.id] = { min: axis.min, max: axis.max }; });
+      view.yAxes.forEach(axis => { ys[axis.id] = { min: axis.min, max: axis.max }; });
     } else {
       activeYAxes.forEach(a => handleAutoScaleY(a.id));
     }

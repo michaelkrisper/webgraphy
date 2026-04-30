@@ -90,7 +90,7 @@ export function usePanZoom({
 
   const performZoom = useCallback((zoomFactor: number, mouseX: number, mouseY: number, target: PanTarget = 'all', shiftKey = false) => {
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxes : [xAxesById.get((target as { xAxisId: string }).xAxisId)!];
+      const axesToZoom = (target === 'all' || shiftKey) ? activeXAxes : [xAxesById.get(target.xAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const vp = { xMin: axis.min, xMax: axis.max, yMin: 0, yMax: 100, width, height, padding };
@@ -102,7 +102,7 @@ export function usePanZoom({
       });
     }
     if ((target === 'all' && !shiftKey) || (typeof target === 'object' && 'yAxisId' in target)) {
-      const axesToZoom = target === 'all' ? activeYAxes : [yAxesById.get((target as { yAxisId: string }).yAxisId)!];
+      const axesToZoom = target === 'all' ? activeYAxes : [yAxesById.get(target.yAxisId)!];
       axesToZoom.forEach(axis => {
         if (!axis) return;
         const axisVp = { xMin: 0, xMax: 100, yMin: axis.min, yMax: axis.max, width, height, padding };
@@ -119,7 +119,7 @@ export function usePanZoom({
   const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey = false) => {
     const state = useGraphStore.getState();
     if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxes : [xAxesById.get(((target as { xAxisId: string }).xAxisId))!];
+      const axes = (target === 'all' || shiftKey) ? activeXAxes : [xAxesById.get(target.xAxisId)!];
       axes.forEach(axis => {
         if (!axis) return;
         const xr = axis.max - axis.min;
