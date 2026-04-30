@@ -43,6 +43,7 @@ export const Sidebar: React.FC = () => {
     views, saveView, applyView, deleteView,
     moveSeries, updateViewName, loadDemoData,
     setHighlightedSeries, autoDetectViews,
+    addSeries,
     legendVisible, setLegendVisible
   } = useGraphStore();
 
@@ -182,7 +183,6 @@ export const Sidebar: React.FC = () => {
     const dataset = datasets.find(d => d.id === datasetId);
     if (!dataset) return;
 
-    const { addSeries } = useGraphStore.getState();
     addSeries(buildSeriesConfig(columnName, datasetId, series.length));
   };
 
@@ -270,7 +270,8 @@ export const Sidebar: React.FC = () => {
                                 updateDataset(ds.id, { xAxisId: `axis-${nextNum}` });
                               }}
                               title="Cycle X-Axis (1-9)"
-                              style={{ padding: '0 5px', height: '20px', background: 'none', border: `1px solid ${t.border}`, borderRight: 'none', cursor: 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}
+                              disabled={datasets.length === 1}
+                              style={{ padding: '0 5px', height: '20px', background: 'none', border: `1px solid ${t.border}`, borderRight: 'none', cursor: datasets.length === 1 ? 'default' : 'pointer', color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', opacity: datasets.length === 1 ? 0.3 : 1 }}
                             >
                               {(ds.xAxisId || 'axis-1').split('-')[1]}
                             </button>

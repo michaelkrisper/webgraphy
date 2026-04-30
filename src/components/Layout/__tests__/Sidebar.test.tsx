@@ -220,10 +220,6 @@ describe('Sidebar Component', () => {
       updateDataset: vi.fn(),
       updateXAxis: vi.fn(),
       setHighlightedSeries: vi.fn(),
-    });
-
-    // Mock useGraphStore.getState()
-    (useGraphStore.getState as unknown as Mock).mockReturnValue({
       addSeries: mockAddSeries,
     });
 
