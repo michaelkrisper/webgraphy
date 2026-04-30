@@ -173,7 +173,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       }
 
       if (!dataset.xAxisId) {
-        const usedXAxisIds = new Set(state.datasets.map(d => d.xAxisId));
+        const usedXAxisIds = state.datasets.reduce((acc, d) => d.xAxisId ? acc.add(d.xAxisId) : acc, new Set<string>());
         const unusedAxis = state.xAxes.find(a => !usedXAxisIds.has(a.id)) || state.xAxes[0];
         dataset.xAxisId = unusedAxis.id;
       }
