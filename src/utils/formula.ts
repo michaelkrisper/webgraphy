@@ -100,7 +100,7 @@ function evaluateFuncToken(
     case 'sumhour': {
       if (ctx) {
         const t = rowValues[timeVarIdx];
-        const date = new Date(t * (t > 1e11 ? 1 : 1000));
+        const date = new Date(t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000);
         let key: string;
         if (token.value.endsWith('day')) {
           key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -399,11 +399,11 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         avgTime: (id: number, val: number, t: number, windowSec: number) => {
           if (!ctx.timeQueues[id]) { ctx.timeQueues[id] = []; ctx.timeSums[id] = 0; }
           const q = ctx.timeQueues[id];
-          q.push({ t, v: val });
+          const tMs = t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000;
+          q.push({ t: tMs, v: val });
           ctx.timeSums[id] += val;
 
-          const isMs = t > 1e11;
-          const cutoff = t - (isMs ? windowSec * 1000 : windowSec);
+          const cutoff = tMs - windowSec * 1000;
 
           while (q.length > 0 && q[0].t <= cutoff) {
             ctx.timeSums[id] -= q.shift()!.v;

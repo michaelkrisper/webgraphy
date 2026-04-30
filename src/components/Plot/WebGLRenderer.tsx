@@ -419,6 +419,10 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         if (!cached || cached.key !== cacheKey) {
           const result = lttbFloat32(xData, yData, startIdx, endIdx, lttbThreshold);
           cached = { xOut: result.x, yOut: result.y, key: cacheKey };
+          if (lttbCacheRef.current.size >= 200) {
+            const keys = lttbCacheRef.current.keys();
+            for (let i = 0; i < 100; i++) lttbCacheRef.current.delete(keys.next().value!);
+          }
           lttbCacheRef.current.set(cacheKey, cached);
         }
         drawX = cached.xOut;
