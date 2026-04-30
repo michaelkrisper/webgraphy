@@ -32,7 +32,8 @@
       "Bash(node /tmp/check.js)",
       "Read(//tmp/**)",
       "Bash(awk '/^const AxesLayer = React.memo/,/^}\\\\\\);/' /c/Users/Michi/webgraphy/src/components/Plot/ChartContainer.tsx)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(npx:*)"
     ]
   },
   "defaultShell": "powershell",
