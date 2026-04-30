@@ -1,4 +1,5 @@
 import { type Dataset, type AppState, type DataColumn, persistence } from './persistence';
+import { secureJSONParse } from '../utils/json';
 
 interface SessionData {
   version: 1;
@@ -77,7 +78,7 @@ export async function exportSession(): Promise<string> {
 }
 
 export async function importSession(json: string): Promise<{ appState: AppState; datasets: Dataset[] }> {
-  const session: SessionData = JSON.parse(json);
+  const session = secureJSONParse(json) as SessionData;
 
   if (session.version !== 1) {
     throw new Error(`Unsupported session version: ${session.version}`);
