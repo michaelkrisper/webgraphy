@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -68,7 +69,6 @@ const ChartContainer: React.FC = () => {
     requestAnimationFrame(loop);
   }, []);
 
-  // pressedKeys ref forwarded from usePanZoom — initialized here so startAnimation can access it
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -102,10 +102,11 @@ const ChartContainer: React.FC = () => {
   const activeYAxesLayout = useMemo((): YAxisLayout[] => {
     const isMobile = width < 768 || height < 500;
     const chartH = Math.max(0, height - (isMobile ? 40 : 60) - 20);
+    const lockedCurrent = lockedYSteps.current;
     return activeYAxes.map(axis => {
-      const locked = lockedYSteps.current[axis.id];
+      const locked = lockedCurrent[axis.id];
       const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartH, locked);
-      lockedYSteps.current[axis.id] = actualStep;
+      lockedCurrent[axis.id] = actualStep;
       return { ...axis, ticks, precision, actualStep };
     });
   }, [activeYAxes, height, width]);
@@ -135,13 +136,14 @@ const ChartContainer: React.FC = () => {
 
   const xAxesMetrics = useMemo((): XAxisMetrics[] => {
     const isMobile = width < 768 || height < 500;
+    const result: XAxisMetrics[] = [];
     let currentOffset = 0;
-    return activeXAxesUsed.map(axis => {
+    for (const axis of activeXAxesUsed) {
       const base = getXAxisMetrics(isMobile, axis.xMode);
-      const metrics = { ...base, id: axis.id, cumulativeOffset: currentOffset };
+      result.push({ ...base, id: axis.id, cumulativeOffset: currentOffset });
       currentOffset += base.height;
-      return metrics;
-    });
+    }
+    return result;
   }, [activeXAxesUsed, width, height]);
 
   const padding = useMemo(() => {
@@ -162,8 +164,7 @@ const ChartContainer: React.FC = () => {
   });
 
   const {
-    panTarget, isCtrlPressed, isShiftPressed, zoomBoxState,
-    isPanningRef, pressedKeys,
+    panTarget, isCtrlPressed, isShiftPressed, isInteracting, zoomBoxState,
     handleMouseDown, handleTouchStart, handleWheel,
   } = usePanZoom({
     containerRef, width, height, padding, chartWidth, chartHeight,
@@ -171,15 +172,15 @@ const ChartContainer: React.FC = () => {
     targetXAxes, targetYs, startAnimation,
     xAxesMetrics, axisLayout, leftAxes, rightAxes,
     handleAutoScaleX, handleAutoScaleY,
+    pressedKeys: pressedKeysRef,
   });
-
-  // Forward pressedKeys ref so startAnimation's applyKeyboardZoom can see it
-  useEffect(() => { pressedKeysRef.current = pressedKeys.current; });
 
   const xAxesLayout = useMemo((): XAxisLayout[] => {
     const activeDsIds = new Set(series.map(s => s.sourceId));
     const dsByX: DatasetsByAxisId = {};
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
+
+    const lockedCurrent = lockedXSteps.current;
 
     return activeXAxesUsed.map(axis => {
       const r = axis.max - axis.min, isDate = axis.xMode === 'date';
@@ -189,20 +190,20 @@ const ChartContainer: React.FC = () => {
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
       if (!isDate) {
-        const locked = lockedXSteps.current[axis.id]?.step;
-        const step = (isPanningRef.current && locked) ? locked : calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
-        lockedXSteps.current[axis.id] = { step };
+        const locked = lockedCurrent[axis.id]?.step;
+        const step = (isInteracting && locked) ? locked : calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
+        lockedCurrent[axis.id] = { step };
         if (step <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
         return { id: axis.id, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
-        const lockedTs = lockedXSteps.current[axis.id]?.timeStep;
-        const ts = (isPanningRef.current && lockedTs) ? lockedTs : getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-        lockedXSteps.current[axis.id] = { timeStep: ts };
+        const lockedTs = lockedCurrent[axis.id]?.timeStep;
+        const ts = (isInteracting && lockedTs) ? lockedTs : getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
+        lockedCurrent[axis.id] = { timeStep: ts };
         return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, isPanningRef]);
+  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, isInteracting]);
 
   const gridXViewports = useMemo(() => activeXAxesUsed.map(axis => ({ id: axis.id, xMin: axis.min, xMax: axis.max })), [activeXAxesUsed]);
   const gridYViewports = useMemo(() => activeYAxesLayout.map(axis => ({ id: axis.id, xMin: xAxes[0]?.min ?? 0, xMax: xAxes[0]?.max ?? 1, yMin: axis.min, yMax: axis.max })), [activeYAxesLayout, xAxes]);
@@ -218,7 +219,7 @@ const ChartContainer: React.FC = () => {
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
-          <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isPanningRef.current || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
+          <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
         </ErrorBoundary>
       </div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />

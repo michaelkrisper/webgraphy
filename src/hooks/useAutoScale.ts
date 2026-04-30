@@ -73,7 +73,9 @@ export function useAutoScale({
         else if (mouseY > padding.top + 2 * chartHeight / 3) { nMin = yMin - p; nMax = yMax + r + 3 * p; }
         else { nMin = yMin - p; nMax = yMax + p; }
       } else { nMin = yMin - p; nMax = yMax + p; }
-      targetYs.current[axisId] = { min: nMin, max: nMax };
+      const ys = targetYs.current;
+      // eslint-disable-next-line react-hooks/immutability
+      ys[axisId] = { min: nMin, max: nMax };
       startAnimation();
     }
   }, [padding.top, chartHeight, targetYs, startAnimation]);
@@ -84,6 +86,7 @@ export function useAutoScale({
     const activeDatasetIds = new Set<string>();
     state.series.forEach(s => activeDatasetIds.add(s.sourceId));
     const axesToScale = xAxisId ? [xAxisId] : activeXAxesUsed.map(a => a.id);
+    const xs = targetXAxes.current;
     axesToScale.forEach(id => {
       const activeDs = state.datasets.filter(d => (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id));
       if (activeDs.length === 0) return;
@@ -94,7 +97,8 @@ export function useAutoScale({
       });
       if (xMin !== Infinity) {
         const pad = (xMax - xMin || 1) * 0.05;
-        targetXAxes.current[id] = { min: xMin - pad, max: xMax + pad };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (xs as any)[id] = { min: xMin - pad, max: xMax + pad };
       }
     });
     startAnimation();
@@ -135,11 +139,13 @@ export function useAutoScale({
         const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity };
         xBounds.set(xId, { min: Math.min(cur.min, col.bounds.min), max: Math.max(cur.max, col.bounds.max) });
       });
+      const xs = targetXAxes.current;
       xBounds.forEach((bounds, id) => {
         if (bounds.min !== Infinity) {
           const pad = (bounds.max - bounds.min || 1) * 0.05;
           const nextX = { min: bounds.min - pad, max: bounds.max + pad };
-          targetXAxes.current[id] = nextX;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (xs as any)[id] = nextX;
           state.updateXAxis(id, nextX);
         }
       });
@@ -148,6 +154,7 @@ export function useAutoScale({
         if (!seriesByYAxisIdLocal.has(s.yAxisId)) seriesByYAxisIdLocal.set(s.yAxisId, []);
         seriesByYAxisIdLocal.get(s.yAxisId)!.push(s);
       });
+      const ys = targetYs.current;
       activeYAxes.forEach(axis => {
         const axisSeries = seriesByYAxisIdLocal.get(axis.id) || [];
         if (axisSeries.length === 0) return;
@@ -162,7 +169,8 @@ export function useAutoScale({
         if (yMin !== Infinity) {
           const pad = (yMax - yMin || 1) * 0.05;
           const nextY = { min: yMin - pad, max: yMax + pad };
-          targetYs.current[axis.id] = nextY;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (ys as any)[axis.id] = nextY;
           state.updateYAxis(axis.id, nextY);
         }
       });
@@ -175,9 +183,13 @@ export function useAutoScale({
     if (!lastAppliedViewId) return;
     const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
     if (!view) return;
-    view.xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
+    const xs = targetXAxes.current;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    view.xAxes.forEach(axis => { (xs as any)[axis.id] = { min: axis.min, max: axis.max }; });
     if (view.yAxes.length > 0) {
-      view.yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
+      const ys = targetYs.current;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      view.yAxes.forEach(axis => { (ys as any)[axis.id] = { min: axis.min, max: axis.max }; });
     } else {
       activeYAxes.forEach(a => handleAutoScaleY(a.id));
     }

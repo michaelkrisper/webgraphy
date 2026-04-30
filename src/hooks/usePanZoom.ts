@@ -25,15 +25,16 @@ interface UsePanZoomOptions {
   rightAxes: YAxisConfig[];
   handleAutoScaleX: (xAxisId?: string) => void;
   handleAutoScaleY: (axisId: string, mouseY?: number) => void;
+  pressedKeys: React.MutableRefObject<Set<string>>;
 }
 
 interface UsePanZoomResult {
   panTarget: PanTarget | null;
   isCtrlPressed: boolean;
   isShiftPressed: boolean;
+  isInteracting: boolean;
   zoomBoxState: { startX: number; startY: number; endX: number; endY: number } | null;
   isPanningRef: React.MutableRefObject<boolean>;
-  pressedKeys: React.MutableRefObject<Set<string>>;
   hoveredAxisIdRef: React.MutableRefObject<string | null>;
   hoveredXAxisIdRef: React.MutableRefObject<string | null>;
   handleMouseDown: (e: React.MouseEvent, target?: PanTarget) => void;
@@ -46,22 +47,16 @@ export function usePanZoom({
   activeXAxes, activeYAxes, xAxesById, yAxesById,
   targetXAxes, targetYs, startAnimation,
   xAxesMetrics, axisLayout, leftAxes, rightAxes,
-  handleAutoScaleX, handleAutoScaleY,
+  handleAutoScaleX, handleAutoScaleY, pressedKeys,
 }: UsePanZoomOptions): UsePanZoomResult {
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
 
+  const isInteracting = !!panTarget || !!zoomBoxState;
+
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
-  const lastPinchDist = useRef<number | null>(null);
-  const lastTouchTime = useRef<number>(0);
-  const lastMousePos = useRef<{ x: number; y: number } | null>(null);
-  const zoomBoxStartRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
-  const isPanningRef = useRef(false);
-  const pressedKeys = useRef<Set<string>>(new Set());
-  const hoveredAxisIdRef = useRef<string | null>(null);
-  const hoveredXAxisIdRef = useRef<string | null>(null);
 
   const getHoveredYAxis = useCallback((mouseX: number, mouseY: number) => {
     if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
@@ -193,9 +188,12 @@ export function usePanZoom({
 
   // Raw event listeners (non-React for passive:false touch)
   const panTargetRef = useRef(panTarget);
-  panTargetRef.current = panTarget;
   const isShiftPressedRef = useRef(isShiftPressed);
-  isShiftPressedRef.current = isShiftPressed;
+
+  useEffect(() => {
+    panTargetRef.current = panTarget;
+    isShiftPressedRef.current = isShiftPressed;
+  }, [panTarget, isShiftPressed]);
 
   useEffect(() => {
     const handleTouchMoveRaw = (e: TouchEvent) => {
@@ -323,12 +321,13 @@ export function usePanZoom({
       window.removeEventListener('keydown', handleKey);
       window.removeEventListener('keyup', handleKey);
     };
-  }, [activeYAxes, activeXAxes, targetXAxes, targetYs, startAnimation]);
+  }, [activeYAxes, activeXAxes, targetXAxes, targetYs, startAnimation, pressedKeys]);
 
   return {
     panTarget,
     isCtrlPressed,
     isShiftPressed,
+    isInteracting,
     zoomBoxState,
     isPanningRef,
     pressedKeys,
