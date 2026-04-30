@@ -60,10 +60,10 @@ export const useDataImport = () => {
         addDataset(ds);
 
         if (ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
-          const existingSeries = useGraphStore.getState().series;
+          const seriesBeforeAdd = useGraphStore.getState().series;
           const nonXColumns = ds.columns.filter(c => c !== ds.xAxisColumn).slice(0, 4);
           nonXColumns.forEach((col, i) => {
-            addSeries(buildSeriesConfig(col, ds.id, existingSeries.length + i));
+            addSeries(buildSeriesConfig(col, ds.id, seriesBeforeAdd.length + i));
           });
         }
 
