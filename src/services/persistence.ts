@@ -132,7 +132,7 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.bounds = { min: 0, max: 0 };
     }
 
-    // Migration: lod -> data
+    // Migration: levels -> data (legacy pre-LOD format)
     if ((col as any).levels && (col as any).levels.length > 0 && !col.data) {
       col.data = restoreFloat32Array((col as any).levels[0]);
     } else if (col.data) {
@@ -143,6 +143,12 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
 
     if (col.chunkMin) col.chunkMin = restoreFloat32Array(col.chunkMin);
     if (col.chunkMax) col.chunkMax = restoreFloat32Array(col.chunkMax);
+
+    if (col.lod && Array.isArray(col.lod)) {
+      col.lod = col.lod.map(level => restoreFloat32Array(level));
+    } else {
+      col.lod = undefined;
+    }
 
     if (col.refPoint === undefined) col.refPoint = 0;
 

@@ -28,7 +28,7 @@ export function buildLodLevels(rawX: Float32Array, rawY: Float32Array): Float32A
 }
 
 /**
- * Select the finest LOD level that still has >= threshold points,
+ * Select the coarsest LOD level that still has >= threshold points,
  * or the coarsest level if all levels are below threshold.
  * Returns null if levels is empty or undefined.
  */
