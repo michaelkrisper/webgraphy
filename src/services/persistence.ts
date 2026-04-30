@@ -13,7 +13,13 @@ export interface DataColumn {
   data: Float32Array;
   chunkMin?: Float32Array;
   chunkMax?: Float32Array;
-  levels?: Float32Array[]; // For backward compatibility
+  /**
+   * Pre-computed LTTB mipmap levels paired against the dataset X column.
+   * lod[0] = coarsest (~256 pts), lod[last] = finest level still downsampled.
+   * Each entry is interleaved Float32Array: [x0, y0, x1, y1, ...] (relative coords).
+   * Absent on the X column and on columns too small to downsample.
+   */
+  lod?: Float32Array[];
 }
 
 export interface Dataset {
@@ -126,9 +132,9 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.bounds = { min: 0, max: 0 };
     }
 
-    // Migration: levels -> data
-    if (col.levels && col.levels.length > 0 && !col.data) {
-      col.data = restoreFloat32Array(col.levels[0]);
+    // Migration: lod -> data
+    if ((col as any).levels && (col as any).levels.length > 0 && !col.data) {
+      col.data = restoreFloat32Array((col as any).levels[0]);
     } else if (col.data) {
       col.data = restoreFloat32Array(col.data);
     } else {
