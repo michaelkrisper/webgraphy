@@ -1,5 +1,6 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from './persistence';
 import { secureRandom } from '../utils/random';
+import { buildLodLevels } from '../utils/lod';
 
 
 function generateRawWeatherData(rowCount: number, startTime: number): number[][] {
@@ -107,7 +108,7 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
     return { data, refPoint, chunkMin, chunkMax };
   });
 
-  return columns.map((colName, colIdx) => {
+  const result = columns.map((colName, colIdx) => {
     const col = relativeData[colIdx];
     return {
       isFloat64: colName === 'Timestamp',
@@ -116,8 +117,17 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
       data: col.data,
       chunkMin: col.chunkMin,
       chunkMax: col.chunkMax
-    };
+    } as DataColumn;
   });
+
+  // X column is index 0 (Timestamp); compute LOD for all Y columns
+  const xData = relativeData[0].data;
+  result.forEach((col, idx) => {
+    if (idx === 0) return;
+    col.lod = buildLodLevels(xData, col.data);
+  });
+
+  return result;
 }
 
 export function generateDemoDataset(): Dataset {
