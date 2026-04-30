@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildSeriesConfig } from '../series';
+import { COLOR_PALETTE } from '../../themes';
 
 describe('buildSeriesConfig', () => {
   it('returns a SeriesConfig with correct fields', () => {
@@ -8,8 +9,8 @@ describe('buildSeriesConfig', () => {
     expect(s.yColumn).toBe('A: Temperature');
     expect(s.name).toBe('A: Temperature');
     expect(s.yAxisId).toBe('axis-1');
-    expect(s.lineColor).toBe('#2563eb');
-    expect(s.pointColor).toBe('#2563eb');
+    expect(s.lineColor).toBe(COLOR_PALETTE[0]);
+    expect(s.pointColor).toBe(COLOR_PALETTE[0]);
     expect(s.lineStyle).toBe('solid');
     expect(s.pointStyle).toBe('circle');
     expect(s.hidden).toBe(false);
@@ -20,8 +21,8 @@ describe('buildSeriesConfig', () => {
   it('cycles color palette by existingSeriesCount', () => {
     const s0 = buildSeriesConfig('Col', 'ds-1', 0);
     const s1 = buildSeriesConfig('Col', 'ds-1', 1);
-    expect(s0.lineColor).toBe('#2563eb');
-    expect(s1.lineColor).toBe('#e11d48');
+    expect(s0.lineColor).toBe(COLOR_PALETTE[0]);
+    expect(s1.lineColor).toBe(COLOR_PALETTE[1]);
   });
 
   it('assigns axis-1 for count 0, axis-2 for count 1', () => {
