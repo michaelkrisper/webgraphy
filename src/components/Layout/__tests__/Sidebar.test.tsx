@@ -138,19 +138,6 @@ describe('Sidebar Component', () => {
 
     // Check it's not collapsed (sidebar-content visible)
     screen.getByRole('complementary');
-    // expect(screen.getByRole('complementary').style.width).not.toBe('0px');
-
-    // Click collapse
-    // const collapseBtn = screen.getByLabelText('Collapse Menu');
-    // fireEvent.click(collapseBtn);
-
-    // Should now be collapsed
-    // expect(sidebar.style.width).toBe('0px');
-    // expect(screen.getByTestId('collapsed-menu-button')).toBeInTheDocument();
-
-    // Expand again
-    // fireEvent.click(screen.getByTestId('collapsed-menu-button'));
-    // expect(sidebar.style.width).not.toBe('0px');
   });
 
   it('displays custom views and handles interactions', () => {
@@ -158,18 +145,6 @@ describe('Sidebar Component', () => {
 
     // Default view is filtered out, Custom View 1 should be visible
     expect(screen.getByText('Custom View 1')).toBeInTheDocument();
-
-    // Save new view
-    // fireEvent.click(screen.getByLabelText('Save Data View'));
-    // expect(mockSaveView).toHaveBeenCalledWith('');
-
-    // Apply view
-    // fireEvent.click(screen.getByLabelText('Apply view bounds'));
-    // expect(mockApplyView).toHaveBeenCalledWith('view-1');
-
-    // Delete view
-    // fireEvent.click(screen.getByLabelText('Delete view'));
-    // expect(mockDeleteView).toHaveBeenCalledWith('view-1');
   });
 
   it('handles editing view names', () => {
@@ -178,32 +153,18 @@ describe('Sidebar Component', () => {
     // Click on view name to edit
     const viewNameSpan = screen.getByText('Custom View 1');
     fireEvent.click(viewNameSpan);
-
-    // Input should appear
-    // const input = screen.getByRole('textbox', { name: 'Rename view' });
-    // expect(input).toBeInTheDocument();
-    // expect(input).toHaveValue('Custom View 1');
-
-    // Change value
-    // fireEvent.change(input, { target: { value: 'New Name' } });
-
-    // Blur to save
-    // fireEvent.blur(input);
-    // expect(mockUpdateViewName).toHaveBeenCalledWith('view-1', 'New Name');
   });
 
   it('toggles sections when headers are clicked', () => {
     render(<Sidebar />);
 
     const viewsHeader = screen.getByText('Saved Views');
-    // // expect(viewsHeader).toHaveStyle({ marginBottom: '12px' }) // approximation since aria-expanded may not be used, 'true');
 
     // Custom views are initially visible
     expect(screen.getByText('Custom View 1')).toBeInTheDocument();
 
     // Click to toggle
     fireEvent.click(viewsHeader!);
-    // // expect(viewsHeader).toHaveStyle({ marginBottom: '12px' }) // approximation since aria-expanded may not be used, 'false');
 
     // Custom views are hidden
     expect(screen.queryByText('Custom View 1')).not.toBeInTheDocument();
