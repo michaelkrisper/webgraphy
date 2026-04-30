@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { useGraphStore } from '../../store/useGraphStore';
 import { useDataImport } from '../../hooks/useDataImport';
 import { useTheme } from '../../hooks/useTheme';
-import { THEMES, type ThemeName, COLOR_PALETTE } from '../../themes';
+import { THEMES, type ThemeName } from '../../themes';
+import { buildSeriesConfig } from '../../utils/series';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
 import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
@@ -182,35 +183,7 @@ export const Sidebar: React.FC = () => {
     if (!dataset) return;
 
     const { addSeries } = useGraphStore.getState();
-
-    const usedAxisIds = new Set(series.map(s => s.yAxisId));
-    let nextAxisId = 'axis-1';
-    for (let i = 1; i <= 9; i++) {
-      const id = `axis-${i}`;
-      if (!usedAxisIds.has(id)) {
-        nextAxisId = id;
-        break;
-      }
-    }
-
-    if (usedAxisIds.size >= 9) {
-      nextAxisId = `axis-${(series.length % 9) + 1}`;
-    }
-
-    const color = COLOR_PALETTE[series.length % COLOR_PALETTE.length];
-
-    addSeries({
-      id: crypto.randomUUID(),
-      sourceId: datasetId,
-      name: columnName,
-      yColumn: columnName,
-      yAxisId: nextAxisId,
-      pointStyle: 'circle',
-      pointColor: color,
-      lineStyle: 'solid',
-      lineColor: color,
-      hidden: false
-    });
+    addSeries(buildSeriesConfig(columnName, datasetId, series.length));
   };
 
   if (isCollapsed) {
@@ -291,7 +264,9 @@ export const Sidebar: React.FC = () => {
                               onClick={() => {
                                 const currentId = ds.xAxisId || 'axis-1';
                                 const currentNum = parseInt(currentId.split('-')[1]) || 1;
-                                const nextNum = (currentNum % 9) + 1;
+                                const maxUsed = datasets.reduce((m, d) => Math.max(m, parseInt((d.xAxisId || 'axis-1').split('-')[1]) || 1), 1);
+                                const cap = Math.min(maxUsed + 1, 9);
+                                const nextNum = currentNum >= cap ? 1 : currentNum + 1;
                                 updateDataset(ds.id, { xAxisId: `axis-${nextNum}` });
                               }}
                               title="Cycle X-Axis (1-9)"
