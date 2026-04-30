@@ -284,6 +284,9 @@ describe('useDataImport hook', () => {
     expect(mockAddDataset.mock.calls[0][0].xAxisColumn).toBeUndefined();
     expect(result.current.isImporting).toBe(false);
     expect(result.current.pendingFile).toBeNull();
+    // xAxisColumn is undefined so all columns pass the filter — Col1 gets auto-added as a series
+    expect(mockAddSeries).toHaveBeenCalledTimes(1);
+    expect(mockAddSeries.mock.calls[0][0].yColumn).toBe('A: Col1');
 
     global.FileReader = originalFileReader;
   });
