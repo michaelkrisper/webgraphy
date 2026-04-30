@@ -77,23 +77,15 @@ describe('findInterestingSpots', () => {
      expect(spots).toEqual([]);
   });
 
-  it('finds Minimum and Maximum spots', () => {
-    // Array with clear min and max. Length 5
+  it('does not add Minimum or Maximum spots', () => {
     const datasets = [createMockDataset('ds1', [10, 5, 20, 2, 15])];
     const series = [createMockSeries('s1', 'ds1')];
     const xAxes = [createMockXAxis()];
 
     const spots = findInterestingSpots(datasets, series, xAxes);
 
-    // Check if Maximum spot is present
-    const maxSpot = spots.find(s => s.name.includes('Maximum'));
-    expect(maxSpot).toBeDefined();
-    // In our view snapshot logic, the snapshot maps the xAxes bounds around the spot center.
-    // We can infer properties by examining the snapshot objects. Wait, the output is ViewSnapshot!
-
-    // ViewSnapshot has name like "1. Series s1 — Maximum"
-    expect(spots.some(s => s.name.includes('Maximum'))).toBe(true);
-    expect(spots.some(s => s.name.includes('Minimum'))).toBe(true);
+    expect(spots.some(s => s.name.includes('Maximum'))).toBe(false);
+    expect(spots.some(s => s.name.includes('Minimum'))).toBe(false);
   });
 
   it('finds Steepest Change spots', () => {

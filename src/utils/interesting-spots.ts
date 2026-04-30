@@ -42,34 +42,15 @@ export function findInterestingSpots(
 
     const xAxisId = ds.xAxisId || 'axis-1';
 
-    // Find global min and max
+    // Find global min and max for range check
     let minVal = Infinity, maxVal = -Infinity;
-    let minIdx = 0, maxIdx = 0;
     for (let i = 0; i < n; i++) {
       const v = yCol.data[i] + yRef;
-      if (v < minVal) { minVal = v; minIdx = i; }
-      if (v > maxVal) { maxVal = v; maxIdx = i; }
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
     }
     const range = maxVal - minVal;
     if (range === 0) continue;
-
-    spots.push({
-      name: `${s.name || s.yColumn} — Maximum`,
-      xCenter: xCol.data[maxIdx] + xRef,
-      xAxisId,
-      yAxisId: s.yAxisId,
-      yCenter: maxVal,
-      importance: 1.0,
-    });
-
-    spots.push({
-      name: `${s.name || s.yColumn} — Minimum`,
-      xCenter: xCol.data[minIdx] + xRef,
-      xAxisId,
-      yAxisId: s.yAxisId,
-      yCenter: minVal,
-      importance: 0.9,
-    });
 
     // Find biggest rate changes (steepest slopes)
     const slopeWindowSize = Math.max(1, Math.floor(n / 200));
