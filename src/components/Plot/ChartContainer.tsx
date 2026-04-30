@@ -99,18 +99,6 @@ const ChartContainer: React.FC = () => {
     return xAxes.filter(a => axisToMinDsIdx.has(a.id)).sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
   }, [xAxes, series, datasets]);
 
-  const activeYAxesLayout = useMemo((): YAxisLayout[] => {
-    const isMobile = width < 768 || height < 500;
-    const chartH = Math.max(0, height - (isMobile ? 40 : 60) - 20);
-    const lockedCurrent = lockedYSteps.current;
-    return activeYAxes.map(axis => {
-      const locked = lockedCurrent[axis.id];
-      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartH, locked);
-      lockedCurrent[axis.id] = actualStep;
-      return { ...axis, ticks, precision, actualStep };
-    });
-  }, [activeYAxes, height, width]);
-
   const axisLayout = useMemo(() => {
     const layout: Record<string, { total: number; label: number }> = {};
     activeYAxes.forEach(axis => {
@@ -174,6 +162,18 @@ const ChartContainer: React.FC = () => {
     handleAutoScaleX, handleAutoScaleY,
     pressedKeys: pressedKeysRef,
   });
+
+  const activeYAxesLayout = useMemo((): YAxisLayout[] => {
+    const isMobile = width < 768 || height < 500;
+    const chartH = Math.max(0, height - (isMobile ? 40 : 60) - 20);
+    const lockedCurrent = lockedYSteps.current;
+    return activeYAxes.map(axis => {
+      const locked = lockedCurrent[axis.id];
+      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartH, isInteracting ? locked : undefined);
+      lockedCurrent[axis.id] = actualStep;
+      return { ...axis, ticks, precision, actualStep };
+    });
+  }, [activeYAxes, height, width, isInteracting]);
 
   const xAxesLayout = useMemo((): XAxisLayout[] => {
     const activeDsIds = new Set(series.map(s => s.sourceId));
