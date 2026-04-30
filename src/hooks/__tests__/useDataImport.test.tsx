@@ -10,10 +10,12 @@ vi.mock('../../store/useGraphStore', () => ({
   useGraphStore: Object.assign(
     vi.fn(() => ({
       addDataset: vi.fn(),
+      addSeries: vi.fn(),
     })),
     {
       getState: vi.fn(() => ({
         datasets: [],
+        series: [],
       })),
     }
   ),
@@ -42,6 +44,7 @@ type MockWorkerConstructor = ReturnType<typeof vi.fn> & { mock: { instances: Moc
 describe('useDataImport hook', () => {
   let originalWorker: typeof Worker;
   const mockAddDataset = vi.fn();
+  const mockAddSeries = vi.fn();
   let MockWorkerCtor: MockWorkerConstructor;
 
   const getMockWorker = () => MockWorkerCtor.mock.instances[MockWorkerCtor.mock.instances.length - 1] as MockWorkerInstance;
@@ -52,9 +55,11 @@ describe('useDataImport hook', () => {
     // Setup store mock
     vi.mocked(useGraphStore).mockImplementation(() => ({
       addDataset: mockAddDataset,
+      addSeries: mockAddSeries,
     }));
     vi.mocked(useGraphStore.getState).mockReturnValue({
       datasets: [],
+      series: [],
     } as ReturnType<typeof useGraphStore.getState>);
 
     // Mock Worker
@@ -394,6 +399,82 @@ describe('useDataImport hook', () => {
     expect(result.current.pendingFile?.file).toBe(file);
     expect(result.current.pendingFile?.type).toBe('json'); // Default fallback
     expect(result.current.pendingFile?.preview).toBe('preview data txt');
+
+    global.FileReader = originalFileReader;
+  });
+
+  it('should auto-add series for non-x columns when dataset has ≤5 columns', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const file = new File([''], 'test.csv', { type: 'text/csv' });
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() { this.onload?.({ target: { result: 'data' } }); }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    act(() => { result.current.importFile(file); });
+
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [], xAxisColumn: '' };
+    act(() => { result.current.confirmImport(settings); });
+
+    const mockDataset = {
+      id: 'ds-auto',
+      name: 'test.csv',
+      columns: ['Time', 'Temp', 'Humidity'],
+      rowCount: 10,
+      data: [],
+      xAxisColumn: 'Time',
+      xAxisId: 'axis-1',
+    };
+
+    await act(async () => {
+      await getMockWorker().onmessage?.({
+        data: { type: 'success', dataset: mockDataset }
+      } as MessageEvent);
+    });
+
+    expect(mockAddSeries).toHaveBeenCalledTimes(2);
+    expect(mockAddSeries.mock.calls[0][0].yColumn).toBe('A: Temp');
+    expect(mockAddSeries.mock.calls[1][0].yColumn).toBe('A: Humidity');
+
+    global.FileReader = originalFileReader;
+  });
+
+  it('should not auto-add series when dataset has >5 columns', async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    const file = new File([''], 'wide.csv', { type: 'text/csv' });
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() { this.onload?.({ target: { result: 'data' } }); }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    act(() => { result.current.importFile(file); });
+
+    const settings: ImportSettings = { delimiter: ',', decimalPoint: '.', startRow: 1, columnConfigs: [], xAxisColumn: '' };
+    act(() => { result.current.confirmImport(settings); });
+
+    const mockDataset = {
+      id: 'ds-wide',
+      name: 'wide.csv',
+      columns: ['T', 'C1', 'C2', 'C3', 'C4', 'C5'],
+      rowCount: 10,
+      data: [],
+      xAxisColumn: 'T',
+      xAxisId: 'axis-1',
+    };
+
+    await act(async () => {
+      await getMockWorker().onmessage?.({
+        data: { type: 'success', dataset: mockDataset }
+      } as MessageEvent);
+    });
+
+    expect(mockAddSeries).not.toHaveBeenCalled();
 
     global.FileReader = originalFileReader;
   });

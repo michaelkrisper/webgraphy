@@ -2,7 +2,9 @@ import { useState, useCallback } from 'react';
 import { persistence, type Dataset } from '../services/persistence';
 import { useGraphStore } from '../store/useGraphStore';
 import type { ImportSettings } from '../types/import';
+import { buildSeriesConfig } from '../utils/series';
 
+const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
 const processImportedDataset = (ds: Dataset, currentDatasetsLength: number) => {
   const letter = String.fromCharCode(65 + currentDatasetsLength);
@@ -22,7 +24,7 @@ export const useDataImport = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ file: File, preview: string, type: 'csv' | 'json' } | null>(null);
-  const { addDataset } = useGraphStore();
+  const { addDataset, addSeries } = useGraphStore();
 
   const initiateImport = useCallback(async (file: File) => {
     setError(null);
@@ -51,11 +53,20 @@ export const useDataImport = () => {
       const { type: msgType, dataset, error: msgError } = event.data;
 
       if (msgType === 'success') {
-        const currentDatasetsLength = useGraphStore.getState().datasets.length;
-        const ds = processImportedDataset(dataset as Dataset, currentDatasetsLength);
+        const currentState = useGraphStore.getState();
+        const ds = processImportedDataset(dataset as Dataset, currentState.datasets.length);
 
         await persistence.saveDataset(ds);
         addDataset(ds);
+
+        if (ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
+          const existingSeries = useGraphStore.getState().series;
+          const nonXColumns = ds.columns.filter(c => c !== ds.xAxisColumn).slice(0, 4);
+          nonXColumns.forEach((col, i) => {
+            addSeries(buildSeriesConfig(col, ds.id, existingSeries.length + i));
+          });
+        }
+
         setIsImporting(false);
         setPendingFile(null);
         worker.terminate();
@@ -67,7 +78,7 @@ export const useDataImport = () => {
     };
 
     worker.postMessage({ file, type, settings });
-  }, [pendingFile, addDataset]);
+  }, [pendingFile, addDataset, addSeries]);
 
   const cancelImport = useCallback(() => {
     setPendingFile(null);
