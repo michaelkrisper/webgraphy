@@ -278,13 +278,9 @@ async function parseCSV(file: File, settings?: ParseSettings) {
       }
 
       if (!line) {
-        if (!done || i < lines.length - 1 || line.length > 0) {
+        if (!done || i < lines.length - 1) {
             // Only increment lineCount if it's an actual empty line in the middle of the file
-            // Not a trailing empty newline at the end
-             if (done && i === lines.length - 1 && line.length === 0) {
-                 continue; // ignore trailing empty string
-             }
-             lineCount++;
+            lineCount++;
         }
         continue;
       }
