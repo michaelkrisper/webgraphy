@@ -28,9 +28,10 @@ export function buildLodLevels(rawX: Float32Array, rawY: Float32Array): Float32A
 }
 
 /**
- * Select the finest LOD level with >= pixelBudget points.
- * Called only when numVisiblePoints > pixelBudget (too many raw points to render directly).
- * Returns null if levels is empty/undefined or no level meets the budget (caller falls back).
+ * Select the finest LOD level with >= pixelBudget points and < numVisiblePoints.
+ * numVisiblePoints is snapped down to the nearest power of two before comparison so that
+ * small zoom changes near a level boundary don't cause a level switch and visual wobble.
+ * Returns null if levels is empty/undefined or no level meets the criteria.
  */
 export function selectLodLevel(
   levels: Float32Array[] | undefined,
@@ -39,18 +40,19 @@ export function selectLodLevel(
 ): Float32Array | null {
   if (!levels || levels.length === 0) return null;
 
+  // Snap numVisiblePoints down to the nearest power of two so the selected level
+  // only changes when zoom crosses a 2× boundary, not on every pixel of zoom.
+  const snapped = Math.pow(2, Math.floor(Math.log2(numVisiblePoints)));
+
   // levels[0]=coarsest, levels[last]=finest.
-  // Find the finest level with >= pixelBudget points — maximises detail within budget.
-  // Also require levelPoints < numVisiblePoints so we're actually downsampling something.
-  let best: Float32Array | null = null;
+  // Find the finest level with >= pixelBudget pts that is still < snapped visible pts.
   for (let i = levels.length - 1; i >= 0; i--) {
     const pts = levels[i].length / 2;
-    if (pts >= pixelBudget && pts < numVisiblePoints) {
-      best = levels[i];
-      break;
+    if (pts >= pixelBudget && pts < snapped) {
+      return levels[i];
     }
   }
-  return best;
+  return null;
 }
 
 function lttbInterleaved(

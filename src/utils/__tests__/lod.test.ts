@@ -63,12 +63,21 @@ describe('selectLodLevel', () => {
     expect(selectLodLevel(levels, 50, 100)).toBeNull();
   });
 
-  it('returns finest level with >= pixelBudget pts and < numVisiblePoints', () => {
+  it('returns finest level with >= pixelBudget pts and < snapped numVisiblePoints', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
     const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // pixelBudget=300, numVisible=2000 → finest level in [300, 2000) → 1024
+    // numVisible=2000 → snapped to 1024 → finest level in [300, 1024) → 512
     const result = selectLodLevel(levels, 300, 2000);
-    expect(result).toBe(levels[2]); // 1024pts: finest that fits
+    expect(result).toBe(levels[1]); // 512pts: finest below snapped 1024
+  });
+
+  it('does not switch levels for small zoom changes near boundary', () => {
+    const makeLevel = (n: number) => new Float32Array(n * 2);
+    const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
+    // numVisible=1100 and 1900 both snap to 1024 → same level selected
+    const r1 = selectLodLevel(levels, 300, 1100);
+    const r2 = selectLodLevel(levels, 300, 1900);
+    expect(r1).toBe(r2); // stable — no wobble across this zoom range
   });
 
   it('returns null when pixelBudget exceeds all level sizes (fallback to snap-LTTB)', () => {
