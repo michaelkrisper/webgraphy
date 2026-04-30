@@ -26,9 +26,12 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
 
   const currentYAxisIndex = parseInt(series.yAxisId.split('-')[1]) || 1;
   const currentYAxis = yAxes.find(a => a.id === series.yAxisId);
+  const yAxisCycleDisabled = allSeries.length <= 1;
 
   const cycleYAxis = () => {
-    const nextIndex = (currentYAxisIndex % 9) + 1;
+    const maxOthers = allSeries.filter(s => s.id !== series.id).reduce((m, s) => Math.max(m, parseInt(s.yAxisId.split('-')[1]) || 1), 1);
+    const cap = Math.min(maxOthers + 1, 9);
+    const nextIndex = currentYAxisIndex >= cap ? 1 : currentYAxisIndex + 1;
     const nextAxisId = `axis-${nextIndex}`;
     const isUnused = !allSeries.some(s => s.id !== series.id && s.yAxisId === nextAxisId);
     if (isUnused) updateYAxis(nextAxisId, { position: 'left' });
@@ -103,7 +106,8 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       <button
         onClick={cycleYAxis}
         className="sc-btn"
-        style={{ fontWeight: 'bold' }}
+        disabled={yAxisCycleDisabled}
+        style={{ fontWeight: 'bold', opacity: yAxisCycleDisabled ? 0.3 : 1, cursor: yAxisCycleDisabled ? 'default' : 'pointer' }}
         title="Cycle Y-Axis (1-9)" aria-label="Cycle Y-Axis"
       >
         {currentYAxisIndex}

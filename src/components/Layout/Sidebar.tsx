@@ -264,8 +264,8 @@ export const Sidebar: React.FC = () => {
                               onClick={() => {
                                 const currentId = ds.xAxisId || 'axis-1';
                                 const currentNum = parseInt(currentId.split('-')[1]) || 1;
-                                const maxUsed = datasets.reduce((m, d) => Math.max(m, parseInt((d.xAxisId || 'axis-1').split('-')[1]) || 1), 1);
-                                const cap = Math.min(maxUsed + 1, 9);
+                                const maxOthers = datasets.filter(d => d.id !== ds.id).reduce((m, d) => Math.max(m, parseInt((d.xAxisId || 'axis-1').split('-')[1]) || 1), 1);
+                                const cap = Math.min(maxOthers + 1, 9);
                                 const nextNum = currentNum >= cap ? 1 : currentNum + 1;
                                 updateDataset(ds.id, { xAxisId: `axis-${nextNum}` });
                               }}
