@@ -28,6 +28,9 @@ export function useAutoScale({
   padding, chartHeight, targetXAxes, targetYs, startAnimation, lastAppliedViewId,
 }: UseAutoScaleOptions): UseAutoScaleResult {
   const wasEmptyRef = useRef(true);
+  const activeYAxesRef = useRef(activeYAxes);
+  activeYAxesRef.current = activeYAxes;
+  const handleAutoScaleYRef = useRef<(axisId: string, mouseY?: number) => void>(() => {});
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const state = useGraphStore.getState();
@@ -79,6 +82,7 @@ export function useAutoScale({
       startAnimation();
     }
   }, [padding.top, chartHeight, targetYs, startAnimation]);
+  handleAutoScaleYRef.current = handleAutoScaleY;
 
   const handleAutoScaleX = useCallback((xAxisId?: string) => {
     const state = useGraphStore.getState();
@@ -175,7 +179,7 @@ export function useAutoScale({
     }
   }, [isLoaded, startAnimation, series, yAxes, activeYAxes, targetXAxes, targetYs]);
 
-  // View restoration
+  // View restoration — only fires when a new view is applied, not on every activeYAxes change
   useEffect(() => {
     if (!lastAppliedViewId) return;
     const view = useGraphStore.getState().views.find(v => v.id === lastAppliedViewId.id);
@@ -186,10 +190,11 @@ export function useAutoScale({
       const ys = targetYs.current;
       view.yAxes.forEach(axis => { ys[axis.id] = { min: axis.min, max: axis.max }; });
     } else {
-      activeYAxes.forEach(a => handleAutoScaleY(a.id));
+      activeYAxesRef.current.forEach(a => handleAutoScaleYRef.current(a.id));
     }
     startAnimation();
-  }, [lastAppliedViewId, startAnimation, activeYAxes, handleAutoScaleY, targetXAxes, targetYs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAppliedViewId, startAnimation, targetXAxes, targetYs]);
 
   // New series detection
   const prevSeriesRef = useRef(series);

@@ -40,6 +40,7 @@ const ChartContainer: React.FC = () => {
   const datasets = useGraphStore(s => s.datasets);
   const highlightedSeriesId = useGraphStore(s => s.highlightedSeriesId);
   const legendVisible = useGraphStore(s => s.legendVisible);
+  const lodEnabled = useGraphStore(s => s.lodEnabled);
   const [themeName] = useTheme();
   const themeColors = THEMES[themeName];
 
@@ -219,7 +220,7 @@ const ChartContainer: React.FC = () => {
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
-          <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
+          <WebGLRenderer key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting || isAnimating.current} highlightedSeriesId={highlightedSeriesId} lodEnabled={lodEnabled} />
         </ErrorBoundary>
       </div>
       <AxesLayer xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />

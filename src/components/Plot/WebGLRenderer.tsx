@@ -160,6 +160,7 @@ interface Props {
   padding: { top: number; right: number; bottom: number; left: number };
   isInteracting?: boolean;
   highlightedSeriesId?: string | null;
+  lodEnabled?: boolean;
 }
 
 const hexToRgba = (hex: string): number[] => {
@@ -228,7 +229,7 @@ interface LttbCacheEntry {
 /**
  * WebGLRenderer Component (v0.4.0 - LOD, Visibility, Highlighting & Optimized Buffer Pool)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }) => {
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId, lodEnabled = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -413,7 +414,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let drawY: Float32Array;
       let drawCount: number;
 
-      const lodLevel = selectLodLevel(colY.lod, lttbThreshold, numPoints, xData.length);
+      const lodLevel = lodEnabled ? selectLodLevel(colY.lod, lttbThreshold, numPoints, xData.length) : null;
 
       if (lodLevel !== null) {
         // Binary-search the LOD level's interleaved X values for the visible range
@@ -450,7 +451,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         drawX = sliceX;
         drawY = sliceY;
         drawCount = visibleLodPoints;
-      } else if (numPoints > lttbThreshold) {
+      } else if (lodEnabled && numPoints > lttbThreshold) {
         // Fallback: snap-based LTTB for columns without LOD (e.g. formula columns)
         const totalPoints = xData.length;
         const snap = Math.max(1, Math.floor(lttbThreshold / 2));

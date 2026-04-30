@@ -16,6 +16,8 @@ interface GraphState {
   highlightedSeriesId: string | null;
   legendVisible: boolean;
   setLegendVisible: (visible: boolean) => void;
+  lodEnabled: boolean;
+  setLodEnabled: (enabled: boolean) => void;
 
   // Actions
   addDataset: (dataset: Dataset) => void;
@@ -85,6 +87,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   setLegendVisible: (visible) => {
     if (typeof localStorage !== 'undefined') localStorage.setItem('legendVisible', String(visible));
     set({ legendVisible: visible });
+  },
+  lodEnabled: typeof localStorage !== 'undefined' ? localStorage.getItem('lodEnabled') !== 'false' : true,
+  setLodEnabled: (enabled) => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem('lodEnabled', String(enabled));
+    set({ lodEnabled: enabled });
   },
 
   addCalculatedColumn: async (datasetId, name, formula) => {
