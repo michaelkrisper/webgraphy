@@ -43,6 +43,114 @@ type Token =
 
 const columnMapCache = new WeakMap<string[], Map<string, number>>();
 
+
+function evaluateFuncToken(
+  token: Extract<Token, { type: 'FUNC' }>,
+  args: number[],
+  rowValues: number[],
+  finalDataColumnIndices: number[],
+  timeVarIdx: number,
+  ctx?: FormulaContext
+): number {
+  const argCount = args.length;
+  const a = args[0];
+
+  switch (token.value) {
+    case 'sin': return Math.sin(a);
+    case 'cos': return Math.cos(a);
+    case 'tan': return Math.tan(a);
+    case 'asin': return Math.asin(a);
+    case 'acos': return Math.acos(a);
+    case 'atan': return Math.atan(a);
+    case 'sqrt': return Math.sqrt(a);
+    case 'abs': return Math.abs(a);
+    case 'exp': return Math.exp(a);
+    case 'log': return Math.log10(a);
+    case 'ln': return Math.log(a);
+    case 'round': return Math.round(a);
+    case 'floor': return Math.floor(a);
+    case 'ceil': return Math.ceil(a);
+    case 'min': return Math.min(...args);
+    case 'max': return Math.max(...args);
+    case 'sum': {
+      if (argCount === 0) {
+        let s = 0;
+        for (let j = 0; j < finalDataColumnIndices.length; j++) {
+          s += rowValues[finalDataColumnIndices[j]];
+        }
+        return s;
+      }
+      return args.reduce((s, v) => s + v, 0);
+    }
+    case 'avg': {
+      if (argCount === 0) {
+        let s = 0;
+        for (let j = 0; j < finalDataColumnIndices.length; j++) {
+          s += rowValues[finalDataColumnIndices[j]];
+        }
+        return finalDataColumnIndices.length > 0 ? s / finalDataColumnIndices.length : 0;
+      }
+      return args.reduce((s, v) => s + v, 0) / argCount;
+    }
+    case 'filter':
+      return ctx ? ctx.filter(token.id!, a) : a;
+    case 'avgday':
+    case 'sumday':
+    case 'avghour':
+    case 'sumhour': {
+      if (ctx) {
+        const t = rowValues[timeVarIdx];
+        const date = new Date(t * (t > 1e11 ? 1 : 1000));
+        let key: string;
+        if (token.value.endsWith('day')) {
+          key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+        } else {
+          key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+        }
+        if (token.value.startsWith('avg')) return ctx.avgGroup(token.id!, a, key);
+        return ctx.sumGroup(token.id!, a, key);
+      }
+      return a;
+    }
+    default:
+      if (ctx) {
+        const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          const unit = m[2];
+          if (unit) {
+            let w = num;
+            if (unit === 'm') w = num * 60;
+            else if (unit === 'h') w = num * 3600;
+            else if (unit === 'd') w = num * 86400;
+            return ctx.avgTime(token.id!, a, rowValues[timeVarIdx], w);
+          }
+          return ctx.avgN(token.id!, a, num);
+        }
+      }
+      return a; // Fallback
+  }
+}
+
+function evaluateOpToken(token: Extract<Token, { type: 'OP' }>, stack: number[]): number {
+  if (token.unary) {
+    const a = stack.pop()!;
+    if (token.value === 'u-') return -a;
+    return a;
+  } else {
+    const b = stack.pop()!;
+    const a = stack.pop()!;
+    switch (token.value) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return a / b;
+      case '^': return Math.pow(a, b);
+      default: return a;
+    }
+  }
+}
+
 export function compileFormula(formula: string, availableColumns: string[]): FormulaResult {
   try {
     const usedColumnIndices: number[] = [];
@@ -362,91 +470,9 @@ export function compileFormula(formula: string, availableColumns: string[]): For
             for (let j = 0; j < argCount; j++) args.push(stack.pop()!);
             args.reverse();
 
-            const a = args[0];
-            if (token.value === 'sin') stack.push(Math.sin(a));
-            else if (token.value === 'cos') stack.push(Math.cos(a));
-            else if (token.value === 'tan') stack.push(Math.tan(a));
-            else if (token.value === 'asin') stack.push(Math.asin(a));
-            else if (token.value === 'acos') stack.push(Math.acos(a));
-            else if (token.value === 'atan') stack.push(Math.atan(a));
-            else if (token.value === 'sqrt') stack.push(Math.sqrt(a));
-            else if (token.value === 'abs') stack.push(Math.abs(a));
-            else if (token.value === 'exp') stack.push(Math.exp(a));
-            else if (token.value === 'log') stack.push(Math.log10(a));
-            else if (token.value === 'ln') stack.push(Math.log(a));
-            else if (token.value === 'round') stack.push(Math.round(a));
-            else if (token.value === 'floor') stack.push(Math.floor(a));
-            else if (token.value === 'ceil') stack.push(Math.ceil(a));
-            else if (token.value === 'min') stack.push(Math.min(...args));
-            else if (token.value === 'max') stack.push(Math.max(...args));
-            else if (token.value === 'sum') {
-              if (argCount === 0) {
-                let s = 0;
-                for (let j = 0; j < finalDataColumnIndices.length; j++) {
-                  s += rowValues[finalDataColumnIndices[j]];
-                }
-                stack.push(s);
-              } else {
-                stack.push(args.reduce((s, v) => s + v, 0));
-              }
-            }
-            else if (token.value === 'avg') {
-              if (argCount === 0) {
-                let s = 0;
-                for (let j = 0; j < finalDataColumnIndices.length; j++) {
-                  s += rowValues[finalDataColumnIndices[j]];
-                }
-                stack.push(finalDataColumnIndices.length > 0 ? s / finalDataColumnIndices.length : 0);
-              } else {
-                stack.push(args.reduce((s, v) => s + v, 0) / argCount);
-              }
-            }
-            else if (token.value === 'filter' && ctx) stack.push(ctx.filter(token.id!, a));
-            else if (ctx && (token.value === 'avgday' || token.value === 'sumday' || token.value === 'avghour' || token.value === 'sumhour')) {
-                const t = rowValues[timeVarIdx];
-                const date = new Date(t * (t > 1e11 ? 1 : 1000));
-                let key: string;
-                if (token.value.endsWith('day')) {
-                  key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-                } else {
-                  key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
-                }
-                if (token.value.startsWith('avg')) stack.push(ctx.avgGroup(token.id!, a, key));
-                else stack.push(ctx.sumGroup(token.id!, a, key));
-            }
-            else if (ctx) {
-              const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
-              if (m) {
-                const num = parseInt(m[1], 10);
-                const unit = m[2];
-                if (unit) {
-                  let w = num;
-                  if (unit === 'm') w = num * 60;
-                  else if (unit === 'h') w = num * 3600;
-                  else if (unit === 'd') w = num * 86400;
-                  stack.push(ctx.avgTime(token.id!, a, rowValues[timeVarIdx], w));
-                } else {
-                  stack.push(ctx.avgN(token.id!, a, num));
-                }
-              } else {
-                stack.push(a); // Fallback
-              }
-            } else {
-              stack.push(a); // Fallback
-            }
+            stack.push(evaluateFuncToken(token as Extract<Token, { type: 'FUNC' }>, args, rowValues, finalDataColumnIndices, timeVarIdx, ctx));
           } else if (token.type === 'OP') {
-            if (token.unary) {
-              const a = stack.pop()!;
-              if (token.value === 'u-') stack.push(-a);
-            } else {
-              const b = stack.pop()!;
-              const a = stack.pop()!;
-              if (token.value === '+') stack.push(a + b);
-              else if (token.value === '-') stack.push(a - b);
-              else if (token.value === '*') stack.push(a * b);
-              else if (token.value === '/') stack.push(a / b);
-              else if (token.value === '^') stack.push(Math.pow(a, b));
-            }
+            stack.push(evaluateOpToken(token as Extract<Token, { type: 'OP' }>, stack));
           }
         }
         return stack[0];
