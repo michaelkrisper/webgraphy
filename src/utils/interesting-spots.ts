@@ -18,10 +18,13 @@ export function findInterestingSpots(
   const visibleSeries = series.filter(s => !s.hidden);
   if (visibleSeries.length === 0) return [];
 
+  const datasetsById = new Map<string, Dataset>();
+  for (const d of datasets) datasetsById.set(d.id, d);
+
   const spots: InterestingSpot[] = [];
 
   for (const s of visibleSeries) {
-    const ds = datasets.find(d => d.id === s.sourceId);
+    const ds = datasetsById.get(s.sourceId);
     if (!ds) continue;
 
     const xIdx = getColumnIndex(ds, ds.xAxisColumn);
@@ -123,7 +126,7 @@ export function findInterestingSpots(
   // Find intersections between series on same x-axis
   const seriesByXAxis: Record<string, { s: SeriesConfig; ds: Dataset }[]> = {};
   for (const s of visibleSeries) {
-    const ds = datasets.find(d => d.id === s.sourceId);
+    const ds = datasetsById.get(s.sourceId);
     if (!ds) continue;
     const xAxisId = ds.xAxisId || 'axis-1';
     if (!seriesByXAxis[xAxisId]) seriesByXAxis[xAxisId] = [];
