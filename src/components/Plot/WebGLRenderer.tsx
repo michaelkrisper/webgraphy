@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
+import { selectLodLevel } from '../../utils/lod';
 
 function stringHash(s: string): number {
   let h = 0x811c9dc5;
@@ -412,12 +413,54 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let drawY: Float32Array;
       let drawCount: number;
 
-      if (numPoints > lttbThreshold) {
+      const lodLevel = selectLodLevel(colY.lod, lttbThreshold, startIdx, endIdx);
+
+      if (lodLevel !== null && numPoints > lttbThreshold) {
+        // Binary-search the LOD level's interleaved X values for the visible range
+        const lodPoints = lodLevel.length / 2;
+        const xRelMin = xAxis.min - colX.refPoint;
+        const xRelMax = xAxis.max - colX.refPoint;
+
+        let lodStart = 0;
+        let lo = 0, hi = lodPoints - 1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >>> 1;
+          if (lodLevel[mid * 2] <= xRelMin) { lodStart = mid; lo = mid + 1; }
+          else hi = mid - 1;
+        }
+
+        let lodEnd = lodPoints - 1;
+        lo = 0; hi = lodPoints - 1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >>> 1;
+          if (lodLevel[mid * 2] >= xRelMax) { lodEnd = mid; hi = mid - 1; }
+          else lo = mid + 1;
+        }
+
+        // Deinterleave the visible slice into separate X/Y arrays using shared buffer
+        const visibleLodPoints = lodEnd - lodStart + 1;
+        const buf = getSharedBuffer(visibleLodPoints * 2);
+        const sliceX = buf.subarray(0, visibleLodPoints);
+        const sliceY = buf.subarray(visibleLodPoints, visibleLodPoints * 2);
+        for (let k = 0; k < visibleLodPoints; k++) {
+          sliceX[k] = lodLevel[(lodStart + k) * 2];
+          sliceY[k] = lodLevel[(lodStart + k) * 2 + 1];
+        }
+
+        drawX = sliceX;
+        drawY = sliceY;
+        drawCount = visibleLodPoints;
+      } else if (numPoints > lttbThreshold) {
+        // Fallback: snap-based LTTB for columns without LOD (e.g. formula columns)
+        const totalPoints = xData.length;
+        const snap = Math.max(1, Math.floor(lttbThreshold / 2));
+        const snapStart = Math.max(0, Math.floor(startIdx / snap) * snap);
+        const snapEnd = Math.min(totalPoints - 1, Math.ceil(endIdx / snap) * snap);
         const dsHash = dsIdHashRef.current.get(ds.id) ?? stringHash(ds.id);
-        const cacheKey = lttbCacheHash(dsHash, xIdx, yIdx, startIdx, endIdx, lttbThreshold);
+        const cacheKey = lttbCacheHash(dsHash, xIdx, yIdx, snapStart, snapEnd, lttbThreshold);
         let cached = lttbCacheRef.current.get(cacheKey);
         if (!cached || cached.key !== cacheKey) {
-          const result = lttbFloat32(xData, yData, startIdx, endIdx, lttbThreshold);
+          const result = lttbFloat32(xData, yData, snapStart, snapEnd, lttbThreshold);
           cached = { xOut: result.x, yOut: result.y, key: cacheKey };
           if (lttbCacheRef.current.size >= 200) {
             const keys = lttbCacheRef.current.keys();
