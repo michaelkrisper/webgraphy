@@ -28,28 +28,30 @@ export function buildLodLevels(rawX: Float32Array, rawY: Float32Array): Float32A
 }
 
 /**
- * Select the coarsest LOD level that still has >= threshold points,
- * or the coarsest level if all levels are below threshold.
- * Returns null if levels is empty or undefined.
+ * Select the finest LOD level where levelPoints is between pixelBudget and numVisiblePoints.
+ * This ensures the level is fine enough to fill the screen (>= pixelBudget) but no finer
+ * than the actual visible raw data (<= numVisiblePoints), so LOD→raw transition is seamless.
+ * Returns null if levels is empty/undefined or if no level is coarser than numVisiblePoints
+ * (caller should use raw data directly in that case).
  */
 export function selectLodLevel(
   levels: Float32Array[] | undefined,
-  threshold: number,
-  _startIdx: number,
-  _endIdx: number
+  pixelBudget: number,
+  numVisiblePoints: number
 ): Float32Array | null {
   if (!levels || levels.length === 0) return null;
 
-  // Find the coarsest level that still has >= threshold points.
-  // Levels are ordered coarsest-first, so iterate forward and stop at first match.
-  for (let i = 0; i < levels.length; i++) {
+  // Iterate finest-to-coarsest; pick first level where pts <= numVisiblePoints && pts >= pixelBudget.
+  // levels[0]=coarsest, levels[last]=finest.
+  let best: Float32Array | null = null;
+  for (let i = levels.length - 1; i >= 0; i--) {
     const pts = levels[i].length / 2;
-    if (pts >= threshold) {
-      return levels[i];
+    if (pts <= numVisiblePoints && pts >= pixelBudget) {
+      best = levels[i];
+      break;
     }
   }
-  // All levels below threshold — return coarsest as fallback.
-  return levels[0];
+  return best;
 }
 
 function lttbInterleaved(
