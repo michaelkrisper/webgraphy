@@ -56,23 +56,22 @@ describe('selectLodLevel', () => {
     expect(selectLodLevel([], 100, 1000)).toBeNull();
   });
 
-  it('returns null when all levels exceed numVisiblePoints (use raw)', () => {
-    // All levels finer than visible data → no LOD needed, use raw
+  it('returns null when all levels have more pts than numVisiblePoints (no downsampling needed)', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
     const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // numVisiblePoints=100 → every level has more pts than visible → null
+    // numVisiblePoints=100 → every level coarser than visible → use raw
     expect(selectLodLevel(levels, 50, 100)).toBeNull();
   });
 
-  it('returns finest level within [pixelBudget, numVisiblePoints]', () => {
+  it('returns finest level with >= pixelBudget pts and < numVisiblePoints', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
     const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // pixelBudget=300, numVisible=2000 → finest level with pts in [300,2000] → 1024
+    // pixelBudget=300, numVisible=2000 → finest level in [300, 2000) → 1024
     const result = selectLodLevel(levels, 300, 2000);
-    expect(result).toBe(levels[2]); // 1024pts: finest within range
+    expect(result).toBe(levels[2]); // 1024pts: finest that fits
   });
 
-  it('returns null when pixelBudget exceeds all level sizes (use raw or snap-LTTB)', () => {
+  it('returns null when pixelBudget exceeds all level sizes (fallback to snap-LTTB)', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
     const levels = [makeLevel(256), makeLevel(512)];
     // pixelBudget=10000 → no level has enough pts → null

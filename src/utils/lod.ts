@@ -28,11 +28,9 @@ export function buildLodLevels(rawX: Float32Array, rawY: Float32Array): Float32A
 }
 
 /**
- * Select the finest LOD level where levelPoints is between pixelBudget and numVisiblePoints.
- * This ensures the level is fine enough to fill the screen (>= pixelBudget) but no finer
- * than the actual visible raw data (<= numVisiblePoints), so LOD→raw transition is seamless.
- * Returns null if levels is empty/undefined or if no level is coarser than numVisiblePoints
- * (caller should use raw data directly in that case).
+ * Select the finest LOD level with >= pixelBudget points.
+ * Called only when numVisiblePoints > pixelBudget (too many raw points to render directly).
+ * Returns null if levels is empty/undefined or no level meets the budget (caller falls back).
  */
 export function selectLodLevel(
   levels: Float32Array[] | undefined,
@@ -41,12 +39,13 @@ export function selectLodLevel(
 ): Float32Array | null {
   if (!levels || levels.length === 0) return null;
 
-  // Iterate finest-to-coarsest; pick first level where pts <= numVisiblePoints && pts >= pixelBudget.
   // levels[0]=coarsest, levels[last]=finest.
+  // Find the finest level with >= pixelBudget points — maximises detail within budget.
+  // Also require levelPoints < numVisiblePoints so we're actually downsampling something.
   let best: Float32Array | null = null;
   for (let i = levels.length - 1; i >= 0; i--) {
     const pts = levels[i].length / 2;
-    if (pts <= numVisiblePoints && pts >= pixelBudget) {
+    if (pts >= pixelBudget && pts < numVisiblePoints) {
       best = levels[i];
       break;
     }
