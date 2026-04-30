@@ -413,7 +413,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       let drawY: Float32Array;
       let drawCount: number;
 
-      const lodLevel = selectLodLevel(colY.lod, lttbThreshold, numPoints);
+      const lodLevel = selectLodLevel(colY.lod, lttbThreshold, numPoints, xData.length);
 
       if (lodLevel !== null) {
         // Binary-search the LOD level's interleaved X values for the visible range

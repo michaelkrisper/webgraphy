@@ -28,27 +28,31 @@ export function buildLodLevels(rawX: Float32Array, rawY: Float32Array): Float32A
 }
 
 /**
- * Select the finest LOD level with >= pixelBudget points and < numVisiblePoints.
- * numVisiblePoints is snapped down to the nearest power of two before comparison so that
- * small zoom changes near a level boundary don't cause a level switch and visual wobble.
+ * Select the finest LOD level that will produce >= pixelBudget visible points after
+ * viewport clipping. Since each level covers the full dataset, the visible fraction is
+ * numVisiblePoints / totalPoints. A level with L points yields ~L * fraction visible pts.
+ * We snap the fraction to powers of two to avoid wobble at level boundaries.
  * Returns null if levels is empty/undefined or no level meets the criteria.
  */
 export function selectLodLevel(
   levels: Float32Array[] | undefined,
   pixelBudget: number,
-  numVisiblePoints: number
+  numVisiblePoints: number,
+  totalPoints: number
 ): Float32Array | null {
   if (!levels || levels.length === 0) return null;
 
-  // Snap numVisiblePoints down to the nearest power of two so the selected level
-  // only changes when zoom crosses a 2× boundary, not on every pixel of zoom.
-  const snapped = Math.pow(2, Math.floor(Math.log2(numVisiblePoints)));
+  // Snap the visible fraction to a power of two to stabilise level selection.
+  // Without snapping, tiny zoom changes cause continuous level switches (wobble).
+  const fraction = numVisiblePoints / totalPoints;
+  const snappedFraction = Math.pow(2, Math.floor(Math.log2(Math.max(fraction, 1e-9))));
 
   // levels[0]=coarsest, levels[last]=finest.
-  // Find the finest level with >= pixelBudget pts that is still < snapped visible pts.
+  // Pick finest level where estimated visible pts >= pixelBudget.
   for (let i = levels.length - 1; i >= 0; i--) {
     const pts = levels[i].length / 2;
-    if (pts >= pixelBudget && pts < snapped) {
+    const estimatedVisible = pts * snappedFraction;
+    if (estimatedVisible >= pixelBudget) {
       return levels[i];
     }
   }

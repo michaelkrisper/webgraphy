@@ -18,19 +18,16 @@ describe('buildLodLevels', () => {
     for (let i = 0; i < levels.length - 1; i++) {
       expect(levels[i].length).toBeLessThan(levels[i + 1].length);
     }
-    // Coarsest level has ~256 points (512 values interleaved)
     expect(levels[0].length).toBeLessThanOrEqual(514);
   });
 
   it('interleaves x and y correctly', () => {
-    // Need enough points to trigger LOD
     const n = MIN_LOD_POINTS + 100;
     const x = new Float32Array(n).map((_, i) => i);
     const y = new Float32Array(n).map((_, i) => i * 2);
     const levels = buildLodLevels(x, y);
     if (levels.length === 0) return;
     const level = levels[levels.length - 1];
-    // y should be 2*x for every point
     for (let i = 0; i < level.length - 1; i += 2) {
       expect(level[i + 1]).toBeCloseTo(level[i] * 2, 3);
     }
@@ -52,38 +49,31 @@ describe('buildLodLevels', () => {
 
 describe('selectLodLevel', () => {
   it('returns null when no lod levels', () => {
-    expect(selectLodLevel(undefined, 100, 1000)).toBeNull();
-    expect(selectLodLevel([], 100, 1000)).toBeNull();
+    expect(selectLodLevel(undefined, 100, 1000, 10000)).toBeNull();
+    expect(selectLodLevel([], 100, 1000, 10000)).toBeNull();
   });
 
-  it('returns null when all levels have more pts than numVisiblePoints (no downsampling needed)', () => {
+  it('returns null when estimated visible pts below pixelBudget for all levels', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
-    const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // numVisiblePoints=100 → every level coarser than visible → use raw
-    expect(selectLodLevel(levels, 50, 100)).toBeNull();
+    const levels = [makeLevel(256), makeLevel(512)];
+    // fraction=100/10000=0.01, snapped~0.0078; 512*0.0078≈4 < budget=300 → null
+    expect(selectLodLevel(levels, 300, 100, 10000)).toBeNull();
   });
 
-  it('returns finest level with >= pixelBudget pts and < snapped numVisiblePoints', () => {
+  it('returns finest level where estimated visible pts >= pixelBudget', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
-    const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // numVisible=2000 → snapped to 1024 → finest level in [300, 1024) → 512
-    const result = selectLodLevel(levels, 300, 2000);
-    expect(result).toBe(levels[1]); // 512pts: finest below snapped 1024
+    const levels = [makeLevel(256), makeLevel(512), makeLevel(4096)];
+    // fraction=5000/10000=0.5, snapped=0.5; 4096*0.5=2048 >= 300 → finest=4096
+    const result = selectLodLevel(levels, 300, 5000, 10000);
+    expect(result).toBe(levels[2]);
   });
 
   it('does not switch levels for small zoom changes near boundary', () => {
     const makeLevel = (n: number) => new Float32Array(n * 2);
     const levels = [makeLevel(256), makeLevel(512), makeLevel(1024)];
-    // numVisible=1100 and 1900 both snap to 1024 → same level selected
-    const r1 = selectLodLevel(levels, 300, 1100);
-    const r2 = selectLodLevel(levels, 300, 1900);
-    expect(r1).toBe(r2); // stable — no wobble across this zoom range
-  });
-
-  it('returns null when pixelBudget exceeds all level sizes (fallback to snap-LTTB)', () => {
-    const makeLevel = (n: number) => new Float32Array(n * 2);
-    const levels = [makeLevel(256), makeLevel(512)];
-    // pixelBudget=10000 → no level has enough pts → null
-    expect(selectLodLevel(levels, 10000, 50000)).toBeNull();
+    // Both visible counts have same snapped fraction → same level
+    const r1 = selectLodLevel(levels, 50, 1100, 10000);
+    const r2 = selectLodLevel(levels, 50, 1900, 10000);
+    expect(r1).toBe(r2);
   });
 });
