@@ -13,6 +13,7 @@ import { ChartLegend } from './ChartLegend';
 import { GridLines } from './GridLines';
 import { AxesLayer } from './AxesLayer';
 import { Crosshair } from './Crosshair';
+import { BenchmarkOverlay } from './BenchmarkOverlay';
 import { usePanZoom } from '../../hooks/usePanZoom';
 import { useAutoScale } from '../../hooks/useAutoScale';
 import ErrorBoundary from '../ErrorBoundary';
@@ -216,6 +217,7 @@ const ChartContainer: React.FC = () => {
       style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}
     >
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
+      <BenchmarkOverlay />
       <GridLines xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">

@@ -186,7 +186,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [snap]);
 
-  if (!pos) return null;
+  if (isPanning || !pos) return null;
 
   return (
     <>

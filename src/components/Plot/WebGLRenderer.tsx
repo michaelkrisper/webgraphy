@@ -261,6 +261,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     const gl = glRef.current;
     if (!gl || !program || !locations || !glReady) return;
 
+    const renderStart = performance.now();
+
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     if (chartWidth <= 0 || chartHeight <= 0) return;
@@ -278,6 +280,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
     gl.uniform2f(locs.resLoc, pw, ph);
     gl.uniform1f(locs.dprLoc, dpr);
+
+    let totalPointsDrawn = 0;
 
     seriesMetadata.forEach(({ series: s, ds, xAxis, yAxis, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
       if (s.hidden) return;
@@ -315,17 +319,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       const numPoints = endIdx - startIdx + 1;
+      const drawCount = numPoints;
+      totalPointsDrawn += drawCount;
 
-      let drawX: Float32Array;
-      let drawY: Float32Array;
-      let drawCount: number;
-
-      drawX = xData.subarray(startIdx, endIdx + 1);
-      drawY = yData.subarray(startIdx, endIdx + 1);
-      drawCount = numPoints;
-
-      // drawX/drawY are slices of the original Float32Array (relative = value - refPoint),
-      // so uniforms stay in the same relative space regardless of LTTB
       gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
       gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
 
@@ -334,6 +330,8 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       if (!xBuffer) {
         xBuffer = gl.createBuffer()!;
         buffersRef.current.set(xBufferKey, xBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
       }
 
       const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
@@ -341,12 +339,9 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       if (!yBuffer) {
         yBuffer = gl.createBuffer()!;
         buffersRef.current.set(yBufferKey, yBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
       }
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, drawX, gl.STREAM_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, drawY, gl.STREAM_DRAW);
 
       const isHighlighted = highlightedSeriesId === s.id;
       const baseLineWidth = isHighlighted ? 2.5 : 1;
@@ -373,10 +368,10 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
 
           gl.lineWidth(baseLineWidth * dpr);
-          gl.drawArrays(gl.LINE_STRIP, 0, drawCount);
+          gl.drawArrays(gl.LINE_STRIP, startIdx, drawCount);
         } else {
           const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
+          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${startIdx}-${drawCount}`;
           let segBuffer = buffersRef.current.get(segBufferKey);
           if (!segBuffer) {
             segBuffer = gl.createBuffer()!;
@@ -397,7 +392,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
 
             let cumDist = 0;
             for (let i = 0; i < numSegs; i++) {
-              const ax = drawX[i], ay = drawY[i], bx = drawX[i + 1], by = drawY[i + 1];
+              const ax = xData[startIdx + i], ay = yData[startIdx + i], bx = xData[startIdx + i + 1], by = yData[startIdx + i + 1];
               const screenDx = (bx - ax) / xRange * pChartWidth;
               const screenDy = (by - ay) / yRange * pChartHeight;
               const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
@@ -408,7 +403,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
               cumDist += segScreenLen;
             }
             gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, sharedArr.subarray(0, reqSize), gl.STREAM_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
             segParamsRef.current.set(segBufferKey, paramKey);
           } else {
             gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
@@ -449,10 +444,16 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         gl.enableVertexAttribArray(locs.yLoc);
         gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
 
-        gl.drawArrays(gl.POINTS, 0, drawCount);
+        gl.drawArrays(gl.POINTS, startIdx, drawCount);
       }
     });
     gl.disable(gl.SCISSOR_TEST);
+    
+    // Force GPU to finish to get accurate timing (for benchmarking only)
+    gl.finish();
+    const renderTime = performance.now() - renderStart;
+
+    window.dispatchEvent(new CustomEvent('render-stats', { detail: { points: totalPointsDrawn, webglTime: renderTime } }));
   }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId]);
 
   const dpr = window.devicePixelRatio || 1;

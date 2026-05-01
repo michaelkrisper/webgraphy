@@ -49,9 +49,72 @@ export function usePanZoom({
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
-  const [zoomBoxState, setZoomBoxState] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
 
   const isInteracting = !!panTarget || !!zoomBoxState;
+
+  // High-frequency state refs for throttling
+  const panStateRef = useRef<{ active: boolean, startX: number, startY: number, currentX: number, currentY: number, target: PanTarget | null, startTargetX: Record<string, { min: number, max: number }>, startTargetY: Record<string, { min: number, max: number }> }>({
+    active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, target: null, startTargetX: {}, startTargetY: {}
+  });
+
+  const throttleRafId = useRef<number | null>(null);
+
+  const scheduleUpdate = useCallback(() => {
+    if (throttleRafId.current === null) {
+      throttleRafId.current = requestAnimationFrame(() => {
+        throttleRafId.current = null;
+        const ps = panStateRef.current;
+        if (!ps.active || !ps.target) return;
+
+        const dx = ps.currentX - ps.startX;
+        const dy = ps.currentY - ps.startY;
+
+        let needsUpdate = false;
+        const newState = useGraphStore.getState();
+
+        // X-Axis Panning
+        if (ps.target === 'all' || (ps.target as { xAxisId?: string }).xAxisId) {
+          activeXAxes.forEach(axis => {
+            if (ps.target !== 'all' && (ps.target as { xAxisId?: string }).xAxisId !== axis.id) return;
+            const startConf = ps.startTargetX[axis.id];
+            if (!startConf) return;
+            const pxPerWorld = chartWidth / (startConf.max - startConf.min);
+            const shiftWorld = -dx / pxPerWorld;
+            const newMin = startConf.min + shiftWorld;
+            const newMax = startConf.max + shiftWorld;
+            if (targetXAxes.current[axis.id].min !== newMin || targetXAxes.current[axis.id].max !== newMax) {
+              targetXAxes.current[axis.id] = { min: newMin, max: newMax };
+              newState.updateXAxis(axis.id, { min: newMin, max: newMax });
+              needsUpdate = true;
+            }
+          });
+        }
+
+        // Y-Axis Panning
+        if (ps.target === 'all' || (ps.target as { yAxisId?: string }).yAxisId) {
+          activeYAxes.forEach(axis => {
+            if (ps.target !== 'all' && (ps.target as { yAxisId?: string }).yAxisId !== axis.id) return;
+            const startConf = ps.startTargetY[axis.id];
+            if (!startConf) return;
+            const pxPerWorld = chartHeight / (startConf.max - startConf.min);
+            const shiftWorld = dy / pxPerWorld;
+            const newMin = startConf.min + shiftWorld;
+            const newMax = startConf.max + shiftWorld;
+            if (targetYs.current[axis.id].min !== newMin || targetYs.current[axis.id].max !== newMax) {
+              targetYs.current[axis.id] = { min: newMin, max: newMax };
+              newState.updateYAxis(axis.id, { min: newMin, max: newMax });
+              needsUpdate = true;
+            }
+          });
+        }
+
+        if (needsUpdate) {
+          startAnimation();
+        }
+      });
+    }
+  }, [activeXAxes, activeYAxes, chartWidth, chartHeight, targetXAxes, targetYs, startAnimation]);
 
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
@@ -116,32 +179,6 @@ export function usePanZoom({
     startAnimation();
   }, [activeXAxes, activeYAxes, xAxesById, yAxesById, width, height, padding, chartWidth, chartHeight, targetXAxes, targetYs, startAnimation]);
 
-  const performPan = useCallback((dx: number, dy: number, target: PanTarget = 'all', shiftKey = false) => {
-    const state = useGraphStore.getState();
-    if (target === 'all' || (typeof target === 'object' && 'xAxisId' in target)) {
-      const axes = (target === 'all' || shiftKey) ? activeXAxes : [xAxesById.get(target.xAxisId)!];
-      axes.forEach(axis => {
-        if (!axis) return;
-        const xr = axis.max - axis.min;
-        const xm = chartWidth > 0 ? (dx / chartWidth) * xr : 0;
-        const next = { min: axis.min - xm, max: axis.max - xm };
-        state.updateXAxis(axis.id, next);
-        targetXAxes.current[axis.id] = next;
-      });
-    }
-    const draggedY = typeof target === 'object' && 'yAxisId' in target ? target.yAxisId : null;
-    const yAxesToPan = (target === 'all' && !shiftKey) ? activeYAxes : (draggedY ? [yAxesById.get(draggedY)!] : []);
-    yAxesToPan.forEach(axis => {
-      if (!axis) return;
-      const cur = yAxesById.get(axis.id)!;
-      const yr = cur.max - cur.min;
-      const ym = chartHeight > 0 ? (dy / chartHeight) * yr : 0;
-      const next = { min: cur.min + ym, max: cur.max + ym };
-      state.updateYAxis(axis.id, next);
-      targetYs.current[axis.id] = next;
-    });
-  }, [activeXAxes, activeYAxes, xAxesById, yAxesById, chartWidth, chartHeight, targetXAxes, targetYs]);
-
   const handleWheel = useCallback((e: React.WheelEvent, target: PanTarget = 'all') => {
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
     const rect = containerRef.current?.getBoundingClientRect();
@@ -204,9 +241,19 @@ export function usePanZoom({
       const target = panTargetRef.current;
       if (e.touches.length === 1 && target && lastTouchPos.current) {
         if (e.cancelable) e.preventDefault();
-        const t = e.touches[0], dx = t.clientX - lastTouchPos.current.x, dy = t.clientY - lastTouchPos.current.y;
-        lastTouchPos.current = { x: t.clientX, y: t.clientY };
-        performPan(dx, dy, target, e.shiftKey);
+        const t = e.touches[0];
+        const ps = panStateRef.current;
+        if (!ps.active) {
+          ps.active = true;
+          ps.startX = lastTouchPos.current.x;
+          ps.startY = lastTouchPos.current.y;
+          ps.target = target;
+          activeXAxes.forEach(a => { ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] }; });
+          activeYAxes.forEach(a => { ps.startTargetY[a.id] = { ...targetYs.current[a.id] }; });
+        }
+        ps.currentX = t.clientX;
+        ps.currentY = t.clientY;
+        scheduleUpdate();
       } else if (e.touches.length === 2 && lastPinchDist.current) {
         if (e.cancelable) e.preventDefault();
         const rect = containerRef.current!.getBoundingClientRect();
@@ -235,11 +282,29 @@ export function usePanZoom({
       }
       const target = panTargetRef.current;
       if (!target || !lastMousePos.current) return;
-      performPan(e.clientX - lastMousePos.current.x, e.clientY - lastMousePos.current.y, target, e.shiftKey);
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+      const ps = panStateRef.current;
+      if (!ps.active) {
+        ps.active = true;
+        ps.startX = lastMousePos.current.x;
+        ps.startY = lastMousePos.current.y;
+        ps.target = target;
+        activeXAxes.forEach(a => { ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] }; });
+        activeYAxes.forEach(a => { ps.startTargetY[a.id] = { ...targetYs.current[a.id] }; });
+      }
+      ps.currentX = e.clientX;
+      ps.currentY = e.clientY;
+      
+      scheduleUpdate();
     };
 
     const handleMouseUp = () => {
+      panStateRef.current.active = false;
+      if (throttleRafId.current !== null) {
+        cancelAnimationFrame(throttleRafId.current);
+        throttleRafId.current = null;
+      }
+      
       if (zoomBoxStartRef.current) {
         const box = zoomBoxStartRef.current;
         zoomBoxStartRef.current = null;
@@ -284,7 +349,7 @@ export function usePanZoom({
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, startAnimation, performPan, performZoom, getHoveredYAxis, getHoveredXAxis]);
+  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, startAnimation, performZoom, getHoveredYAxis, getHoveredXAxis, scheduleUpdate]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
