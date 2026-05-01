@@ -1,8 +1,12 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { worldToScreen } from '../../utils/coords';
 import { type XAxisConfig, type SeriesConfig } from '../../services/persistence';
 import { type SecondaryLabel } from '../../utils/time';
 import { type XAxisLayout, type YAxisLayout, type XAxisMetrics } from './chartTypes';
+
+export interface AxesLayerHandle {
+  redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => void;
+}
 
 interface AxesLayerProps {
   xAxes: XAxisLayout[];
@@ -22,7 +26,7 @@ interface AxesLayerProps {
   rightOffsets: Record<string, number>;
 }
 
-const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, axisLayout, allXAxes, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg, leftOffsets, rightOffsets }: AxesLayerProps) => {
+const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({ xAxes, yAxes, width, height, padding, series, axisLayout, allXAxes, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg, leftOffsets, rightOffsets }: AxesLayerProps, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = width < 768 || height < 500;
 
@@ -44,7 +48,16 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
     return grouped;
   }, [series]);
 
+  const drawRef = useRef<((xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => void) | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
+      drawRef.current?.(xAxes, yAxes);
+    },
+  }), []);
+
   useEffect(() => {
+    const drawFrame = (currentXAxes: XAxisLayout[], currentYAxes: YAxisLayout[]) => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0 || height <= 0) return;
     const ctx = canvas.getContext('2d');
@@ -82,7 +95,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
     ctx.textBaseline = 'top';
 
     // X Axes lines & ticks
-    xAxes.forEach((axis, idx) => {
+    currentXAxes.forEach((axis, idx) => {
       const axisConf = mainXConf.id === axis.id ? mainXConf : allXAxesById.get(axis.id)!;
       const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
       const metrics = xAxesMetrics[idx];
@@ -120,8 +133,8 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
     });
 
     // Y Axes Zero line
-    if (yAxes.length > 0) {
-      const mainAxis = yAxes[0];
+    if (currentYAxes.length > 0) {
+      const mainAxis = currentYAxes[0];
       const axisVp = { xMin: mainXConf.min, xMax: mainXConf.max, yMin: mainAxis.min, yMax: mainAxis.max, width, height, padding };
       if (mainAxis.min <= 0 && mainAxis.max >= 0) {
         const { y } = worldToScreen(mainXConf.min, 0, axisVp);
@@ -137,7 +150,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
     }
 
     // Y Axes lines & ticks
-    yAxes.forEach((axis) => {
+    currentYAxes.forEach((axis) => {
       const isLeft = axis.position === 'left';
       const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
       let xPos = 0;
@@ -171,7 +184,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
     });
 
     // Text rendering
-    xAxes.forEach((axis, axisIdx) => {
+    currentXAxes.forEach((axis, axisIdx) => {
       const axisConf = mainXConf.id === axis.id ? mainXConf : allXAxesById.get(axis.id)!;
       const vp = { xMin: axisConf.min, xMax: axisConf.max, yMin: 0, yMax: 100, width, height, padding };
       const metrics = xAxesMetrics[axisIdx];
@@ -227,7 +240,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
       ctx.fillText(axis.title, padding.left + (width - padding.left - padding.right) / 2, baseTopY + metrics.titleBottom - (isMobile ? 14 : 12));
     });
 
-    yAxes.forEach((axis) => {
+    currentYAxes.forEach((axis) => {
       const isLeft = axis.position === 'left';
       const axisMetrics = axisLayout[axis.id] || { total: 40, label: 30 };
       let xPos = 0;
@@ -286,6 +299,9 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
 
       ctx.restore();
     });
+    }; // end drawFrame
+    drawRef.current = drawFrame;
+    drawFrame(xAxes, yAxes);
   }, [xAxes, yAxes, width, height, padding, seriesByYAxisId, axisLayout, allXAxesById, mainXConf, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg, leftOffsets, rightOffsets, isMobile]);
 
   return (
@@ -294,7 +310,7 @@ const AxesLayer = React.memo(({ xAxes, yAxes, width, height, padding, series, ax
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6, width: '100%', height: '100%' }} 
     />
   );
-});
+}));
 
 AxesLayer.displayName = 'AxesLayer';
 export { AxesLayer };

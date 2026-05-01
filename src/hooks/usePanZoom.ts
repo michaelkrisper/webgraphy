@@ -1,7 +1,6 @@
 // src/hooks/usePanZoom.ts
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { screenToWorld } from '../utils/coords';
-import { useGraphStore } from '../store/useGraphStore';
 import { type XAxisConfig, type YAxisConfig } from '../services/persistence';
 import { type PanTarget } from '../components/Plot/chartTypes';
 
@@ -26,6 +25,8 @@ interface UsePanZoomOptions {
   handleAutoScaleX: (xAxisId?: string) => void;
   handleAutoScaleY: (axisId: string, mouseY?: number) => void;
   pressedKeys: React.MutableRefObject<Set<string>>;
+  onPanEnd: () => void;
+  isPanningRef: React.MutableRefObject<boolean>;
 }
 
 interface UsePanZoomResult {
@@ -44,7 +45,7 @@ export function usePanZoom({
   activeXAxes, activeYAxes, xAxesById, yAxesById,
   targetXAxes, targetYs, startAnimation,
   xAxesMetrics, axisLayout, leftAxes, rightAxes,
-  handleAutoScaleX, handleAutoScaleY, pressedKeys,
+  handleAutoScaleX, handleAutoScaleY, pressedKeys, onPanEnd, isPanningRef,
 }: UsePanZoomOptions): UsePanZoomResult {
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -70,8 +71,8 @@ export function usePanZoom({
         const dx = ps.currentX - ps.startX;
         const dy = ps.currentY - ps.startY;
 
-        let needsUpdate = false;
-        const newState = useGraphStore.getState();
+        const xUpdates: Record<string, { min: number; max: number }> = {};
+        const yUpdates: Record<string, { min: number; max: number }> = {};
 
         // X-Axis Panning
         if (ps.target === 'all' || (ps.target as { xAxisId?: string }).xAxisId) {
@@ -85,8 +86,7 @@ export function usePanZoom({
             const newMax = startConf.max + shiftWorld;
             if (targetXAxes.current[axis.id].min !== newMin || targetXAxes.current[axis.id].max !== newMax) {
               targetXAxes.current[axis.id] = { min: newMin, max: newMax };
-              newState.updateXAxis(axis.id, { min: newMin, max: newMax });
-              needsUpdate = true;
+              xUpdates[axis.id] = { min: newMin, max: newMax };
             }
           });
         }
@@ -103,13 +103,12 @@ export function usePanZoom({
             const newMax = startConf.max + shiftWorld;
             if (targetYs.current[axis.id].min !== newMin || targetYs.current[axis.id].max !== newMax) {
               targetYs.current[axis.id] = { min: newMin, max: newMax };
-              newState.updateYAxis(axis.id, { min: newMin, max: newMax });
-              needsUpdate = true;
+              yUpdates[axis.id] = { min: newMin, max: newMax };
             }
           });
         }
 
-        if (needsUpdate) {
+        if (Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0) {
           startAnimation();
         }
       });
@@ -121,7 +120,6 @@ export function usePanZoom({
   const lastTouchTime = useRef<number>(0);
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
   const zoomBoxStartRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
-  const isPanningRef = useRef(false);
   const hoveredAxisIdRef = useRef<string | null>(null);
   const hoveredXAxisIdRef = useRef<string | null>(null);
 
@@ -197,6 +195,7 @@ export function usePanZoom({
       }
     } else {
       isPanningRef.current = true;
+      isPanningRef.current = true;
       setPanTarget(target);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
@@ -217,9 +216,11 @@ export function usePanZoom({
         return;
       }
       isPanningRef.current = true;
+      isPanningRef.current = true;
       setPanTarget(target);
       lastTouchPos.current = { x: t.clientX, y: t.clientY };
     } else if (e.touches.length === 2) {
+      isPanningRef.current = true;
       isPanningRef.current = false;
       setPanTarget(prev => (prev && prev !== 'all') ? prev : target);
       const t1 = e.touches[0], t2 = e.touches[1];
@@ -299,6 +300,7 @@ export function usePanZoom({
     };
 
     const handleMouseUp = () => {
+      isPanningRef.current = false;
       panStateRef.current.active = false;
       if (throttleRafId.current !== null) {
         cancelAnimationFrame(throttleRafId.current);
@@ -328,12 +330,14 @@ export function usePanZoom({
           startAnimation();
         }
       }
+      onPanEnd();
       isPanningRef.current = false;
       setPanTarget(null);
     };
 
     const handleTouchEnd = () => {
       isPanningRef.current = false;
+      onPanEnd();
       setPanTarget(null);
       lastTouchPos.current = null;
       lastPinchDist.current = null;
@@ -349,7 +353,7 @@ export function usePanZoom({
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, startAnimation, performZoom, getHoveredYAxis, getHoveredXAxis, scheduleUpdate]);
+  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, startAnimation, performZoom, getHoveredYAxis, getHoveredXAxis, scheduleUpdate, onPanEnd]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

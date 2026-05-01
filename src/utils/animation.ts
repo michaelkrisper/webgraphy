@@ -32,12 +32,22 @@ export const applyKeyboardZoom = (
   return false;
 };
 
-export const animateXAxes = (
+export interface AxesFrame {
+  xUpdates: Record<string, { min: number; max: number }>;
+  yUpdates: Record<string, { min: number; max: number }>;
+  needsNextFrame: boolean;
+}
+
+export const animateAxes = (
   state: ReturnType<typeof useGraphStore.getState>,
   targetXAxes: Record<string, { min: number, max: number }>,
+  targetYs: Record<string, { min: number, max: number }>,
   factor: number
-) => {
+): AxesFrame => {
   let needsNextFrame = false;
+  const xUpdates: Record<string, { min: number; max: number }> = {};
+  const yUpdates: Record<string, { min: number; max: number }> = {};
+
   state.xAxes.forEach(axis => {
     const target = targetXAxes[axis.id];
     if (!target) return;
@@ -47,21 +57,13 @@ export const animateXAxes = (
     const nextXMax = lerp(axis.max, target.max, factor);
 
     if (Math.abs(nextXMin - axis.min) > xEps || Math.abs(nextXMax - axis.max) > xEps) {
-      state.updateXAxis(axis.id, { min: nextXMin, max: nextXMax });
+      xUpdates[axis.id] = { min: nextXMin, max: nextXMax };
       needsNextFrame = true;
     } else if (axis.min !== target.min || axis.max !== target.max) {
-      state.updateXAxis(axis.id, { min: target.min, max: target.max });
+      xUpdates[axis.id] = { min: target.min, max: target.max };
     }
   });
-  return needsNextFrame;
-};
 
-export const animateYAxes = (
-  state: ReturnType<typeof useGraphStore.getState>,
-  targetYs: Record<string, { min: number, max: number }>,
-  factor: number
-) => {
-  let needsNextFrame = false;
   state.yAxes.forEach(axis => {
     const target = targetYs[axis.id];
     if (!target) return;
@@ -71,11 +73,12 @@ export const animateYAxes = (
     const nextYMax = lerp(axis.max, target.max, factor);
 
     if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
-      state.updateYAxis(axis.id, { min: nextYMin, max: nextYMax });
+      yUpdates[axis.id] = { min: nextYMin, max: nextYMax };
       needsNextFrame = true;
     } else if (axis.min !== target.min || axis.max !== target.max) {
-      state.updateYAxis(axis.id, { min: target.min, max: target.max });
+      yUpdates[axis.id] = { min: target.min, max: target.max };
     }
   });
-  return needsNextFrame;
+
+  return { xUpdates, yUpdates, needsNextFrame };
 };

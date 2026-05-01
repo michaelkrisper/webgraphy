@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
 
@@ -144,6 +144,10 @@ interface Props {
   lodEnabled?: boolean;
 }
 
+export interface WebGLRendererHandle {
+  redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
+}
+
 const hexToRgba = (hex: string): number[] => {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -154,7 +158,7 @@ const hexToRgba = (hex: string): number[] => {
 /**
  * WebGLRenderer Component (v0.4.0 - Visibility, Highlighting & Optimized Buffer Pool)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }) => {
+export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -162,6 +166,17 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const [locations, setLocations] = useState<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
+  const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
+  const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
+  const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
+      liveXAxesRef.current = xAxes;
+      liveYAxesRef.current = yAxes;
+      drawFrameRef.current?.(xAxes, yAxes);
+    },
+  }), []);
 
   // Reactive Init
   useEffect(() => {
@@ -235,22 +250,18 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
         return null;
       }
 
-      return { 
-        series: s, 
-        ds, 
-        xAxis, 
-        yAxis, 
-        xIdx, 
+      return {
+        series: s,
+        ds,
+        xIdx,
         yIdx,
         lineColorRgba: hexToRgba(s.lineColor),
         pointColorRgba: hexToRgba(s.pointColor)
       };
-    }).filter(Boolean) as { 
-      series: SeriesConfig, 
-      ds: Dataset, 
-      xAxis: XAxisConfig, 
-      yAxis: YAxisConfig, 
-      xIdx: number, 
+    }).filter(Boolean) as {
+      series: SeriesConfig,
+      ds: Dataset,
+      xIdx: number,
       yIdx: number,
       lineColorRgba: number[],
       pointColorRgba: number[]
@@ -258,103 +269,195 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   }, [datasets, series, xAxes, yAxes]);
 
   useEffect(() => {
+    liveXAxesRef.current = xAxes;
+    liveYAxesRef.current = yAxes;
+  }, [xAxes, yAxes]);
+
+  useEffect(() => {
     const gl = glRef.current;
     if (!gl || !program || !locations || !glReady) return;
 
-    const renderStart = performance.now();
+    const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[]) => {
+      const xAxesById = new Map<string, XAxisConfig>();
+      currentXAxes.forEach(a => xAxesById.set(a.id, a));
+      const yAxesById = new Map<string, YAxisConfig>();
+      currentYAxes.forEach(a => yAxesById.set(a.id, a));
 
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
-    if (chartWidth <= 0 || chartHeight <= 0) return;
+      const renderStart = performance.now();
 
-    const dpr = window.devicePixelRatio || 1;
-    const pw = width * dpr, ph = height * dpr;
-    gl.viewport(0, 0, pw, ph);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(padding.left * dpr, padding.bottom * dpr, chartWidth * dpr, chartHeight * dpr);
-    gl.useProgram(program);
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+      if (chartWidth <= 0 || chartHeight <= 0) return;
 
-    const locs = locations;
-    gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
-    gl.uniform2f(locs.resLoc, pw, ph);
-    gl.uniform1f(locs.dprLoc, dpr);
+      const dpr = window.devicePixelRatio || 1;
+      const pw = width * dpr, ph = height * dpr;
+      gl.viewport(0, 0, pw, ph);
+      gl.clearColor(0.0, 0.0, 0.0, 0.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(padding.left * dpr, padding.bottom * dpr, chartWidth * dpr, chartHeight * dpr);
+      gl.useProgram(program);
 
-    let totalPointsDrawn = 0;
+      const locs = locations;
+      gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
+      gl.uniform2f(locs.resLoc, pw, ph);
+      gl.uniform1f(locs.dprLoc, dpr);
 
-    seriesMetadata.forEach(({ series: s, ds, xAxis, yAxis, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
-      if (s.hidden) return;
-      const colX = ds.data[xIdx];
-      const colY = ds.data[yIdx];
-      if (!colX || !colY) return;
+      let totalPointsDrawn = 0;
 
-      const xData = colX.data;
-      let yData = colY.data;
-      yData = colY.data;
-      const xRef = colX.refPoint;
-      let startIdx = 0;
-      let endIdx = xData.length - 1;
+      seriesMetadata.forEach(({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
+        const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
+        const yAxis = yAxesById.get(s.yAxisId);
+        if (!xAxis || !yAxis) return;
 
-      let low = 0, high = xData.length - 1;
-      while (low <= high) {
-        const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef <= xAxis.min) {
-          startIdx = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
+        if (s.hidden) return;
+        const colX = ds.data[xIdx];
+        const colY = ds.data[yIdx];
+        if (!colX || !colY) return;
+
+        const xData = colX.data;
+        let yData = colY.data;
+        yData = colY.data;
+        const xRef = colX.refPoint;
+        let startIdx = 0;
+        let endIdx = xData.length - 1;
+
+        let low = 0, high = xData.length - 1;
+        while (low <= high) {
+          const mid = (low + high) >>> 1;
+          if (xData[mid] + xRef <= xAxis.min) {
+            startIdx = mid;
+            low = mid + 1;
+          } else {
+            high = mid - 1;
+          }
         }
-      }
 
-      low = 0; high = xData.length - 1;
-      while (low <= high) {
-        const mid = (low + high) >>> 1;
-        if (xData[mid] + xRef >= xAxis.max) {
-          endIdx = mid;
-          high = mid - 1;
-        } else {
-          low = mid + 1;
+        low = 0; high = xData.length - 1;
+        while (low <= high) {
+          const mid = (low + high) >>> 1;
+          if (xData[mid] + xRef >= xAxis.max) {
+            endIdx = mid;
+            high = mid - 1;
+          } else {
+            low = mid + 1;
+          }
         }
-      }
 
-      const numPoints = endIdx - startIdx + 1;
-      const drawCount = numPoints;
-      totalPointsDrawn += drawCount;
+        const numPoints = endIdx - startIdx + 1;
+        const drawCount = numPoints;
+        totalPointsDrawn += drawCount;
 
-      gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
-      gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
+        gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
+        gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
 
-      const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
-      let xBuffer = buffersRef.current.get(xBufferKey);
-      if (!xBuffer) {
-        xBuffer = gl.createBuffer()!;
-        buffersRef.current.set(xBufferKey, xBuffer);
-        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
-      }
+        const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
+        let xBuffer = buffersRef.current.get(xBufferKey);
+        if (!xBuffer) {
+          xBuffer = gl.createBuffer()!;
+          buffersRef.current.set(xBufferKey, xBuffer);
+          gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
+        }
 
-      const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
-      let yBuffer = buffersRef.current.get(yBufferKey);
-      if (!yBuffer) {
-        yBuffer = gl.createBuffer()!;
-        buffersRef.current.set(yBufferKey, yBuffer);
-        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
-      }
+        const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
+        let yBuffer = buffersRef.current.get(yBufferKey);
+        if (!yBuffer) {
+          yBuffer = gl.createBuffer()!;
+          buffersRef.current.set(yBufferKey, yBuffer);
+          gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
+        }
 
-      const isHighlighted = highlightedSeriesId === s.id;
-      const baseLineWidth = isHighlighted ? 2.5 : 1;
+        const isHighlighted = highlightedSeriesId === s.id;
+        const baseLineWidth = isHighlighted ? 2.5 : 1;
 
-      if (s.lineStyle !== 'none' && drawCount > 1) {
-        const c = lineColorRgba;
-        gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-        gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
-        const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
-        gl.uniform1i(locs.lineStyleLoc, lStyle);
-        gl.uniform1i(locs.styleLoc, -1);
+        if (s.lineStyle !== 'none' && drawCount > 1) {
+          const c = lineColorRgba;
+          gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+          gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
+          const lStyle = s.lineStyle === 'solid' ? 0 : s.lineStyle === 'dashed' ? 1 : 2;
+          gl.uniform1i(locs.lineStyleLoc, lStyle);
+          gl.uniform1i(locs.styleLoc, -1);
 
-        if (lStyle === 0) {
+          if (lStyle === 0) {
+            gl.disableVertexAttribArray(locs.otherLoc);
+            gl.disableVertexAttribArray(locs.tLoc);
+            gl.disableVertexAttribArray(locs.distStartLoc);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+            gl.enableVertexAttribArray(locs.xLoc);
+            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+            gl.enableVertexAttribArray(locs.yLoc);
+            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
+
+            gl.lineWidth(baseLineWidth * dpr);
+            gl.drawArrays(gl.LINE_STRIP, startIdx, drawCount);
+          } else {
+            const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
+            const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${startIdx}-${drawCount}`;
+            let segBuffer = buffersRef.current.get(segBufferKey);
+            if (!segBuffer) {
+              segBuffer = gl.createBuffer()!;
+              buffersRef.current.set(segBufferKey, segBuffer);
+            }
+
+            const numSegs = drawCount - 1;
+            if (segParamsRef.current.get(segBufferKey) !== paramKey) {
+              const reqSize = numSegs * 12;
+              const sharedArr = new Float32Array(reqSize);
+              const xRange = (xAxis.max - xAxis.min) || 1;
+              const yRange = (yAxis.max - yAxis.min) || 1;
+              const pChartWidth = chartWidth * dpr;
+              const pChartHeight = chartHeight * dpr;
+              const dashLen = ((lStyle === 1) ? 8.0 : 2.0) * dpr;
+              const gapLen = ((lStyle === 1) ? 6.0 : 4.0) * dpr;
+              const period = dashLen + gapLen;
+
+              let cumDist = 0;
+              for (let i = 0; i < numSegs; i++) {
+                const ax = xData[startIdx + i], ay = yData[startIdx + i], bx = xData[startIdx + i + 1], by = yData[startIdx + i + 1];
+                const screenDx = (bx - ax) / xRange * pChartWidth;
+                const screenDy = (by - ay) / yRange * pChartHeight;
+                const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
+                const off = i * 12;
+                const startDist = cumDist % period;
+                sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = startDist;
+                sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = startDist;
+                cumDist += segScreenLen;
+              }
+              gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+              gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
+              segParamsRef.current.set(segBufferKey, paramKey);
+            } else {
+              gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+            }
+
+            gl.enableVertexAttribArray(locs.xLoc);
+            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
+            gl.enableVertexAttribArray(locs.yLoc);
+            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
+            gl.enableVertexAttribArray(locs.otherLoc);
+            gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
+            gl.enableVertexAttribArray(locs.tLoc);
+            gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
+            gl.enableVertexAttribArray(locs.distStartLoc);
+            gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
+
+            gl.lineWidth(baseLineWidth * dpr);
+            gl.drawArrays(gl.LINES, 0, numSegs * 2);
+          }
+        }
+
+        if (s.pointStyle !== 'none') {
+          const c = pointColorRgba;
+          gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+          gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 5.0) * dpr);
+          const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
+          gl.uniform1i(locs.styleLoc, pStyle);
+
           gl.disableVertexAttribArray(locs.otherLoc);
           gl.disableVertexAttribArray(locs.tLoc);
           gl.disableVertexAttribArray(locs.distStartLoc);
@@ -367,95 +470,19 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           gl.enableVertexAttribArray(locs.yLoc);
           gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
 
-          gl.lineWidth(baseLineWidth * dpr);
-          gl.drawArrays(gl.LINE_STRIP, startIdx, drawCount);
-        } else {
-          const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-          const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${startIdx}-${drawCount}`;
-          let segBuffer = buffersRef.current.get(segBufferKey);
-          if (!segBuffer) {
-            segBuffer = gl.createBuffer()!;
-            buffersRef.current.set(segBufferKey, segBuffer);
-          }
-
-          const numSegs = drawCount - 1;
-          if (segParamsRef.current.get(segBufferKey) !== paramKey) {
-            const reqSize = numSegs * 12;
-            const sharedArr = new Float32Array(reqSize);
-            const xRange = (xAxis.max - xAxis.min) || 1;
-            const yRange = (yAxis.max - yAxis.min) || 1;
-            const pChartWidth = chartWidth * dpr;
-            const pChartHeight = chartHeight * dpr;
-            const dashLen = ((lStyle === 1) ? 8.0 : 2.0) * dpr;
-            const gapLen = ((lStyle === 1) ? 6.0 : 4.0) * dpr;
-            const period = dashLen + gapLen;
-
-            let cumDist = 0;
-            for (let i = 0; i < numSegs; i++) {
-              const ax = xData[startIdx + i], ay = yData[startIdx + i], bx = xData[startIdx + i + 1], by = yData[startIdx + i + 1];
-              const screenDx = (bx - ax) / xRange * pChartWidth;
-              const screenDy = (by - ay) / yRange * pChartHeight;
-              const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
-              const off = i * 12;
-              const startDist = cumDist % period;
-              sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = startDist;
-              sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = startDist;
-              cumDist += segScreenLen;
-            }
-            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
-            segParamsRef.current.set(segBufferKey, paramKey);
-          } else {
-            gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-          }
-
-          gl.enableVertexAttribArray(locs.xLoc);
-          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
-          gl.enableVertexAttribArray(locs.yLoc);
-          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
-          gl.enableVertexAttribArray(locs.otherLoc);
-          gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
-          gl.enableVertexAttribArray(locs.tLoc);
-          gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
-          gl.enableVertexAttribArray(locs.distStartLoc);
-          gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
-
-          gl.lineWidth(baseLineWidth * dpr);
-          gl.drawArrays(gl.LINES, 0, numSegs * 2);
+          gl.drawArrays(gl.POINTS, startIdx, drawCount);
         }
-      }
+      });
+      gl.disable(gl.SCISSOR_TEST);
 
-      if (s.pointStyle !== 'none') {
-        const c = pointColorRgba;
-        gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-        gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 5.0) * dpr);
-        const pStyle = s.pointStyle === 'circle' ? 0 : s.pointStyle === 'square' ? 1 : 2;
-        gl.uniform1i(locs.styleLoc, pStyle);
+      const renderTime = performance.now() - renderStart;
+      window.dispatchEvent(new CustomEvent('render-stats', { detail: { points: totalPointsDrawn, webglTime: renderTime } }));
+    };
 
-        gl.disableVertexAttribArray(locs.otherLoc);
-        gl.disableVertexAttribArray(locs.tLoc);
-        gl.disableVertexAttribArray(locs.distStartLoc);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-        gl.enableVertexAttribArray(locs.xLoc);
-        gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-        gl.enableVertexAttribArray(locs.yLoc);
-        gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
-
-        gl.drawArrays(gl.POINTS, startIdx, drawCount);
-      }
-    });
-    gl.disable(gl.SCISSOR_TEST);
-    
-    // Force GPU to finish to get accurate timing (for benchmarking only)
-    gl.finish();
-    const renderTime = performance.now() - renderStart;
-
-    window.dispatchEvent(new CustomEvent('render-stats', { detail: { points: totalPointsDrawn, webglTime: renderTime } }));
+    drawFrameRef.current = drawFrame;
+    drawFrame(liveXAxesRef.current, liveYAxesRef.current);
   }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
-});
+}));
