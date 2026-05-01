@@ -1,25 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
-import { selectLodLevel } from '../../utils/lod';
-
-function stringHash(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
-  }
-  return h;
-}
-
-function lttbCacheHash(dsIdHash: number, xIdx: number, yIdx: number, startIdx: number, endIdx: number, threshold: number): number {
-  let h = dsIdHash;
-  h = (Math.imul(h ^ xIdx, 0x9e3779b9) >>> 0);
-  h = (Math.imul(h ^ yIdx, 0x9e3779b9) >>> 0);
-  h = (Math.imul(h ^ startIdx, 0x9e3779b9) >>> 0);
-  h = (Math.imul(h ^ endIdx, 0x9e3779b9) >>> 0);
-  h = (Math.imul(h ^ threshold, 0x9e3779b9) >>> 0);
-  return h;
-}
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -170,66 +151,10 @@ const hexToRgba = (hex: string): number[] => {
   return [r, g, b];
 };
 
-const LTTB_THRESHOLD_PER_PX = 2;
-
-function lttbFloat32(xData: Float32Array, yData: Float32Array, startIdx: number, endIdx: number, threshold: number): { x: Float32Array; y: Float32Array } {
-  const numPoints = endIdx - startIdx + 1;
-  if (threshold >= numPoints || threshold <= 2) {
-    return { x: xData.subarray(startIdx, endIdx + 1), y: yData.subarray(startIdx, endIdx + 1) };
-  }
-
-  const outX = new Float32Array(threshold);
-  const outY = new Float32Array(threshold);
-
-  outX[0] = xData[startIdx];
-  outY[0] = yData[startIdx];
-
-  const bucketSize = (numPoints - 2) / (threshold - 2);
-  let a = 0;
-
-  for (let i = 0; i < threshold - 2; i++) {
-    // Centroid of next bucket
-    const nextBucketStart = Math.floor((i + 1) * bucketSize) + 1 + startIdx;
-    const nextBucketEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1 + startIdx, endIdx + 1);
-    let avgX = 0, avgY = 0;
-    for (let j = nextBucketStart; j < nextBucketEnd; j++) {
-      avgX += xData[j];
-      avgY += yData[j];
-    }
-    const avgLen = nextBucketEnd - nextBucketStart;
-    avgX /= avgLen;
-    avgY /= avgLen;
-
-    // Find max area point in current bucket
-    const bucketStart = Math.floor(i * bucketSize) + 1 + startIdx;
-    const bucketEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1 + startIdx, endIdx + 1);
-    const ax = xData[startIdx + a], ay = yData[startIdx + a];
-    let maxArea = -1, maxIdx = bucketStart;
-    for (let j = bucketStart; j < bucketEnd; j++) {
-      const area = Math.abs((ax - avgX) * (yData[j] - ay) - (ax - xData[j]) * (avgY - ay)) * 0.5;
-      if (area > maxArea) { maxArea = area; maxIdx = j; }
-    }
-    outX[i + 1] = xData[maxIdx];
-    outY[i + 1] = yData[maxIdx];
-    a = maxIdx - startIdx;
-  }
-
-  outX[threshold - 1] = xData[endIdx];
-  outY[threshold - 1] = yData[endIdx];
-
-  return { x: outX, y: outY };
-}
-
-interface LttbCacheEntry {
-  xOut: Float32Array;
-  yOut: Float32Array;
-  key: number;
-}
-
 /**
- * WebGLRenderer Component (v0.4.0 - LOD, Visibility, Highlighting & Optimized Buffer Pool)
+ * WebGLRenderer Component (v0.4.0 - Visibility, Highlighting & Optimized Buffer Pool)
  */
-export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId, lodEnabled = true }) => {
+export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -237,19 +162,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
   const [locations, setLocations] = useState<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
-  const sharedBufferRef = useRef<Float32Array | null>(null);
-  const lttbCacheRef = useRef<Map<number, LttbCacheEntry>>(new Map());
-  const dsIdHashRef = useRef<Map<string, number>>(new Map());
-
-  // Buffer pool to avoid per-frame allocations
-  const getSharedBuffer = (size: number) => {
-    if (!sharedBufferRef.current || sharedBufferRef.current.length < size) {
-      let newSize = sharedBufferRef.current ? (sharedBufferRef.current.length || 1024) : 1024;
-      while (newSize < size) newSize *= 2;
-      sharedBufferRef.current = new Float32Array(newSize);
-    }
-    return sharedBufferRef.current;
-  };
 
   // Reactive Init
   useEffect(() => {
@@ -298,11 +210,6 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
     buffersRef.current.forEach(buf => gl.deleteBuffer(buf));
     buffersRef.current.clear();
     segParamsRef.current.clear();
-    dsIdHashRef.current.clear();
-    lttbCacheRef.current.clear();
-    datasets.forEach((ds: Dataset) => {
-      dsIdHashRef.current.set(ds.id, stringHash(ds.id));
-    });
   }, [datasets]);
 
   const seriesMetadata = useMemo(() => {
@@ -408,75 +315,14 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
       }
 
       const numPoints = endIdx - startIdx + 1;
-      const lttbThreshold = Math.max(2, Math.floor(chartWidth * LTTB_THRESHOLD_PER_PX));
 
       let drawX: Float32Array;
       let drawY: Float32Array;
       let drawCount: number;
 
-      const lodLevel = lodEnabled ? selectLodLevel(colY.lod, lttbThreshold, numPoints, xData.length) : null;
-
-      if (lodLevel !== null) {
-        // Binary-search the LOD level's interleaved X values for the visible range
-        const lodPoints = lodLevel.length / 2;
-        const xRelMin = xAxis.min - colX.refPoint;
-        const xRelMax = xAxis.max - colX.refPoint;
-
-        let lodStart = 0;
-        let lo = 0, hi = lodPoints - 1;
-        while (lo <= hi) {
-          const mid = (lo + hi) >>> 1;
-          if (lodLevel[mid * 2] <= xRelMin) { lodStart = mid; lo = mid + 1; }
-          else hi = mid - 1;
-        }
-
-        let lodEnd = lodPoints - 1;
-        lo = 0; hi = lodPoints - 1;
-        while (lo <= hi) {
-          const mid = (lo + hi) >>> 1;
-          if (lodLevel[mid * 2] >= xRelMax) { lodEnd = mid; hi = mid - 1; }
-          else lo = mid + 1;
-        }
-
-        // Deinterleave the visible slice into separate X/Y arrays using shared buffer
-        const visibleLodPoints = lodEnd - lodStart + 1;
-        const buf = getSharedBuffer(visibleLodPoints * 2);
-        const sliceX = buf.subarray(0, visibleLodPoints);
-        const sliceY = buf.subarray(visibleLodPoints, visibleLodPoints * 2);
-        for (let k = 0; k < visibleLodPoints; k++) {
-          sliceX[k] = lodLevel[(lodStart + k) * 2];
-          sliceY[k] = lodLevel[(lodStart + k) * 2 + 1];
-        }
-
-        drawX = sliceX;
-        drawY = sliceY;
-        drawCount = visibleLodPoints;
-      } else if (lodEnabled && numPoints > lttbThreshold) {
-        // Fallback: snap-based LTTB for columns without LOD (e.g. formula columns)
-        const totalPoints = xData.length;
-        const snap = Math.max(1, Math.floor(lttbThreshold / 2));
-        const snapStart = Math.max(0, Math.floor(startIdx / snap) * snap);
-        const snapEnd = Math.min(totalPoints - 1, Math.ceil(endIdx / snap) * snap);
-        const dsHash = dsIdHashRef.current.get(ds.id) ?? stringHash(ds.id);
-        const cacheKey = lttbCacheHash(dsHash, xIdx, yIdx, snapStart, snapEnd, lttbThreshold);
-        let cached = lttbCacheRef.current.get(cacheKey);
-        if (!cached || cached.key !== cacheKey) {
-          const result = lttbFloat32(xData, yData, snapStart, snapEnd, lttbThreshold);
-          cached = { xOut: result.x, yOut: result.y, key: cacheKey };
-          if (lttbCacheRef.current.size >= 200) {
-            const keys = lttbCacheRef.current.keys();
-            for (let i = 0; i < 100; i++) lttbCacheRef.current.delete(keys.next().value!);
-          }
-          lttbCacheRef.current.set(cacheKey, cached);
-        }
-        drawX = cached.xOut;
-        drawY = cached.yOut;
-        drawCount = lttbThreshold;
-      } else {
-        drawX = xData.subarray(startIdx, endIdx + 1);
-        drawY = yData.subarray(startIdx, endIdx + 1);
-        drawCount = numPoints;
-      }
+      drawX = xData.subarray(startIdx, endIdx + 1);
+      drawY = yData.subarray(startIdx, endIdx + 1);
+      drawCount = numPoints;
 
       // drawX/drawY are slices of the original Float32Array (relative = value - refPoint),
       // so uniforms stay in the same relative space regardless of LTTB
@@ -540,7 +386,7 @@ export const WebGLRenderer: React.FC<Props> = React.memo(({ datasets, series, xA
           const numSegs = drawCount - 1;
           if (segParamsRef.current.get(segBufferKey) !== paramKey) {
             const reqSize = numSegs * 12;
-            const sharedArr = getSharedBuffer(reqSize);
+            const sharedArr = new Float32Array(reqSize);
             const xRange = (xAxis.max - xAxis.min) || 1;
             const yRange = (yAxis.max - yAxis.min) || 1;
             const pChartWidth = chartWidth * dpr;

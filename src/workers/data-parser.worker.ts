@@ -1,7 +1,6 @@
 // Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
 import { secureJSONParse } from '../utils/json';
 import { processRawColumn } from '../utils/data-processing';
-import { buildLodLevels } from '../utils/lod';
 
 interface ColumnConfigEntry {
   index: number;
@@ -81,27 +80,11 @@ self.onmessage = async (event) => {
       })
     };
 
-    // Compute LOD mipmap levels for each Y column paired with the X column
-    const xColIdx = dataset.columns.indexOf(dataset.xAxisColumn ?? dataset.columns[0]);
-    const xColData = dataset.data[xColIdx];
-    if (xColData) {
-      dataset.data.forEach((col, idx) => {
-        if (idx === xColIdx) return;
-        col.lod = buildLodLevels(xColData.data, col.data);
-      });
-    }
-
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
       if (col.chunkMin) transferList.push(col.chunkMin.buffer as ArrayBuffer);
       if (col.chunkMax) transferList.push(col.chunkMax.buffer as ArrayBuffer);
-    });
-
-    dataset.data.forEach(col => {
-      if (col.lod) {
-        col.lod.forEach((level: Float32Array) => transferList.push(level.buffer as ArrayBuffer));
-      }
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);

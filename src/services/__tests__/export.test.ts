@@ -137,26 +137,6 @@ describe('exportToSVG', () => {
         const svgDate = exportToSVG(mockDatasets, mockSeries, mockXAxesDate, mockYAxes, { x: 'Time', y: 'Y Axis' }, 800, 600, THEMES.light);
         expect(svgDate).toContain('Time');
     });
-
-    it('should downsample large datasets using lttb', () => {
-        const largeDataset: Dataset = {
-            id: 'dsLarge',
-            name: 'Dataset Large',
-            columns: ['Time', 'Value'],
-            rowCount: 6000,
-            xAxisColumn: 'Time',
-            xAxisId: 'axis-1',
-            data: [
-                { data: new Float32Array(6000).fill(1).map((_, i) => i), bounds: { min: 0, max: 6000 }, isFloat64: false, refPoint: 0 },
-                { data: new Float32Array(6000).fill(1).map((_, i) => i * 2), bounds: { min: 0, max: 12000 }, isFloat64: false, refPoint: 0 },
-            ]
-        };
-        const seriesLarge: SeriesConfig[] = [
-            { id: 's1', sourceId: 'dsLarge', name: 'Series 1', yColumn: 'Value', yAxisId: 'y1', pointStyle: 'circle', pointColor: '#ff0000', lineStyle: 'solid', lineColor: '#ff0000' }
-        ];
-        const svgLarge = exportToSVG([largeDataset], seriesLarge, mockXAxes, mockYAxes, { x: 'X Axis', y: 'Y Axis' }, 800, 600, THEMES.light);
-        expect(svgLarge).toContain('<svg width="800" height="600"');
-    });
 });
 
 interface MockCtx {

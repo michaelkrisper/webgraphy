@@ -6,7 +6,7 @@ import { THEMES, type ThemeName } from '../../themes';
 import { buildSeriesConfig } from '../../utils/series';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock, Zap } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
@@ -45,7 +45,6 @@ export const Sidebar: React.FC = () => {
     setHighlightedSeries, autoDetectViews,
     addSeries,
     legendVisible, setLegendVisible,
-    lodEnabled, setLodEnabled,
   } = useGraphStore();
 
   const [themeName, cycleTheme] = useTheme();
@@ -222,7 +221,6 @@ export const Sidebar: React.FC = () => {
             {hdrBtn(handleLoadSession, <FolderOpen size={16} />, 'Load Session')}
             {hdrSep}
             <span className="sb-spacer" />
-            {hdrBtn(() => setLodEnabled(!lodEnabled), <Zap size={16} />, lodEnabled ? 'LOD/LTTB On' : 'LOD/LTTB Off', lodEnabled ? 'var(--accent)' : undefined)}
             {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}
             {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
             {hdrSep}
@@ -463,4 +461,3 @@ export const Sidebar: React.FC = () => {
     </>
   );
 };
-;

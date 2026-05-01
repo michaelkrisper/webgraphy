@@ -52,7 +52,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       </Section>
 
       <Section title="Sidebar">
-        <li><strong>Data Sources:</strong> Import large CSV or JSON files — parsed with LTTB downsampling for high performance</li>
+        <li><strong>Data Sources:</strong> Import large CSV or JSON files for high performance</li>
         <li><strong>Data Series:</strong> Map columns to X/Y axes and style lines/points</li>
         <li><strong>Multiple Y-Axes:</strong> Each series can have an independent Y-axis with its own scale, position, and color</li>
         <li><strong>Export:</strong> Save the current chart view as SVG or PNG</li>

@@ -1,7 +1,5 @@
 import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from './persistence';
 import { secureRandom } from '../utils/random';
-import { buildLodLevels } from '../utils/lod';
-
 
 function generateRawWeatherData(rowCount: number, startTime: number): number[][] {
   const rawData: number[][] = [];
@@ -118,13 +116,6 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
       chunkMin: col.chunkMin,
       chunkMax: col.chunkMax
     } as DataColumn;
-  });
-
-  // X column is index 0 (Timestamp); compute LOD for all Y columns
-  const xData = relativeData[0].data;
-  result.forEach((col, idx) => {
-    if (idx === 0) return;
-    col.lod = buildLodLevels(xData, col.data);
   });
 
   return result;

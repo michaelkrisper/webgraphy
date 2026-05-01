@@ -1,6 +1,5 @@
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { worldToScreen } from '../utils/coords';
-import { lttb } from '../utils/lttb';
 import { getColumnIndex } from '../utils/columns';
 import { type Theme } from '../themes';
 
@@ -173,9 +172,8 @@ export const exportToSVG = (
       const vy = yData[i] + yCol.refPoint;
       if (vx >= xAxis.min && vx <= xAxis.max) visibleData.push({ x: vx, y: vy });
     }
-    const sampledData = visibleData.length > 5000 ? lttb(visibleData, 5000) : visibleData;
     const seriesVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: yAxis.min, yMax: yAxis.max, width, height, padding };
-    const screenPoints = sampledData.map(p => worldToScreen(p.x, p.y, seriesVp));
+    const screenPoints = visibleData.map(p => worldToScreen(p.x, p.y, seriesVp));
     if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
       let dashArray = ''; if (s.lineStyle === 'dashed') dashArray = 'stroke-dasharray="8,6"'; else if (s.lineStyle === 'dotted') dashArray = 'stroke-dasharray="2,4"';
