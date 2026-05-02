@@ -1,6 +1,7 @@
 // Data Parser Web Worker (v0.4.0 - Advanced Import Settings & Arbitrary Date Formats)
 import { secureJSONParse } from '../utils/json';
 import { processRawColumn } from '../utils/data-processing';
+import { type DataColumn } from '../services/persistence';
 
 interface ColumnConfigEntry {
   index: number;
@@ -73,18 +74,14 @@ self.onmessage = async (event) => {
           isFloat64: isPotentialX,
           refPoint: relativeData[colIdx].refPoint,
           bounds: relativeData[colIdx].bounds,
-          data: relativeData[colIdx].data,
-          chunkMin: relativeData[colIdx].chunkMin,
-          chunkMax: relativeData[colIdx].chunkMax
-        } as any;
+          data: relativeData[colIdx].data
+        } as DataColumn;
       })
     };
 
     const transferList: ArrayBuffer[] = [];
     dataset.data.forEach(col => {
       transferList.push(col.data.buffer as ArrayBuffer);
-      if (col.chunkMin) transferList.push(col.chunkMin.buffer as ArrayBuffer);
-      if (col.chunkMax) transferList.push(col.chunkMax.buffer as ArrayBuffer);
     });
 
     (self as unknown as Worker).postMessage({ type: 'success', dataset }, transferList);

@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from '../services/persistence';
+import { type Dataset, type SeriesConfig, persistence, type AppState, type YAxisConfig, type XAxisConfig } from '../services/persistence';
 import { generateDemoDataset, getDemoAppState } from '../services/demoData';
 import { getColumnIndex } from '../utils/columns';
-import { findInterestingSpots } from '../utils/interesting-spots';
 import { compileFormula } from '../utils/formula';
 
 interface GraphState {
@@ -11,7 +10,6 @@ interface GraphState {
   xAxes: XAxisConfig[];
   yAxes: YAxisConfig[];
   axisTitles: { x: string; y: string };
-  views: ViewSnapshot[];
   isLoaded: boolean;
   highlightedSeriesId: string | null;
   legendVisible: boolean;
@@ -39,13 +37,7 @@ interface GraphState {
   setAxisTitles: (x: string, y: string) => void;
   
   moveSeries: (id: string, delta: -1 | 1) => void;
-  saveView: (name: string) => void;
-  applyView: (id: string) => void;
-  lastAppliedViewId: { id: string, timestamp: number } | null;
-  deleteView: (id: string) => void;
-  updateViewName: (id: string, name: string) => void;
 
-  autoDetectViews: () => void;
   loadPersistedState: () => Promise<void>;
   loadDemoData: () => Promise<void>;
 }
@@ -79,7 +71,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   xAxes: createInitialXAxes(),
   yAxes: createInitialYAxes(),
   axisTitles: { x: 'X-Axis', y: 'Y-Axis' },
-  views: [],
   isLoaded: false,
   highlightedSeriesId: null,
   legendVisible: typeof localStorage !== 'undefined' ? localStorage.getItem('legendVisible') === 'true' : true,
@@ -337,10 +328,29 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   batchUpdateAxes: (xUpdates, yUpdates) => {
-    set((state) => ({
-      xAxes: state.xAxes.map(a => xUpdates[a.id] ? { ...a, ...xUpdates[a.id] } : a),
-      yAxes: state.yAxes.map(a => yUpdates[a.id] ? { ...a, ...yUpdates[a.id] } : a)
-    }));
+    set((state) => {
+      let changed = false;
+      const EPSILON = 1e-10;
+      const nextX = state.xAxes.map(a => {
+        const upd = xUpdates[a.id];
+        if (upd && (Math.abs(upd.min - a.min) > EPSILON || Math.abs(upd.max - a.max) > EPSILON)) {
+          changed = true;
+          return { ...a, ...upd };
+        }
+        return a;
+      });
+      const nextY = state.yAxes.map(a => {
+        const upd = yUpdates[a.id];
+        if (upd && (Math.abs(upd.min - a.min) > EPSILON || Math.abs(upd.max - a.max) > EPSILON)) {
+          changed = true;
+          return { ...a, ...upd };
+        }
+        return a;
+      });
+
+      if (!changed) return state;
+      return { xAxes: nextX, yAxes: nextY };
+    });
     if (get().isLoaded) debouncedSaveState();
   },
 
@@ -361,51 +371,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       newSeries[targetIdx] = temp;
       return { series: newSeries };
     });
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  saveView: (name) => {
-    set((state) => {
-      let finalName = name.trim().slice(0, 100);
-      if (!finalName) {
-        const userViews = state.views.filter(v => v.id !== 'default-view');
-        finalName = `View ${userViews.length + 1}`;
-      }
-      const newView: ViewSnapshot = {
-        id: crypto.randomUUID(),
-        name: finalName,
-        xAxes: state.xAxes.map(a => ({ id: a.id, min: a.min, max: a.max })),
-        yAxes: state.yAxes.map(a => ({ id: a.id, min: a.min, max: a.max }))
-      };
-      return { views: [...state.views, newView] };
-    });
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  applyView: (id) => {
-    set({ lastAppliedViewId: { id, timestamp: Date.now() } });
-  },
-
-  lastAppliedViewId: null,
-
-  deleteView: (id) => {
-    set((state) => ({ views: state.views.filter(v => v.id !== id) }));
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  updateViewName: (id, name) => {
-    const finalName = name.trim().slice(0, 100);
-    set((state) => ({
-      views: state.views.map(v => v.id === id ? { ...v, name: finalName } : v)
-    }));
-    if (get().isLoaded) debouncedSaveState();
-  },
-
-  autoDetectViews: () => {
-    const state = get();
-    const newViews = findInterestingSpots(state.datasets, state.series, state.xAxes);
-    if (newViews.length === 0) return;
-    set((s) => ({ views: [...s.views, ...newViews] }));
     if (get().isLoaded) debouncedSaveState();
   },
 
@@ -463,8 +428,7 @@ function saveState(state: GraphState) {
     xAxes: state.xAxes,
     yAxes: state.yAxes,
     series: state.series,
-    axisTitles: state.axisTitles,
-    views: state.views
+    axisTitles: state.axisTitles
   };
   persistence.saveAppState(appState);
 }

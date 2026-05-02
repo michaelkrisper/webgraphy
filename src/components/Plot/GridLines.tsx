@@ -32,14 +32,22 @@ const GridLines = React.memo(forwardRef<GridLinesHandle, GridLinesProps>(({ xAxe
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || width === 0 || height === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+    }
+  }, [width, height]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || width === 0 || height === 0) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const drawFrame: GridLinesHandle['redraw'] = (cXAxes, cYAxes, cXVp, cYVp) => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, width, height);
 
       ctx.strokeStyle = gridColor;

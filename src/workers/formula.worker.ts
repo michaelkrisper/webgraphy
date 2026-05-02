@@ -71,11 +71,9 @@ self.onmessage = (event) => {
         isFloat64: false,
         refPoint: processed.refPoint,
         bounds: processed.bounds,
-        data: processed.data,
-        chunkMin: processed.chunkMin,
-        chunkMax: processed.chunkMax
+        data: processed.data
       };
-      const transferList: Transferable[] = [newColumn.data.buffer, newColumn.chunkMin.buffer, newColumn.chunkMax.buffer];
+      const transferList: Transferable[] = [newColumn.data.buffer];
       (self as unknown as Worker).postMessage({ type: 'success', newColumn, datasetId, name }, transferList);
       return;
     }
@@ -120,15 +118,11 @@ self.onmessage = (event) => {
       isFloat64: false,
       refPoint: processed.refPoint,
       bounds: processed.bounds,
-      data: processed.data,
-      chunkMin: processed.chunkMin,
-      chunkMax: processed.chunkMax
+      data: processed.data
     };
 
     const transferList: Transferable[] = [
-      newColumn.data.buffer,
-      newColumn.chunkMin.buffer,
-      newColumn.chunkMax.buffer
+      newColumn.data.buffer
     ];
 
     (self as unknown as Worker).postMessage({ type: 'success', newColumn, datasetId, name }, transferList);

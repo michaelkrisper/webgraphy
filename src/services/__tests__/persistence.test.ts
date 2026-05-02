@@ -85,9 +85,9 @@ describe('persistence', () => {
         name: 'test',
         columns: ['Time', 'Value'],
         data: [
-            { levels: [{ 0: 1, 1: 2, 2: 3 }] }, // missing bounds, level is object
-            { levels: [new Float32Array([1, 2, 3])], bounds: {min: 0, max: 1}, refPoint: 5 }, // valid level
-            { levels: ['invalid'] } // invalid level
+            { data: { 0: 1, 1: 2, 2: 3 } }, // missing bounds, data is object
+            { data: new Float32Array([1, 2, 3]), bounds: {min: 0, max: 1}, refPoint: 5 }, // valid data
+            { data: 'invalid' } // invalid data
         ],
         rowCount: 0
       };
@@ -180,7 +180,7 @@ describe('persistence', () => {
         name: 'test',
         columns: [],
         data: [
-            { levels: [new Float32Array([1, 2, 3])], bounds: {min: 0, max: 1}, refPoint: 10 }
+            { data: new Float32Array([1, 2, 3]), bounds: {min: 0, max: 1}, refPoint: 10 }
         ],
         rowCount: 0
       };

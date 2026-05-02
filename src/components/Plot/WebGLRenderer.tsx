@@ -141,7 +141,6 @@ interface Props {
   padding: { top: number; right: number; bottom: number; left: number };
   isInteracting?: boolean;
   highlightedSeriesId?: string | null;
-  lodEnabled?: boolean;
 }
 
 export interface WebGLRendererHandle {
@@ -231,17 +230,9 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     const datasetsById = new Map<string, Dataset>();
     datasets.forEach(d => datasetsById.set(d.id, d));
 
-    const xAxesById = new Map<string, XAxisConfig>();
-    xAxes.forEach(a => xAxesById.set(a.id, a));
-
-    const yAxesById = new Map<string, YAxisConfig>();
-    yAxes.forEach(a => yAxesById.set(a.id, a));
-
     return series.map(s => {
       const ds = datasetsById.get(s.sourceId);
-      const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
-      const yAxis = yAxesById.get(s.yAxisId);
-      if (!ds || !xAxis || !yAxis) return null;
+      if (!ds) return null;
 
       const xIdx = getColumnIndex(ds, ds.xAxisColumn);
       const yIdx = getColumnIndex(ds, s.yColumn);
@@ -266,7 +257,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       lineColorRgba: number[],
       pointColorRgba: number[]
     }[];
-  }, [datasets, series, xAxes, yAxes]);
+  }, [datasets, series]);
 
   useEffect(() => {
     liveXAxesRef.current = xAxes;
@@ -282,8 +273,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       currentXAxes.forEach(a => xAxesById.set(a.id, a));
       const yAxesById = new Map<string, YAxisConfig>();
       currentYAxes.forEach(a => yAxesById.set(a.id, a));
-
-      const renderStart = performance.now();
 
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
@@ -302,8 +291,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
       gl.uniform2f(locs.resLoc, pw, ph);
       gl.uniform1f(locs.dprLoc, dpr);
-
-      let totalPointsDrawn = 0;
 
       seriesMetadata.forEach(({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
         const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
@@ -346,7 +333,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
         const numPoints = endIdx - startIdx + 1;
         const drawCount = numPoints;
-        totalPointsDrawn += drawCount;
 
         gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
         gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
@@ -474,9 +460,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         }
       });
       gl.disable(gl.SCISSOR_TEST);
-
-      const renderTime = performance.now() - renderStart;
-      window.dispatchEvent(new CustomEvent('render-stats', { detail: { points: totalPointsDrawn, webglTime: renderTime } }));
     };
 
     drawFrameRef.current = drawFrame;

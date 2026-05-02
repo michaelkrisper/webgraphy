@@ -11,15 +11,6 @@ export interface DataColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: Float32Array;
-  chunkMin?: Float32Array;
-  chunkMax?: Float32Array;
-  /**
-   * Pre-computed LTTB mipmap levels paired against the dataset X column.
-   * lod[0] = coarsest (~256 pts), lod[last] = finest level still downsampled.
-   * Each entry is interleaved Float32Array: [x0, y0, x1, y1, ...] (relative coords).
-   * Absent on the X column and on columns too small to downsample.
-   */
-  lod?: Float32Array[];
 }
 
 export interface Dataset {
@@ -53,19 +44,6 @@ export interface YAxisConfig {
   showGrid: boolean;
 }
 
-export interface ViewAxisSnapshot {
-  id: string;
-  min: number;
-  max: number;
-}
-
-export interface ViewSnapshot {
-  id: string;
-  name: string;
-  xAxes: ViewAxisSnapshot[];
-  yAxes: ViewAxisSnapshot[];
-}
-
 export interface SeriesConfig {
   id: string;
   sourceId: string;
@@ -84,15 +62,12 @@ export interface AppState {
   yAxes: YAxisConfig[];
   series: SeriesConfig[];
   axisTitles: { x: string; y: string };
-  views?: ViewSnapshot[];
 }
 
 export const XAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), showGrid: z.boolean(), xMode: z.enum(['date', 'numeric']) });
 export const YAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), position: z.enum(['left', 'right']), color: z.string(), showGrid: z.boolean() });
 export const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), hidden: z.boolean().optional() });
-export const ViewAxisSnapshotSchema = z.object({ id: z.string(), min: z.number(), max: z.number() });
-export const ViewSnapshotSchema = z.object({ id: z.string(), name: z.string(), xAxes: z.array(ViewAxisSnapshotSchema), yAxes: z.array(ViewAxisSnapshotSchema) });
-export const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }), views: z.array(ViewSnapshotSchema).optional() });
+export const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }) });
 
 let db: IDBPDatabase | null = null;
 
@@ -132,17 +107,11 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
       col.bounds = { min: 0, max: 0 };
     }
 
-    // Migration: levels -> data (legacy pre-LOD format)
-    if ((col as any).levels && (col as any).levels.length > 0 && !col.data) {
-      col.data = restoreFloat32Array((col as any).levels[0]);
-    } else if (col.data) {
+    if (col.data) {
       col.data = restoreFloat32Array(col.data);
     } else {
       col.data = new Float32Array(0);
     }
-
-    if (col.chunkMin) col.chunkMin = restoreFloat32Array(col.chunkMin);
-    if (col.chunkMax) col.chunkMax = restoreFloat32Array(col.chunkMax);
 
     if (col.refPoint === undefined) col.refPoint = 0;
 

@@ -6,9 +6,8 @@ import { THEMES, type ThemeName } from '../../themes';
 import { buildSeriesConfig } from '../../utils/series';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Bookmark, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, Wand2, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
-import { DataViewModal } from './DataViewModal';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
 
 import { exportToSVG, exportToPNG, downloadFile } from '../../services/export';
@@ -40,9 +39,8 @@ export const Sidebar: React.FC = () => {
   const {
     datasets, series, xAxes, yAxes, axisTitles,
     removeDataset, updateDataset, updateXAxis,
-    views, saveView, applyView, deleteView,
-    moveSeries, updateViewName, loadDemoData,
-    setHighlightedSeries, autoDetectViews,
+    moveSeries, loadDemoData,
+    setHighlightedSeries,
     addSeries,
     legendVisible, setLegendVisible,
   } = useGraphStore();
@@ -50,12 +48,9 @@ export const Sidebar: React.FC = () => {
   const [themeName, cycleTheme] = useTheme();
   const t = THEMES[themeName];
 
-  const [editingViewId, setEditingViewId] = useState<string | null>(null);
-  const [tempViewName, setTempViewName] = useState('');
   const [showImprint, setShowImprint] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
-  const [viewingDatasetId, setViewingDatasetId] = useState<string | null>(null);
   const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionInputRef = useRef<HTMLInputElement>(null);
@@ -63,13 +58,9 @@ export const Sidebar: React.FC = () => {
   const [width, setWidth] = useState(() => Math.min(600, window.innerWidth * 0.35));
   const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768 || window.innerHeight < 500);
   const [isResizing, setIsResizing] = useState(false);
-  const [openSections, setOpenSections] = useState({ sources: true, series: true, views: true });
+  const [openSections, setOpenSections] = useState({ sources: true, series: true });
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
-
-  const selectedDatasetForView = useMemo(() => {
-    return datasets.find(d => d.id === viewingDatasetId);
-  }, [datasets, viewingDatasetId]);
 
   const selectedDatasetForCalc = useMemo(() => {
     return datasets.find(d => d.id === calculatingDatasetId);
@@ -82,10 +73,6 @@ export const Sidebar: React.FC = () => {
     }
     return map;
   }, [datasets]);
-
-  const customViews = useMemo(() => {
-    return views ? views.filter(v => v.id !== 'default-view') : [];
-  }, [views]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -297,7 +284,6 @@ export const Sidebar: React.FC = () => {
                             </select>
                           </div>
                           <button onClick={() => setCalculatingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="Add Calculated Column"><Calculator size={16} /></button>
-                          <button onClick={() => setViewingDatasetId(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted }} title="View Data"><Eye size={16} /></button>
                           <button onClick={() => removeDataset(ds.id)} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: t.danger }} title="Delete Dataset"><Trash2 size={16} /></button>
                         </div>
                       </div>
@@ -384,63 +370,6 @@ export const Sidebar: React.FC = () => {
               </div>
             )}
           </section>
-
-          {/* Views Section */}
-          <section className="sb-section" style={{ marginTop: 'auto' }}>
-            <div className="sb-section-header">
-              <div onClick={() => toggleSection('views')} className="sb-section-toggle">
-                <h2 className="sb-section-title">Saved Views</h2>
-                {openSections.views ? <ChevronDown size={16} color="var(--text-muted-color)" /> : <ChevronRight size={16} color="var(--text-muted-color)" />}
-              </div>
-              <div className="sb-hdr-btns-row">
-                <button
-                  onClick={autoDetectViews}
-                  className="sb-icon-btn"
-                  title="Auto-detect interesting spots (extrema, steep changes, intersections)"
-                ><Wand2 size={16} /></button>
-                <button
-                  onClick={() => { const name = prompt('Enter view name:', `View ${customViews.length + 1}`); if (name) saveView(name); }}
-                  className="sb-icon-btn"
-                  title="Save Current View"
-                ><Bookmark size={16} /></button>
-              </div>
-            </div>
-
-            {openSections.views && (
-              <div className="sb-views-list">
-                {customViews.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', fontStyle: 'italic' }}>No saved views</p>
-                ) : (
-                  <div className="sb-view-list-wrap">
-                    {customViews.map((view) => (
-                      <div key={view.id} className="sb-view-item">
-                        {editingViewId === view.id ? (
-                          <input
-                            autoFocus
-                            value={tempViewName}
-                            onChange={(e) => setTempViewName(e.target.value)}
-                            onBlur={() => { updateViewName(view.id, tempViewName); setEditingViewId(null); }}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget.blur())}
-                            className="sb-view-name-input"
-                          />
-                        ) : (
-                          <span
-                            onClick={() => applyView(view.id)}
-                            onDoubleClick={() => { setEditingViewId(view.id); setTempViewName(view.name); }}
-                            className="sb-view-name"
-                          >
-                            {view.name}
-                          </span>
-                        )}
-                        <button onClick={() => applyView(view.id)} className="sb-view-btn" title="Apply"><Eye size={14} /></button>
-                        <button onClick={() => deleteView(view.id)} className="sb-view-btn--danger" title="Delete"><Trash2 size={14} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
         </div>
 
         <input ref={sessionInputRef} type="file" accept=".json" onChange={(e) => { if (e.target.files?.[0]) handleImportSession(e.target.files[0]); e.target.value = ''; }} style={{ display: 'none' }} />
@@ -453,7 +382,6 @@ export const Sidebar: React.FC = () => {
 
       {/* Modals */}
       {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
-      {selectedDatasetForView && <DataViewModal dataset={selectedDatasetForView} onClose={() => setViewingDatasetId(null)} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}

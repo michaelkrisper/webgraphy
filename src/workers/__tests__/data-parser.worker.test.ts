@@ -11,9 +11,10 @@ describe('data-parser.worker', () => {
     // We need to inject our mock into the worker environment
     // The worker does self.onmessage = ... and calls self.postMessage(...)
 
+    // @ts-expect-error - Mocking worker environment
     global.self = {
       postMessage: postMessageMock,
-    } as any;
+    };
 
     // Dynamically import the worker module
     await import('../data-parser.worker');
@@ -21,13 +22,13 @@ describe('data-parser.worker', () => {
     // Now self.onmessage should be defined
     expect(global.self.onmessage).toBeDefined();
 
-    // Trigger the handler with invalid data to cause an error
+    // @ts-expect-error - Triggering message handler
     await global.self.onmessage({
       data: {
         file: null, // this should cause an error
         type: 'unsupported'
       }
-    } as any);
+    });
 
     // Verify that postMessage was called with an error
     expect(postMessageMock).toHaveBeenCalledWith(
@@ -41,9 +42,10 @@ describe('data-parser.worker', () => {
   it('should handle native Error instances in catch block', async () => {
     const postMessageMock = vi.fn();
 
+    // @ts-expect-error - Mocking worker environment
     global.self = {
       postMessage: postMessageMock,
-    } as any;
+    };
 
     await import('../data-parser.worker');
 
@@ -55,13 +57,14 @@ describe('data-parser.worker', () => {
       }
     };
 
+    // @ts-expect-error - Mocked event
     await global.self.onmessage({
       data: {
         file: mockFile,
         type: 'csv',
         settings: {}
       }
-    } as any);
+    });
 
     expect(postMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -74,9 +77,10 @@ describe('data-parser.worker', () => {
   it('should handle non-Error instances in catch block', async () => {
     const postMessageMock = vi.fn();
 
+    // @ts-expect-error - Mocking worker environment
     global.self = {
       postMessage: postMessageMock,
-    } as any;
+    };
 
     await import('../data-parser.worker');
 
@@ -88,13 +92,14 @@ describe('data-parser.worker', () => {
       }
     };
 
+    // @ts-expect-error - Mocked event
     await global.self.onmessage({
       data: {
         file: mockFile,
         type: 'csv',
         settings: {}
       }
-    } as any);
+    });
 
     expect(postMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({

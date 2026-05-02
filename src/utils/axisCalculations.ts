@@ -39,3 +39,38 @@ export function calcYAxisTicks(
   const precision = calcNumericPrecision(step);
   return { ticks: calcNumericTicks(min, max, step), precision, actualStep: step };
 }
+
+export interface AxesFrame {
+  xUpdates: Record<string, { min: number; max: number }>;
+  yUpdates: Record<string, { min: number; max: number }>;
+}
+
+/**
+ * Returns updates to sync axes with targets instantly (no lerp).
+ * Uses epsilon-based comparison to prevent infinite update loops.
+ */
+export function syncAxesWithTargets(
+  state: { xAxes: Array<{ id: string, min: number, max: number }>, yAxes: Array<{ id: string, min: number, max: number }> },
+  targetXAxes: Record<string, { min: number, max: number }>,
+  targetYs: Record<string, { min: number, max: number }>
+): AxesFrame {
+  const xUpdates: Record<string, { min: number; max: number }> = {};
+  const yUpdates: Record<string, { min: number; max: number }> = {};
+  const EPSILON = 1e-10;
+
+  state.xAxes.forEach(axis => {
+    const target = targetXAxes[axis.id];
+    if (target && (Math.abs(axis.min - target.min) > EPSILON || Math.abs(axis.max - target.max) > EPSILON)) {
+      xUpdates[axis.id] = { min: target.min, max: target.max };
+    }
+  });
+
+  state.yAxes.forEach(axis => {
+    const target = targetYs[axis.id];
+    if (target && (Math.abs(axis.min - target.min) > EPSILON || Math.abs(axis.max - target.max) > EPSILON)) {
+      yUpdates[axis.id] = { min: target.min, max: target.max };
+    }
+  });
+
+  return { xUpdates, yUpdates };
+}

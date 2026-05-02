@@ -112,38 +112,6 @@ describe('demoData', () => {
 
       vi.restoreAllMocks();
     }, 10000);
-
-    it('should have valid chunkMin and chunkMax for each column', () => {
-      const dataset = generateDemoDataset();
-      const CHUNK_SIZE = 512;
-      const expectedNumChunks = Math.ceil(dataset.rowCount / CHUNK_SIZE);
-
-      dataset.data.forEach((column) => {
-        expect(column.chunkMin).toBeDefined();
-        expect(column.chunkMax).toBeDefined();
-        expect(column.chunkMin).toBeInstanceOf(Float32Array);
-        expect(column.chunkMax).toBeInstanceOf(Float32Array);
-        expect(column.chunkMin!.length).toBe(expectedNumChunks);
-        expect(column.chunkMax!.length).toBe(expectedNumChunks);
-
-        // Verify bounds for the first and last chunk
-        for (const chunkIndex of [0, expectedNumChunks - 1]) {
-          const start = chunkIndex * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, dataset.rowCount);
-          let expectedMin = Infinity;
-          let expectedMax = -Infinity;
-
-          for (let i = start; i < end; i++) {
-            const val = column.data[i];
-            if (val < expectedMin) expectedMin = val;
-            if (val > expectedMax) expectedMax = val;
-          }
-
-          expect(column.chunkMin![chunkIndex]).toBeCloseTo(expectedMin, 4);
-          expect(column.chunkMax![chunkIndex]).toBeCloseTo(expectedMax, 4);
-        }
-      });
-    });
   });
 
   describe('getDemoAppState', () => {

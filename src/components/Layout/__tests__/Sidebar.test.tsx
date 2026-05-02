@@ -10,8 +10,8 @@ import type { Mock } from 'vitest';
 vi.mock('../ImportSettingsDialog', () => ({
   ImportSettingsDialog: () => <div data-testid="import-settings-dialog">Import Settings</div>,
 }));
-vi.mock('../DataViewModal', () => ({
-  DataViewModal: () => <div data-testid="data-view-modal">Data View</div>,
+vi.mock('../CalculatedColumnModal', () => ({
+  CalculatedColumnModal: () => <div data-testid="calc-modal">Calc Modal</div>,
 }));
 vi.mock('../ImprintModal', () => ({
   ImprintModal: () => <div data-testid="imprint-modal">Imprint</div>,
@@ -79,10 +79,6 @@ vi.mock('../../../hooks/useDataImport', () => ({
 }));
 
 describe('Sidebar Component', () => {
-  const mockSaveView = vi.fn();
-  const mockApplyView = vi.fn();
-  const mockDeleteView = vi.fn();
-  const mockUpdateViewName = vi.fn();
   const mockLoadDemoData = vi.fn().mockResolvedValue(undefined);
   const mockImportFile = vi.fn();
 
@@ -96,18 +92,10 @@ describe('Sidebar Component', () => {
       xAxes: [],
       yAxes: [],
       axisTitles: [],
-      views: [
-        { id: 'default-view', name: 'Default' },
-        { id: 'view-1', name: 'Custom View 1' }
-      ],
       removeDataset: vi.fn(),
       updateDataset: vi.fn(),
       moveDataset: vi.fn(),
-      saveView: mockSaveView,
-      applyView: mockApplyView,
-      deleteView: mockDeleteView,
       moveSeries: vi.fn(),
-      updateViewName: mockUpdateViewName,
       loadDemoData: mockLoadDemoData,
     });
 
@@ -139,38 +127,6 @@ describe('Sidebar Component', () => {
     // Check it's not collapsed (sidebar-content visible)
     screen.getByRole('complementary');
 
-  });
-
-  it('displays custom views and handles interactions', () => {
-    render(<Sidebar />);
-
-    // Default view is filtered out, Custom View 1 should be visible
-    expect(screen.getByText('Custom View 1')).toBeInTheDocument();
-
-  });
-
-  it('handles editing view names', () => {
-    render(<Sidebar />);
-
-    // Click on view name to edit
-    const viewNameSpan = screen.getByText('Custom View 1');
-    fireEvent.click(viewNameSpan);
-
-  });
-
-  it('toggles sections when headers are clicked', () => {
-    render(<Sidebar />);
-
-    const viewsHeader = screen.getByText('Saved Views');
-
-    // Custom views are initially visible
-    expect(screen.getByText('Custom View 1')).toBeInTheDocument();
-
-    // Click to toggle
-    fireEvent.click(viewsHeader!);
-
-    // Custom views are hidden
-    expect(screen.queryByText('Custom View 1')).not.toBeInTheDocument();
   });
 
   it('opens modals when links are clicked', () => {

@@ -499,40 +499,6 @@
 }
 .sc-line-icon { display: block; }
 
-/* ── DataViewModal ──────────────────────────────────── */
-.dv-meta { margin-bottom: 12px; font-size: 0.9rem; color: var(--text-muted-color); }
-.dv-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border-color);
-
-  background: var(--bg);
-}
-.dv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.dv-thead tr { background: var(--bg2); border-bottom: 2px solid var(--border-color); }
-.dv-th {
-  border: 1px solid var(--border-color);
-  padding: 6px 10px;
-  text-align: left;
-  white-space: nowrap;
-  color: var(--text-mid);
-}
-.dv-tr-even { background: var(--bg); }
-.dv-tr-odd  { background: var(--bg2); }
-.dv-td {
-  border: 1px solid var(--border-color);
-  padding: 4px 8px;
-}
-.dv-footer { display: flex; justify-content: flex-end; }
-.dv-close-btn {
-  padding: 8px 24px;
-
-  border: 1px solid var(--border-color);
-  background: var(--bg);
-  font-weight: bold;
-  min-height: 36px;
-  font-size: 0.9rem;
-}
-
 /* ── ChartLegend ────────────────────────────────────── */
 .legend-container {
   position: absolute;

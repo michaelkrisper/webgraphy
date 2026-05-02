@@ -12,8 +12,6 @@ npm run preview    # Preview production build
 npm run test       # Run Vitest unit tests (jsdom environment)
 ```
 
-Run a single test file: `npx vitest run src/utils/__tests__/lttb.test.ts`
-
 `npm run build` runs `tsc -b` before bundling — fix all TypeScript errors before shipping.
 
 ## Architecture Overview
@@ -30,14 +28,14 @@ CSV/JSON file → data-parser.worker.ts (Web Worker, transferable Float32Arrays)
     → WebGLRenderer.tsx (custom GLSL shaders)
 ```
 
-- **Float32Array throughout** — columns stored as relative values (`value - refPoint`) with pre-computed `chunkMin`/`chunkMax` arrays (512-point chunks) for fast range queries
+- **Float32Array throughout** — columns stored as relative values (`value - refPoint`) for high-precision rendering
 - **Transferable objects** — worker ships parsed data to main thread zero-copy
 - On app mount, `loadPersistedState()` rehydrates from IndexedDB/localStorage; falls back to demo weather dataset
 
 ### State Management (`src/store/useGraphStore.ts`)
 
 Single Zustand store:
-- `datasets` — imported data; each `DataColumn` holds `Float32Array data`, `refPoint`, `bounds`, `chunkMin`/`chunkMax`
+- `datasets` — imported data; each `DataColumn` holds `Float32Array data`, `refPoint`, and `bounds`
 - `series` — X/Y column references (by dataset ID + column name), styling, axis assignment
 - `xAxes` / `yAxes` — up to 9 each, with custom min/max, position (left/right for Y), color, gridlines
 - `views` — saved zoom/pan snapshots
@@ -54,8 +52,7 @@ Auto-save: state changes trigger a 1 000 ms debounced `debouncedSaveState()` →
 - Vertex: segment-based geometry extrusion (not polyline) for correct line width
 - Fragment: distance-field antialiasing; supports solid/dashed/dotted lines and circle/square/cross point markers
 - Uniforms `u_rel_viewport_x`/`u_rel_viewport_y` receive the current pan/zoom viewport; coordinate math in `src/utils/coords.ts`
-
-`src/utils/lttb.ts` — Largest-Triangle-Three-Buckets downsampling; used in both the renderer (when point count exceeds threshold) and SVG/PNG export (`src/services/export.ts`).
+- **Interaction Path:** During active zoom/pan, the renderer bypasses React's render cycle and global store updates, drawing directly to canvases via refs for 60fps responsiveness even with raw datasets of millions of points.
 
 ### Formula & Regression System
 

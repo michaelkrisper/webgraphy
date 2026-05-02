@@ -1,30 +1,22 @@
 
-export const CHUNK_SIZE = 512;
-
 export interface ProcessedColumn {
   data: Float32Array;
   refPoint: number;
   bounds: { min: number; max: number };
-  chunkMin: Float32Array;
-  chunkMax: Float32Array;
 }
 
 /**
  * Processes a raw column of data into a format suitable for Webgraphy.
- * Calculates reference point, relative data (Float32Array), bounds, and min/max chunks.
+ * Calculates reference point, relative data (Float32Array), and bounds.
  */
 export function processRawColumn(sourceData: Float64Array | number[]): ProcessedColumn {
   const rowCount = sourceData.length;
-  const numChunks = Math.ceil(rowCount / CHUNK_SIZE);
 
   let min = Infinity, max = -Infinity;
   let refPoint = 0;
 
   const colData = new Float32Array(rowCount);
   let startIdx = 0;
-
-  const chunkMin = new Float32Array(numChunks).fill(Infinity);
-  const chunkMax = new Float32Array(numChunks).fill(-Infinity);
 
   // Find reference point first (usually row 0, but could be later if NaN)
   // Any NaNs before the reference point are copied as NaN
@@ -37,7 +29,7 @@ export function processRawColumn(sourceData: Float64Array | number[]): Processed
     colData[startIdx] = NaN;
   }
 
-  // Single pass for the rest of the data: calculate bounds, chunk min/max and relative data
+  // Single pass for the rest of the data: calculate bounds and relative data
   for (let i = startIdx; i < rowCount; i++) {
     const val = sourceData[i];
     if (val !== null && !Number.isNaN(val)) {
@@ -45,10 +37,6 @@ export function processRawColumn(sourceData: Float64Array | number[]): Processed
       if (val > max) max = val;
 
       const relativeVal = (val as number) - refPoint;
-      const chunkIdx = Math.floor(i / CHUNK_SIZE);
-      if (relativeVal < chunkMin[chunkIdx]) chunkMin[chunkIdx] = relativeVal;
-      if (relativeVal > chunkMax[chunkIdx]) chunkMax[chunkIdx] = relativeVal;
-
       colData[i] = relativeVal;
     } else {
       colData[i] = NaN;
@@ -58,9 +46,7 @@ export function processRawColumn(sourceData: Float64Array | number[]): Processed
   return {
     data: colData,
     refPoint,
-    bounds: { min, max },
-    chunkMin,
-    chunkMax
+    bounds: { min, max }
   };
 }
 

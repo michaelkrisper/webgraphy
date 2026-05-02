@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { importSession } from '../session';
 import { persistence } from '../persistence';
 
@@ -14,7 +14,7 @@ vi.mock('../persistence', () => ({
 describe('importSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (persistence.getAllDatasets as any).mockResolvedValue([]);
+    (persistence.getAllDatasets as Mock).mockResolvedValue([]);
   });
 
   it('should import a valid session', async () => {
@@ -48,8 +48,8 @@ describe('importSession', () => {
     });
 
     const result = await importSession(sessionJson);
-    expect((result as any).polluted).toBeUndefined();
-    expect(({} as any).polluted).toBeUndefined();
+    expect((result as Record<string, unknown>).polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   it('should throw error for unsupported version', async () => {

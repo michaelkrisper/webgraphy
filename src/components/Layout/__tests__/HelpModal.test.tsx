@@ -25,7 +25,7 @@ describe('HelpModal', () => {
     // Check some specific content from each section
     expect(screen.getByText('Zoom only this specific axis')).toBeInTheDocument();
     expect(screen.getByText('Pan the X axis')).toBeInTheDocument();
-    expect(screen.getByText('Import large CSV or JSON files — parsed with LTTB downsampling for high performance')).toBeInTheDocument();
+    expect(screen.getByText('Import large CSV or JSON files for high performance')).toBeInTheDocument();
   });
 
   it('calls onClose when the close button is clicked', () => {

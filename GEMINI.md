@@ -10,16 +10,16 @@
 - **Persistence:** 
     - **IndexedDB (`idb`):** Stores large datasets for fast retrieval across sessions.
     - **LocalStorage:** Stores UI state and application configuration.
-- **Concurrency:** Web Workers for heavy data parsing (CSV/JSON) and Level of Detail (LOD) generation.
-- **Optimization:** Min/Max decimation LOD system to ensure visual signal integrity even at low resolutions.
+- **Concurrency:** Web Workers for heavy data parsing (CSV/JSON).
+- **Optimization:** Direct raw data rendering path optimized for massive datasets.
 
 ## Architecture & Data Flow
 
 1.  **Data Import:** Files (CSV/JSON) are read and passed to `data-parser.worker.ts`.
-2.  **LOD Generation:** The worker parses the data, calculates bounds, and generates multiple levels of detail using a min/max decimation strategy to preserve outliers.
+2.  **Processing:** The worker parses the data, calculates bounds, and transforms values to relative offsets (`refPoint`) for high-precision rendering.
 3.  **Persistence:** The processed dataset is stored in IndexedDB.
 4.  **State Sync:** `useGraphStore` (Zustand) manages the active datasets and series configurations.
-5.  **Rendering:** `WebGLRenderer` consumes datasets and series configs, selecting the appropriate LOD level based on zoom density, and renders them to a canvas using specialized shaders.
+5.  **Rendering:** `WebGLRenderer` consumes datasets and series configs and renders raw data to a canvas using specialized shaders. To ensure high responsiveness during interaction, the renderer bypasses the global store and React render cycle for per-frame updates.
 
 ## Key Directories
 

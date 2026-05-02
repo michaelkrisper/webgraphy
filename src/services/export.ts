@@ -26,7 +26,7 @@ const escapeHTML = (str: string | undefined | null): string => {
 
 /**
  * Generates a production-quality SVG that exactly matches the WebGL plot visuals.
- * Handles multi-axis layouts, auto-scales ticks/labels, applies LTTB downsampling for large datasets.
+ * Handles multi-axis layouts, auto-scales ticks/labels, and renders large datasets efficiently.
  * @param {Dataset[]} datasets - Array of imported datasets with parsed columns
  * @param {SeriesConfig[]} series - Array of series configurations (styling, axis assignments)
  * @param {XAxisConfig[]} xAxes - Array of X-axis configurations

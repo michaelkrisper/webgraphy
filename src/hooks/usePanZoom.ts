@@ -26,6 +26,7 @@ interface UsePanZoomOptions {
   handleAutoScaleY: (axisId: string, mouseY?: number) => void;
   pressedKeys: React.MutableRefObject<Set<string>>;
   onPanEnd: () => void;
+  panStateRef: React.MutableRefObject<{ active: boolean; startX: number; startY: number; currentX: number; currentY: number; target: PanTarget | null; startTargetX: Record<string, { min: number; max: number }>; startTargetY: Record<string, { min: number; max: number }> }>;
 }
 
 interface UsePanZoomResult {
@@ -45,6 +46,7 @@ export function usePanZoom({
   targetXAxes, targetYs, syncViewport,
   xAxesMetrics, axisLayout, leftAxes, rightAxes,
   handleAutoScaleX, handleAutoScaleY, pressedKeys, onPanEnd,
+  panStateRef,
 }: UsePanZoomOptions): UsePanZoomResult {
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -52,11 +54,6 @@ export function usePanZoom({
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
 
   const isInteracting = !!panTarget || !!zoomBoxState;
-
-  // High-frequency state refs
-  const panStateRef = useRef<{ active: boolean, startX: number, startY: number, currentX: number, currentY: number, target: PanTarget | null, startTargetX: Record<string, { min: number, max: number }>, startTargetY: Record<string, { min: number, max: number }> }>({
-    active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, target: null, startTargetX: {}, startTargetY: {}
-  });
 
   const updatePan = useCallback(() => {
     const ps = panStateRef.current;
@@ -105,7 +102,7 @@ export function usePanZoom({
     if (Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0) {
       syncViewport();
     }
-  }, [activeXAxes, activeYAxes, chartWidth, chartHeight, targetXAxes, targetYs, syncViewport]);
+  }, [activeXAxes, activeYAxes, chartWidth, chartHeight, targetXAxes, targetYs, syncViewport, panStateRef]);
 
   const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
@@ -332,7 +329,7 @@ export function usePanZoom({
       window.removeEventListener('touchmove', handleTouchMoveRaw);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, syncViewport, performZoom, getHoveredYAxis, getHoveredXAxis, updatePan, onPanEnd]);
+  }, [containerRef, padding, width, height, activeXAxes, activeYAxes, targetXAxes, targetYs, syncViewport, performZoom, getHoveredYAxis, getHoveredXAxis, updatePan, onPanEnd, panStateRef]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

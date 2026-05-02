@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 // Define a variable to hold the message handler
-let workerMessageHandler: ((event: any) => void) | null = null;
+let workerMessageHandler: ((event: MessageEvent) => void) | null = null;
 const postMessageMock = vi.fn();
 
 Object.defineProperty(globalThis, 'self', {
   value: {
     postMessage: postMessageMock,
-    set onmessage(fn: (e: any) => void) {
+    set onmessage(fn: (e: MessageEvent) => void) {
       workerMessageHandler = fn;
     },
     get onmessage() {
@@ -45,7 +45,7 @@ describe('formula.worker', () => {
       }
     };
 
-    // @ts-ignore
+    // @ts-expect-error - Event type mismatch in test
     workerMessageHandler!(event);
 
     expect(postMessageMock).toHaveBeenCalledWith({
@@ -66,7 +66,7 @@ describe('formula.worker', () => {
       }
     };
 
-    // @ts-ignore
+    // @ts-expect-error - Event type mismatch in test
     workerMessageHandler!(event);
 
     expect(postMessageMock).toHaveBeenCalledWith({
