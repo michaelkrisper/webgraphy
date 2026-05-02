@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
 import { type XAxisLayout, type YAxisLayout, type XAxisMetrics } from './chartTypes';
@@ -461,7 +461,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           const curAxisLayout = axisLayout || {};
           const metrics = curAxisLayout[axis.id] || { total: 40 };
           
-          let xPos = isLeft ? padding.left - (curLeftOffsets[axis.id] ?? 0) - metrics.total : width - padding.right + (curRightOffsets[axis.id] ?? 0);
+          const xPos = isLeft ? padding.left - (curLeftOffsets[axis.id] ?? 0) - metrics.total : width - padding.right + (curRightOffsets[axis.id] ?? 0);
           const axisLineX = isLeft ? xPos + metrics.total : xPos;
           
           addLine(axisLineX, height - padding.bottom, axisLineX, padding.top - 8, lines);

@@ -1,4 +1,4 @@
-import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig, type ViewSnapshot } from './persistence';
+import { type Dataset, type DataColumn, type AppState, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { secureRandom } from '../utils/random';
 
 function generateRawWeatherData(rowCount: number, startTime: number): number[][] {
@@ -210,75 +210,6 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
   ];
 }
 
-function createDemoViews(tsBounds: { min: number; max: number }): ViewSnapshot[] {
-  const oneDay = 24 * 60 * 60;
-  const oneWeek = 7 * oneDay;
-  const startOfYear = tsBounds.min;
-
-  // Mid-summer roughly day 180
-  const summerStart = startOfYear + (180 * oneDay);
-
-  // Mid-winter roughly day 15 (Jan 16)
-  const winterStart = startOfYear + (15 * oneDay);
-
-  // Spring storm roughly day 90 (April 1)
-  const springStormStart = startOfYear + (90 * oneDay);
-
-  return [
-    {
-      id: 'demo-view-1',
-      name: 'Full Year Overview',
-      xAxes: [
-        { id: 'axis-1', min: tsBounds.min, max: tsBounds.max }
-      ],
-      yAxes: [
-        { id: 'axis-1', min: -10, max: 40 },
-        { id: 'axis-2', min: 0, max: 100 },
-        { id: 'axis-3', min: 0, max: 1200 },
-        { id: 'axis-4', min: 0, max: 25 }
-      ]
-    },
-    {
-      id: 'demo-view-2',
-      name: 'Summer Week (High Solar)',
-      xAxes: [
-        { id: 'axis-1', min: summerStart, max: summerStart + oneWeek }
-      ],
-      yAxes: [
-        { id: 'axis-1', min: 10, max: 40 },
-        { id: 'axis-2', min: 20, max: 100 },
-        { id: 'axis-3', min: 0, max: 1100 },
-        { id: 'axis-4', min: 0, max: 15 }
-      ]
-    },
-    {
-      id: 'demo-view-3',
-      name: 'Winter Day (Low Solar, Cold)',
-      xAxes: [
-        { id: 'axis-1', min: winterStart, max: winterStart + oneDay }
-      ],
-      yAxes: [
-        { id: 'axis-1', min: -10, max: 15 },
-        { id: 'axis-2', min: 40, max: 100 },
-        { id: 'axis-3', min: 0, max: 600 },
-        { id: 'axis-4', min: 0, max: 20 }
-      ]
-    },
-    {
-      id: 'demo-view-4',
-      name: 'Spring Storm (3 Days)',
-      xAxes: [
-        { id: 'axis-1', min: springStormStart, max: springStormStart + (3 * oneDay) }
-      ],
-      yAxes: [
-        { id: 'axis-1', min: 5, max: 25 },
-        { id: 'axis-2', min: 50, max: 100 },
-        { id: 'axis-3', min: 0, max: 900 },
-        { id: 'axis-4', min: 0, max: 30 }
-      ]
-    }
-  ];
-}
 
 export const getDemoAppState = (dataset: Dataset): AppState => {
   const tsBounds = dataset.data[0].bounds;
@@ -287,7 +218,6 @@ export const getDemoAppState = (dataset: Dataset): AppState => {
     xAxes: createDemoXAxes(tsBounds),
     yAxes: createDemoYAxes(),
     series: createDemoSeries(dataset),
-    axisTitles: { x: 'Date / Time', y: '' },
-    views: createDemoViews(tsBounds)
+    axisTitles: { x: 'Date / Time', y: '' }
   };
 };

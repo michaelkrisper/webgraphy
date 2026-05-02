@@ -22,8 +22,6 @@ interface SerializedColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: number[];
-  chunkMin?: number[];
-  chunkMax?: number[];
 }
 
 function serializeDataset(ds: Dataset): SerializedDataset {
@@ -39,8 +37,6 @@ function serializeDataset(ds: Dataset): SerializedDataset {
       refPoint: col.refPoint,
       bounds: col.bounds,
       data: Array.from(col.data),
-      chunkMin: col.chunkMin ? Array.from(col.chunkMin) : undefined,
-      chunkMax: col.chunkMax ? Array.from(col.chunkMax) : undefined,
     })),
   };
 }
@@ -58,8 +54,6 @@ function deserializeDataset(sd: SerializedDataset): Dataset {
       refPoint: col.refPoint,
       bounds: col.bounds,
       data: new Float32Array(col.data),
-      chunkMin: col.chunkMin ? new Float32Array(col.chunkMin) : undefined,
-      chunkMax: col.chunkMax ? new Float32Array(col.chunkMax) : undefined,
     })),
   };
 }

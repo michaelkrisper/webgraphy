@@ -13,7 +13,7 @@ interface UseAutoScaleOptions {
   chartHeight: number;
   targetXAxes: React.MutableRefObject<Record<string, { min: number; max: number }>>;
   targetYs: React.MutableRefObject<Record<string, { min: number; max: number }>>;
-  syncViewport: () => void;
+  syncViewport: (force?: boolean) => void;
 }
 
 interface UseAutoScaleResult {
