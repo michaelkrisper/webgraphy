@@ -103,7 +103,7 @@ function processColumns(rawData: number[][], rowCount: number, columns: string[]
 }
 
 export function generateDemoDataset(): Dataset {
-  const rowCount = 525600; // 1 year of minute-by-minute data
+  const rowCount = 1000000; // Increased to 1M to demonstrate high performance
   const columns = ['Timestamp', 'Temperature (°C)', 'Humidity (%)', 'Solar Irradiance (W/m²)', 'Wind Speed (m/s)'];
   const datasetId = 'demo-dataset';
 

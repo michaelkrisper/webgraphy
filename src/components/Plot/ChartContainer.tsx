@@ -180,6 +180,7 @@ const ChartContainer: React.FC = () => {
   }, [series, chartHeight]);
 
   const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
+  const rafId = useRef<number | null>(null);
 
   // 5. Hooks
   const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
@@ -208,50 +209,62 @@ const ChartContainer: React.FC = () => {
   });
 
   const syncViewport = useCallback((forceStoreUpdate = false) => {
-    const state = useGraphStore.getState();
-    const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
+    if (rafId.current && !forceStoreUpdate) return;
     
-    const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
+    const runSync = () => {
+      rafId.current = null;
+      const state = useGraphStore.getState();
+      const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
+      
+      const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
 
-    const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
-    if (hasUpdates) {
-      const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
-      const xLayout = computeXAxesLayout(liveX);
-      const yLayout = computeYAxesLayout(liveY);
+      const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
+      if (hasUpdates) {
+        const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
+        const xLayout = computeXAxesLayout(liveX);
+        const yLayout = computeYAxesLayout(liveY);
 
-      webglRef.current?.redraw(liveX, liveY, xLayout, yLayout);
-      axesLayerRef.current?.redraw(xLayout, yLayout);
+        webglRef.current?.redraw(liveX, liveY, xLayout, yLayout);
+        axesLayerRef.current?.redraw(xLayout, yLayout);
 
-      // Only sync back to store if not currently interacting (panning/zooming)
-      if (forceStoreUpdate || (!panStateRef.current.active && !isInteracting)) {
-        const currentX = state.xAxes;
-        const currentY = state.yAxes;
-        
-        const filteredXUpdates: Record<string, { min: number; max: number }> = {};
-        const filteredYUpdates: Record<string, { min: number; max: number }> = {};
-        
-        const EPSILON = 1e-10;
-        Object.entries(xUpdates).forEach(([id, upd]) => {
-          const axis = currentX.find(a => a.id === id);
-          if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
-            filteredXUpdates[id] = upd;
+        // Only sync back to store if not currently interacting (panning/zooming)
+        if (forceStoreUpdate || (!panStateRef.current.active && !isInteracting)) {
+          const currentX = state.xAxes;
+          const currentY = state.yAxes;
+          
+          const filteredXUpdates: Record<string, { min: number; max: number }> = {};
+          const filteredYUpdates: Record<string, { min: number; max: number }> = {};
+          
+          const EPSILON = 1e-10;
+          Object.entries(xUpdates).forEach(([id, upd]) => {
+            const axis = currentX.find(a => a.id === id);
+            if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
+              filteredXUpdates[id] = upd;
+            }
+          });
+          
+          Object.entries(yUpdates).forEach(([id, upd]) => {
+            const axis = currentY.find(a => a.id === id);
+            if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
+              filteredYUpdates[id] = upd;
+            }
+          });
+
+          if (Object.keys(filteredXUpdates).length > 0 || Object.keys(filteredYUpdates).length > 0) {
+            state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
           }
-        });
-        
-        Object.entries(yUpdates).forEach(([id, upd]) => {
-          const axis = currentY.find(a => a.id === id);
-          if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
-            filteredYUpdates[id] = upd;
-          }
-        });
-
-        if (Object.keys(filteredXUpdates).length > 0 || Object.keys(filteredYUpdates).length > 0) {
-          state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
         }
       }
-    }
-    if (kbZoom) {
-      requestAnimationFrame(() => syncViewportRef.current(false));
+      if (kbZoom) {
+        syncViewportRef.current(false);
+      }
+    };
+
+    if (forceStoreUpdate) {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      runSync();
+    } else {
+      rafId.current = requestAnimationFrame(runSync);
     }
   }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, isInteracting, datasets]);
 
@@ -362,7 +375,8 @@ const ChartContainer: React.FC = () => {
             themeColors={{
               axisColor: themeColors.axisColor,
               zeroLineColor: themeColors.zeroLineColor,
-              gridColor: themeColors.gridColor
+              gridColor: themeColors.gridColor,
+              plotBg: themeColors.plotBg
             }}
             leftOffsets={leftOffsets}
             rightOffsets={rightOffsets}

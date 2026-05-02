@@ -40,18 +40,36 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    
+    let rafId: number | null = null;
+    
     const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (isPanning) { setPos(null); return; }
+      if (isPanning) { 
+        if (rafId) cancelAnimationFrame(rafId);
+        setPos(null); 
+        return; 
+      }
+      
       const rect = el.getBoundingClientRect();
       let clientX, clientY;
       if ('touches' in e) {
         if (e.touches.length !== 1) { setPos(null); return; }
         clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
-      } else { clientX = e.clientX; clientY = e.clientY; }
+      } else { 
+        clientX = e.clientX; clientY = e.clientY; 
+      }
+      
       const x = clientX - rect.left, y = clientY - rect.top;
-      if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
-        setPos({ x, y });
-      } else setPos(null);
+      
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
+          setPos({ x, y });
+        } else {
+          setPos(null);
+        }
+        rafId = null;
+      });
     };
     const handleLeave = () => setPos(null);
     window.addEventListener('mousemove', handleMove);

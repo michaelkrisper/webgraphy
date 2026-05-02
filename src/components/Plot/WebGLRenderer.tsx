@@ -10,43 +10,44 @@ const VERTEX_SHADER_SOURCE = `
       attribute vec2 a_other;
       attribute float a_t;
       attribute float a_dist_start;
-      uniform vec2 u_rel_viewport_x;
-      uniform vec2 u_rel_viewport_y;
+      uniform vec2 u_x_scale_offset; // (scale, offset)
+      uniform vec2 u_y_scale_offset; // (scale, offset)
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
       uniform float u_point_size;
+      uniform float u_dpr;
       uniform bool u_is_screen_space;
       varying highp float v_t;
       varying highp float v_len;
       varying highp float v_dist_start;
 
       vec2 toScreen(vec2 pos) {
-        float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
-        float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-        float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
-        float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
-        float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
-        float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
-        return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
+        float x = pos.x * u_x_scale_offset.x + u_x_scale_offset.y;
+        float y = pos.y * u_y_scale_offset.x + u_y_scale_offset.y;
+        return vec2(x, y);
       }
 
       void main() {
         vec2 p;
         if (u_is_screen_space) {
-          p = vec2(a_x, a_y);
+          p = vec2(a_x, a_y); // Already scaled by dpr in the buffer
         } else {
           p = toScreen(vec2(a_x, a_y));
         }
         vec2 other;
         if (u_is_screen_space) {
-          other = a_other;
+          other = vec2(a_other.x, a_other.y);
         } else {
           other = toScreen(a_other);
         }
         v_t = a_t;
         v_len = length(other - p);
         v_dist_start = a_dist_start;
-        gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
+        
+        // Correctly map screen pixels (0=top, res.y=bottom) to clip space (-1 to 1)
+        // x: [0, res.x] -> [-1, 1]  => (x / res.x * 2.0) - 1.0
+        // y: [0, res.y] -> [1, -1]  => 1.0 - (y / res.y * 2.0)
+        gl_Position = vec4((p.x / u_resolution.x * 2.0) - 1.0, 1.0 - (p.y / u_resolution.y * 2.0), 0, 1);
         gl_PointSize = u_point_size;
       }
 `;
@@ -114,8 +115,8 @@ interface WebGLLocations {
   otherLoc: number;
   tLoc: number;
   distStartLoc: number;
-  xRelLoc: WebGLUniformLocation | null;
-  yRelLoc: WebGLUniformLocation | null;
+  xScaleOffLoc: WebGLUniformLocation | null;
+  yScaleOffLoc: WebGLUniformLocation | null;
   padLoc: WebGLUniformLocation | null;
   resLoc: WebGLUniformLocation | null;
   colorLoc: WebGLUniformLocation | null;
@@ -143,6 +144,7 @@ interface Props {
     axisColor: string;
     zeroLineColor: string;
     gridColor: string;
+    plotBg: string;
   };
   leftOffsets?: Record<string, number>;
   rightOffsets?: Record<string, number>;
@@ -155,24 +157,30 @@ export interface WebGLRendererHandle {
 }
 
 const hexToRgba = (hex: string): number[] => {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [r, g, b];
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return [0, 0, 0];
+  try {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    return [isNaN(r) ? 0 : r, isNaN(g) ? 0 : g, isNaN(b) ? 0 : b];
+  } catch {
+    return [0, 0, 0];
+  }
 };
 
 /**
- * WebGLRenderer Component (v0.5.1 - Integrated WebGL Axes & Highlighting, Reordered)
+ * WebGLRenderer Component (v0.5.2 - Optimized Lifecycle & Stable Initialization)
  */
-export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>(({ 
-  datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId, 
-  xAxesLayout, yAxesLayout, xAxesMetrics, themeColors, leftOffsets, rightOffsets, axisLayout 
-}, ref) => {
+export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((props, ref) => {
+  const { 
+    datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId, 
+    xAxesLayout, yAxesLayout, xAxesMetrics, themeColors, leftOffsets, rightOffsets, axisLayout 
+  } = props;
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
-  const [glReady, setGlReady] = useState(false);
-  const [program, setProgram] = useState<WebGLProgram | null>(null);
-  const [locations, setLocations] = useState<WebGLLocations | null>(null);
+  const programRef = useRef<WebGLProgram | null>(null);
+  const locationsRef = useRef<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const staticBuffersRef = useRef<{ grid?: WebGLBuffer, lines?: WebGLBuffer, zero?: WebGLBuffer, triangles?: WebGLBuffer }>({});
   const segParamsRef = useRef<Map<string, string>>(new Map());
@@ -181,6 +189,12 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const liveXLayoutRef = useRef<XAxisLayout[] | undefined>(xAxesLayout);
   const liveYLayoutRef = useRef<YAxisLayout[] | undefined>(yAxesLayout);
   const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => void) | null>(null);
+
+  // Sync props to ref for use in drawFrame without closure issues
+  const propsRef = useRef(props);
+  useEffect(() => {
+    propsRef.current = props;
+  }, [props]);
 
   useImperativeHandle(ref, () => ({
     redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => {
@@ -192,30 +206,47 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     },
   }), []);
 
-  // Reactive Init
+  // Synchronous Initialization
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, antialias: true, alpha: true });
+    const gl = canvas.getContext('webgl', { 
+      preserveDrawingBuffer: true, 
+      antialias: true, 
+      alpha: false 
+    });
     if (!gl) return;
     glRef.current = gl;
 
     const vs = gl.createShader(gl.VERTEX_SHADER)!;
     gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
     gl.compileShader(vs);
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+      console.error('VS Error:', gl.getShaderInfoLog(vs));
+      return;
+    }
+
     const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
     gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
     gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+      console.error('FS Error:', gl.getShaderInfoLog(fs));
+      return;
+    }
 
     const pg = gl.createProgram()!;
     gl.attachShader(pg, vs);
     gl.attachShader(pg, fs);
     gl.linkProgram(pg);
-    setProgram(pg);
+    if (!gl.getProgramParameter(pg, gl.LINK_STATUS)) {
+      console.error('Link Error:', gl.getProgramInfoLog(pg));
+      return;
+    }
+    programRef.current = pg;
 
-    setLocations({
-      xRelLoc: gl.getUniformLocation(pg, 'u_rel_viewport_x'),
-      yRelLoc: gl.getUniformLocation(pg, 'u_rel_viewport_y'),
+    locationsRef.current = {
+      xScaleOffLoc: gl.getUniformLocation(pg, 'u_x_scale_offset'),
+      yScaleOffLoc: gl.getUniformLocation(pg, 'u_y_scale_offset'),
       padLoc: gl.getUniformLocation(pg, 'u_padding'),
       resLoc: gl.getUniformLocation(pg, 'u_resolution'),
       colorLoc: gl.getUniformLocation(pg, 'u_color'),
@@ -229,8 +260,12 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
       tLoc: gl.getAttribLocation(pg, 'a_t'),
       distStartLoc: gl.getAttribLocation(pg, 'a_dist_start')
-    });
-    setGlReady(true);
+    };
+
+    // Trigger initial draw
+    if (drawFrameRef.current) {
+      drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current, liveXLayoutRef.current, liveYLayoutRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -283,9 +318,21 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
   useEffect(() => {
     const gl = glRef.current;
-    if (!gl || !program || !locations || !glReady) return;
+    if (!gl || !programRef.current || !locationsRef.current) return;
 
     const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[], curXLayout?: XAxisLayout[], curYLayout?: YAxisLayout[]) => {
+      const pg = programRef.current;
+      const locs = locationsRef.current;
+      if (!pg || !locs) return;
+
+      // Use latest props from ref to avoid stale closures
+      const { 
+        width, height, padding, themeColors, highlightedSeriesId, 
+        xAxesMetrics, leftOffsets, rightOffsets, axisLayout 
+      } = propsRef.current;
+
+      if (!themeColors) return;
+
       const xAxesById = new Map<string, XAxisConfig>();
       currentXAxes.forEach(a => xAxesById.set(a.id, a));
       const yAxesById = new Map<string, YAxisConfig>();
@@ -297,12 +344,14 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
       const dpr = window.devicePixelRatio || 1;
       const pw = width * dpr, ph = height * dpr;
+      
+      const plotBg = themeColors.plotBg || '#000000';
+      const bgRgba = hexToRgba(plotBg);
       gl.viewport(0, 0, pw, ph);
-      gl.clearColor(0.0, 0.0, 0.0, 0.0);
+      gl.clearColor(bgRgba[0], bgRgba[1], bgRgba[2], 1.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       
-      gl.useProgram(program);
-      const locs = locations;
+      gl.useProgram(pg);
       gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
       gl.uniform2f(locs.resLoc, pw, ph);
       gl.uniform1f(locs.dprLoc, dpr);
@@ -323,7 +372,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         const triangles: number[] = [];
 
         const addLine = (x1: number, y1: number, x2: number, y2: number, target: number[]) => {
-          target.push(x1 * dpr, (height - y1) * dpr, x2 * dpr, (height - y2) * dpr);
+          target.push(x1 * dpr, y1 * dpr, x2 * dpr, y2 * dpr);
         };
 
         const addArrow = (x: number, y: number, angle: number, target: number[]) => {
@@ -344,7 +393,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           const p2 = rotate(x2, y2);
           const p3 = rotate(x3, y3);
 
-          target.push(p1.x * dpr, (height - p1.y) * dpr, p2.x * dpr, (height - p2.y) * dpr, p3.x * dpr, (height - p3.y) * dpr);
+          target.push(p1.x * dpr, p1.y * dpr, p2.x * dpr, p2.y * dpr, p3.x * dpr, p3.y * dpr);
         };
 
         // Grid Lines
@@ -430,7 +479,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         });
 
         const drawBuffer = (data: number[], mode: number, color: number[], size: number = 1, bufferKey: keyof typeof staticBuffersRef.current) => {
-          if (data.length === 0) return;
+          if (data.length === 0 || !locs) return;
           let buf = staticBuffersRef.current[bufferKey];
           if (!buf) {
             buf = gl.createBuffer()!;
@@ -444,9 +493,13 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           gl.enableVertexAttribArray(locs.yLoc);
           gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
           
+          // Reset other attributes for screen-space drawing
           gl.disableVertexAttribArray(locs.otherLoc);
+          gl.vertexAttrib2f(locs.otherLoc, 0, 0);
           gl.disableVertexAttribArray(locs.tLoc);
+          gl.vertexAttrib1f(locs.tLoc, 0);
           gl.disableVertexAttribArray(locs.distStartLoc);
+          gl.vertexAttrib1f(locs.distStartLoc, 0);
           
           gl.uniform4f(locs.colorLoc, color[0], color[1], color[2], 1.0);
           gl.lineWidth(size * dpr);
@@ -503,10 +556,33 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         }
 
         const numPoints = endIdx - startIdx + 1;
-        const drawCount = numPoints;
+        
+        // --- Decimation (Downsampling) ---
+        // If we have too many points, skip some to stay within performance limits.
+        // This is especially important when zoomed out on millions of points.
+        const MAX_POINTS_PER_SERIES = 20000;
+        const decimationFactor = Math.max(1, Math.ceil(numPoints / MAX_POINTS_PER_SERIES));
+        const drawCount = Math.floor(numPoints / decimationFactor);
 
-        gl.uniform2f(locs.xRelLoc, xAxis.min - colX.refPoint, xAxis.max - colX.refPoint);
-        gl.uniform2f(locs.yRelLoc, yAxis.min - colY.refPoint, yAxis.max - colY.refPoint);
+        const xRange = xAxis.max - xAxis.min || 1;
+        const yRange = yAxis.max - yAxis.min || 1;
+        
+        // Scale and offset in screen pixels (not CSS pixels)
+        const xScale = (chartWidth * dpr) / xRange;
+        const xOffset = (padding.left * dpr) - (xAxis.min - colX.refPoint) * xScale;
+        
+        // --- Y-Axis Mapping (Corrected for non-inversion) ---
+        // We want yAxis.min to be at screen Y = (height - padding.bottom) * dpr
+        // We want yAxis.max to be at screen Y = padding.top * dpr
+        // Formula: screenY = worldY * yScale + yOffset
+        // 1) yScale = (padding.top * dpr - (height - padding.bottom) * dpr) / (yAxis.max - yAxis.min)
+        // 2) yOffset = (height - padding.bottom) * dpr - (yAxis.min - colY.refPoint) * yScale
+        
+        const yScale = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
+        const yOffset = ((height - padding.bottom) * dpr) - (yAxis.min - colY.refPoint) * yScale;
+
+        gl.uniform2f(locs.xScaleOffLoc, xScale, xOffset);
+        gl.uniform2f(locs.yScaleOffLoc, yScale, yOffset);
 
         const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
         let xBuffer = buffersRef.current.get(xBufferKey);
@@ -539,34 +615,38 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
           if (lStyle === 0) {
             gl.disableVertexAttribArray(locs.otherLoc);
+            gl.vertexAttrib2f(locs.otherLoc, 0, 0);
             gl.disableVertexAttribArray(locs.tLoc);
+            gl.vertexAttrib1f(locs.tLoc, 0);
             gl.disableVertexAttribArray(locs.distStartLoc);
+            gl.vertexAttrib1f(locs.distStartLoc, 0);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
             gl.enableVertexAttribArray(locs.xLoc);
-            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
+            gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4 * decimationFactor, startIdx * 4);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
             gl.enableVertexAttribArray(locs.yLoc);
-            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
+            gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4 * decimationFactor, startIdx * 4);
 
             gl.lineWidth(baseLineWidth);
-            gl.drawArrays(gl.LINE_STRIP, startIdx, drawCount);
+            gl.drawArrays(gl.LINE_STRIP, 0, drawCount);
           } else {
+            // For dashed/dotted lines, we currently don't decimate in the same way 
+            // because it uses a complex dynamic buffer. But we cap the count.
+            const cappedDrawCount = Math.min(numPoints, 10000); 
             const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-            const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${startIdx}-${drawCount}`;
+            const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${startIdx}-${cappedDrawCount}`;
             let segBuffer = buffersRef.current.get(segBufferKey);
             if (!segBuffer) {
               segBuffer = gl.createBuffer()!;
               buffersRef.current.set(segBufferKey, segBuffer);
             }
 
-            const numSegs = drawCount - 1;
+            const numSegs = cappedDrawCount - 1;
             if (segParamsRef.current.get(segBufferKey) !== paramKey) {
               const reqSize = numSegs * 12;
               const sharedArr = new Float32Array(reqSize);
-              const xRange = (xAxis.max - xAxis.min) || 1;
-              const yRange = (yAxis.max - yAxis.min) || 1;
               const pChartWidth = chartWidth * dpr;
               const pChartHeight = chartHeight * dpr;
               const dashLen = ((lStyle === 1) ? 8.0 : 2.0) * dpr;
@@ -574,8 +654,13 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
               const period = dashLen + gapLen;
 
               let cumDist = 0;
+              const step = Math.max(1, Math.floor(numPoints / cappedDrawCount));
               for (let i = 0; i < numSegs; i++) {
-                const ax = xData[startIdx + i], ay = yData[startIdx + i], bx = xData[startIdx + i + 1], by = yData[startIdx + i + 1];
+                const idx1 = startIdx + i * step;
+                const idx2 = startIdx + (i + 1) * step;
+                if (idx2 >= xData.length) break;
+                
+                const ax = xData[idx1], ay = yData[idx1], bx = xData[idx2], by = yData[idx2];
                 const screenDx = (bx - ax) / xRange * pChartWidth;
                 const screenDy = (by - ay) / yRange * pChartHeight;
                 const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
@@ -616,18 +701,21 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           gl.uniform1i(locs.styleLoc, pStyle);
 
           gl.disableVertexAttribArray(locs.otherLoc);
+          gl.vertexAttrib2f(locs.otherLoc, 0, 0);
           gl.disableVertexAttribArray(locs.tLoc);
+          gl.vertexAttrib1f(locs.tLoc, 0);
           gl.disableVertexAttribArray(locs.distStartLoc);
+          gl.vertexAttrib1f(locs.distStartLoc, 0);
 
           gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
           gl.enableVertexAttribArray(locs.xLoc);
-          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4, 0);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 4 * decimationFactor, startIdx * 4);
 
           gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
           gl.enableVertexAttribArray(locs.yLoc);
-          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4 * decimationFactor, startIdx * 4);
 
-          gl.drawArrays(gl.POINTS, startIdx, drawCount);
+          gl.drawArrays(gl.POINTS, 0, drawCount);
         }
       });
       gl.disable(gl.SCISSOR_TEST);
@@ -635,8 +723,8 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
     drawFrameRef.current = drawFrame;
     drawFrame(liveXAxesRef.current, liveYAxesRef.current, liveXLayoutRef.current, liveYLayoutRef.current);
-  }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId, themeColors, xAxesMetrics, leftOffsets, rightOffsets, axisLayout]);
+  }, [seriesMetadata, width, height, padding, highlightedSeriesId, themeColors, xAxesMetrics, leftOffsets, rightOffsets, axisLayout]);
 
   const dpr = window.devicePixelRatio || 1;
-  return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;
+  return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%' }} />;
 }));
