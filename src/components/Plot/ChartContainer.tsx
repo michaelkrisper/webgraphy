@@ -24,9 +24,9 @@ const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
 
 const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric'): Omit<XAxisMetrics, 'id' | 'cumulativeOffset'> => {
   if (xMode === 'date') {
-    return { height: isMobile ? 50 : 60, labelBottom: isMobile ? 18 : 22, secLabelBottom: isMobile ? 32 : 38, titleBottom: isMobile ? 44 : 52 };
+    return { height: isMobile ? 60 : 70, labelBottom: isMobile ? 20 : 25, secLabelBottom: isMobile ? 30 : 36, titleBottom: isMobile ? 50 : 60 };
   }
-  return { height: 40, labelBottom: 18, secLabelBottom: 0, titleBottom: 32 };
+  return { height: 50, labelBottom: 22, secLabelBottom: 0, titleBottom: 40 };
 };
 
 const ChartContainer: React.FC = () => {
@@ -39,8 +39,6 @@ const ChartContainer: React.FC = () => {
   const targetYs = useRef<Record<string, { min: number; max: number }>>({});
   const webglRef = useRef<WebGLRendererHandle | null>(null);
   const axesLayerRef = useRef<AxesLayerHandle | null>(null);
-  const lockedXSteps = useRef<Record<string, { step?: number; timeStep?: ReturnType<typeof getTimeStep> }>>({});
-  const lockedYSteps = useRef<Record<string, number>>({});
   const pressedKeysRef = useRef<Set<string>>(new Set());
   const panStateRef = useRef({ 
     active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, target: null, startTargetX: {}, startTargetY: {} 
@@ -152,18 +150,17 @@ const ChartContainer: React.FC = () => {
     ).map(axis => {
       const r = axis.max - axis.min, isDate = axis.xMode === 'date';
       const dss = dsByX[axis.id] || [];
-      const title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / ');
+      const uniqueColumns = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn)));
+      const title = dss.length > 1 ? uniqueColumns.join(' / ') : uniqueColumns[0];
       const color = themeColors.labelColor;
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
       if (!isDate) {
-        const locked = lockedXSteps.current[axis.id]?.step;
-        const step = locked ?? calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
+        const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
         if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
         return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
-        const lockedTs = lockedXSteps.current[axis.id]?.timeStep;
-        const ts = lockedTs ?? getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
+        const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
         return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
@@ -172,9 +169,7 @@ const ChartContainer: React.FC = () => {
   const computeYAxesLayout = useCallback((liveYAxes: YAxisConfig[]): YAxisLayout[] => {
     const usedYAxisIds = new Set(series.map(s => s.yAxisId));
     return liveYAxes.filter(a => usedYAxisIds.has(a.id)).map(axis => {
-      const locked = lockedYSteps.current[axis.id];
-      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight, locked);
-      lockedYSteps.current[axis.id] = actualStep;
+      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight);
       return { ...axis, ticks, precision, actualStep };
     });
   }, [series, chartHeight]);
@@ -200,7 +195,6 @@ const ChartContainer: React.FC = () => {
     xAxesMetrics, axisLayout, leftAxes, rightAxes,
     handleAutoScaleX, handleAutoScaleY,
     pressedKeys: pressedKeysRef,
-    // @ts-expect-error: panStateRef has additional internal properties used by usePanZoom
     panStateRef,
     onPanEnd: useCallback(() => {
       panStateRef.current.active = false;
@@ -266,7 +260,7 @@ const ChartContainer: React.FC = () => {
     } else {
       rafId.current = requestAnimationFrame(runSync);
     }
-  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, isInteracting, datasets]);
+  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, isInteracting]);
 
   syncViewportRef.current = syncViewport;
 
@@ -304,47 +298,36 @@ const ChartContainer: React.FC = () => {
 
   // 7. Memos for static rendering (JSX)
   const activeYAxesLayout = useMemo((): YAxisLayout[] => {
-    const lockedCurrent = lockedYSteps.current;
     return activeYAxes.map(axis => {
-      const locked = lockedCurrent[axis.id];
-      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight, isInteracting ? locked : undefined);
-      lockedCurrent[axis.id] = actualStep;
+      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight);
       return { ...axis, ticks, precision, actualStep };
     });
-  }, [activeYAxes, chartHeight, isInteracting]);
+  }, [activeYAxes, chartHeight]);
 
   const xAxesLayout = useMemo((): XAxisLayout[] => {
     const activeDsIds = new Set(series.map(s => s.sourceId));
     const dsByX: DatasetsByAxisId = {};
     datasets.forEach(d => { if (activeDsIds.has(d.id)) { const xId = d.xAxisId || 'axis-1'; if (!dsByX[xId]) dsByX[xId] = []; dsByX[xId].push(d); } });
 
-    const lockedCurrent = lockedXSteps.current;
-
     return activeXAxesUsed.map(axis => {
       const r = axis.max - axis.min, isDate = axis.xMode === 'date';
       const dss = dsByX[axis.id] || [];
-      const title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / ');
+      const uniqueColumns = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn)));
+      const title = dss.length > 1 ? uniqueColumns.join(' / ') : uniqueColumns[0];
       const color = themeColors.labelColor;
       if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
       if (!isDate) {
-        const locked = lockedCurrent[axis.id]?.step;
-        const step = (isInteracting && locked) ? locked : calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
-        lockedCurrent[axis.id] = { step };
+        const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
         if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
         return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
-        const lockedTs = lockedCurrent[axis.id]?.timeStep;
-        const ts = (isInteracting && lockedTs) ? lockedTs : getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-        lockedCurrent[axis.id] = { timeStep: ts };
+        const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
         return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
-  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, isInteracting]);
-
-  const gridXViewports = useMemo(() => activeXAxesUsed.map(axis => ({ id: axis.id, xMin: axis.min, xMax: axis.max })), [activeXAxesUsed]);
-  const gridYViewports = useMemo(() => activeYAxesLayout.map(axis => ({ id: axis.id, xMin: xAxes[0]?.min ?? 0, xMax: xAxes[0]?.max ?? 1, yMin: axis.min, yMax: axis.max })), [activeYAxesLayout, xAxes]);
+  }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]);
 
   // 8. Render
   return (

@@ -177,7 +177,15 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
       const xLab = xAxis.xMode === 'date'
         ? formatFullDate(xVal)
         : parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 10 });
-      const xAxisName = ds.xAxisColumn || xAxis.name || `X-Axis ${ds.xAxisId}`;
+      const dsByX: Record<string, Dataset[]> = {};
+      datasets.forEach(d => {
+        const xId = d.xAxisId || 'axis-1';
+        if (!dsByX[xId]) dsByX[xId] = [];
+        dsByX[xId].push(d);
+      });
+      const dss = dsByX[xAxis.id] || [];
+      const uniqueColumns = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn)));
+      const xAxisName = dss.length > 1 ? uniqueColumns.join(' / ') : uniqueColumns[0];
       const groupKey = `${xLab}|${xAxisName}`;
       let group = entriesMap.get(groupKey);
       if (!group) { group = { xLabel: xLab, xAxisName, items: [] }; entriesMap.set(groupKey, group); }

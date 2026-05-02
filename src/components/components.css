@@ -728,8 +728,17 @@
   color: var(--tooltip-color);
 }
 .chart-tooltip-x-label { font-weight: bold; font-size: 10px; }
-.chart-tooltip-value { font-weight: bold; }
-.chart-tooltip-item { display: flex; justify-content: space-between; gap: 12px; }
+.chart-tooltip-item { 
+  display: flex; 
+  justify-content: space-between; 
+  gap: 16px; 
+  font-variant-numeric: tabular-nums;
+}
+.chart-tooltip-value { 
+  font-weight: bold; 
+  text-align: right;
+  min-width: 60px;
+}
 .chart-fit-btns { position: absolute; z-index: 25; display: flex; gap: 4px; }
 .chart-fit-btn {
   padding: 4px 10px;

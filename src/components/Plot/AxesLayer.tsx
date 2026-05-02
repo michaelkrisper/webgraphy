@@ -130,7 +130,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
       const axisSeries = seriesByYAxisId[axis.id] || [];
 
-      let xPos = isLeft 
+      const xPos = isLeft 
         ? padding.left - (leftOffsets[axis.id] ?? 0) - metrics.total
         : width - padding.right + (rightOffsets[axis.id] ?? 0);
       
@@ -163,14 +163,14 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       
       let currentX = 0;
       const totalWidth = axisSeries.reduce((acc, s, i) => {
-        const separatorWidth = (i > 0) ? ctx.measureText(' / ').width : 0;
+        const separatorWidth = (i > 0 && axisSeries.length > 1) ? ctx.measureText(' / ').width : 0;
         return acc + separatorWidth + ctx.measureText(s.name || s.yColumn).width;
       }, 0);
       
       currentX = -totalWidth / 2;
       
       axisSeries.forEach((s, i) => {
-        if (i > 0) {
+        if (i > 0 && axisSeries.length > 1) {
           ctx.fillStyle = labelColor;
           const sep = ' / ';
           ctx.fillText(sep, currentX + ctx.measureText(sep).width / 2, 0);
