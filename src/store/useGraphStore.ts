@@ -34,6 +34,7 @@ interface GraphState {
   
   updateXAxis: (id: string, updates: Partial<XAxisConfig>) => void;
   updateYAxis: (id: string, updates: Partial<YAxisConfig>) => void;
+  batchUpdateAxes: (xUpdates: Record<string, { min: number, max: number }>, yUpdates: Record<string, { min: number, max: number }>) => void;
 
   setAxisTitles: (x: string, y: string) => void;
   
@@ -331,6 +332,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   updateYAxis: (id, updates) => {
     set((state) => ({
       yAxes: state.yAxes.map(a => a.id === id ? { ...a, ...updates } : a)
+    }));
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  batchUpdateAxes: (xUpdates, yUpdates) => {
+    set((state) => ({
+      xAxes: state.xAxes.map(a => xUpdates[a.id] ? { ...a, ...xUpdates[a.id] } : a),
+      yAxes: state.yAxes.map(a => yUpdates[a.id] ? { ...a, ...yUpdates[a.id] } : a)
     }));
     if (get().isLoaded) debouncedSaveState();
   },

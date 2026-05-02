@@ -1,7 +1,5 @@
 import { useGraphStore } from '../store/useGraphStore';
 
-const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
-
 export const applyKeyboardZoom = (
   state: ReturnType<typeof useGraphStore.getState>,
   keys: Set<string>,
@@ -35,50 +33,32 @@ export const applyKeyboardZoom = (
 export interface AxesFrame {
   xUpdates: Record<string, { min: number; max: number }>;
   yUpdates: Record<string, { min: number; max: number }>;
-  needsNextFrame: boolean;
 }
 
-export const animateAxes = (
+/**
+ * Returns updates to sync axes with targets instantly (no lerp).
+ */
+export const syncAxesWithTargets = (
   state: ReturnType<typeof useGraphStore.getState>,
   targetXAxes: Record<string, { min: number, max: number }>,
-  targetYs: Record<string, { min: number, max: number }>,
-  factor: number
+  targetYs: Record<string, { min: number, max: number }>
 ): AxesFrame => {
-  let needsNextFrame = false;
   const xUpdates: Record<string, { min: number; max: number }> = {};
   const yUpdates: Record<string, { min: number; max: number }> = {};
 
   state.xAxes.forEach(axis => {
     const target = targetXAxes[axis.id];
-    if (!target) return;
-    const xRange = Math.abs(axis.max - axis.min);
-    const xEps = xRange * 0.0001 || 0.0001;
-    const nextXMin = lerp(axis.min, target.min, factor);
-    const nextXMax = lerp(axis.max, target.max, factor);
-
-    if (Math.abs(nextXMin - axis.min) > xEps || Math.abs(nextXMax - axis.max) > xEps) {
-      xUpdates[axis.id] = { min: nextXMin, max: nextXMax };
-      needsNextFrame = true;
-    } else if (axis.min !== target.min || axis.max !== target.max) {
+    if (target && (axis.min !== target.min || axis.max !== target.max)) {
       xUpdates[axis.id] = { min: target.min, max: target.max };
     }
   });
 
   state.yAxes.forEach(axis => {
     const target = targetYs[axis.id];
-    if (!target) return;
-    const yRange = Math.abs(axis.max - axis.min);
-    const yEps = yRange * 0.0001 || 0.0001;
-    const nextYMin = lerp(axis.min, target.min, factor);
-    const nextYMax = lerp(axis.max, target.max, factor);
-
-    if (Math.abs(nextYMin - axis.min) > yEps || Math.abs(nextYMax - axis.max) > yEps) {
-      yUpdates[axis.id] = { min: nextYMin, max: nextYMax };
-      needsNextFrame = true;
-    } else if (axis.min !== target.min || axis.max !== target.max) {
+    if (target && (axis.min !== target.min || axis.max !== target.max)) {
       yUpdates[axis.id] = { min: target.min, max: target.max };
     }
   });
 
-  return { xUpdates, yUpdates, needsNextFrame };
+  return { xUpdates, yUpdates };
 };

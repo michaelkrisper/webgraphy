@@ -14,7 +14,7 @@ interface UseAutoScaleOptions {
   chartHeight: number;
   targetXAxes: React.MutableRefObject<Record<string, { min: number; max: number }>>;
   targetYs: React.MutableRefObject<Record<string, { min: number; max: number }>>;
-  startAnimation: () => void;
+  syncViewport: () => void;
   lastAppliedViewId: { id: string } | null;
 }
 
@@ -25,7 +25,7 @@ interface UseAutoScaleResult {
 
 export function useAutoScale({
   isLoaded, series, yAxes, activeYAxes, activeXAxesUsed,
-  padding, chartHeight, targetXAxes, targetYs, startAnimation, lastAppliedViewId,
+  padding, chartHeight, targetXAxes, targetYs, syncViewport, lastAppliedViewId,
 }: UseAutoScaleOptions): UseAutoScaleResult {
   const wasEmptyRef = useRef(true);
   const activeYAxesRef = useRef(activeYAxes);
@@ -79,9 +79,9 @@ export function useAutoScale({
       const ys = targetYs.current;
       // eslint-disable-next-line react-hooks/immutability
       ys[axisId] = { min: nMin, max: nMax };
-      startAnimation();
+      syncViewport();
     }
-  }, [padding.top, chartHeight, targetYs, startAnimation]);
+  }, [padding.top, chartHeight, targetYs, syncViewport]);
   handleAutoScaleYRef.current = handleAutoScaleY;
 
   const handleAutoScaleX = useCallback((xAxisId?: string) => {
@@ -104,8 +104,8 @@ export function useAutoScale({
         xs[id] = { min: xMin - pad, max: xMax + pad };
       }
     });
-    startAnimation();
-  }, [startAnimation, activeXAxesUsed, targetXAxes]);
+    syncViewport();
+  }, [syncViewport, activeXAxesUsed, targetXAxes]);
 
   // Initial load + empty-to-data transition
   useEffect(() => {
@@ -175,9 +175,9 @@ export function useAutoScale({
           state.updateYAxis(axis.id, nextY);
         }
       });
-      startAnimation();
+      syncViewport();
     }
-  }, [isLoaded, startAnimation, series, yAxes, activeYAxes, targetXAxes, targetYs]);
+  }, [isLoaded, syncViewport, series, yAxes, activeYAxes, targetXAxes, targetYs]);
 
   // View restoration — only fires when a new view is applied, not on every activeYAxes change
   useEffect(() => {
@@ -192,9 +192,9 @@ export function useAutoScale({
     } else {
       activeYAxesRef.current.forEach(a => handleAutoScaleYRef.current(a.id));
     }
-    startAnimation();
+    syncViewport();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastAppliedViewId, startAnimation, targetXAxes, targetYs]);
+  }, [lastAppliedViewId, syncViewport, targetXAxes, targetYs]);
 
   // New series detection
   const prevSeriesRef = useRef(series);

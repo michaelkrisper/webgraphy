@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES } from '../../themes';
-import { applyKeyboardZoom, animateAxes, type AxesFrame } from '../../utils/animation';
+import { applyKeyboardZoom, syncAxesWithTargets, type AxesFrame } from '../../utils/animation';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset, type XAxisConfig, type YAxisConfig } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
@@ -52,7 +52,6 @@ const ChartContainer: React.FC = () => {
 
   const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
   const targetYs = useRef<Record<string, { min: number; max: number }>>({});
-  const isAnimating = useRef(false);
   const webglRef = useRef<WebGLRendererHandle | null>(null);
   const axesLayerRef = useRef<AxesLayerHandle | null>(null);
   const gridLinesRef = useRef<GridLinesHandle | null>(null);
@@ -60,7 +59,6 @@ const ChartContainer: React.FC = () => {
   const lockedYSteps = useRef<Record<string, number>>({});
 
   const activeXAxesUsedRef = useRef<XAxisConfig[]>([]);
-  const isPanningRef = useRef(false);
   const chartWidthRef = useRef(0);
   const chartHeightRef = useRef(0);
 
@@ -119,54 +117,51 @@ const ChartContainer: React.FC = () => {
     });
   }, [width, height, series, lockedYSteps]);
 
-  const startAnimation = useCallback(() => {
-    if (isAnimating.current) return;
-    isAnimating.current = true;
-    const loop = () => {
-      const state = useGraphStore.getState();
-      const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
-      const { xUpdates, yUpdates, needsNextFrame }: AxesFrame = animateAxes(state, targetXAxes.current, targetYs.current, 0.4);
+  const syncViewport = useCallback(() => {
+    const state = useGraphStore.getState();
+    const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
+    
+    const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
 
-      const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
-      if (hasUpdates) {
-        const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
+    const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
+    if (hasUpdates) {
+      const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
-        webglRef.current?.redraw(liveX, liveY);
+      webglRef.current?.redraw(liveX, liveY);
 
-        const xLayout = computeXAxesLayout(liveX);
-        const yLayout = computeYAxesLayout(liveY);
-        const activeXAxesNow = activeXAxesUsedRef.current;
-        const xVp = liveX
-          .filter(a => activeXAxesNow.some(ax => ax.id === a.id))
-          .map(a => ({ id: a.id, xMin: a.min, xMax: a.max }));
-        const yVp = yLayout.map(a => ({
-          id: a.id,
-          xMin: liveX[0]?.min ?? 0,
-          xMax: liveX[0]?.max ?? 1,
-          yMin: a.min,
-          yMax: a.max,
-        }));
-        axesLayerRef.current?.redraw(xLayout, yLayout);
-        gridLinesRef.current?.redraw(xLayout, yLayout, xVp, yVp);
+      const xLayout = computeXAxesLayout(liveX);
+      const yLayout = computeYAxesLayout(liveY);
+      const activeXAxesNow = activeXAxesUsedRef.current;
+      const xVp = liveX
+        .filter(a => activeXAxesNow.some(ax => ax.id === a.id))
+        .map(a => ({ id: a.id, xMin: a.min, xMax: a.max }));
+      const yVp = yLayout.map(a => ({
+        id: a.id,
+        xMin: liveX[0]?.min ?? 0,
+        xMax: liveX[0]?.max ?? 1,
+        yMin: a.min,
+        yMax: a.max,
+      }));
+      axesLayerRef.current?.redraw(xLayout, yLayout);
+      gridLinesRef.current?.redraw(xLayout, yLayout, xVp, yVp);
 
-        state.batchUpdateAxes(xUpdates, yUpdates);
-      }
-
-      if (needsNextFrame || kbZoom) requestAnimationFrame(loop);
-      else isAnimating.current = false;
-    };
-    requestAnimationFrame(loop);
+      state.batchUpdateAxes(xUpdates, yUpdates);
+    }
+    // If keyboard zoom is active, we still need to schedule the next frame to keep zooming
+    if (kbZoom) {
+      requestAnimationFrame(syncViewport);
+    }
   }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout]);
 
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (isLoaded && !isAnimating.current) {
+    if (isLoaded) {
       xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
       yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
-      startAnimation();
+      syncViewport();
     }
-  }, [isLoaded, xAxes, yAxes, startAnimation]);
+  }, [isLoaded, xAxes, yAxes, syncViewport]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -240,7 +235,7 @@ const ChartContainer: React.FC = () => {
 
   const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
     isLoaded, series, yAxes, activeYAxes, activeXAxesUsed,
-    padding, chartHeight, targetXAxes, targetYs, startAnimation, lastAppliedViewId,
+    padding, chartHeight, targetXAxes, targetYs, syncViewport, lastAppliedViewId,
   });
 
   const {
@@ -249,14 +244,13 @@ const ChartContainer: React.FC = () => {
   } = usePanZoom({
     containerRef, width, height, padding, chartWidth, chartHeight,
     activeXAxes: activeXAxesUsed, activeYAxes, xAxesById, yAxesById,
-    targetXAxes, targetYs, startAnimation,
+    targetXAxes, targetYs, syncViewport,
     xAxesMetrics, axisLayout, leftAxes, rightAxes,
     handleAutoScaleX, handleAutoScaleY,
     pressedKeys: pressedKeysRef,
-    isPanningRef,
     onPanEnd: useCallback(() => {
-      startAnimation();
-    }, [startAnimation]),
+      syncViewport();
+    }, [syncViewport]),
   });
 
   const activeYAxesLayout = useMemo((): YAxisLayout[] => {
@@ -316,7 +310,7 @@ const ChartContainer: React.FC = () => {
       <GridLines ref={gridLinesRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
-          <WebGLRenderer ref={webglRef} key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting || isAnimating.current} highlightedSeriesId={highlightedSeriesId} />
+          <WebGLRenderer ref={webglRef} key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting} highlightedSeriesId={highlightedSeriesId} />
         </ErrorBoundary>
       </div>
       <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
@@ -329,7 +323,7 @@ const ChartContainer: React.FC = () => {
         const xP = isL ? padding.left - (leftOffsets[a.id] ?? 0) - am.total : width - padding.right + (rightOffsets[a.id] ?? 0);
         return <div key={`wheel-${a.id}`} onWheel={e => { e.stopPropagation(); handleWheel(e, { yAxisId: a.id }); }} onMouseDown={e => { e.stopPropagation(); handleMouseDown(e, { yAxisId: a.id }); }} onTouchStart={e => { e.stopPropagation(); handleTouchStart(e, { yAxisId: a.id }); }} onDoubleClick={e => { e.stopPropagation(); const rect = containerRef.current?.getBoundingClientRect(); handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined); }} style={{ position: 'absolute', left: xP, top: padding.top, width: am.total, bottom: padding.bottom, cursor: 'ns-resize', zIndex: 20 }} />;
       })}
-      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanningRef={isPanningRef} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipColor={themeColors.tooltipColor} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
+      <Crosshair containerRef={containerRef} padding={padding} width={width} height={height} isPanning={isInteracting} xAxes={xAxes} yAxes={activeYAxes} datasets={datasets} series={series} tooltipColor={themeColors.tooltipColor} snapLineColor={themeColors.snapLineColor} tooltipDividerColor={themeColors.tooltipDividerColor} tooltipSubColor={themeColors.tooltipSubColor} />
       {zoomBoxState && <svg width="100%" height="100%" className="chart-abs-fill" style={{ zIndex: 30 }}><rect x={Math.min(zoomBoxState.startX, zoomBoxState.endX)} y={Math.min(zoomBoxState.startY, zoomBoxState.endY)} width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)} height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)} fill="rgba(0, 123, 255, 0.2)" stroke="#007bff" strokeWidth="1" /></svg>}
       {series.length > 0 && legendVisible && <ChartLegend series={series} onToggleVisibility={(id, hidden) => useGraphStore.getState().updateSeriesVisibility(id, hidden)} onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)} />}
       {datasets.length > 0 && (
