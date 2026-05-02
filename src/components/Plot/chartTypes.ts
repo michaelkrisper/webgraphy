@@ -8,6 +8,8 @@ export type XTicks =
 
 export interface XAxisLayout {
   id: string;
+  min: number;
+  max: number;
   ticks: XTicks;
   title: string;
   color: string;

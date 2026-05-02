@@ -3,17 +3,16 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES } from '../../themes';
-import { applyKeyboardZoom, syncAxesWithTargets, type AxesFrame } from '../../utils/animation';
+import { applyKeyboardZoom } from '../../utils/keyboard';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset, type XAxisConfig, type YAxisConfig } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
-import { calcNumericStep, calcNumericPrecision, calcNumericTicks, calcYAxisTicks } from '../../utils/axisCalculations';
+import { calcNumericStep, calcNumericPrecision, calcNumericTicks, calcYAxisTicks, syncAxesWithTargets, type AxesFrame } from '../../utils/axisCalculations';
 import { WebGLRenderer, type WebGLRendererHandle } from './WebGLRenderer';
 import { ChartLegend } from './ChartLegend';
 import { GridLines, type GridLinesHandle } from './GridLines';
 import { AxesLayer, type AxesLayerHandle } from './AxesLayer';
 import { Crosshair } from './Crosshair';
-import { BenchmarkOverlay } from './BenchmarkOverlay';
 import { usePanZoom } from '../../hooks/usePanZoom';
 import { useAutoScale } from '../../hooks/useAutoScale';
 import ErrorBoundary from '../ErrorBoundary';
@@ -32,24 +31,11 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric'): Omit<XAx
 };
 
 const ChartContainer: React.FC = () => {
+  // 1. Core Refs and State
   const containerRef = useRef<HTMLDivElement>(null);
-  const series = useGraphStore(s => s.series);
-  const xAxes = useGraphStore(s => s.xAxes);
-  const yAxes = useGraphStore(s => s.yAxes);
-  const isLoaded = useGraphStore(s => s.isLoaded);
-  const lastAppliedViewId = useGraphStore(s => s.lastAppliedViewId);
-  const datasets = useGraphStore(s => s.datasets);
-  const highlightedSeriesId = useGraphStore(s => s.highlightedSeriesId);
-  const legendVisible = useGraphStore(s => s.legendVisible);
-  const [themeName] = useTheme();
-  const themeColors = THEMES[themeName];
-
-  const xAxesById = useMemo(() => { const m = new Map<string, XAxisConfig>(); xAxes.forEach(a => m.set(a.id, a)); return m; }, [xAxes]);
-  const yAxesById = useMemo(() => { const m = new Map(); yAxes.forEach(a => m.set(a.id, a)); return m; }, [yAxes]);
-
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
-
+  
   const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
   const targetYs = useRef<Record<string, { min: number; max: number }>>({});
   const webglRef = useRef<WebGLRendererHandle | null>(null);
@@ -57,120 +43,25 @@ const ChartContainer: React.FC = () => {
   const gridLinesRef = useRef<GridLinesHandle | null>(null);
   const lockedXSteps = useRef<Record<string, { step?: number; timeStep?: ReturnType<typeof getTimeStep> }>>({});
   const lockedYSteps = useRef<Record<string, number>>({});
-
-  const activeXAxesUsedRef = useRef<XAxisConfig[]>([]);
-  const chartWidthRef = useRef(0);
-  const chartHeightRef = useRef(0);
-
-  const buildLiveAxes = useCallback((
-    xUpdates: Record<string, { min: number; max: number }>,
-    yUpdates: Record<string, { min: number; max: number }>
-  ) => {
-    const state = useGraphStore.getState();
-    const liveX = state.xAxes.map(a => xUpdates[a.id] ? { ...a, ...xUpdates[a.id] } : a);
-    const liveY = state.yAxes.map(a => yUpdates[a.id] ? { ...a, ...yUpdates[a.id] } : a);
-    return { liveX, liveY };
-  }, []);
-
-  const computeXAxesLayout = useCallback((liveXAxes: XAxisConfig[]): XAxisLayout[] => {
-    const activeDsIds = new Set(series.map(s => s.sourceId));
-    const dsByX: DatasetsByAxisId = {};
-    datasets.forEach(d => {
-      if (activeDsIds.has(d.id)) {
-        const xId = d.xAxisId || 'axis-1';
-        if (!dsByX[xId]) dsByX[xId] = [];
-        dsByX[xId].push(d);
-      }
-    });
-    return liveXAxes.filter(axis =>
-      datasets.some(d => series.some(s => s.sourceId === d.id) && (d.xAxisId || 'axis-1') === axis.id)
-    ).map(axis => {
-      const r = axis.max - axis.min, isDate = axis.xMode === 'date';
-      const dss = dsByX[axis.id] || [];
-      const title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / ');
-      const color = themeColors.labelColor;
-      const cw = chartWidthRef.current;
-      if (r <= 0 || cw <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
-      if (!isDate) {
-        const locked = lockedXSteps.current[axis.id]?.step;
-        const step = locked ?? calcNumericStep(r, Math.max(2, Math.floor(cw / 60)));
-        if (step <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
-        const precision = calcNumericPrecision(step);
-        return { id: axis.id, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
-      } else {
-        const lockedTs = lockedXSteps.current[axis.id]?.timeStep;
-        const ts = lockedTs ?? getTimeStep(r, Math.max(2, Math.floor(cw / 80)));
-        return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
-      }
-    });
-  }, [series, datasets, themeColors.labelColor, lockedXSteps]);
-
-  const computeYAxesLayout = useCallback((liveYAxes: YAxisConfig[]): YAxisLayout[] => {
-    const isMobile = width < 768 || height < 500;
-    const chartH = Math.max(0, height - (isMobile ? 40 : 60) - 20);
-    const usedYAxisIds = new Set(series.map(s => s.yAxisId));
-    return liveYAxes.filter(a => usedYAxisIds.has(a.id)).map(axis => {
-      const locked = lockedYSteps.current[axis.id];
-      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartH, locked);
-      lockedYSteps.current[axis.id] = actualStep;
-      return { ...axis, ticks, precision, actualStep };
-    });
-  }, [width, height, series, lockedYSteps]);
-
-  const syncViewport = useCallback(() => {
-    const state = useGraphStore.getState();
-    const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
-    
-    const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
-
-    const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
-    if (hasUpdates) {
-      const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
-
-      webglRef.current?.redraw(liveX, liveY);
-
-      const xLayout = computeXAxesLayout(liveX);
-      const yLayout = computeYAxesLayout(liveY);
-      const activeXAxesNow = activeXAxesUsedRef.current;
-      const xVp = liveX
-        .filter(a => activeXAxesNow.some(ax => ax.id === a.id))
-        .map(a => ({ id: a.id, xMin: a.min, xMax: a.max }));
-      const yVp = yLayout.map(a => ({
-        id: a.id,
-        xMin: liveX[0]?.min ?? 0,
-        xMax: liveX[0]?.max ?? 1,
-        yMin: a.min,
-        yMax: a.max,
-      }));
-      axesLayerRef.current?.redraw(xLayout, yLayout);
-      gridLinesRef.current?.redraw(xLayout, yLayout, xVp, yVp);
-
-      state.batchUpdateAxes(xUpdates, yUpdates);
-    }
-    // If keyboard zoom is active, we still need to schedule the next frame to keep zooming
-    if (kbZoom) {
-      requestAnimationFrame(syncViewport);
-    }
-  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout]);
-
   const pressedKeysRef = useRef<Set<string>>(new Set());
+  const panStateRef = useRef({ 
+    active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, target: null, startTargetX: {}, startTargetY: {} 
+  });
 
-  useEffect(() => {
-    if (isLoaded) {
-      xAxes.forEach(axis => { targetXAxes.current[axis.id] = { min: axis.min, max: axis.max }; });
-      yAxes.forEach(axis => { targetYs.current[axis.id] = { min: axis.min, max: axis.max }; });
-      syncViewport();
-    }
-  }, [isLoaded, xAxes, yAxes, syncViewport]);
+  // 2. Store Data
+  const series = useGraphStore(s => s.series);
+  const xAxes = useGraphStore(s => s.xAxes);
+  const yAxes = useGraphStore(s => s.yAxes);
+  const isLoaded = useGraphStore(s => s.isLoaded);
+  const datasets = useGraphStore(s => s.datasets);
+  const highlightedSeriesId = useGraphStore(s => s.highlightedSeriesId);
+  const legendVisible = useGraphStore(s => s.legendVisible);
+  const [themeName] = useTheme();
+  const themeColors = THEMES[themeName];
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver(entries => {
-      if (entries.length > 0) { const e = entries[entries.length - 1]; setWidth(e.contentRect.width); setHeight(e.contentRect.height); }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
+  // 3. Layout Memos
+  const xAxesById = useMemo(() => { const m = new Map<string, XAxisConfig>(); xAxes.forEach(a => m.set(a.id, a)); return m; }, [xAxes]);
+  const yAxesById = useMemo(() => { const m = new Map<string, YAxisConfig>(); yAxes.forEach(a => m.set(a.id, a)); return m; }, [yAxes]);
 
   const activeYAxes = useMemo(() => {
     const usedIds = new Set(series.map(s => s.yAxisId));
@@ -178,11 +69,16 @@ const ChartContainer: React.FC = () => {
   }, [yAxes, series]);
 
   const activeXAxesUsed = useMemo(() => {
+    const activeDatasetIds = new Set(series.map(s => s.sourceId));
     const axisToMinDsIdx = new Map<string, number>();
-    datasets.forEach((d, dsIdx) => { if (series.some(s => s.sourceId === d.id)) { const xId = d.xAxisId || 'axis-1'; if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) axisToMinDsIdx.set(xId, dsIdx); } });
+    datasets.forEach((d, dsIdx) => { 
+      if (activeDatasetIds.has(d.id)) { 
+        const xId = d.xAxisId || 'axis-1'; 
+        if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) axisToMinDsIdx.set(xId, dsIdx); 
+      } 
+    });
     return xAxes.filter(a => axisToMinDsIdx.has(a.id)).sort((a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0));
   }, [xAxes, series, datasets]);
-  activeXAxesUsedRef.current = activeXAxesUsed;
 
   const axisLayout = useMemo(() => {
     const layout: Record<string, { total: number; label: number }> = {};
@@ -230,12 +126,128 @@ const ChartContainer: React.FC = () => {
 
   const chartWidth = Math.max(0, width - padding.left - padding.right);
   const chartHeight = Math.max(0, height - padding.top - padding.bottom);
-  chartWidthRef.current = chartWidth;
-  chartHeightRef.current = chartHeight;
 
+  // 4. Callbacks for canvas rendering
+  const buildLiveAxes = useCallback((
+    xUpdates: Record<string, { min: number; max: number }>,
+    yUpdates: Record<string, { min: number; max: number }>
+  ) => {
+    const state = useGraphStore.getState();
+    const liveX = state.xAxes.map(a => xUpdates[a.id] ? { ...a, ...xUpdates[a.id] } : a);
+    const liveY = state.yAxes.map(a => yUpdates[a.id] ? { ...a, ...yUpdates[a.id] } : a);
+    return { liveX, liveY };
+  }, []);
+
+  const computeXAxesLayout = useCallback((liveXAxes: XAxisConfig[]): XAxisLayout[] => {
+    const activeDsIds = new Set(series.map(s => s.sourceId));
+    const dsByX: DatasetsByAxisId = {};
+    datasets.forEach(d => {
+      if (activeDsIds.has(d.id)) {
+        const xId = d.xAxisId || 'axis-1';
+        if (!dsByX[xId]) dsByX[xId] = [];
+        dsByX[xId].push(d);
+      }
+    });
+
+    return liveXAxes.filter(axis => 
+      activeXAxesUsed.some(ax => ax.id === axis.id)
+    ).map(axis => {
+      const r = axis.max - axis.min, isDate = axis.xMode === 'date';
+      const dss = dsByX[axis.id] || [];
+      const title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / ');
+      const color = themeColors.labelColor;
+      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+      if (!isDate) {
+        const locked = lockedXSteps.current[axis.id]?.step;
+        const step = locked ?? calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
+        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+        const precision = calcNumericPrecision(step);
+        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
+      } else {
+        const lockedTs = lockedXSteps.current[axis.id]?.timeStep;
+        const ts = lockedTs ?? getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
+        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
+      }
+    });
+  }, [series, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed]);
+
+  const computeYAxesLayout = useCallback((liveYAxes: YAxisConfig[]): YAxisLayout[] => {
+    const usedYAxisIds = new Set(series.map(s => s.yAxisId));
+    return liveYAxes.filter(a => usedYAxisIds.has(a.id)).map(axis => {
+      const locked = lockedYSteps.current[axis.id];
+      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight, locked);
+      lockedYSteps.current[axis.id] = actualStep;
+      return { ...axis, ticks, precision, actualStep };
+    });
+  }, [series, chartHeight]);
+
+  const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
+
+  const syncViewport = useCallback((forceStoreUpdate = false) => {
+    const state = useGraphStore.getState();
+    const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
+    
+    const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
+
+    const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
+    if (hasUpdates) {
+      const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
+
+      webglRef.current?.redraw(liveX, liveY);
+
+      const xLayout = computeXAxesLayout(liveX);
+      const yLayout = computeYAxesLayout(liveY);
+      const xVp = liveX
+        .filter(a => activeXAxesUsed.some(ax => ax.id === a.id))
+        .map(a => ({ id: a.id, xMin: a.min, xMax: a.max }));
+      const yVp = yLayout.map(a => ({
+        id: a.id,
+        xMin: liveX.find(lx => lx.id === (datasets.find(d => d.xAxisId === a.id || (!d.xAxisId && a.id === 'axis-1'))?.xAxisId || 'axis-1'))?.min ?? liveX[0]?.min ?? 0,
+        xMax: liveX.find(lx => lx.id === (datasets.find(d => d.xAxisId === a.id || (!d.xAxisId && a.id === 'axis-1'))?.xAxisId || 'axis-1'))?.max ?? liveX[0]?.max ?? 1,
+        yMin: a.min,
+        yMax: a.max,
+      }));
+      axesLayerRef.current?.redraw(xLayout, yLayout);
+      gridLinesRef.current?.redraw(xLayout, yLayout, xVp, yVp);
+
+      if (forceStoreUpdate || !panStateRef.current.active) {
+        const currentX = state.xAxes;
+        const currentY = state.yAxes;
+        
+        const filteredXUpdates: Record<string, { min: number; max: number }> = {};
+        const filteredYUpdates: Record<string, { min: number; max: number }> = {};
+        
+        const EPSILON = 1e-10;
+        Object.entries(xUpdates).forEach(([id, upd]) => {
+          const axis = currentX.find(a => a.id === id);
+          if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
+            filteredXUpdates[id] = upd;
+          }
+        });
+        
+        Object.entries(yUpdates).forEach(([id, upd]) => {
+          const axis = currentY.find(a => a.id === id);
+          if (!axis || Math.abs(axis.min - upd.min) > EPSILON || Math.abs(axis.max - upd.max) > EPSILON) {
+            filteredYUpdates[id] = upd;
+          }
+        });
+
+        if (Object.keys(filteredXUpdates).length > 0 || Object.keys(filteredYUpdates).length > 0) {
+          state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
+        }
+      }
+    }
+    if (kbZoom) {
+      requestAnimationFrame(() => syncViewportRef.current(false));
+    }
+  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, activeXAxesUsed, datasets]);
+
+  syncViewportRef.current = syncViewport;
+
+  // 5. Hooks
   const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
-    isLoaded, series, yAxes, activeYAxes, activeXAxesUsed,
-    padding, chartHeight, targetXAxes, targetYs, syncViewport, lastAppliedViewId,
+    isLoaded, series, activeYAxes, activeXAxesUsed,
+    padding, chartHeight, targetXAxes, targetYs, syncViewport,
   });
 
   const {
@@ -248,22 +260,56 @@ const ChartContainer: React.FC = () => {
     xAxesMetrics, axisLayout, leftAxes, rightAxes,
     handleAutoScaleX, handleAutoScaleY,
     pressedKeys: pressedKeysRef,
+    // @ts-expect-error: panStateRef has additional internal properties used by usePanZoom
+    panStateRef,
     onPanEnd: useCallback(() => {
-      syncViewport();
+      panStateRef.current.active = false;
+      syncViewport(true);
     }, [syncViewport]),
   });
 
+  // 6. Effects
+  useEffect(() => {
+    if (isLoaded) {
+      const EPSILON = 1e-10;
+      let changed = false;
+      xAxes.forEach(axis => {
+        const target = targetXAxes.current[axis.id];
+        if (!target || Math.abs(target.min - axis.min) > EPSILON || Math.abs(target.max - axis.max) > EPSILON) {
+          targetXAxes.current[axis.id] = { min: axis.min, max: axis.max };
+          changed = true;
+        }
+      });
+      yAxes.forEach(axis => {
+        const target = targetYs.current[axis.id];
+        if (!target || Math.abs(target.min - axis.min) > EPSILON || Math.abs(target.max - axis.max) > EPSILON) {
+          targetYs.current[axis.id] = { min: axis.min, max: axis.max };
+          changed = true;
+        }
+      });
+      if (changed) syncViewportRef.current();
+    }
+  }, [isLoaded, xAxes, yAxes]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      if (entries.length > 0) { const e = entries[entries.length - 1]; setWidth(e.contentRect.width); setHeight(e.contentRect.height); }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // 7. Memos for static rendering (JSX)
   const activeYAxesLayout = useMemo((): YAxisLayout[] => {
-    const isMobile = width < 768 || height < 500;
-    const chartH = Math.max(0, height - (isMobile ? 40 : 60) - 20);
     const lockedCurrent = lockedYSteps.current;
     return activeYAxes.map(axis => {
       const locked = lockedCurrent[axis.id];
-      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartH, isInteracting ? locked : undefined);
+      const { ticks, precision, actualStep } = calcYAxisTicks(axis.min, axis.max, chartHeight, isInteracting ? locked : undefined);
       lockedCurrent[axis.id] = actualStep;
       return { ...axis, ticks, precision, actualStep };
     });
-  }, [activeYAxes, height, width, isInteracting]);
+  }, [activeYAxes, chartHeight, isInteracting]);
 
   const xAxesLayout = useMemo((): XAxisLayout[] => {
     const activeDsIds = new Set(series.map(s => s.sourceId));
@@ -277,20 +323,20 @@ const ChartContainer: React.FC = () => {
       const dss = dsByX[axis.id] || [];
       const title = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn))).join(' / ');
       const color = themeColors.labelColor;
-      if (r <= 0 || chartWidth <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
       if (!isDate) {
         const locked = lockedCurrent[axis.id]?.step;
         const step = (isInteracting && locked) ? locked : calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
         lockedCurrent[axis.id] = { step };
-        if (step <= 0) return { id: axis.id, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
-        return { id: axis.id, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
         const lockedTs = lockedCurrent[axis.id]?.timeStep;
         const ts = (isInteracting && lockedTs) ? lockedTs : getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
         lockedCurrent[axis.id] = { timeStep: ts };
-        return { id: axis.id, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
   }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, isInteracting]);
@@ -298,6 +344,7 @@ const ChartContainer: React.FC = () => {
   const gridXViewports = useMemo(() => activeXAxesUsed.map(axis => ({ id: axis.id, xMin: axis.min, xMax: axis.max })), [activeXAxesUsed]);
   const gridYViewports = useMemo(() => activeYAxesLayout.map(axis => ({ id: axis.id, xMin: xAxes[0]?.min ?? 0, xMax: xAxes[0]?.max ?? 1, yMin: axis.min, yMax: axis.max })), [activeYAxesLayout, xAxes]);
 
+  // 8. Render
   return (
     <main className="plot-area" ref={containerRef}
       onMouseDown={(e) => handleMouseDown(e, 'all')}
@@ -306,14 +353,13 @@ const ChartContainer: React.FC = () => {
       style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}
     >
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
-      <BenchmarkOverlay />
       <GridLines ref={gridLinesRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
           <WebGLRenderer ref={webglRef} key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting} highlightedSeriesId={highlightedSeriesId} />
         </ErrorBoundary>
       </div>
-      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} allXAxes={xAxes} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
+      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
       {xAxesMetrics.map(m => {
         const bY = padding.bottom - m.cumulativeOffset - m.height;
         return <div key={`wheel-x-${m.id}`} onWheel={e => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={e => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={e => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={e => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />;
