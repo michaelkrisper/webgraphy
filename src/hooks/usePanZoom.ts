@@ -52,8 +52,10 @@ export function usePanZoom({
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
+  const [isWheeling, setIsWheeling] = useState(false);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isInteracting = !!panTarget || !!zoomBoxState;
+  const isInteracting = !!panTarget || !!zoomBoxState || isWheeling;
 
   const updatePan = useCallback(() => {
     const ps = panStateRef.current;
@@ -100,6 +102,8 @@ export function usePanZoom({
     }
 
     if (Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0) {
+      // During active panning, we rely on the parent's redraw call via syncViewport(false)
+      // but we need to ensure the parent knows we moved.
       syncViewport();
     }
   }, [activeXAxes, activeYAxes, chartWidth, chartHeight, targetXAxes, targetYs, syncViewport, panStateRef]);
@@ -167,10 +171,20 @@ export function usePanZoom({
   }, [activeXAxes, activeYAxes, xAxesById, yAxesById, width, height, padding, chartWidth, chartHeight, targetXAxes, targetYs, syncViewport]);
 
   const handleWheel = useCallback((e: React.WheelEvent, target: PanTarget = 'all') => {
+    setIsWheeling(true);
+    panStateRef.current.active = true;
+    if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+    wheelTimeoutRef.current = setTimeout(() => {
+      setIsWheeling(false);
+      panStateRef.current.active = false;
+      onPanEnd();
+      wheelTimeoutRef.current = null;
+    }, 300);
+
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
     const rect = containerRef.current?.getBoundingClientRect();
     performZoom(zoomFactor, rect ? e.clientX - rect.left : width / 2, rect ? e.clientY - rect.top : height / 2, target, e.shiftKey);
-  }, [containerRef, width, height, performZoom]);
+  }, [containerRef, width, height, performZoom, onPanEnd, panStateRef]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, target: PanTarget = 'all') => {
     const rect = containerRef.current?.getBoundingClientRect();

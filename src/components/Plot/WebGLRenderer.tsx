@@ -1,12 +1,10 @@
 import React, { useRef, useEffect, useState, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
+import { type XAxisLayout, type YAxisLayout, type XAxisMetrics } from './chartTypes';
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
-      // Transforms world-space data coordinates to screen pixels.
-      // Uses segment-based geometry: each line segment is extruded on GPU.
-      // Attributes a_t and a_dist_start enable per-vertex dashing calculations.
       attribute float a_x;
       attribute float a_y;
       attribute vec2 a_other;
@@ -17,46 +15,44 @@ const VERTEX_SHADER_SOURCE = `
       uniform vec4 u_padding;
       uniform vec2 u_resolution;
       uniform float u_point_size;
+      uniform bool u_is_screen_space;
       varying highp float v_t;
       varying highp float v_len;
       varying highp float v_dist_start;
 
       vec2 toScreen(vec2 pos) {
-        // Convert world space to viewport-relative coordinates [0, 1]
-        // Then scale to screen space, accounting for padding
         float dx = u_rel_viewport_x.y - u_rel_viewport_x.x;
         float dy = u_rel_viewport_y.y - u_rel_viewport_y.x;
-
-        // Guard against zero-width viewports (avoid division by zero)
         float nx = (abs(dx) > 1e-7) ? (pos.x - u_rel_viewport_x.x) / dx : 0.5;
         float ny = (abs(dy) > 1e-7) ? (pos.y - u_rel_viewport_y.x) / dy : 0.5;
-        
         float chartWidth = u_resolution.x - u_padding.w - u_padding.y;
         float chartHeight = u_resolution.y - u_padding.x - u_padding.z;
-        // Apply padding offsets and scale to full screen resolution
         return vec2(u_padding.w + nx * chartWidth, u_padding.z + ny * chartHeight);
       }
 
       void main() {
-        // Transform both endpoints to screen space for distance calculation
-        vec2 p = toScreen(vec2(a_x, a_y));
-        vec2 other = toScreen(a_other);
+        vec2 p;
+        if (u_is_screen_space) {
+          p = vec2(a_x, a_y);
+        } else {
+          p = toScreen(vec2(a_x, a_y));
+        }
+        vec2 other;
+        if (u_is_screen_space) {
+          other = a_other;
+        } else {
+          other = toScreen(a_other);
+        }
         v_t = a_t;
-        // Store segment length for fragment shader line extrusion
-        // a_t parameter (0 to 1 along line) enables dashing patterns
         v_len = length(other - p);
         v_dist_start = a_dist_start;
         gl_Position = vec4((p / u_resolution * 2.0) - 1.0, 0, 1);
-        // Point size controls circle/point marker dimensions on screen
         gl_PointSize = u_point_size;
       }
 `;
 
 const FRAGMENT_SHADER_SOURCE = `
       // === FRAGMENT SHADER ===
-      // Renders final pixel color based on shape type (circle, square, cross, line).
-      // Uses conditional dispatch via u_style uniform.
-      // Dashing (if enabled) is calculated using accumulated distance.
       precision highp float;
       varying highp float v_t;
       varying highp float v_len;
@@ -67,47 +63,45 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform float u_dpr;
 
       void drawCircle() {
-        // Use distance field: discard pixels outside circle radius (0.5)
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5) discard;
         gl_FragColor = u_color;
       }
 
       void drawSquare() {
-        // Square: accept all pixels in point region (no distance test)
         gl_FragColor = u_color;
       }
 
       void drawCross() {
         vec2 p = gl_PointCoord - 0.5;
-        // Cross: draw diagonal lines by rejecting pixels outside axes
         if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
         gl_FragColor = u_color;
       }
 
       void drawLineSegment() {
-        // Apply dash pattern if enabled (u_line_style: 0=solid, 1=dashed, 2=dotted)
         if (u_line_style > 0) {
-          // Calculate dash/gap lengths and total pattern period
           float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
           float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
           float total = (dashLen + gapLen) * u_dpr;
-          // Accumulated distance along line determines dash position
           float dist = mod(v_dist_start + v_t * v_len, total);
-          // Discard pixels in gap regions (device pixel ratio scales pattern)
           if (dist > dashLen * u_dpr) discard;
         }
         gl_FragColor = u_color;
       }
 
+      void drawSolid() {
+        gl_FragColor = u_color;
+      }
+
       void main() {
-        // Dispatch to shape renderer based on series style configuration
         if (u_style == 0) {
           drawCircle();
         } else if (u_style == 1) {
           drawSquare();
         } else if (u_style == 2) {
           drawCross();
+        } else if (u_style == 3) {
+          drawSolid();
         } else {
           drawLineSegment();
         }
@@ -129,6 +123,7 @@ interface WebGLLocations {
   lineStyleLoc: WebGLUniformLocation | null;
   dprLoc: WebGLUniformLocation | null;
   sizeLoc: WebGLUniformLocation | null;
+  screenSpaceLoc: WebGLUniformLocation | null;
 }
 
 interface Props {
@@ -141,10 +136,22 @@ interface Props {
   padding: { top: number; right: number; bottom: number; left: number };
   isInteracting?: boolean;
   highlightedSeriesId?: string | null;
+  xAxesLayout?: XAxisLayout[];
+  yAxesLayout?: YAxisLayout[];
+  xAxesMetrics?: XAxisMetrics[];
+  themeColors?: {
+    axisColor: string;
+    zeroLineColor: string;
+    gridColor: string;
+  };
+  leftOffsets?: Record<string, number>;
+  rightOffsets?: Record<string, number>;
+  axisLayout?: Record<string, { total: number; label: number }>;
+  showGrid?: boolean;
 }
 
 export interface WebGLRendererHandle {
-  redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
+  redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => void;
 }
 
 const hexToRgba = (hex: string): number[] => {
@@ -155,9 +162,12 @@ const hexToRgba = (hex: string): number[] => {
 };
 
 /**
- * WebGLRenderer Component (v0.4.0 - Visibility, Highlighting & Optimized Buffer Pool)
+ * WebGLRenderer Component (v0.5.1 - Integrated WebGL Axes & Highlighting, Reordered)
  */
-export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>(({ datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId }, ref) => {
+export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>(({ 
+  datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId, 
+  xAxesLayout, yAxesLayout, xAxesMetrics, themeColors, leftOffsets, rightOffsets, axisLayout 
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const [glReady, setGlReady] = useState(false);
@@ -167,13 +177,17 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
   const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
-  const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null>(null);
+  const liveXLayoutRef = useRef<XAxisLayout[] | undefined>(xAxesLayout);
+  const liveYLayoutRef = useRef<YAxisLayout[] | undefined>(yAxesLayout);
+  const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => void) | null>(null);
 
   useImperativeHandle(ref, () => ({
-    redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
+    redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => {
       liveXAxesRef.current = xAxes;
       liveYAxesRef.current = yAxes;
-      drawFrameRef.current?.(xAxes, yAxes);
+      liveXLayoutRef.current = xLayout;
+      liveYLayoutRef.current = yLayout;
+      drawFrameRef.current?.(xAxes, yAxes, xLayout, yLayout);
     },
   }), []);
 
@@ -184,7 +198,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, antialias: true, alpha: true });
     if (!gl) return;
     glRef.current = gl;
-
 
     const vs = gl.createShader(gl.VERTEX_SHADER)!;
     gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
@@ -209,6 +222,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       lineStyleLoc: gl.getUniformLocation(pg, 'u_line_style'),
       dprLoc: gl.getUniformLocation(pg, 'u_dpr'),
       sizeLoc: gl.getUniformLocation(pg, 'u_point_size'),
+      screenSpaceLoc: gl.getUniformLocation(pg, 'u_is_screen_space'),
       xLoc: gl.getAttribLocation(pg, 'a_x'),
       yLoc: gl.getAttribLocation(pg, 'a_y'),
       otherLoc: gl.getAttribLocation(pg, 'a_other'),
@@ -262,13 +276,15 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   useEffect(() => {
     liveXAxesRef.current = xAxes;
     liveYAxesRef.current = yAxes;
-  }, [xAxes, yAxes]);
+    liveXLayoutRef.current = xAxesLayout;
+    liveYLayoutRef.current = yAxesLayout;
+  }, [xAxes, yAxes, xAxesLayout, yAxesLayout]);
 
   useEffect(() => {
     const gl = glRef.current;
     if (!gl || !program || !locations || !glReady) return;
 
-    const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[]) => {
+    const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[], curXLayout?: XAxisLayout[], curYLayout?: YAxisLayout[]) => {
       const xAxesById = new Map<string, XAxisConfig>();
       currentXAxes.forEach(a => xAxesById.set(a.id, a));
       const yAxesById = new Map<string, YAxisConfig>();
@@ -283,14 +299,166 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       gl.viewport(0, 0, pw, ph);
       gl.clearColor(0.0, 0.0, 0.0, 0.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.SCISSOR_TEST);
-      gl.scissor(padding.left * dpr, padding.bottom * dpr, chartWidth * dpr, chartHeight * dpr);
+      
       gl.useProgram(program);
-
       const locs = locations;
       gl.uniform4f(locs.padLoc, padding.top * dpr, padding.right * dpr, padding.bottom * dpr, padding.left * dpr);
       gl.uniform2f(locs.resLoc, pw, ph);
       gl.uniform1f(locs.dprLoc, dpr);
+
+      // --- Axis Rendering (Screen Space) - DRAWN FIRST to be behind data ---
+      if (curXLayout && curYLayout && themeColors) {
+        gl.uniform1i(locs.screenSpaceLoc, 1);
+        gl.uniform1i(locs.styleLoc, 3); // Solid style
+        gl.uniform1i(locs.lineStyleLoc, 0); // Solid lines
+
+        const axisColor = hexToRgba(themeColors.axisColor);
+        const zeroColor = hexToRgba(themeColors.zeroLineColor);
+        const gridColor = hexToRgba(themeColors.gridColor);
+
+        const lines: number[] = [];
+        const zeroLines: number[] = [];
+        const gridLines: number[] = [];
+        const triangles: number[] = [];
+
+        const addLine = (x1: number, y1: number, x2: number, y2: number, target: number[]) => {
+          target.push(x1 * dpr, (height - y1) * dpr, x2 * dpr, (height - y2) * dpr);
+        };
+
+        const addArrow = (x: number, y: number, angle: number, target: number[]) => {
+          const size = 6;
+          const x1 = 0, y1 = 0;
+          const x2 = -size, y2 = -size / 2;
+          const x3 = -size, y3 = size / 2;
+
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+
+          const rotate = (px: number, py: number) => ({
+            x: x + (px * cosA - py * sinA),
+            y: y + (px * sinA + py * cosA)
+          });
+
+          const p1 = rotate(x1, y1);
+          const p2 = rotate(x2, y2);
+          const p3 = rotate(x3, y3);
+
+          target.push(p1.x * dpr, (height - p1.y) * dpr, p2.x * dpr, (height - p2.y) * dpr, p3.x * dpr, (height - p3.y) * dpr);
+        };
+
+        // Grid Lines
+        curXLayout.forEach((axis, idx) => {
+          if (idx === 0) { // Only main X axis grid
+            axis.ticks.result.forEach(t => {
+              const ts = typeof t === 'number' ? t : t.timestamp;
+              const normX = (ts - axis.min) / (axis.max - axis.min);
+              if (normX >= 0 && normX <= 1) {
+                const x = padding.left + normX * chartWidth;
+                addLine(x, padding.top, x, height - padding.bottom, gridLines);
+              }
+            });
+          }
+        });
+
+        curYLayout.forEach(axis => {
+          if (axis.showGrid) {
+            axis.ticks.forEach(t => {
+              const normY = (t - axis.min) / (axis.max - axis.min);
+              if (normY >= 0 && normY <= 1) {
+                const y = (height - padding.bottom) - normY * chartHeight;
+                addLine(padding.left, y, width - padding.right, y, gridLines);
+              }
+            });
+          }
+        });
+
+        // Main Axis Frame
+        addLine(padding.left, height - padding.bottom, padding.left, padding.top, lines);
+        addLine(padding.left, padding.top, width - padding.right, padding.top, lines);
+        addLine(width - padding.right, padding.top, width - padding.right, height - padding.bottom, lines);
+
+        // X Axes
+        curXLayout.forEach((axis, idx) => {
+          const metrics = xAxesMetrics?.[idx];
+          if (!metrics) return;
+          const y = height - padding.bottom + metrics.cumulativeOffset;
+          addLine(padding.left, y, width - padding.right + 8, y, lines);
+          addArrow(width - padding.right + 8, y, 0, triangles);
+
+          axis.ticks.result.forEach(t => {
+            const ts = typeof t === 'number' ? t : t.timestamp;
+            const normX = (ts - axis.min) / (axis.max - axis.min);
+            if (normX >= 0 && normX <= 1) {
+              const x = padding.left + normX * chartWidth;
+              addLine(x, y, x, y + 6, lines);
+            }
+          });
+
+          // Zero line
+          if (axis.min <= 0 && axis.max >= 0 && idx === 0) {
+            const normX = (0 - axis.min) / (axis.max - axis.min);
+            const x = padding.left + normX * chartWidth;
+            addArrow(x, padding.top - 8, -Math.PI/2, triangles);
+            addLine(x, height - padding.bottom, x, padding.top - 8, zeroLines);
+          }
+        });
+
+        // Y Axes
+        curYLayout.forEach(axis => {
+          const isLeft = axis.position === 'left';
+          const curLeftOffsets = leftOffsets || {};
+          const curRightOffsets = rightOffsets || {};
+          const curAxisLayout = axisLayout || {};
+          const metrics = curAxisLayout[axis.id] || { total: 40 };
+          
+          let xPos = isLeft ? padding.left - (curLeftOffsets[axis.id] ?? 0) - metrics.total : width - padding.right + (curRightOffsets[axis.id] ?? 0);
+          const axisLineX = isLeft ? xPos + metrics.total : xPos;
+          
+          addLine(axisLineX, height - padding.bottom, axisLineX, padding.top - 8, lines);
+          addArrow(axisLineX, padding.top - 8, -Math.PI/2, triangles);
+
+          axis.ticks.forEach(t => {
+            const normY = (t - axis.min) / (axis.max - axis.min);
+            if (normY >= 0 && normY <= 1) {
+              const y = (height - padding.bottom) - normY * chartHeight;
+              const x1 = isLeft ? axisLineX - 5 : axisLineX;
+              const x2 = isLeft ? axisLineX : axisLineX + 5;
+              addLine(x1, y, x2, y, lines);
+            }
+          });
+        });
+
+        const drawBuffer = (data: number[], mode: number, color: number[], size: number = 1) => {
+          if (data.length === 0) return;
+          const buf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STREAM_DRAW);
+          
+          gl.enableVertexAttribArray(locs.xLoc);
+          gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 8, 0);
+          gl.enableVertexAttribArray(locs.yLoc);
+          gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
+          
+          gl.disableVertexAttribArray(locs.otherLoc);
+          gl.disableVertexAttribArray(locs.tLoc);
+          gl.disableVertexAttribArray(locs.distStartLoc);
+          
+          gl.uniform4f(locs.colorLoc, color[0], color[1], color[2], 1.0);
+          gl.lineWidth(size * dpr);
+          gl.drawArrays(mode, 0, data.length / 2);
+          gl.deleteBuffer(buf);
+        };
+
+        drawBuffer(gridLines, gl.LINES, gridColor, 1);
+        drawBuffer(lines, gl.LINES, axisColor, 1);
+        drawBuffer(zeroLines, gl.LINES, zeroColor, 1);
+        drawBuffer(triangles, gl.TRIANGLES, axisColor);
+      }
+
+      // Data Rendering (with scissor) - DRAWN SECOND to be on top
+      gl.uniform1i(locs.screenSpaceLoc, 0);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(padding.left * dpr, padding.bottom * dpr, chartWidth * dpr, chartHeight * dpr);
 
       seriesMetadata.forEach(({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
         const xAxis = xAxesById.get(ds.xAxisId || 'axis-1');
@@ -303,8 +471,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         if (!colX || !colY) return;
 
         const xData = colX.data;
-        let yData = colY.data;
-        yData = colY.data;
+        const yData = colY.data;
         const xRef = colX.refPoint;
         let startIdx = 0;
         let endIdx = xData.length - 1;
@@ -379,7 +546,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
             gl.enableVertexAttribArray(locs.yLoc);
             gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 4, 0);
 
-            gl.lineWidth(baseLineWidth * dpr);
+            gl.lineWidth(baseLineWidth);
             gl.drawArrays(gl.LINE_STRIP, startIdx, drawCount);
           } else {
             const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
@@ -432,7 +599,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
             gl.enableVertexAttribArray(locs.distStartLoc);
             gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
 
-            gl.lineWidth(baseLineWidth * dpr);
+            gl.lineWidth(baseLineWidth);
             gl.drawArrays(gl.LINES, 0, numSegs * 2);
           }
         }
@@ -463,8 +630,8 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     };
 
     drawFrameRef.current = drawFrame;
-    drawFrame(liveXAxesRef.current, liveYAxesRef.current);
-  }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId]);
+    drawFrame(liveXAxesRef.current, liveYAxesRef.current, liveXLayoutRef.current, liveYLayoutRef.current);
+  }, [seriesMetadata, width, height, padding, program, locations, glReady, highlightedSeriesId, themeColors, xAxesMetrics, leftOffsets, rightOffsets, axisLayout]);
 
   const dpr = window.devicePixelRatio || 1;
   return <canvas ref={canvasRef} width={width * dpr} height={height * dpr} style={{ display: 'block', width: '100%', height: '100%', background: 'transparent' }} />;

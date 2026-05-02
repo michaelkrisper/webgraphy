@@ -10,7 +10,6 @@ import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../u
 import { calcNumericStep, calcNumericPrecision, calcNumericTicks, calcYAxisTicks, syncAxesWithTargets, type AxesFrame } from '../../utils/axisCalculations';
 import { WebGLRenderer, type WebGLRendererHandle } from './WebGLRenderer';
 import { ChartLegend } from './ChartLegend';
-import { GridLines, type GridLinesHandle } from './GridLines';
 import { AxesLayer, type AxesLayerHandle } from './AxesLayer';
 import { Crosshair } from './Crosshair';
 import { usePanZoom } from '../../hooks/usePanZoom';
@@ -40,7 +39,6 @@ const ChartContainer: React.FC = () => {
   const targetYs = useRef<Record<string, { min: number; max: number }>>({});
   const webglRef = useRef<WebGLRendererHandle | null>(null);
   const axesLayerRef = useRef<AxesLayerHandle | null>(null);
-  const gridLinesRef = useRef<GridLinesHandle | null>(null);
   const lockedXSteps = useRef<Record<string, { step?: number; timeStep?: ReturnType<typeof getTimeStep> }>>({});
   const lockedYSteps = useRef<Record<string, number>>({});
   const pressedKeysRef = useRef<Set<string>>(new Set());
@@ -183,6 +181,32 @@ const ChartContainer: React.FC = () => {
 
   const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
 
+  // 5. Hooks
+  const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
+    isLoaded, series, activeYAxes, activeXAxesUsed,
+    padding, chartHeight, targetXAxes, targetYs, 
+    syncViewport: (force) => syncViewportRef.current(force),
+  });
+
+  const {
+    panTarget, isCtrlPressed, isShiftPressed, isInteracting, zoomBoxState,
+    handleMouseDown, handleTouchStart, handleWheel,
+  } = usePanZoom({
+    containerRef, width, height, padding, chartWidth, chartHeight,
+    activeXAxes: activeXAxesUsed, activeYAxes, xAxesById, yAxesById,
+    targetXAxes, targetYs, 
+    syncViewport: (force) => syncViewportRef.current(force),
+    xAxesMetrics, axisLayout, leftAxes, rightAxes,
+    handleAutoScaleX, handleAutoScaleY,
+    pressedKeys: pressedKeysRef,
+    // @ts-expect-error: panStateRef has additional internal properties used by usePanZoom
+    panStateRef,
+    onPanEnd: useCallback(() => {
+      panStateRef.current.active = false;
+      syncViewportRef.current(true);
+    }, []),
+  });
+
   const syncViewport = useCallback((forceStoreUpdate = false) => {
     const state = useGraphStore.getState();
     const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
@@ -192,25 +216,14 @@ const ChartContainer: React.FC = () => {
     const hasUpdates = Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
     if (hasUpdates) {
       const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
-
-      webglRef.current?.redraw(liveX, liveY);
-
       const xLayout = computeXAxesLayout(liveX);
       const yLayout = computeYAxesLayout(liveY);
-      const xVp = liveX
-        .filter(a => activeXAxesUsed.some(ax => ax.id === a.id))
-        .map(a => ({ id: a.id, xMin: a.min, xMax: a.max }));
-      const yVp = yLayout.map(a => ({
-        id: a.id,
-        xMin: liveX.find(lx => lx.id === (datasets.find(d => d.xAxisId === a.id || (!d.xAxisId && a.id === 'axis-1'))?.xAxisId || 'axis-1'))?.min ?? liveX[0]?.min ?? 0,
-        xMax: liveX.find(lx => lx.id === (datasets.find(d => d.xAxisId === a.id || (!d.xAxisId && a.id === 'axis-1'))?.xAxisId || 'axis-1'))?.max ?? liveX[0]?.max ?? 1,
-        yMin: a.min,
-        yMax: a.max,
-      }));
-      axesLayerRef.current?.redraw(xLayout, yLayout);
-      gridLinesRef.current?.redraw(xLayout, yLayout, xVp, yVp);
 
-      if (forceStoreUpdate || !panStateRef.current.active) {
+      webglRef.current?.redraw(liveX, liveY, xLayout, yLayout);
+      axesLayerRef.current?.redraw(xLayout, yLayout);
+
+      // Only sync back to store if not currently interacting (panning/zooming)
+      if (forceStoreUpdate || (!panStateRef.current.active && !isInteracting)) {
         const currentX = state.xAxes;
         const currentY = state.yAxes;
         
@@ -240,33 +253,9 @@ const ChartContainer: React.FC = () => {
     if (kbZoom) {
       requestAnimationFrame(() => syncViewportRef.current(false));
     }
-  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, activeXAxesUsed, datasets]);
+  }, [buildLiveAxes, computeXAxesLayout, computeYAxesLayout, isInteracting, datasets]);
 
   syncViewportRef.current = syncViewport;
-
-  // 5. Hooks
-  const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
-    isLoaded, series, activeYAxes, activeXAxesUsed,
-    padding, chartHeight, targetXAxes, targetYs, syncViewport,
-  });
-
-  const {
-    panTarget, isCtrlPressed, isShiftPressed, isInteracting, zoomBoxState,
-    handleMouseDown, handleTouchStart, handleWheel,
-  } = usePanZoom({
-    containerRef, width, height, padding, chartWidth, chartHeight,
-    activeXAxes: activeXAxesUsed, activeYAxes, xAxesById, yAxesById,
-    targetXAxes, targetYs, syncViewport,
-    xAxesMetrics, axisLayout, leftAxes, rightAxes,
-    handleAutoScaleX, handleAutoScaleY,
-    pressedKeys: pressedKeysRef,
-    // @ts-expect-error: panStateRef has additional internal properties used by usePanZoom
-    panStateRef,
-    onPanEnd: useCallback(() => {
-      panStateRef.current.active = false;
-      syncViewport(true);
-    }, [syncViewport]),
-  });
 
   // 6. Effects
   useEffect(() => {
@@ -353,10 +342,32 @@ const ChartContainer: React.FC = () => {
       style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}
     >
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
-      <GridLines ref={gridLinesRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} gridColor={themeColors.gridColor} xViewports={gridXViewports} yViewports={gridYViewports} />
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
-          <WebGLRenderer ref={webglRef} key={themeName} datasets={datasets} series={series} xAxes={xAxes} yAxes={yAxes} width={width} height={height} padding={padding} isInteracting={isInteracting} highlightedSeriesId={highlightedSeriesId} />
+          <WebGLRenderer 
+            ref={webglRef} 
+            key={themeName} 
+            datasets={datasets} 
+            series={series} 
+            xAxes={xAxes} 
+            yAxes={yAxes} 
+            width={width} 
+            height={height} 
+            padding={padding} 
+            isInteracting={isInteracting} 
+            highlightedSeriesId={highlightedSeriesId} 
+            xAxesLayout={xAxesLayout}
+            yAxesLayout={activeYAxesLayout}
+            xAxesMetrics={xAxesMetrics}
+            themeColors={{
+              axisColor: themeColors.axisColor,
+              zeroLineColor: themeColors.zeroLineColor,
+              gridColor: themeColors.gridColor
+            }}
+            leftOffsets={leftOffsets}
+            rightOffsets={rightOffsets}
+            axisLayout={axisLayout}
+          />
         </ErrorBoundary>
       </div>
       <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />

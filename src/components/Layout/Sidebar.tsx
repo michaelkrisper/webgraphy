@@ -36,14 +36,20 @@ const THEME_LABELS: Record<ThemeName, string> = {
  * Sidebar Component
  */
 export const Sidebar: React.FC = () => {
-  const {
-    datasets, series, xAxes, yAxes, axisTitles,
-    removeDataset, updateDataset, updateXAxis,
-    moveSeries, loadDemoData,
-    setHighlightedSeries,
-    addSeries,
-    legendVisible, setLegendVisible,
-  } = useGraphStore();
+  const datasets = useGraphStore(s => s.datasets);
+  const series = useGraphStore(s => s.series);
+  const xAxes = useGraphStore(s => s.xAxes);
+  const yAxes = useGraphStore(s => s.yAxes);
+  const axisTitles = useGraphStore(s => s.axisTitles);
+  const removeDataset = useGraphStore(s => s.removeDataset);
+  const updateDataset = useGraphStore(s => s.updateDataset);
+  const updateXAxis = useGraphStore(s => s.updateXAxis);
+  const moveSeries = useGraphStore(s => s.moveSeries);
+  const loadDemoData = useGraphStore(s => s.loadDemoData);
+  const setHighlightedSeries = useGraphStore(s => s.setHighlightedSeries);
+  const addSeries = useGraphStore(s => s.addSeries);
+  const legendVisible = useGraphStore(s => s.legendVisible);
+  const setLegendVisible = useGraphStore(s => s.setLegendVisible);
 
   const [themeName, cycleTheme] = useTheme();
   const t = THEMES[themeName];
