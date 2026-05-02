@@ -54,6 +54,7 @@ export function usePanZoom({
   const [zoomBoxState, setZoomBoxState] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
   const [isWheeling, setIsWheeling] = useState(false);
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRectRef = useRef<DOMRect | null>(null);
 
   const isInteracting = !!panTarget || !!zoomBoxState || isWheeling;
 
@@ -183,12 +184,14 @@ export function usePanZoom({
 
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
     const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) containerRectRef.current = rect;
     performZoom(zoomFactor, rect ? e.clientX - rect.left : width / 2, rect ? e.clientY - rect.top : height / 2, target, e.shiftKey);
   }, [containerRef, width, height, performZoom, onPanEnd, panStateRef]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, target: PanTarget = 'all') => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
+    containerRectRef.current = rect;
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     if (e.ctrlKey && target === 'all') {
       if (x >= padding.left && x <= width - padding.right && y >= padding.top && y <= height - padding.bottom) {
@@ -205,8 +208,11 @@ export function usePanZoom({
   const handleTouchStart = useCallback((e: React.TouchEvent, target: PanTarget = 'all') => {
     const now = Date.now(), isDouble = now - lastTouchTime.current < 300;
     lastTouchTime.current = now;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) containerRectRef.current = rect;
+
     if (e.touches.length === 1) {
-      const t = e.touches[0], rect = containerRef.current?.getBoundingClientRect();
+      const t = e.touches[0];
       if (!rect) return;
       if (isDouble) {
         if (target === 'all') { handleAutoScaleX(); activeYAxes.forEach(a => handleAutoScaleY(a.id)); }
@@ -254,7 +260,8 @@ export function usePanZoom({
         updatePan();
       } else if (e.touches.length === 2 && lastPinchDist.current) {
         if (e.cancelable) e.preventDefault();
-        const rect = containerRef.current!.getBoundingClientRect();
+        const rect = containerRectRef.current || containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
         const t1 = e.touches[0], t2 = e.touches[1];
         const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         if (dist === 0) return;
@@ -265,7 +272,7 @@ export function usePanZoom({
     };
 
     const handleMouseMoveRaw = (e: MouseEvent) => {
-      const rect = containerRef.current?.getBoundingClientRect();
+      const rect = containerRectRef.current || containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
       hoveredAxisIdRef.current = getHoveredYAxis(mx, my);
@@ -298,6 +305,7 @@ export function usePanZoom({
 
     const handleMouseUp = () => {
       panStateRef.current.active = false;
+      containerRectRef.current = null;
       
       if (zoomBoxStartRef.current) {
         const box = zoomBoxStartRef.current;

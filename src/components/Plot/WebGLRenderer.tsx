@@ -174,6 +174,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const [program, setProgram] = useState<WebGLProgram | null>(null);
   const [locations, setLocations] = useState<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
+  const staticBuffersRef = useRef<{ grid?: WebGLBuffer, lines?: WebGLBuffer, zero?: WebGLBuffer, triangles?: WebGLBuffer }>({});
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
   const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
@@ -428,9 +429,13 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           });
         });
 
-        const drawBuffer = (data: number[], mode: number, color: number[], size: number = 1) => {
+        const drawBuffer = (data: number[], mode: number, color: number[], size: number = 1, bufferKey: keyof typeof staticBuffersRef.current) => {
           if (data.length === 0) return;
-          const buf = gl.createBuffer();
+          let buf = staticBuffersRef.current[bufferKey];
+          if (!buf) {
+            buf = gl.createBuffer()!;
+            staticBuffersRef.current[bufferKey] = buf;
+          }
           gl.bindBuffer(gl.ARRAY_BUFFER, buf);
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STREAM_DRAW);
           
@@ -446,13 +451,12 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           gl.uniform4f(locs.colorLoc, color[0], color[1], color[2], 1.0);
           gl.lineWidth(size * dpr);
           gl.drawArrays(mode, 0, data.length / 2);
-          gl.deleteBuffer(buf);
         };
 
-        drawBuffer(gridLines, gl.LINES, gridColor, 1);
-        drawBuffer(lines, gl.LINES, axisColor, 1);
-        drawBuffer(zeroLines, gl.LINES, zeroColor, 1);
-        drawBuffer(triangles, gl.TRIANGLES, axisColor);
+        drawBuffer(gridLines, gl.LINES, gridColor, 1, 'grid');
+        drawBuffer(lines, gl.LINES, axisColor, 1, 'lines');
+        drawBuffer(zeroLines, gl.LINES, zeroColor, 1, 'zero');
+        drawBuffer(triangles, gl.TRIANGLES, axisColor, 1, 'triangles');
       }
 
       // Data Rendering (with scissor) - DRAWN SECOND to be on top
