@@ -70,25 +70,27 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
         const parsed = secureJSONParse(fileContent) as unknown;
         const rows = Array.isArray(parsed) ? parsed : [parsed];
         const headers = Object.keys((rows[0] as Record<string, unknown>) || {});
-        return { headers, rows: (rows as Record<string, string>[]).slice(0, 50) };
+        return { headers, rows: (rows as Record<string, string>[]).slice(0, 50), skippedLines: [] as string[] };
       } catch {
-        return { headers: [], rows: [] as Record<string, string>[] };
+        return { headers: [], rows: [] as Record<string, string>[], skippedLines: [] as string[] };
       }
     }
 
-    const lines = fileContent.split(/\r?\n/).filter(l => {
+    const allLines = fileContent.split(/\r?\n/).filter(l => l.trim());
+    const lines = allLines.filter(l => {
       const trimmed = l.trim();
-      return trimmed && (commentChar ? !trimmed.startsWith(commentChar) : true);
+      return commentChar ? !trimmed.startsWith(commentChar) : true;
     });
-    if (lines.length === 0) return { headers: [], rows: [] as string[][] };
+    if (lines.length === 0) return { headers: [], rows: [] as string[][], skippedLines: [] as string[] };
 
     const headerRowIndex = Math.max(0, startRow - 1);
+    const skippedLines = lines.slice(0, headerRowIndex);
     const headerLine = lines[headerRowIndex] || '';
     const headers = headerLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
     const rows = lines.slice(headerRowIndex + 1, headerRowIndex + 51).map(line =>
       line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
     );
-    return { headers, rows };
+    return { headers, rows, skippedLines };
   }, [fileContent, fileType, delimiter, startRow, commentChar]);
 
   // Derived column configs: auto-detected type + user overrides (keyed by column name)
@@ -209,6 +211,16 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
           </button>
         </div>
 
+        {previewData.skippedLines.length > 0 && (
+          <div className="isd-skipped-lines">
+            {previewData.skippedLines.map((line, i) => (
+              <div key={i} className="isd-skipped-line">
+                <span className="isd-skipped-line-num">{i + 1}</span>
+                <span className="isd-skipped-line-text">{line}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="isd-table-wrap">
           <div className="isd-table-scroll">
             <table className="isd-table">

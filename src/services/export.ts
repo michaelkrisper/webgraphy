@@ -151,6 +151,25 @@ export const exportToSVG = (
     }
   }
 
+  // 2b. Zero lines
+  if (gridXAxis && gridXAxis.min <= 0 && gridXAxis.max >= 0) {
+    const normX = (0 - gridXAxis.min) / (gridXAxis.max - gridXAxis.min);
+    const x = padding.left + normX * chartWidth;
+    const arrowSize = 6;
+    svg += `<line x1="${x}" y1="${height - padding.bottom}" x2="${x}" y2="${padding.top - 8}" stroke="${theme.zeroLineColor}" stroke-width="1.5" />`;
+    svg += `<polygon points="${x},${padding.top - 8} ${x - arrowSize / 2},${padding.top - 8 + arrowSize} ${x + arrowSize / 2},${padding.top - 8 + arrowSize}" fill="${theme.zeroLineColor}" />`;
+  }
+  activeYAxes.forEach(axis => {
+    if (axis.showGrid && axis.min <= 0 && axis.max >= 0) {
+      const vp ={ xMin: gridXAxis?.min ?? 0, xMax: gridXAxis?.max ?? 1, yMin: axis.min, yMax: axis.max, width, height, padding };
+      const { y } = worldToScreen(gridXAxis?.min ?? 0, 0, vp);
+      const arrowSize = 6;
+      const x2 = width - padding.right + 8;
+      svg += `<line x1="${padding.left}" y1="${y}" x2="${x2}" y2="${y}" stroke="${theme.zeroLineColor}" stroke-width="1.5" />`;
+      svg += `<polygon points="${x2},${y} ${x2 - arrowSize},${y - arrowSize / 2} ${x2 - arrowSize},${y + arrowSize / 2}" fill="${theme.zeroLineColor}" />`;
+    }
+  });
+
   // 3. Draw Series Data
   const datasetsMap = new Map(datasets.map(d => [d.id, d]));
   const xAxesMap = new Map(xAxes.map(a => [a.id, a]));

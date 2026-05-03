@@ -6,7 +6,7 @@ import { THEMES, type ThemeName } from '../../themes';
 import { buildSeriesConfig } from '../../utils/series';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Columns, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
 
@@ -44,7 +44,7 @@ export const Sidebar: React.FC = () => {
   const removeDataset = useGraphStore(s => s.removeDataset);
   const updateDataset = useGraphStore(s => s.updateDataset);
   const updateXAxis = useGraphStore(s => s.updateXAxis);
-  const moveSeries = useGraphStore(s => s.moveSeries);
+  const reorderSeries = useGraphStore(s => s.reorderSeries);
   const loadDemoData = useGraphStore(s => s.loadDemoData);
   const setHighlightedSeries = useGraphStore(s => s.setHighlightedSeries);
   const addSeries = useGraphStore(s => s.addSeries);
@@ -67,6 +67,42 @@ export const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768 || window.innerHeight < 500);
   const [isResizing, setIsResizing] = useState(false);
   const [openSections, setOpenSections] = useState({ sources: true, series: true });
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const seriesListRef = useRef<HTMLDivElement>(null);
+  const rowRectsRef = useRef<{ top: number; height: number; id: string }[]>([]);
+
+  const startDrag = useCallback((seriesId: string) => {
+    if (!seriesListRef.current) return;
+    const rows = Array.from(seriesListRef.current.querySelectorAll<HTMLElement>('[data-series-id]'));
+    rowRectsRef.current = rows.map(r => {
+      const rect = r.getBoundingClientRect();
+      return { top: rect.top, height: rect.height, id: r.dataset.seriesId! };
+    });
+    const origIdx = rowRectsRef.current.findIndex(r => r.id === seriesId);
+    setDragId(seriesId);
+    setDropIndex(origIdx);
+
+    const onMouseMove = (e: MouseEvent) => {
+      const rects = rowRectsRef.current.filter(r => r.id !== seriesId);
+      let newIdx = rects.length;
+      for (let i = 0; i < rects.length; i++) {
+        if (e.clientY < rects[i].top + rects[i].height / 2) { newIdx = i; break; }
+      }
+      setDropIndex(newIdx);
+    };
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      setDragId(prev => { if (prev) reorderSeries(prev, dropIndexRef.current ?? 0); return null; });
+      setDropIndex(null);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [reorderSeries]);
+
+  const dropIndexRef = useRef<number | null>(null);
+  useEffect(() => { dropIndexRef.current = dropIndex; }, [dropIndex]);
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
 
@@ -216,6 +252,7 @@ export const Sidebar: React.FC = () => {
             {hdrBtn(handleLoadSession, <FolderOpen size={16} />, 'Load Session')}
             {hdrSep}
             <span className="sb-spacer" />
+            {hdrBtn(() => { const ax = xAxes[0]; if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid }); }, <Columns size={16} />, xAxes[0]?.showGrid ? 'Hide Vertical Grid' : 'Show Vertical Grid', xAxes[0]?.showGrid ? 'var(--accent)' : undefined)}
             {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}
             {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
             {hdrSep}
@@ -356,10 +393,14 @@ export const Sidebar: React.FC = () => {
                 {series.length === 0 ? (
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', fontStyle: 'italic' }}>Add columns from data sources</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    ref={seriesListRef}
+                    style={{ display: 'flex', flexDirection: 'column' }}
+                    className={dragId ? 'sb-series-list--dragging' : undefined}
+                  >
                     <div className="sb-series-header">
+                      <div title="Drag to reorder" className="sb-series-header-cell"><ArrowUpDown size={12} /></div>
                       <div title="Visibility" className="sb-series-header-cell"><Eye size={12} /></div>
-                      <div title="Order" className="sb-series-header-cell"><ArrowUpDown size={12} /></div>
                       <div title="Y-Axis #" className="sb-series-header-cell"><Hash size={12} /></div>
                       <div title="Side (L/R)" className="sb-series-header-cell"><MoveHorizontal size={12} /></div>
                       <div title="Grid" className="sb-series-header-cell"><Rows size={12} /></div>
@@ -370,22 +411,32 @@ export const Sidebar: React.FC = () => {
                       <div title="Series Name" className="sb-series-header-cell--text">NAME</div>
                       <div />
                     </div>
-                    {series.map((s, idx) => (
-                      <div
-                        key={s.id}
-                        onMouseEnter={() => setHighlightedSeries(s.id)}
-                        onMouseLeave={() => setHighlightedSeries(null)}
-                        className="sb-series-row"
-                      >
-                        <SeriesConfigUI
-                          series={s}
-                          dataset={datasetsById.get(s.sourceId)}
-                          isFirst={idx === 0}
-                          isLast={idx === series.length - 1}
-                          onMove={(delta) => moveSeries(s.id, delta)}
-                        />
-                      </div>
-                    ))}
+                    {(() => {
+                      const dragSeries = dragId ? series.find(s => s.id === dragId) : null;
+                      // Build preview order: remove dragged item, insert ghost at dropIndex
+                      const withoutDrag = series.filter(s => s.id !== dragId);
+                      const previewList: Array<{ s: typeof series[0]; isGhost: boolean }> = withoutDrag.map(s => ({ s, isGhost: false }));
+                      if (dragSeries && dropIndex !== null) {
+                        const clampedDrop = Math.min(dropIndex, withoutDrag.length);
+                        previewList.splice(clampedDrop, 0, { s: dragSeries, isGhost: true });
+                      }
+
+                      return previewList.map(({ s, isGhost }) => (
+                        <div
+                          key={isGhost ? `ghost-${s.id}` : s.id}
+                          {...(!isGhost ? { 'data-series-id': s.id } : {})}
+                          onMouseEnter={() => !isGhost && setHighlightedSeries(s.id)}
+                          onMouseLeave={() => !isGhost && setHighlightedSeries(null)}
+                          className={`sb-series-row${!isGhost && dragId === s.id ? ' sb-series-row--dragging' : ''}${isGhost ? ' sb-series-row--ghost' : ''}`}
+                        >
+                          <SeriesConfigUI
+                            series={s}
+                            dataset={datasetsById.get(s.sourceId)}
+                            onHandleMouseDown={!isGhost ? (e) => { e.preventDefault(); startDrag(s.id); } : undefined}
+                          />
+                        </div>
+                      ));
+                    })()}
                   </div>
                 )}
               </div>

@@ -65,7 +65,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
     ctx.lineWidth = 1;
     ctx.beginPath();
     xAxes.forEach((axis, idx) => {
-      if (idx === 0) {
+      if (idx === 0 && axis.showGrid) {
         axis.ticks.result.forEach(t => {
           const ts = typeof t === 'number' ? t : t.timestamp;
           const normX = (ts - axis.min) / (axis.max - axis.min);
@@ -90,6 +90,32 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       }
     });
     ctx.stroke();
+
+    // Zero lines for Y axes (horizontal, only when showGrid active)
+    yAxes.forEach(axis => {
+      if (axis.showGrid && axis.min <= 0 && axis.max >= 0) {
+        const normY = (0 - axis.min) / (axis.max - axis.min);
+        const y = (height - padding.bottom) - normY * chartHeight;
+        const arrowTip = width - padding.right + 8;
+        const arrowSize = 6;
+        ctx.save();
+        ctx.strokeStyle = zeroLineColor;
+        ctx.fillStyle = zeroLineColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(arrowTip, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(arrowTip, y);
+        ctx.lineTo(arrowTip - arrowSize, y - arrowSize / 2);
+        ctx.lineTo(arrowTip - arrowSize, y + arrowSize / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    });
+
     ctx.restore();
   };
 

@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type SeriesConfig, type Dataset } from '../../services/persistence';
-import { Trash2, Circle, Square, X, Rows, Ban, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Circle, Square, X, Rows, Ban, Eye, EyeOff, GripVertical } from 'lucide-react';
 import ColorPicker from './ColorPicker';
 
 interface Props {
   series: SeriesConfig;
   dataset: Dataset | undefined;
-  isFirst?: boolean;
-  isLast?: boolean;
-  onMove?: (delta: -1 | 1) => void;
+  onHandleMouseDown?: (e: React.MouseEvent) => void;
 }
 
-export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLast, onMove }) => {
+export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, onHandleMouseDown }) => {
   const { updateSeries, removeSeries, yAxes, updateYAxis, updateSeriesVisibility, series: allSeries } = useGraphStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
@@ -69,6 +67,16 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
   return (
     <div className={`sc-row${series.hidden ? ' sc-row--hidden' : ''}`}>
 
+      {/* Drag Handle */}
+      <div
+        className="sc-drag-handle"
+        onMouseDown={onHandleMouseDown}
+        title="Drag to reorder"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={12} />
+      </div>
+
       {/* Visibility Toggle */}
       <button
         onClick={toggleVisibility}
@@ -79,28 +87,6 @@ export const SeriesConfigUI: React.FC<Props> = ({ series, dataset, isFirst, isLa
       >
         {series.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
-
-      {/* Reorder Buttons (UP/DOWN) */}
-      <div className="sc-reorder">
-        <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(-1); }}
-          disabled={isFirst}
-          className="sc-reorder-half sc-reorder-half--top"
-          style={{ opacity: isFirst ? 0.3 : 1, cursor: isFirst ? 'default' : 'pointer' }}
-          title="Move Up" aria-label="Move Up"
-        >
-          <ChevronUp size={14} strokeWidth={3} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMove?.(1); }}
-          disabled={isLast}
-          className="sc-reorder-half"
-          style={{ opacity: isLast ? 0.3 : 1, cursor: isLast ? 'default' : 'pointer' }}
-          title="Move Down" aria-label="Move Down"
-        >
-          <ChevronDown size={14} strokeWidth={3} />
-        </button>
-      </div>
 
       {/* Y Axis Cycle Button (1-9) */}
       <button

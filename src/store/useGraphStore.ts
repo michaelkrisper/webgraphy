@@ -38,6 +38,7 @@ interface GraphState {
   setAxisTitles: (x: string, y: string) => void;
   
   moveSeries: (id: string, delta: -1 | 1) => void;
+  reorderSeries: (fromId: string, toIndex: number) => void;
 
   loadPersistedState: () => Promise<void>;
   loadDemoData: () => Promise<void>;
@@ -403,6 +404,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const temp = newSeries[idx];
       newSeries[idx] = newSeries[targetIdx];
       newSeries[targetIdx] = temp;
+      return { series: newSeries };
+    });
+    if (get().isLoaded) debouncedSaveState();
+  },
+
+  reorderSeries: (fromId, toIndex) => {
+    set((state) => {
+      const fromIndex = state.series.findIndex(s => s.id === fromId);
+      if (fromIndex === -1) return state;
+      const newSeries = [...state.series];
+      const [item] = newSeries.splice(fromIndex, 1);
+      newSeries.splice(toIndex, 0, item);
       return { series: newSeries };
     });
     if (get().isLoaded) debouncedSaveState();
