@@ -201,7 +201,7 @@ export const Sidebar: React.FC = () => {
 
         {/* Header */}
         <header className="sb-header">
-          <img src="./favicon.svg" className="sb-logo" alt="webgraphy logo" />
+          <img src="./favicon.svg" className="sb-logo" alt="webgraphy logo" style={{ cursor: 'pointer' }} onClick={() => setIsCollapsed(true)} />
           <div className="sb-hdr-btns">
             {hdrBtn(loadDemoData, <FlaskConical size={16} />, 'Load Demo Data')}
             {hdrBtn(() => { if (confirm('Reset all data?')) datasets.forEach(d => removeDataset(d.id)); }, <RotateCcw size={16} />, 'Reset', 'var(--danger)')}

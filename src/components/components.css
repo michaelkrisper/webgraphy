@@ -734,11 +734,15 @@
   gap: 16px; 
   font-variant-numeric: tabular-nums;
 }
-.chart-tooltip-value { 
-  font-weight: bold; 
-  text-align: right;
-  min-width: 60px;
+.chart-tooltip-items {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  column-gap: 0;
+  font-variant-numeric: tabular-nums;
 }
+.chart-tooltip-item-label { padding-right: 4px; }
+.chart-tooltip-value-int { font-weight: bold; text-align: right; }
+.chart-tooltip-value-dec { font-weight: bold; text-align: left; }
 .chart-fit-btns { position: absolute; z-index: 25; display: flex; gap: 4px; }
 .chart-fit-btn {
   padding: 4px 10px;

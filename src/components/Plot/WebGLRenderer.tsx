@@ -85,7 +85,7 @@ const FRAGMENT_SHADER_SOURCE = `
           float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
           float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
           float total = (dashLen + gapLen) * u_dpr;
-          float dist = mod(v_dist_start + v_t * v_len, total);
+          float dist = mod(v_dist_start + mod(v_t * v_len, total), total);
           if (dist > dashLen * u_dpr) discard;
         }
         gl_FragColor = u_color;
@@ -200,10 +200,10 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const gl = canvas.getContext('webgl', { 
-      preserveDrawingBuffer: true, 
-      antialias: true, 
-      alpha: false 
+    const gl = canvas.getContext('webgl', {
+      preserveDrawingBuffer: true,
+      antialias: true,
+      alpha: true
     });
     if (!gl) return;
     glRef.current = gl;
@@ -317,7 +317,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
       // Use latest props from ref to avoid stale closures
       const {
-        width, height, padding, plotBg, highlightedSeriesId,
+        width, height, padding, highlightedSeriesId,
       } = propsRef.current;
 
       const xAxesById = new Map<string, XAxisConfig>();
@@ -332,9 +332,8 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
       const dpr = window.devicePixelRatio || 1;
       const pw = width * dpr, ph = height * dpr;
       
-      const bgRgba = hexToRgba(plotBg || '#000000');
       gl.viewport(0, 0, pw, ph);
-      gl.clearColor(bgRgba[0], bgRgba[1], bgRgba[2], 1.0);
+      gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       
       gl.useProgram(pg);
@@ -447,10 +446,10 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           } else {
             const segSrcX = decimated ? decimated.x : sliceX;
             const segSrcY = decimated ? decimated.y : sliceY;
-            const segRefX = decimated ? 0 : xRef;
-            const segRefY = decimated ? 0 : colY.refPoint;
-            const getSegX = (i: number) => segSrcX[i] + segRefX;
-            const getSegY = (i: number) => segSrcY[i] + segRefY;
+            // decimated: absolute coords (refPoint baked in) — matches absolute uniform offset
+            // raw slice: relative coords — matches relative uniform offset; no extra ref needed
+            const getSegX = (i: number) => segSrcX[i];
+            const getSegY = (i: number) => segSrcY[i];
 
             const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
             const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawStart}-${drawCount}`;

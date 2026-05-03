@@ -45,22 +45,37 @@ export function useAutoScale({
 
     axisSeries.forEach(s => {
       const ds = datasetsByIdLocal.get(s.sourceId);
-      const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
-      if (!ds || !xAxis) return;
-      const xIdx = getColumnIndex(ds, ds.xAxisColumn), yIdx = getColumnIndex(ds, s.yColumn);
-      if (xIdx === -1 || yIdx === -1) return;
-      const colX = ds.data[xIdx], colY = ds.data[yIdx];
-      if (!colX?.data || !colY?.data) return;
-      const xData = colX.data, yData = colY.data, refX = colX.refPoint, refY = colY.refPoint;
-      let startIdx = -1, endIdx = -1, low = 0, high = xData.length - 1;
-      while (low <= high) { const mid = (low + high) >>> 1; if (xData[mid] + refX >= xAxis.min) { startIdx = mid; high = mid - 1; } else low = mid + 1; }
-      low = 0; high = xData.length - 1;
-      while (low <= high) { const mid = (low + high) >>> 1; if (xData[mid] + refX <= xAxis.max) { endIdx = mid; low = mid + 1; } else high = mid - 1; }
-      if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
-        for (let i = startIdx; i <= endIdx; i++) {
-          const v = yData[i] + refY;
-          if (v < yMin) yMin = v;
-          if (v > yMax) yMax = v;
+      if (!ds) return;
+      const yIdx = getColumnIndex(ds, s.yColumn);
+      if (yIdx === -1) return;
+      const colY = ds.data[yIdx];
+      if (!colY) return;
+
+      if (mouseY === undefined) {
+        // Full fit: use precomputed bounds (no viewport filtering needed)
+        if (colY.bounds) {
+          if (colY.bounds.min < yMin) yMin = colY.bounds.min;
+          if (colY.bounds.max > yMax) yMax = colY.bounds.max;
+        }
+      } else {
+        // Viewport-filtered fit (scroll wheel double-tap)
+        const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
+        if (!xAxis) return;
+        const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+        if (xIdx === -1) return;
+        const colX = ds.data[xIdx];
+        if (!colX?.data || !colY.data) return;
+        const xData = colX.data, yData = colY.data, refX = colX.refPoint, refY = colY.refPoint;
+        let startIdx = -1, endIdx = -1, low = 0, high = xData.length - 1;
+        while (low <= high) { const mid = (low + high) >>> 1; if (xData[mid] + refX >= xAxis.min) { startIdx = mid; high = mid - 1; } else low = mid + 1; }
+        low = 0; high = xData.length - 1;
+        while (low <= high) { const mid = (low + high) >>> 1; if (xData[mid] + refX <= xAxis.max) { endIdx = mid; low = mid + 1; } else high = mid - 1; }
+        if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+          for (let i = startIdx; i <= endIdx; i++) {
+            const v = yData[i] + refY;
+            if (v < yMin) yMin = v;
+            if (v > yMax) yMax = v;
+          }
         }
       }
     });

@@ -257,14 +257,23 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
           {snap.entries.map((group, groupIdx) => (
             <React.Fragment key={`group-${groupIdx}`}>
               <div style={{ color: tooltipSubColor, fontSize: '9px', borderTop: groupIdx > 0 ? `1px solid ${tooltipDividerColor}` : 'none', paddingTop: groupIdx > 0 ? '4px' : 0, marginTop: groupIdx > 0 ? '4px' : 0 }}>
-                <span className="chart-tooltip-x-label" style={{ color: tooltipColor }}>{group.xAxisName}: {group.xLabel}</span>
+                <span className="chart-tooltip-x-label" style={{ color: tooltipColor }}>{snap.entries.length > 1 ? `${group.xAxisName}: ` : ''}{group.xLabel}</span>
               </div>
-              {group.items.map((item, itemIdx) => (
-                <div key={`item-${groupIdx}-${itemIdx}`} className="chart-tooltip-item" style={{ color: item.color }}>
-                  <span>{item.label}:</span>
-                  <span className="chart-tooltip-value" style={{ color: tooltipColor }}>{parseFloat(item.value.toPrecision(7)).toLocaleString()}</span>
-                </div>
-              ))}
+              <div className="chart-tooltip-items">
+                {group.items.map((item, itemIdx) => {
+                  const formatted = parseFloat(item.value.toPrecision(7)).toLocaleString();
+                  const sepIdx = formatted.search(/[.,]/);
+                  const intPart = sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);
+                  const decPart = sepIdx === -1 ? '' : formatted.slice(sepIdx);
+                  return (
+                    <React.Fragment key={`item-${groupIdx}-${itemIdx}`}>
+                      <span className="chart-tooltip-item-label" style={{ color: item.color }}>{item.label}:</span>
+                      <span className="chart-tooltip-value-int" style={{ color: tooltipColor }}>{intPart}</span>
+                      <span className="chart-tooltip-value-dec" style={{ color: tooltipColor }}>{decPart}</span>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </React.Fragment>
           ))}
         </div>
