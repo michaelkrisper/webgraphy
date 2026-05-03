@@ -94,15 +94,14 @@ export const Sidebar: React.FC = () => {
     const onMouseUp = () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-      setDragId(prev => { if (prev) reorderSeries(prev, dropIndexRef.current ?? 0); return null; });
-      setDropIndex(null);
+      setDropIndex(prevDrop => {
+        setDragId(prevDrag => { if (prevDrag) reorderSeries(prevDrag, prevDrop ?? 0); return null; });
+        return null;
+      });
     };
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   }, [reorderSeries]);
-
-  const dropIndexRef = useRef<number | null>(null);
-  useEffect(() => { dropIndexRef.current = dropIndex; }, [dropIndex]);
   const toggleSection = (key: keyof typeof openSections) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
   const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
 

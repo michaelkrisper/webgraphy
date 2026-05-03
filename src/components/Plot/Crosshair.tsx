@@ -196,7 +196,7 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     const entries = Array.from(entriesMap.values());
     const snapScreenX = worldToScreen(finalBestXWorld, 0, { xMin: finalXConf.min, xMax: finalXConf.max, yMin: 0, yMax: 100, width, height, padding }).x;
     return { snapScreenX, entries };
-  }, [pos, seriesMetadata, width, height, padding, snapMetadata]);
+  }, [pos, seriesMetadata, width, height, padding, snapMetadata, datasets]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -284,4 +284,3 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
 
 Crosshair.displayName = 'Crosshair';
 export { Crosshair };
-export type { CrosshairProps };

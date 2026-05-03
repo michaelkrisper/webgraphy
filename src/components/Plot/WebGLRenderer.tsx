@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } fr
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
 import { m4Float32 } from '../../utils/lttb';
-import { type XAxisLayout, type YAxisLayout } from './chartTypes';
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -138,13 +137,11 @@ interface Props {
   padding: { top: number; right: number; bottom: number; left: number };
   isInteracting?: boolean;
   highlightedSeriesId?: string | null;
-  xAxesLayout?: XAxisLayout[];
-  yAxesLayout?: YAxisLayout[];
   plotBg: string;
 }
 
 export interface WebGLRendererHandle {
-  redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => void;
+  redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
 }
 
 const hexToRgba = (hex: string): number[] => {
@@ -165,7 +162,6 @@ const hexToRgba = (hex: string): number[] => {
 export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((props, ref) => {
   const {
     datasets, series, xAxes, yAxes, width, height, padding, highlightedSeriesId,
-    xAxesLayout, yAxesLayout
   } = props;
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -176,9 +172,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
   const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
-  const liveXLayoutRef = useRef<XAxisLayout[] | undefined>(xAxesLayout);
-  const liveYLayoutRef = useRef<YAxisLayout[] | undefined>(yAxesLayout);
-  const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => void) | null>(null);
+  const drawFrameRef = useRef<((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null>(null);
 
   // Sync props to ref for use in drawFrame without closure issues
   const propsRef = useRef(props);
@@ -187,12 +181,10 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   }, [props]);
 
   useImperativeHandle(ref, () => ({
-    redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[], xLayout?: XAxisLayout[], yLayout?: YAxisLayout[]) => {
+    redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
       liveXAxesRef.current = xAxes;
       liveYAxesRef.current = yAxes;
-      liveXLayoutRef.current = xLayout;
-      liveYLayoutRef.current = yLayout;
-      drawFrameRef.current?.(xAxes, yAxes, xLayout, yLayout);
+      drawFrameRef.current?.(xAxes, yAxes);
     },
   }), []);
 
@@ -254,7 +246,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
 
     // Trigger initial draw
     if (drawFrameRef.current) {
-      drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current, liveXLayoutRef.current, liveYLayoutRef.current);
+      drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
     }
   }, []);
 
@@ -302,15 +294,13 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   useEffect(() => {
     liveXAxesRef.current = xAxes;
     liveYAxesRef.current = yAxes;
-    liveXLayoutRef.current = xAxesLayout;
-    liveYLayoutRef.current = yAxesLayout;
-  }, [xAxes, yAxes, xAxesLayout, yAxesLayout]);
+  }, [xAxes, yAxes]);
 
   useEffect(() => {
     const gl = glRef.current;
     if (!gl || !programRef.current || !locationsRef.current) return;
 
-    const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[], _curXLayout?: XAxisLayout[], _curYLayout?: YAxisLayout[]) => {
+    const drawFrame = (currentXAxes: XAxisConfig[], currentYAxes: YAxisConfig[]) => {
       const pg = programRef.current;
       const locs = locationsRef.current;
       if (!pg || !locs) return;
@@ -535,7 +525,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     };
 
     drawFrameRef.current = drawFrame;
-    drawFrame(liveXAxesRef.current, liveYAxesRef.current, liveXLayoutRef.current, liveYLayoutRef.current);
+    drawFrame(liveXAxesRef.current, liveYAxesRef.current);
   }, [seriesMetadata, width, height, padding, highlightedSeriesId]);
 
   const dpr = window.devicePixelRatio || 1;

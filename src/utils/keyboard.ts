@@ -11,7 +11,7 @@ export const applyKeyboardPan = (
   const up = keys.has('ArrowUp'), down = keys.has('ArrowDown');
   if (!left && !right && !up && !down) return false;
 
-  const step = 0.07;
+  const step = 0.05;
   if (left || right) {
     const d = right ? 1 : -1;
     state.xAxes.forEach(axis => {

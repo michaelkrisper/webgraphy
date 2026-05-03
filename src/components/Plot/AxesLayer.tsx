@@ -381,10 +381,12 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       lastYAxes.current = yAxes;
       draw(xAxes, yAxes);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [width, height, padding, axisLayout, xAxesMetrics, axisColor, zeroLineColor, gridColor, plotBg, labelColor, secLabelBg, leftOffsets, rightOffsets, seriesByYAxisId]);
 
   useEffect(() => {
     draw(initialXAxes, initialYAxes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialXAxes, initialYAxes, width, height, padding]);
 
   const dpr = window.devicePixelRatio || 1;
@@ -416,4 +418,3 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
 
 AxesLayer.displayName = 'AxesLayer';
 export { AxesLayer };
-export type { AxesLayerProps };

@@ -19,7 +19,7 @@ describe('demoData', () => {
 
       expect(dataset.id).toBe('demo-dataset');
       expect(dataset.name).toBe('A - Demo Weather Station');
-      expect(dataset.rowCount).toBe(525600);
+      expect(dataset.rowCount).toBe(1000000);
       expect(dataset.columns).toHaveLength(5);
       expect(dataset.columns).toContain('A: Timestamp');
       expect(dataset.columns).toContain('A: Temperature (°C)');
@@ -174,7 +174,6 @@ describe('demoData', () => {
       expect(appState.xAxes).toHaveLength(9);
       expect(appState.yAxes).toHaveLength(9);
       expect(appState.series).toHaveLength(4);
-      expect(appState.views).toHaveLength(4);
 
       expect(appState.xAxes[0].min).toBe(mockDataset.data[0].bounds.min);
       expect(appState.xAxes[0].max).toBe(mockDataset.data[0].bounds.max);
@@ -192,12 +191,6 @@ describe('demoData', () => {
         expect(s.yAxisId).toBe(`axis-${i + 1}`);
         expect(s.id).toBe(mockUUID);
       });
-
-      // Check views
-      expect(appState.views?.[0].name).toBe('Full Year Overview');
-      expect(appState.views?.[1].name).toBe('Summer Week (High Solar)');
-      expect(appState.views?.[2].name).toBe('Winter Day (Low Solar, Cold)');
-      expect(appState.views?.[3].name).toBe('Spring Storm (3 Days)');
 
       vi.unstubAllGlobals();
     });

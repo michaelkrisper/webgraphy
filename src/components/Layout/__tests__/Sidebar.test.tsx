@@ -86,18 +86,29 @@ describe('Sidebar Component', () => {
     vi.clearAllMocks();
 
     // Default mock returns
-    (useGraphStore as unknown as Mock).mockReturnValue({
+    const defaultState = {
       datasets: [],
       series: [],
       xAxes: [],
       yAxes: [],
-      axisTitles: [],
+      axisTitles: { x: '', y: '' },
+      views: [],
+      legendVisible: true,
       removeDataset: vi.fn(),
       updateDataset: vi.fn(),
+      updateXAxis: vi.fn(),
+      reorderSeries: vi.fn(),
       moveDataset: vi.fn(),
       moveSeries: vi.fn(),
       loadDemoData: mockLoadDemoData,
-    });
+      setHighlightedSeries: vi.fn(),
+      addSeries: vi.fn(),
+      setLegendVisible: vi.fn(),
+      removeCalculatedColumn: vi.fn(),
+    };
+    (useGraphStore as unknown as Mock).mockImplementation((sel?: (s: typeof defaultState) => unknown) =>
+      sel ? sel(defaultState) : defaultState
+    );
 
     (useDataImport as unknown as Mock).mockReturnValue({
       importFile: mockImportFile,
@@ -157,7 +168,7 @@ describe('Sidebar Component', () => {
 
   it('does not disable the button for an already used data column', () => {
     const mockDatasets = [
-      { id: 'ds-1', name: 'Dataset 1', columns: ['time', 'value1', 'value2'], xAxisColumn: 'time', xAxisId: 'axis-1' }
+      { id: 'ds-1', name: 'Dataset 1', columns: ['time', 'value1', 'value2'], xAxisColumn: 'time', xAxisId: 'axis-1', data: [{}, {}, {}], rowCount: 0 }
     ];
     const mockSeries = [
       { id: 's-1', sourceId: 'ds-1', yColumn: 'value1', yAxisId: 'axis-1', hidden: false }
@@ -165,26 +176,34 @@ describe('Sidebar Component', () => {
     const mockXAxes = [{ id: 'axis-1', name: 'X-Axis 1', xMode: 'numeric' }];
     const mockAddSeries = vi.fn();
 
-    (useGraphStore as unknown as Mock).mockReturnValue({
+    const state = {
       datasets: mockDatasets,
       series: mockSeries,
       xAxes: mockXAxes,
       yAxes: [],
-      axisTitles: [],
+      axisTitles: { x: '', y: '' },
       views: [],
+      legendVisible: true,
       removeDataset: vi.fn(),
       updateDataset: vi.fn(),
       updateXAxis: vi.fn(),
+      reorderSeries: vi.fn(),
+      loadDemoData: mockLoadDemoData,
       setHighlightedSeries: vi.fn(),
       addSeries: mockAddSeries,
-    });
+      setLegendVisible: vi.fn(),
+      removeCalculatedColumn: vi.fn(),
+    };
+    (useGraphStore as unknown as Mock).mockImplementation((sel?: (s: typeof state) => unknown) =>
+      sel ? sel(state) : state
+    );
 
     render(<Sidebar />);
 
     // value1 is used, but its button should NOT be disabled anymore
     const value1Button = screen.getByRole('button', { name: 'value1' });
     expect(value1Button).not.toBeDisabled();
-    expect(value1Button).toHaveStyle({ opacity: '0.7' });
+    expect(value1Button.parentElement).toHaveStyle({ opacity: '0.7' });
 
     // Clicking it should call addSeries
     fireEvent.click(value1Button);
@@ -193,7 +212,7 @@ describe('Sidebar Component', () => {
     // value2 is not used, so its button should be enabled and full opacity
     const value2Button = screen.getByRole('button', { name: 'value2' });
     expect(value2Button).not.toBeDisabled();
-    expect(value2Button).toHaveStyle({ opacity: '1' });
+    expect(value2Button.parentElement).toHaveStyle({ opacity: '1' });
   });
 
 });

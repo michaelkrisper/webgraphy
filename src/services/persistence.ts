@@ -65,10 +65,10 @@ export interface AppState {
   axisTitles: { x: string; y: string };
 }
 
-export const XAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), showGrid: z.boolean(), xMode: z.enum(['date', 'numeric']) });
-export const YAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), position: z.enum(['left', 'right']), color: z.string(), showGrid: z.boolean() });
-export const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), hidden: z.boolean().optional() });
-export const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }) });
+const XAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), showGrid: z.boolean(), xMode: z.enum(['date', 'numeric']) });
+const YAxisConfigSchema = z.object({ id: z.string(), name: z.string(), min: z.number(), max: z.number(), position: z.enum(['left', 'right']), color: z.string(), showGrid: z.boolean() });
+const SeriesConfigSchema = z.object({ id: z.string(), sourceId: z.string(), name: z.string(), yColumn: z.string(), yAxisId: z.string(), pointStyle: z.enum(['circle', 'square', 'cross', 'none']), pointColor: z.string(), lineStyle: z.enum(['solid', 'dashed', 'dotted', 'none']), lineColor: z.string(), hidden: z.boolean().optional() });
+const AppStateSchema = z.object({ xAxes: z.array(XAxisConfigSchema), yAxes: z.array(YAxisConfigSchema), series: z.array(SeriesConfigSchema), axisTitles: z.object({ x: z.string(), y: z.string() }) });
 
 let db: IDBPDatabase | null = null;
 

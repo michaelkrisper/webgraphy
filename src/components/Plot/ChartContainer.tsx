@@ -28,7 +28,7 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric'): Omit<XAx
   if (xMode === 'date') {
     return { height: isMobile ? 60 : 70, labelBottom: isMobile ? 20 : 25, secLabelBottom: isMobile ? 30 : 36, titleBottom: isMobile ? 50 : 60 };
   }
-  return { height: 50, labelBottom: 22, secLabelBottom: 0, titleBottom: 40 };
+  return { height: 50, labelBottom: 26, secLabelBottom: 0, titleBottom: 40 };
 };
 
 const ChartContainer: React.FC = () => {
@@ -157,15 +157,15 @@ const ChartContainer: React.FC = () => {
       const uniqueColumns = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn)));
       const title = dss.length > 1 ? uniqueColumns.join(' / ') : uniqueColumns[0];
       const color = themeColors.labelColor;
-      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
       if (!isDate) {
         const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
-        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
-        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
         const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
   }, [series, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed]);
@@ -223,7 +223,7 @@ const ChartContainer: React.FC = () => {
         const xLayout = computeXAxesLayout(liveX);
         const yLayout = computeYAxesLayout(liveY);
 
-        webglRef.current?.redraw(liveX, liveY, xLayout, yLayout);
+        webglRef.current?.redraw(liveX, liveY);
         axesLayerRef.current?.redraw(xLayout, yLayout);
 
         // Only sync back to store if not currently interacting (panning/zooming)
@@ -320,16 +320,16 @@ const ChartContainer: React.FC = () => {
       const uniqueColumns = Array.from(new Set(dss.map((d: Dataset) => d.xAxisColumn)));
       const title = dss.length > 1 ? uniqueColumns.join(' / ') : uniqueColumns[0];
       const color = themeColors.labelColor;
-      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+      if (r <= 0 || chartWidth <= 0) return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
 
       if (!isDate) {
         const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
-        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
+        if (step <= 0) return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: [], step: 1, precision: 0, isXDate: false as const }, title, color };
         const precision = calcNumericPrecision(step);
-        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: calcNumericTicks(axis.min, axis.max, step), step, precision, isXDate: false as const }, title, color };
       } else {
         const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-        return { id: axis.id, min: axis.min, max: axis.max, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
+        return { id: axis.id, min: axis.min, max: axis.max, showGrid: axis.showGrid, ticks: { result: generateTimeTicks(axis.min, axis.max, ts), isXDate: true as const, secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts) }, title, color };
       }
     });
   }, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]);
@@ -371,8 +371,6 @@ const ChartContainer: React.FC = () => {
             padding={padding}
             isInteracting={isInteracting}
             highlightedSeriesId={highlightedSeriesId}
-            xAxesLayout={xAxesLayout}
-            yAxesLayout={activeYAxesLayout}
             plotBg={themeColors.plotBg}
           />
         </ErrorBoundary>

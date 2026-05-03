@@ -71,7 +71,7 @@ const hslToRgb = (h: number, s: number, l: number) => {
   return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
 };
 
-export function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
+function ColorPicker({ color, onChange, ariaLabel }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localHex, setLocalHex] = useState(color);
   const [prevColor, setPrevColor] = useState(color);

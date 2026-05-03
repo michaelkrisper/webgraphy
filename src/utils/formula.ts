@@ -191,21 +191,41 @@ export function compileFormula(formula: string, availableColumns: string[]): For
     };
 
     // 1. Identify and extract column names in brackets
-    const columnRegex = /\[([^\]]+)\]/g;
-    let match;
-    while ((match = columnRegex.exec(formula)) !== null) {
-      const fullMatch = match[0];
-      const colName = match[1];
-
-      if (!columnMap.has(fullMatch)) {
-        const map = ensureAvailableColumnsMap();
-        const colIndex = map.has(colName) ? map.get(colName)! : -1;
-
-        if (colIndex === -1) {
+    // Use longest-match to support column names containing brackets (e.g. "v_act [km/h]")
+    const map1 = ensureAvailableColumnsMap();
+    let scanPos = 0;
+    while (scanPos < formula.length) {
+      const start = formula.indexOf('[', scanPos);
+      if (start === -1) break;
+      // Try longest match first: find all ']' positions and pick the last one that maps to a known column
+      let bestEnd = -1;
+      let searchFrom = start + 1;
+      while (true) {
+        const end = formula.indexOf(']', searchFrom);
+        if (end === -1) break;
+        const candidate = formula.substring(start + 1, end);
+        if (map1.has(candidate)) bestEnd = end;
+        searchFrom = end + 1;
+      }
+      if (bestEnd === -1) {
+        // No known column found — try first ] for error reporting
+        const end = formula.indexOf(']', start + 1);
+        if (end === -1) { scanPos = start + 1; continue; }
+        const colName = formula.substring(start + 1, end);
+        const fullMatch = formula.substring(start, end + 1);
+        if (!columnMap.has(fullMatch)) {
           return { evaluate: () => NaN, usedColumnIndices: [], error: `Column not found: ${colName}` };
         }
-        columnMap.set(fullMatch, usedColumnIndices.length);
-        usedColumnIndices.push(colIndex);
+        scanPos = end + 1;
+      } else {
+        const fullMatch = formula.substring(start, bestEnd + 1);
+        const colName = formula.substring(start + 1, bestEnd);
+        if (!columnMap.has(fullMatch)) {
+          const colIndex = map1.get(colName)!;
+          columnMap.set(fullMatch, usedColumnIndices.length);
+          usedColumnIndices.push(colIndex);
+        }
+        scanPos = bestEnd + 1;
       }
     }
 
@@ -249,13 +269,23 @@ export function compileFormula(formula: string, availableColumns: string[]): For
       if (/\s/.test(char)) { i++; continue; }
 
       if (char === '[') {
-        const end = formula.indexOf(']', i);
-        if (end === -1) throw new Error('Missing closing bracket ]');
-        const fullMatch = formula.substring(i, end + 1);
-        const varIdx = columnMap.get(fullMatch);
-        if (varIdx === undefined) throw new Error(`Unknown column: ${fullMatch}`);
-        tokens.push({ type: 'VAR', index: varIdx });
-        i = end + 1;
+        // Longest-match: try each ']' and pick the last one that maps to a known column
+        let bestEnd = -1;
+        let searchFrom = i + 1;
+        while (true) {
+          const end = formula.indexOf(']', searchFrom);
+          if (end === -1) break;
+          if (columnMap.has(formula.substring(i, end + 1))) bestEnd = end;
+          searchFrom = end + 1;
+        }
+        if (bestEnd === -1) {
+          const end = formula.indexOf(']', i + 1);
+          if (end === -1) throw new Error('Missing closing bracket ]');
+          throw new Error(`Unknown column: ${formula.substring(i + 1, end)}`);
+        }
+        const fullMatch = formula.substring(i, bestEnd + 1);
+        tokens.push({ type: 'VAR', index: columnMap.get(fullMatch)! });
+        i = bestEnd + 1;
         continue;
       }
 
@@ -280,7 +310,7 @@ export function compileFormula(formula: string, availableColumns: string[]): For
           if (/^(avg|sum)(day|hour|minute|second)/.test(name)) ensureTimeColumn();
           tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
         }
-        else if (/^avg\d+((s|m|h|d)[lcr]?|[lcr])$/.test(name)) {
+        else if (/^avg\d+((s|m|h|d)[lcr]?|[lcr])?$/.test(name)) {
           if (/^avg\d+(s|m|h|d)/.test(name)) ensureTimeColumn();
           tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
         }

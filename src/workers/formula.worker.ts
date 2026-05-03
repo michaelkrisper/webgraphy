@@ -80,7 +80,7 @@ self.onmessage = (event) => {
 
     // Two-pass for group-average functions (avgday/avghour/avgminute/avgsecond)
     // Optional alignment suffix: avgDayc (center, default), avgDayl (left/first), avgDayr (right/last)
-    const groupAvgMatch = formula.trim().match(/^avg(day|hour|minute|second)([lcr])?\(\[([^\]]+)\]\)$/i);
+    const groupAvgMatch = formula.trim().match(/^avg(day|hour|minute|second)([lcr])?\(\[(.+)\]\)$/i);
     if (groupAvgMatch) {
       const granularity = groupAvgMatch[1].toLowerCase();
       const align = (groupAvgMatch[2]?.toLowerCase() ?? 'c') as 'l' | 'c' | 'r';

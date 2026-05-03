@@ -2,7 +2,7 @@
 import { type YAxisConfig } from '../../services/persistence';
 import { type TimeTick, type SecondaryLabel } from '../../utils/time';
 
-export type XTicks =
+type XTicks =
   | { result: number[]; step: number; precision: number; isXDate: false; secondaryLabels?: undefined }
   | { result: TimeTick[]; isXDate: true; secondaryLabels: SecondaryLabel[]; step?: undefined; precision?: undefined };
 
@@ -13,6 +13,7 @@ export interface XAxisLayout {
   ticks: XTicks;
   title: string;
   color: string;
+  showGrid: boolean;
 }
 
 export interface YAxisLayout extends YAxisConfig {

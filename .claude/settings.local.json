@@ -13,7 +13,13 @@
       "Bash(npm install *)",
       "Bash(npm list *)",
       "Bash(Select-Object -First 20)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(git stash *)",
+      "Bash(npm update *)",
+      "Bash(git commit -m 'chore: update package-lock to resolve postcss vulnerability *)",
+      "Bash(grep -v \"^\\\\s*//\")",
+      "Bash(npx knip *)",
+      "Bash(npx eslint *)"
     ]
   }
 }
