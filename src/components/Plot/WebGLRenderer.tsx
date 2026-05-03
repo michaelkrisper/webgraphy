@@ -174,7 +174,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const locationsRef = useRef<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
-  const lttbCacheRef = useRef<Map<string, { x: Float32Array; y: Float32Array }>>(new Map());
   const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
   const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
   const liveXLayoutRef = useRef<XAxisLayout[] | undefined>(xAxesLayout);
@@ -265,7 +264,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
     buffersRef.current.forEach(buf => gl.deleteBuffer(buf));
     buffersRef.current.clear();
     segParamsRef.current.clear();
-    lttbCacheRef.current.clear();
   }, [datasets]);
 
   const seriesMetadata = useMemo(() => {
@@ -366,105 +364,53 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         const xRange = xAxis.max - xAxis.min || 1;
         const yRange = yAxis.max - yAxis.min || 1;
 
-        // Single global M4 at 64k points — enough for any screen at any zoom level.
-        // Switch to raw only when visible raw count <= M4 threshold (identical result at that point).
-        const M4_THRESHOLD = 64000;
+        // Viewport-aware M4: decimate only the visible raw slice to 2 points/pixel.
+        // Single path — no level switching, so zoom is seamless at all scales.
+        const pixelBudget = Math.max(500, Math.round(chartWidth * dpr) * 2);
 
-        // Binary search raw visible range
+        // Binary-search the visible raw range (±1 for boundary continuity)
         let rawStart = 0, rawEnd = xData.length - 1;
         { let lo = 0, hi = xData.length - 1;
           while (lo <= hi) { const m = (lo + hi) >>> 1; if (xData[m] + xRef <= xAxis.min) { rawStart = m; lo = m + 1; } else hi = m - 1; } }
         { let lo = 0, hi = xData.length - 1;
           while (lo <= hi) { const m = (lo + hi) >>> 1; if (xData[m] + xRef >= xAxis.max) { rawEnd = m; hi = m - 1; } else lo = m + 1; } }
-        const numPointsVisible = rawEnd - rawStart + 1;
+        const sliceStart = Math.max(0, rawStart > 0 ? rawStart - 1 : 0);
+        const sliceEnd = Math.min(xData.length - 1, rawEnd < xData.length - 1 ? rawEnd + 1 : rawEnd);
+        const sliceLen = sliceEnd - sliceStart + 1;
 
-        // Raw when dataset fits in M4 threshold entirely, or visible slice already small enough.
-        // At this crossover m4Float32 returns pass-through (identical to raw), so no visual jump.
-        const useRaw = xData.length <= M4_THRESHOLD || numPointsVisible <= M4_THRESHOLD;
-        const LTTB_THRESHOLD = M4_THRESHOLD;
+        // M4-decimate the visible slice; m4Float32 passes through when sliceLen <= pixelBudget
+        const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
+        const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
+        const decimated = sliceLen > pixelBudget
+          ? m4Float32(sliceX, xRef, sliceY, colY.refPoint, pixelBudget)
+          : null; // use raw slice directly
 
-        let drawStart: number, drawCount: number;
-        let xBuffer: WebGLBuffer, yBuffer: WebGLBuffer;
-        let xScaleVal: number, xOffsetVal: number, yScaleVal: number, yOffsetVal: number;
+        const drawCount = decimated ? decimated.x.length : sliceLen;
 
-        if (useRaw) {
-          // Raw path: use relative Float32Arrays with refPoint in uniforms
-          xScaleVal = (chartWidth * dpr) / xRange;
-          xOffsetVal = (padding.left * dpr) - (xAxis.min - xRef) * xScaleVal;
-          yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-          yOffsetVal = ((height - padding.bottom) * dpr) - (yAxis.min - colY.refPoint) * yScaleVal;
+        // Uniforms: decimated uses absolute coords (refPoint baked in by m4Float32), raw uses relative
+        const xScaleVal = (chartWidth * dpr) / xRange;
+        const xOffsetVal = decimated
+          ? (padding.left * dpr) - xAxis.min * xScaleVal
+          : (padding.left * dpr) - (xAxis.min - xRef) * xScaleVal;
+        const yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
+        const yOffsetVal = decimated
+          ? ((height - padding.bottom) * dpr) - yAxis.min * yScaleVal
+          : ((height - padding.bottom) * dpr) - (yAxis.min - colY.refPoint) * yScaleVal;
 
-          // Aligned start to prevent flicker from boundary shifts
-          const alignedStart = Math.max(0, rawStart > 0 ? rawStart - 1 : 0);
-          const alignedEnd = Math.min(xData.length - 1, rawEnd < xData.length - 1 ? rawEnd + 1 : rawEnd);
-          drawStart = alignedStart;
-          drawCount = alignedEnd - alignedStart + 1;
+        // Upload to a per-series dynamic buffer (STREAM_DRAW — changes every frame when zooming)
+        const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
+        const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
+        let xBuffer = buffersRef.current.get(dynXKey);
+        if (!xBuffer) { xBuffer = gl.createBuffer()!; buffersRef.current.set(dynXKey, xBuffer); }
+        let yBuffer = buffersRef.current.get(dynYKey);
+        if (!yBuffer) { yBuffer = gl.createBuffer()!; buffersRef.current.set(dynYKey, yBuffer); }
 
-          const xBufferKey = `buf-x-${ds.id}-${xIdx}`;
-          let buf = buffersRef.current.get(xBufferKey);
-          if (!buf) {
-            buf = gl.createBuffer()!;
-            buffersRef.current.set(xBufferKey, buf);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
-          }
-          xBuffer = buf;
+        gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, decimated ? decimated.x : sliceX, gl.STREAM_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, decimated ? decimated.y : sliceY, gl.STREAM_DRAW);
 
-          const yBufferKey = `buf-y-${ds.id}-${yIdx}`;
-          let ybuf = buffersRef.current.get(yBufferKey);
-          if (!ybuf) {
-            ybuf = gl.createBuffer()!;
-            buffersRef.current.set(yBufferKey, ybuf);
-            gl.bindBuffer(gl.ARRAY_BUFFER, ybuf);
-            gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
-          }
-          yBuffer = ybuf;
-        } else {
-          // LTTB path: absolute-value compact buffers, viewport-stable selection
-          xScaleVal = (chartWidth * dpr) / xRange;
-          xOffsetVal = (padding.left * dpr) - xAxis.min * xScaleVal;
-          yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-          yOffsetVal = ((height - padding.bottom) * dpr) - yAxis.min * yScaleVal;
-
-          const lttbKey = `m4-${ds.id}-${xIdx}-${yIdx}-${LTTB_THRESHOLD}`;
-          let lttbData = lttbCacheRef.current.get(lttbKey);
-          if (!lttbData) {
-            lttbData = m4Float32(xData, xRef, yData, colY.refPoint, LTTB_THRESHOLD);
-            lttbCacheRef.current.set(lttbKey, lttbData);
-          }
-
-          const lttbX = lttbData.x;
-          const lttbN = lttbX.length;
-          let lttbStart = 0, lttbEnd = lttbN - 1;
-          { let lo = 0, hi = lttbN - 1;
-            while (lo <= hi) { const m = (lo + hi) >>> 1; if (lttbX[m] <= xAxis.min) { lttbStart = m; lo = m + 1; } else hi = m - 1; } }
-          { let lo = 0, hi = lttbN - 1;
-            while (lo <= hi) { const m = (lo + hi) >>> 1; if (lttbX[m] >= xAxis.max) { lttbEnd = m; hi = m - 1; } else lo = m + 1; } }
-          if (lttbStart > 0) lttbStart--;
-          if (lttbEnd < lttbN - 1) lttbEnd++;
-          drawStart = lttbStart;
-          drawCount = lttbEnd - lttbStart + 1;
-
-          const xBufferKey = `buf-lttb-x-${lttbKey}`;
-          let buf = buffersRef.current.get(xBufferKey);
-          if (!buf) {
-            buf = gl.createBuffer()!;
-            buffersRef.current.set(xBufferKey, buf);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.bufferData(gl.ARRAY_BUFFER, lttbData.x, gl.STATIC_DRAW);
-          }
-          xBuffer = buf;
-
-          const yBufferKey = `buf-lttb-y-${lttbKey}`;
-          let ybuf = buffersRef.current.get(yBufferKey);
-          if (!ybuf) {
-            ybuf = gl.createBuffer()!;
-            buffersRef.current.set(yBufferKey, ybuf);
-            gl.bindBuffer(gl.ARRAY_BUFFER, ybuf);
-            gl.bufferData(gl.ARRAY_BUFFER, lttbData.y, gl.STATIC_DRAW);
-          }
-          yBuffer = ybuf;
-        }
+        const drawStart = 0;
 
         gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
         gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
@@ -499,13 +445,12 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
             gl.lineWidth(baseLineWidth);
             gl.drawArrays(gl.LINE_STRIP, 0, drawCount);
           } else {
-            // For segment data, get absolute world coords from whichever source is active
-            const getSegX = useRaw
-              ? (i: number) => xData[i] + xRef
-              : (i: number) => lttbCacheRef.current.get(`m4-${ds.id}-${xIdx}-${yIdx}-${LTTB_THRESHOLD}`)!.x[i];
-            const getSegY = useRaw
-              ? (i: number) => yData[i] + colY.refPoint
-              : (i: number) => lttbCacheRef.current.get(`m4-${ds.id}-${xIdx}-${yIdx}-${LTTB_THRESHOLD}`)!.y[i];
+            const segSrcX = decimated ? decimated.x : sliceX;
+            const segSrcY = decimated ? decimated.y : sliceY;
+            const segRefX = decimated ? 0 : xRef;
+            const segRefY = decimated ? 0 : colY.refPoint;
+            const getSegX = (i: number) => segSrcX[i] + segRefX;
+            const getSegY = (i: number) => segSrcY[i] + segRefY;
 
             const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
             const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawStart}-${drawCount}`;
