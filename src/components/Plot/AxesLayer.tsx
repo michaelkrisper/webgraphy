@@ -18,18 +18,20 @@ interface AxesLayerProps {
   xAxesMetrics: XAxisMetrics[];
   axisColor: string;
   zeroLineColor: string;
+  gridColor: string;
   labelColor: string;
   secLabelBg: string;
   leftOffsets: Record<string, number>;
   rightOffsets: Record<string, number>;
 }
 
-const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({ 
-  xAxes: initialXAxes, yAxes: initialYAxes, width, height, padding, series, axisLayout, 
-  xAxesMetrics, labelColor, secLabelBg, leftOffsets, rightOffsets 
+const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
+  xAxes: initialXAxes, yAxes: initialYAxes, width, height, padding, series, axisLayout,
+  xAxesMetrics, axisColor, zeroLineColor, gridColor, labelColor, secLabelBg, leftOffsets, rightOffsets
 }: AxesLayerProps, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+  const gridCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
   const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
 
@@ -42,7 +44,55 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
     return grouped;
   }, [series]);
 
+  const drawGrid = (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
+    const canvas = gridCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    xAxes.forEach((axis, idx) => {
+      if (idx === 0) {
+        axis.ticks.result.forEach(t => {
+          const ts = typeof t === 'number' ? t : t.timestamp;
+          const normX = (ts - axis.min) / (axis.max - axis.min);
+          if (normX >= 0 && normX <= 1) {
+            const x = padding.left + normX * chartWidth;
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, height - padding.bottom);
+          }
+        });
+      }
+    });
+    yAxes.forEach(axis => {
+      if (axis.showGrid) {
+        axis.ticks.forEach(t => {
+          const normY = (t - axis.min) / (axis.max - axis.min);
+          if (normY >= 0 && normY <= 1) {
+            const y = (height - padding.bottom) - normY * chartHeight;
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+          }
+        });
+      }
+    });
+    ctx.stroke();
+    ctx.restore();
+  };
+
   const draw = (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
+    drawGrid(xAxes, yAxes);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -50,13 +100,122 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
 
     const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const isMobile = width < 768 || height < 500;
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
 
     ctx.save();
     ctx.scale(dpr, dpr);
+
+    // --- Axis Frame & Ticks ---
+    ctx.strokeStyle = axisColor;
+    ctx.fillStyle = axisColor;
+    ctx.lineWidth = 1;
+
+    // Main frame spines
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(width - padding.right, padding.top);
+    ctx.moveTo(width - padding.right, padding.top);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+
+    // X Axes lines + ticks + arrows
+    xAxes.forEach((axis, idx) => {
+      const metrics = xAxesMetrics[idx];
+      if (!metrics) return;
+      const y = height - padding.bottom + metrics.cumulativeOffset;
+      // Axis line
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right + 8, y);
+      ctx.stroke();
+      // Arrow at right end
+      const size = 6;
+      ctx.beginPath();
+      ctx.moveTo(width - padding.right + 8, y);
+      ctx.lineTo(width - padding.right + 8 - size, y - size / 2);
+      ctx.lineTo(width - padding.right + 8 - size, y + size / 2);
+      ctx.closePath();
+      ctx.fill();
+      // Tick marks
+      ctx.beginPath();
+      axis.ticks.result.forEach(t => {
+        const ts = typeof t === 'number' ? t : t.timestamp;
+        const normX = (ts - axis.min) / (axis.max - axis.min);
+        if (normX >= 0 && normX <= 1) {
+          const x = padding.left + normX * chartWidth;
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 6);
+        }
+      });
+      ctx.stroke();
+    });
+
+    // Zero line (from first X axis)
+    if (xAxes.length > 0) {
+      const axis = xAxes[0];
+      if (axis.min <= 0 && axis.max >= 0) {
+        const normX = (0 - axis.min) / (axis.max - axis.min);
+        const x = padding.left + normX * chartWidth;
+        ctx.strokeStyle = zeroLineColor;
+        ctx.fillStyle = zeroLineColor;
+        ctx.beginPath();
+        ctx.moveTo(x, height - padding.bottom);
+        ctx.lineTo(x, padding.top - 8);
+        ctx.stroke();
+        // Arrow pointing up
+        const size = 6;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top - 8);
+        ctx.lineTo(x - size / 2, padding.top - 8 + size);
+        ctx.lineTo(x + size / 2, padding.top - 8 + size);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = axisColor;
+        ctx.fillStyle = axisColor;
+      }
+    }
+
+    // Y Axes lines + ticks + arrows
+    yAxes.forEach(axis => {
+      const isLeft = axis.position === 'left';
+      const metrics = axisLayout[axis.id] || { total: 40 };
+      const xPos = isLeft
+        ? padding.left - (leftOffsets[axis.id] ?? 0) - metrics.total
+        : width - padding.right + (rightOffsets[axis.id] ?? 0);
+      const axisLineX = isLeft ? xPos + metrics.total : xPos;
+
+      // Axis spine line
+      ctx.beginPath();
+      ctx.moveTo(axisLineX, height - padding.bottom);
+      ctx.lineTo(axisLineX, padding.top - 8);
+      ctx.stroke();
+      // Arrow pointing up
+      const size = 6;
+      ctx.beginPath();
+      ctx.moveTo(axisLineX, padding.top - 8);
+      ctx.lineTo(axisLineX - size / 2, padding.top - 8 + size);
+      ctx.lineTo(axisLineX + size / 2, padding.top - 8 + size);
+      ctx.closePath();
+      ctx.fill();
+      // Tick marks
+      ctx.beginPath();
+      axis.ticks.forEach(t => {
+        const normY = (t - axis.min) / (axis.max - axis.min);
+        if (normY >= 0 && normY <= 1) {
+          const y = (height - padding.bottom) - normY * chartHeight;
+          const x1 = isLeft ? axisLineX - 5 : axisLineX;
+          const x2 = isLeft ? axisLineX : axisLineX + 5;
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y);
+        }
+      });
+      ctx.stroke();
+    });
 
     // X Axes
     xAxes.forEach((axis, axisIdx) => {
@@ -193,7 +352,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       lastYAxes.current = yAxes;
       draw(xAxes, yAxes);
     },
-  }), [width, height, padding, axisLayout, xAxesMetrics, labelColor, secLabelBg, leftOffsets, rightOffsets, seriesByYAxisId]);
+  }), [width, height, padding, axisLayout, xAxesMetrics, axisColor, zeroLineColor, gridColor, labelColor, secLabelBg, leftOffsets, rightOffsets, seriesByYAxisId]);
 
   useEffect(() => {
     draw(initialXAxes, initialYAxes);
@@ -202,19 +361,27 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
   const dpr = window.devicePixelRatio || 1;
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      width={width * dpr} 
-      height={height * dpr} 
-      style={{ 
-        position: 'absolute', 
-        inset: 0, 
-        width: '100%', 
-        height: '100%', 
-        pointerEvents: 'none', 
-        zIndex: 6 
-      }} 
-    />
+    <>
+      <canvas
+        ref={gridCanvasRef}
+        width={width * dpr}
+        height={height * dpr}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}
+      />
+      <canvas
+        ref={canvasRef}
+        width={width * dpr}
+        height={height * dpr}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 6
+        }}
+      />
+    </>
   );
 }));
 

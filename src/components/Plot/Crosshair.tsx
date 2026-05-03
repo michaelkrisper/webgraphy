@@ -1,5 +1,5 @@
 // src/components/Plot/Crosshair.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { worldToScreen, screenToWorld } from '../../utils/coords';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../../services/persistence';
 import { formatFullDate } from '../../utils/time';
@@ -36,6 +36,7 @@ interface CrosshairProps {
 
 const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning, xAxes, yAxes, datasets, series, tooltipColor, snapLineColor, tooltipDividerColor, tooltipSubColor }: CrosshairProps) => {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -212,13 +213,45 @@ const Crosshair = React.memo(({ containerRef, padding, width, height, isPanning,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [snap]);
 
-  if (isPanning || !pos) return null;
+  // Draw snap line on canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (snap && !isPanning) {
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = snapLineColor;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(snap.snapScreenX, padding.top);
+      ctx.lineTo(snap.snapScreenX, height - padding.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }, [snap, isPanning, snapLineColor, padding, height]);
+
+  if (isPanning || !pos) return (
+    <canvas
+      ref={canvasRef}
+      width={(width) * (window.devicePixelRatio || 1)}
+      height={(height) * (window.devicePixelRatio || 1)}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 15 }}
+    />
+  );
 
   return (
     <>
-      <svg width="100%" height="100%" className="chart-abs-fill" style={{ zIndex: 15 }}>
-        {snap && <line x1={snap.snapScreenX} y1={padding.top} x2={snap.snapScreenX} y2={height - padding.bottom} stroke={snapLineColor} strokeWidth="1" strokeDasharray="3 3" />}
-      </svg>
+      <canvas
+        ref={canvasRef}
+        width={width * (window.devicePixelRatio || 1)}
+        height={height * (window.devicePixelRatio || 1)}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 15 }}
+      />
       {snap && (
         <div className="chart-tooltip" style={{ left: snap.snapScreenX + 12, top: (pos?.y || 0) + 15, whiteSpace: 'pre', boxShadow: '0 10px 15px -3px var(--shadow)' }}>
           {snap.entries.map((group, groupIdx) => (

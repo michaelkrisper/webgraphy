@@ -1,6 +1,7 @@
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from './persistence';
 import { worldToScreen } from '../utils/coords';
 import { getColumnIndex } from '../utils/columns';
+import { m4Float32 } from '../utils/lttb';
 import { type Theme } from '../themes';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
@@ -156,6 +157,7 @@ export const exportToSVG = (
   const yAxesMap = new Map(yAxes.map(a => [a.id, a]));
 
   series.forEach(s => {
+    if (s.hidden) return;
     const ds = datasetsMap.get(s.sourceId);
     const xAxis = xAxesMap.get(ds?.xAxisId || 'axis-1');
     const yAxis = yAxesMap.get(s.yAxisId);
@@ -165,15 +167,20 @@ export const exportToSVG = (
     const yIdx = getColumnIndex(ds, s.yColumn);
     if (xIdx === -1 || yIdx === -1) return;
 
-    const xCol = ds.data[xIdx], yCol = ds.data[yIdx], visibleData = [];
+    const xCol = ds.data[xIdx], yCol = ds.data[yIdx];
     const xData = xCol.data, yData = yCol.data;
-    for (let i = 0; i < ds.rowCount; i++) {
-      const vx = xData[i] + xCol.refPoint;
-      const vy = yData[i] + yCol.refPoint;
-      if (vx >= xAxis.min && vx <= xAxis.max) visibleData.push({ x: vx, y: vy });
-    }
+    // binary search visible range
+    let visStart = 0, visEnd = ds.rowCount - 1;
+    { let lo = 0, hi = ds.rowCount - 1; while (lo <= hi) { const m = (lo + hi) >>> 1; if (xData[m] + xCol.refPoint <= xAxis.min) { visStart = m; lo = m + 1; } else hi = m - 1; } }
+    { let lo = 0, hi = ds.rowCount - 1; while (lo <= hi) { const m = (lo + hi) >>> 1; if (xData[m] + xCol.refPoint >= xAxis.max) { visEnd = m; hi = m - 1; } else lo = m + 1; } }
+    if (visStart > 0) visStart--;
+    if (visEnd < ds.rowCount - 1) visEnd++;
+    const xSlice = xData.subarray(visStart, visEnd + 1);
+    const ySlice = yData.subarray(visStart, visEnd + 1);
+    const sampled = m4Float32(xSlice, xCol.refPoint, ySlice, yCol.refPoint, width);
     const seriesVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: yAxis.min, yMax: yAxis.max, width, height, padding };
-    const screenPoints = visibleData.map(p => worldToScreen(p.x, p.y, seriesVp));
+    const screenPoints: {x: number, y: number}[] = [];
+    for (let i = 0; i < sampled.x.length; i++) screenPoints.push(worldToScreen(sampled.x[i], sampled.y[i], seriesVp));
     if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
       let dashArray = ''; if (s.lineStyle === 'dashed') dashArray = 'stroke-dasharray="8,6"'; else if (s.lineStyle === 'dotted') dashArray = 'stroke-dasharray="2,4"';

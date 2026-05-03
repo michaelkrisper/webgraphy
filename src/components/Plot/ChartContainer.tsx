@@ -340,34 +340,25 @@ const ChartContainer: React.FC = () => {
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
-          <WebGLRenderer 
-            ref={webglRef} 
-            key={themeName} 
-            datasets={datasets} 
-            series={series} 
-            xAxes={xAxes} 
-            yAxes={yAxes} 
-            width={width} 
-            height={height} 
-            padding={padding} 
-            isInteracting={isInteracting} 
-            highlightedSeriesId={highlightedSeriesId} 
+          <WebGLRenderer
+            ref={webglRef}
+            key={themeName}
+            datasets={datasets}
+            series={series}
+            xAxes={xAxes}
+            yAxes={yAxes}
+            width={width}
+            height={height}
+            padding={padding}
+            isInteracting={isInteracting}
+            highlightedSeriesId={highlightedSeriesId}
             xAxesLayout={xAxesLayout}
             yAxesLayout={activeYAxesLayout}
-            xAxesMetrics={xAxesMetrics}
-            themeColors={{
-              axisColor: themeColors.axisColor,
-              zeroLineColor: themeColors.zeroLineColor,
-              gridColor: themeColors.gridColor,
-              plotBg: themeColors.plotBg
-            }}
-            leftOffsets={leftOffsets}
-            rightOffsets={rightOffsets}
-            axisLayout={axisLayout}
+            plotBg={themeColors.plotBg}
           />
         </ErrorBoundary>
       </div>
-      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
+      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} gridColor={themeColors.gridColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
       {xAxesMetrics.map(m => {
         const bY = padding.bottom - m.cumulativeOffset - m.height;
         return <div key={`wheel-x-${m.id}`} onWheel={e => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={e => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={e => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={e => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />;
