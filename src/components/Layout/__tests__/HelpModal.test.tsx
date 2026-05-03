@@ -15,17 +15,20 @@ describe('HelpModal', () => {
     expect(screen.getByText('Plot Area')).toBeInTheDocument();
     expect(screen.getByText('Axes (X & Y)')).toBeInTheDocument();
     expect(screen.getByText('Keyboard')).toBeInTheDocument();
-    expect(screen.getByText('Sidebar')).toBeInTheDocument();
+    expect(screen.getByText('Sidebar — Data')).toBeInTheDocument();
+    expect(screen.getByText('Sidebar — Series')).toBeInTheDocument();
+    expect(screen.getByText('Session & Export')).toBeInTheDocument();
+    expect(screen.getByText('UI')).toBeInTheDocument();
 
     // Check specific instructions
     expect(screen.getByText('Zoom in and out')).toBeInTheDocument();
     expect(screen.getByText('Pan the chart')).toBeInTheDocument();
-    expect(screen.getByText('Synchronize all active X-axes (Zoom/Pan/Keys)')).toBeInTheDocument();
+    expect(screen.getByText('Synchronize all X-axes (zoom/pan/keys)')).toBeInTheDocument();
 
     // Check some specific content from each section
-    expect(screen.getByText('Zoom only this specific axis')).toBeInTheDocument();
-    expect(screen.getByText('Pan the X axis')).toBeInTheDocument();
-    expect(screen.getByText('Import large CSV or JSON files for high performance')).toBeInTheDocument();
+    expect(screen.getByText('Zoom only this axis')).toBeInTheDocument();
+    expect(screen.getByText('Pan X axis (animated)')).toBeInTheDocument();
+    expect(screen.getByText(/Drag to Reorder/)).toBeInTheDocument();
   });
 
   it('calls onClose when the close button is clicked', () => {

@@ -19,7 +19,8 @@
       "Bash(git commit -m 'chore: update package-lock to resolve postcss vulnerability *)",
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(npx knip *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(git commit *)"
     ]
   }
 }
