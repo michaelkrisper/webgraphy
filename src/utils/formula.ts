@@ -97,24 +97,33 @@ function evaluateFuncToken(
     case 'avgday':
     case 'sumday':
     case 'avghour':
-    case 'sumhour': {
+    case 'sumhour':
+    case 'avgminute':
+    case 'summinute':
+    case 'avgsecond':
+    case 'sumsecond': {
       if (ctx) {
         const t = rowValues[timeVarIdx];
         const date = new Date(t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000);
         let key: string;
-        if (token.value.endsWith('day')) {
+        const v = token.value;
+        if (v.endsWith('day')) {
           key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-        } else {
+        } else if (v.endsWith('hour')) {
           key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+        } else if (v.endsWith('minute')) {
+          key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}`;
+        } else {
+          key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
         }
-        if (token.value.startsWith('avg')) return ctx.avgGroup(token.id!, a, key);
+        if (v.startsWith('avg')) return ctx.avgGroup(token.id!, a, key);
         return ctx.sumGroup(token.id!, a, key);
       }
       return a;
     }
     default:
       if (ctx) {
-        const m = token.value.match(/^avg(\d+)(s|m|h|d)?$/);
+        const m = token.value.match(/^avg(\d+)(s|m|h|d)?[lcr]?$/);
         if (m) {
           const num = parseInt(m[1], 10);
           const unit = m[2];
@@ -267,12 +276,12 @@ export function compileFormula(formula: string, availableColumns: string[]): For
         name = name.toLowerCase();
         if (name === 'pi') tokens.push({ type: 'CONST', value: Math.PI });
         else if (name === 'e') tokens.push({ type: 'CONST', value: Math.E });
-        else if (['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'abs', 'exp', 'log', 'ln', 'round', 'floor', 'ceil', 'min', 'max', 'avg', 'sum', 'avgday', 'sumday', 'avghour', 'sumhour'].includes(name)) {
-          if (['avgday', 'sumday', 'avghour', 'sumhour'].includes(name)) ensureTimeColumn();
+        else if (['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'abs', 'exp', 'log', 'ln', 'round', 'floor', 'ceil', 'min', 'max', 'avg', 'sum', 'avgday', 'avgdayc', 'avgdayl', 'avgdayr', 'sumday', 'avghour', 'avghourc', 'avghourl', 'avghourr', 'sumhour', 'avgminute', 'avgminutec', 'avgminutel', 'avgminuter', 'summinute', 'avgsecond', 'avgsecondc', 'avgsecondl', 'avgsecondr', 'sumsecond'].includes(name)) {
+          if (/^(avg|sum)(day|hour|minute|second)/.test(name)) ensureTimeColumn();
           tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
         }
-        else if (/^avg\d+(s|m|h|d)?$/.test(name)) {
-          if (/[smhd]$/.test(name)) ensureTimeColumn();
+        else if (/^avg\d+((s|m|h|d)[lcr]?|[lcr])$/.test(name)) {
+          if (/^avg\d+(s|m|h|d)/.test(name)) ensureTimeColumn();
           tokens.push({ type: 'FUNC', value: name, id: funcIdCounter++ });
         }
         else if (name === 'filter') {

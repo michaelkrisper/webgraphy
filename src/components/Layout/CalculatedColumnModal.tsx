@@ -11,9 +11,13 @@ const ALL_FUNCTIONS = [
   'sin(', 'cos(', 'tan(', 'asin(', 'acos(', 'atan(',
   'sqrt(', 'abs(', 'exp(', 'log(', 'ln(', 'round(', 'floor(', 'ceil(',
   'min(', 'max(', 'avg(', 'sum(',
-  'avg5(', 'avg10(', 'avg50(', 'avg100(',
-  'avg5s(', 'avg5m(', 'avg1h(', 'avg1d(',
-  'avgDay(', 'avgHour(', 'sumDay(', 'sumHour(',
+  'avg5(', 'avg5c(', 'avg5l(', 'avg5r(', 'avg10(', 'avg50(', 'avg100(',
+  'avg5s(', 'avg5sc(', 'avg5sl(', 'avg5sr(', 'avg5m(', 'avg1h(', 'avg1hc(', 'avg1hl(', 'avg1hr(', 'avg1d(',
+  'avgDay(', 'avgDayc(', 'avgDayl(', 'avgDayr(',
+  'avgHour(', 'avgHourc(', 'avgHourl(', 'avgHourr(',
+  'avgMinute(', 'avgMinutec(', 'avgMinutel(', 'avgMinuter(',
+  'avgSecond(', 'avgSecondc(', 'avgSecondl(', 'avgSecondr(',
+  'sumDay(', 'sumHour(', 'sumMinute(', 'sumSecond(',
   'filter(',
   'linreg(', 'polyreg(', 'expreg(', 'logreg(', 'kde(',
 ];
@@ -21,18 +25,27 @@ const ALL_FUNCTIONS = [
 interface CalculatedColumnModalProps {
   dataset: Dataset;
   onClose: () => void;
+  initialName?: string;
+  initialFormula?: string;
 }
 
-export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ dataset, onClose }) => {
-  const { addCalculatedColumn } = useGraphStore();
-  const [name, setName] = useState('New Series');
-  const [formula, setFormula] = useState('');
+export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ dataset, onClose, initialName, initialFormula }) => {
+  const { addCalculatedColumn, removeCalculatedColumn } = useGraphStore();
+  const isEditing = !!initialName;
+  const [formula, setFormula] = useState(initialFormula ?? '');
+  const [name, setName] = useState(initialName ?? '');
+  const [nameUserEdited, setNameUserEdited] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync name to formula when user hasn't manually set a name
+  useEffect(() => {
+    if (!nameUserEdited) setName(formula);
+  }, [formula, nameUserEdited]);
 
   // Live validation
   useEffect(() => {
@@ -176,9 +189,24 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
       return;
     }
 
+    // Auto-close trailing missing brackets
+    const autoCloseFormula = (f: string): string => {
+      const stack: string[] = [];
+      const pairs: Record<string, string> = { '(': ')', '[': ']' };
+      const closing = new Set([')', ']']);
+      for (const ch of f) {
+        if (pairs[ch]) stack.push(pairs[ch]);
+        else if (closing.has(ch)) stack.pop();
+      }
+      return f + stack.reverse().join('');
+    };
+    const closedFormula = autoCloseFormula(formula.trim());
+    if (closedFormula !== formula.trim()) setFormula(closedFormula);
+
     setIsCalculating(true);
     try {
-      const result = await addCalculatedColumn(dataset.id, name.trim(), formula.trim());
+      if (isEditing && initialName) removeCalculatedColumn(dataset.id, initialName);
+      const result = await addCalculatedColumn(dataset.id, name.trim(), closedFormula);
       if (result.success) {
         onClose();
       } else {
@@ -192,13 +220,41 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
   };
 
   const insertColumn = (colName: string) => {
-    // Strip prefix for formula readability if it matches the current dataset pattern
     const displayName = colName.includes(': ') ? colName.split(': ')[1] : colName;
-    setFormula(prev => prev + `[${displayName}]`);
+    const insertion = `[${displayName}]`;
+    const ta = textareaRef.current;
+    const pos = ta ? ta.selectionEnd : -1;
+    setFormula(prev => {
+      if (ta && pos >= 0) return prev.slice(0, pos) + insertion + prev.slice(pos);
+      return prev + insertion;
+    });
+    requestAnimationFrame(() => {
+      if (ta) {
+        const newPos = (pos >= 0 ? pos : ta.value.length) + insertion.length;
+        ta.selectionStart = ta.selectionEnd = newPos;
+        ta.focus();
+      }
+    });
   };
 
   const insertOperator = (op: string) => {
-    setFormula(prev => prev + op);
+    const ta = textareaRef.current;
+    const pos = ta ? ta.selectionEnd : -1;
+    // If op ends with '(', auto-close and place cursor inside
+    const endsWithParen = op.endsWith('(');
+    const insertion = endsWithParen ? op + ')' : op;
+    const cursorOffset = endsWithParen ? op.length : insertion.length;
+    setFormula(prev => {
+      if (ta && pos >= 0) return prev.slice(0, pos) + insertion + prev.slice(pos);
+      return prev + insertion;
+    });
+    requestAnimationFrame(() => {
+      if (ta) {
+        const newPos = (pos >= 0 ? pos : ta.value.length - insertion.length) + cursorOffset;
+        ta.selectionStart = ta.selectionEnd = newPos;
+        ta.focus();
+      }
+    });
   };
 
   return (
@@ -207,7 +263,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
         <div className="calc-modal-header">
           <div className="calc-modal-title-row">
             <Calculator size={20} color="var(--accent)" />
-            <h2 className="modal-title">Add Calculated Series</h2>
+            <h2 className="modal-title">{isEditing ? 'Edit Calculated Series' : 'Add Calculated Series'}</h2>
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close">
             <X size={24} />
@@ -222,7 +278,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
               type="text"
               className="calc-input"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setNameUserEdited(true); }}
               placeholder="e.g. Adjusted Temperature"
               maxLength={50}
             />
@@ -314,14 +370,9 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
                   { label: 'cos(x)', insert: 'cos(', title: 'Cosine (radians)' },
                   { label: 'tan(x)', insert: 'tan(', title: 'Tangent (radians)' },
                   { label: 'log(x)', insert: 'log(', title: 'Base-10 logarithm' },
-                  { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over last N rows: avgN(col). Variants: avg10, avg100, …' },
-                  { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs (seconds), avgNm (minutes), avgNh (hours), avgNd (days). Requires a date/time X-axis column.' },
+                  { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over N rows (central by default). Alignment suffix: avg5c = central, avg5l = left/trailing, avg5r = right/leading' },
+                  { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs/avgNm/avgNh/avgNd. Central by default. Alignment suffix: avg5sc, avg5sl, avg5sr' },
                   { label: 'filter(x)', insert: 'filter(', title: 'Kalman filter (adaptive noise smoothing)' },
-                ],
-              },
-              {
-                label: 'Regression & Fitting',
-                items: [
                   { label: 'linreg', insert: 'linreg(', title: 'Linear regression: linreg([col])' },
                   { label: 'polyreg', insert: 'polyreg(', title: 'Polynomial regression: polyreg([col], degree). Default degree=3' },
                   { label: 'expreg', insert: 'expreg(', title: 'Exponential regression: expreg([col])' },

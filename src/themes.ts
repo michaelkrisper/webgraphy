@@ -61,7 +61,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     plotBg:         '#ffffff',
     axisColor:      '#24292f',  // strong axis spine — reads in print
     zeroLineColor:  '#8c959f',  // subtler reference line
-    gridColor:      '#f6f8fa',  // nearly invisible — data is the focus
+    gridColor:      '#cfd5db',
     labelColor:     '#57606a',
     secLabelBg:     'rgba(255,255,255,0.93)',
     tooltipBg:      'rgba(255,255,255,0.97)',
@@ -96,7 +96,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     plotBg:         '#0d1117',  // same as page bg — seamless
     axisColor:      '#6e7681',  // visible but not glaring
     zeroLineColor:  '#30363d',
-    gridColor:      '#161b22',  // one step above plotBg — extremely subtle
+    gridColor:      '#2d333b',
     labelColor:     '#8b949e',
     secLabelBg:     'rgba(13,17,23,0.93)',
     tooltipBg:      'rgba(22,27,34,0.97)',
@@ -117,7 +117,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     selectBg: '#000a00', selectColor: '#00ff41',
     btnBorder: '#003300', btnColor: '#00cc33',
     cardBorder: '#003300', sectionHeaderBg: '#000a00',
-    plotBg: '#000000', axisColor: '#00aa22', zeroLineColor: '#004400', gridColor: '#001500',
+    plotBg: '#000000', axisColor: '#00aa22', zeroLineColor: '#004400', gridColor: '#004d00',
     labelColor: '#00cc33', secLabelBg: 'rgba(0,0,0,0.88)',
     tooltipBg: 'rgba(0,8,0,0.96)', tooltipColor: '#00ff41', tooltipBorder: '#005500',
     snapLineColor: '#006600', tooltipDividerColor: 'rgba(0,255,65,0.1)', tooltipSubColor: '#009922',
@@ -133,7 +133,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     selectBg: '#fff0f9', selectColor: '#7b2d8b',
     btnBorder: '#f9a8d4', btnColor: '#c026d3',
     cardBorder: '#f9a8d4', sectionHeaderBg: '#fce4f0',
-    plotBg: '#fff0f9', axisColor: '#c026d3', zeroLineColor: '#f9a8d4', gridColor: '#fce4f0',
+    plotBg: '#fff0f9', axisColor: '#c026d3', zeroLineColor: '#f9a8d4', gridColor: '#e879b8',
     labelColor: '#c026d3', secLabelBg: 'rgba(255,240,249,0.9)',
     tooltipBg: 'rgba(255,240,249,0.97)', tooltipColor: '#7b2d8b', tooltipBorder: '#f9a8d4',
     snapLineColor: '#f9a8d4', tooltipDividerColor: 'rgba(244,114,182,0.15)', tooltipSubColor: '#c026d3',

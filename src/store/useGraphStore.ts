@@ -18,6 +18,7 @@ interface GraphState {
   // Actions
   addDataset: (dataset: Dataset) => void;
   addCalculatedColumn: (datasetId: string, name: string, formula: string) => Promise<{ success: boolean, error?: string }>;
+  removeCalculatedColumn: (datasetId: string, columnName: string) => void;
   updateDataset: (id: string, updates: Partial<Dataset>) => void;
   removeDataset: (id: string) => void;
   moveDataset: (id: string, delta: -1 | 1) => void;
@@ -118,21 +119,36 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const worker = new Worker(new URL('../workers/formula.worker.ts', import.meta.url), { type: 'module' });
 
       worker.onmessage = (event) => {
-        const { type, newColumn, error: workerError } = event.data;
+        const { type, newColumn, sparseXColumn, error: workerError } = event.data;
         if (type === 'success') {
-          const updatedDataset = {
-            ...dataset,
-            columns: [...dataset.columns, trimmedName],
-            data: [...dataset.data, newColumn]
-          };
-
-          set((state) => ({
-            datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d)
-          }));
-
-          persistence.saveDataset(updatedDataset);
+          if (sparseXColumn) {
+            // Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
+            const xColName = dataset.xAxisColumn;
+            const sparseRowCount = sparseXColumn.data.length;
+            const letter = String.fromCharCode(65 + get().datasets.length);
+            const sparseDataset: Dataset = {
+              id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
+              name: `${letter} - ${trimmedName}`,
+              columns: [`${letter}: ${xColName.includes(': ') ? xColName.split(': ')[1] : xColName}`, `${letter}: ${trimmedName}`],
+              data: [{ ...sparseXColumn }, { ...newColumn, formula }],
+              rowCount: sparseRowCount,
+              xAxisColumn: `${letter}: ${xColName.includes(': ') ? xColName.split(': ')[1] : xColName}`,
+              xAxisId: dataset.xAxisId,
+            };
+            get().addDataset(sparseDataset);
+            persistence.saveDataset(sparseDataset);
+          } else {
+            const updatedDataset = {
+              ...dataset,
+              columns: [...dataset.columns, trimmedName],
+              data: [...dataset.data, { ...newColumn, formula }]
+            };
+            set((state) => ({
+              datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d)
+            }));
+            persistence.saveDataset(updatedDataset);
+          }
           if (get().isLoaded) debouncedSaveState();
-
           resolve({ success: true });
         } else {
           resolve({ success: false, error: workerError || 'Worker calculation failed' });
@@ -155,6 +171,24 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         xColumnIndex: getColumnIndex(dataset, dataset.xAxisColumn)
       });
     });
+  },
+
+  removeCalculatedColumn: (datasetId, columnName) => {
+    set((state) => {
+      const dataset = state.datasets.find(d => d.id === datasetId);
+      if (!dataset) return state;
+      const colIdx = dataset.columns.indexOf(columnName);
+      if (colIdx === -1) return state;
+      const updatedDataset = {
+        ...dataset,
+        columns: dataset.columns.filter((_, i) => i !== colIdx),
+        data: dataset.data.filter((_, i) => i !== colIdx),
+      };
+      persistence.saveDataset(updatedDataset);
+      const newSeries = state.series.filter(s => !(s.sourceId === datasetId && s.yColumn === columnName));
+      return { datasets: state.datasets.map(d => d.id === datasetId ? updatedDataset : d), series: newSeries };
+    });
+    if (get().isLoaded) debouncedSaveState();
   },
 
   addDataset: (dataset) => {

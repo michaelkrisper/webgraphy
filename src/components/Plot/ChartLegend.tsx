@@ -8,7 +8,7 @@ interface ChartLegendProps {
 }
 
 export const ChartLegend: React.FC<ChartLegendProps> = ({ series, onToggleVisibility, onHighlight }) => {
-  const [position, setPosition] = useState({ x: 20, y: 20 });
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -16,7 +16,9 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, onToggleVisibi
     if ((e.target as HTMLElement).closest('[data-legend-item]')) return;
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: position.x, origY: position.y };
+    const el = containerRef.current;
+    const cur = position ?? { x: el ? el.getBoundingClientRect().left - (el.offsetParent as HTMLElement)?.getBoundingClientRect().left : 20, y: 20 };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: cur.x, origY: cur.y };
     const handleMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
       setPosition({
@@ -47,7 +49,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({ series, onToggleVisibi
       ref={containerRef}
       onMouseDown={handleMouseDown}
       className="legend-container"
-      style={{ left: position.x, top: position.y }}
+      style={position ? { left: position.x, top: position.y } : { right: 20, top: 20 }}
     >
       {visibleSeries.map(s => (
         <div

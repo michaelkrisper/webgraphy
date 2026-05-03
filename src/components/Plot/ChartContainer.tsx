@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { THEMES } from '../../themes';
-import { applyKeyboardZoom } from '../../utils/keyboard';
+import { applyKeyboardZoom, applyKeyboardPan } from '../../utils/keyboard';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset, type XAxisConfig, type YAxisConfig } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
@@ -14,6 +14,8 @@ import { AxesLayer, type AxesLayerHandle } from './AxesLayer';
 import { Crosshair } from './Crosshair';
 import { usePanZoom } from '../../hooks/usePanZoom';
 import { useAutoScale } from '../../hooks/useAutoScale';
+import { useDataImport } from '../../hooks/useDataImport';
+import { ImportSettingsDialog } from '../Layout/ImportSettingsDialog';
 import ErrorBoundary from '../ErrorBoundary';
 import { type XAxisLayout, type YAxisLayout, type XAxisMetrics } from './chartTypes';
 
@@ -32,6 +34,8 @@ const getXAxisMetrics = (isMobile: boolean, xMode: 'date' | 'numeric'): Omit<XAx
 const ChartContainer: React.FC = () => {
   // 1. Core Refs and State
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const { importFile, confirmImport, cancelImport, pendingFile } = useDataImport();
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(600);
   
@@ -209,6 +213,7 @@ const ChartContainer: React.FC = () => {
       rafId.current = null;
       const state = useGraphStore.getState();
       const kbZoom = applyKeyboardZoom(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
+      const kbPan = applyKeyboardPan(state, pressedKeysRef.current, targetXAxes.current, targetYs.current);
       
       const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(state, targetXAxes.current, targetYs.current);
 
@@ -249,7 +254,7 @@ const ChartContainer: React.FC = () => {
           }
         }
       }
-      if (kbZoom) {
+      if (kbZoom || kbPan) {
         syncViewportRef.current(false);
       }
     };
@@ -331,12 +336,26 @@ const ChartContainer: React.FC = () => {
 
   // 8. Render
   return (
+    <>
     <main className="plot-area" ref={containerRef}
       onMouseDown={(e) => handleMouseDown(e, 'all')}
       onTouchStart={(e) => handleTouchStart(e, 'all')}
       onWheel={(e) => handleWheel(e, 'all')}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files[0];
+        if (file) importFile(file);
+      }}
       style={{ position: 'relative', cursor: panTarget ? 'grabbing' : (zoomBoxState || isCtrlPressed ? 'zoom-in' : (isShiftPressed ? 'ew-resize' : 'crosshair')), backgroundColor: themeColors.plotBg, overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}
     >
+      {isDragOver && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', pointerEvents: 'none' }}>
+          <span style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 600, letterSpacing: '0.02em' }}>Drop to import</span>
+        </div>
+      )}
       {datasets.length === 0 && <div className="chart-no-data">No data</div>}
       <div className="chart-webgl-layer">
         <ErrorBoundary level="component">
@@ -358,7 +377,7 @@ const ChartContainer: React.FC = () => {
           />
         </ErrorBoundary>
       </div>
-      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} gridColor={themeColors.gridColor} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
+      <AxesLayer ref={axesLayerRef} xAxes={xAxesLayout} yAxes={activeYAxesLayout} width={width} height={height} padding={padding} series={series} axisLayout={axisLayout} xAxesMetrics={xAxesMetrics} axisColor={themeColors.axisColor} zeroLineColor={themeColors.zeroLineColor} gridColor={themeColors.gridColor} plotBg={themeColors.plotBg} labelColor={themeColors.labelColor} secLabelBg={themeColors.secLabelBg} leftOffsets={leftOffsets} rightOffsets={rightOffsets} />
       {xAxesMetrics.map(m => {
         const bY = padding.bottom - m.cumulativeOffset - m.height;
         return <div key={`wheel-x-${m.id}`} onWheel={e => { e.stopPropagation(); handleWheel(e, { xAxisId: m.id }); }} onMouseDown={e => { e.stopPropagation(); handleMouseDown(e, { xAxisId: m.id }); }} onTouchStart={e => { e.stopPropagation(); handleTouchStart(e, { xAxisId: m.id }); }} onDoubleClick={e => { e.stopPropagation(); handleAutoScaleX(m.id); }} style={{ position: 'absolute', bottom: bY, left: padding.left, right: padding.right, height: m.height, cursor: 'ew-resize', zIndex: 20 }} />;
@@ -377,6 +396,8 @@ const ChartContainer: React.FC = () => {
         </div>
       )}
     </main>
+    {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
+    </>
   );
 };
 

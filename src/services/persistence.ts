@@ -11,6 +11,7 @@ export interface DataColumn {
   refPoint: number;
   bounds: { min: number; max: number };
   data: Float32Array;
+  formula?: string;
 }
 
 export interface Dataset {

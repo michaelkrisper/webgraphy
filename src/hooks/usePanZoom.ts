@@ -363,23 +363,7 @@ export function usePanZoom({
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
         if (e.ctrlKey && ['+', '-', '=', '_'].includes(e.key)) e.preventDefault();
         pressedKeys.current.add(e.key);
-        const step = 0.15;
-        if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
-          const axes = (hoveredXAxisIdRef.current && !e.shiftKey) ? activeXAxes.filter(a => a.id === hoveredXAxisIdRef.current) : activeXAxes;
-          axes.forEach(a => {
-            const t = targetXAxes.current[a.id] || { min: a.min, max: a.max };
-            const r = t.max - t.min, d = e.key === 'ArrowLeft' ? -1 : 1;
-            targetXAxes.current[a.id] = { min: t.min + d * r * step, max: t.max + d * r * step };
-          });
-          syncViewport();
-        } else if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
-          const axes = hoveredAxisIdRef.current ? activeYAxes.filter(a => a.id === hoveredAxisIdRef.current) : activeYAxes;
-          const d = (hoveredAxisIdRef.current ? -1 : 1) * (e.key === 'ArrowUp' ? 1 : -1);
-          axes.forEach(a => {
-            const t = targetYs.current[a.id] || { min: a.min, max: a.max };
-            const r = t.max - t.min;
-            targetYs.current[a.id] = { min: t.min + d * r * step, max: t.max + d * r * step };
-          });
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           syncViewport();
         } else if (['+', '-'].includes(e.key)) {
           syncViewport();

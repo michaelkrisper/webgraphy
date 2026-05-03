@@ -19,6 +19,7 @@ interface AxesLayerProps {
   axisColor: string;
   zeroLineColor: string;
   gridColor: string;
+  plotBg: string;
   labelColor: string;
   secLabelBg: string;
   leftOffsets: Record<string, number>;
@@ -27,7 +28,7 @@ interface AxesLayerProps {
 
 const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
   xAxes: initialXAxes, yAxes: initialYAxes, width, height, padding, series, axisLayout,
-  xAxesMetrics, axisColor, zeroLineColor, gridColor, labelColor, secLabelBg, leftOffsets, rightOffsets
+  xAxesMetrics, axisColor, zeroLineColor, gridColor, plotBg, labelColor, secLabelBg, leftOffsets, rightOffsets
 }: AxesLayerProps, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,6 +59,8 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
 
     ctx.save();
     ctx.scale(dpr, dpr);
+    ctx.fillStyle = plotBg;
+    ctx.fillRect(padding.left, padding.top, chartWidth, chartHeight);
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -352,7 +355,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       lastYAxes.current = yAxes;
       draw(xAxes, yAxes);
     },
-  }), [width, height, padding, axisLayout, xAxesMetrics, axisColor, zeroLineColor, gridColor, labelColor, secLabelBg, leftOffsets, rightOffsets, seriesByYAxisId]);
+  }), [width, height, padding, axisLayout, xAxesMetrics, axisColor, zeroLineColor, gridColor, plotBg, labelColor, secLabelBg, leftOffsets, rightOffsets, seriesByYAxisId]);
 
   useEffect(() => {
     draw(initialXAxes, initialYAxes);

@@ -57,7 +57,9 @@ export const Sidebar: React.FC = () => {
   const [showImprint, setShowImprint] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
+  const removeCalculatedColumn = useGraphStore(s => s.removeCalculatedColumn);
   const [calculatingDatasetId, setCalculatingDatasetId] = useState<string | null>(null);
+  const [editingColumn, setEditingColumn] = useState<{ datasetId: string; name: string; formula: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionInputRef = useRef<HTMLInputElement>(null);
 
@@ -296,26 +298,39 @@ export const Sidebar: React.FC = () => {
 
                       <div style={{ padding: '6px 10px' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
-                          {ds.columns.map((col) => {
+                          {ds.columns.map((col, colIdx) => {
                             const isUsed = series.some(s => s.sourceId === ds.id && s.yColumn === col);
                             const isX = ds.xAxisColumn === col;
                             if (isX) return null;
+                            const colData = ds.data[colIdx];
+                            const isCalc = !!colData?.formula;
+                            const label = col.includes(': ') ? col.split(': ')[1] : col;
                             return (
-                              <button
-                                key={col}
-                                onClick={() => createSeries(ds.id, col)}
-                                style={{
-                                  fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
-                                  border: `1px solid ${t.accent}`,
-                                  backgroundColor: t.bg3,
-                                  color: t.accent,
-                                  cursor: 'pointer',
-                                  fontWeight: '600',
-                                  opacity: isUsed ? 0.7 : 1
-                                }}
-                              >
-                                {col.includes(': ') ? col.split(': ')[1] : col}
-                              </button>
+                              <div key={col} style={{ display: 'flex', border: `1px solid ${t.accent}`, backgroundColor: t.bg3, opacity: isUsed ? 0.7 : 1 }}>
+                                <button
+                                  onClick={() => createSeries(ds.id, col)}
+                                  style={{
+                                    fontSize: '0.7rem', padding: '3px 8px', borderRadius: '0',
+                                    border: 'none', background: 'none',
+                                    color: t.accent, cursor: 'pointer', fontWeight: '600',
+                                  }}
+                                  title={isCalc ? `Formula: ${colData.formula}` : col}
+                                >
+                                  {isCalc ? `ƒ ${label}` : label}
+                                </button>
+                                {isCalc && (<>
+                                  <button
+                                    onClick={() => setEditingColumn({ datasetId: ds.id, name: col, formula: colData.formula! })}
+                                    style={{ fontSize: '0.65rem', padding: '2px 4px', border: 'none', background: 'none', color: t.accent, cursor: 'pointer', borderLeft: `1px solid ${t.accent}` }}
+                                    title="Edit formula"
+                                  >✎</button>
+                                  <button
+                                    onClick={() => removeCalculatedColumn(ds.id, col)}
+                                    style={{ display: 'flex', alignItems: 'center', padding: '2px 4px', border: 'none', background: 'none', color: t.danger, cursor: 'pointer', borderLeft: `1px solid ${t.accent}` }}
+                                    title="Delete calculated column"
+                                  ><Trash2 size={10} /></button>
+                                </>)}
+                              </div>
                             );
                           })}
                         </div>
@@ -389,6 +404,10 @@ export const Sidebar: React.FC = () => {
       {/* Modals */}
       {pendingFile && <ImportSettingsDialog fileName={pendingFile.file.name} fileContent={pendingFile.preview} fileType={pendingFile.type} onConfirm={confirmImport} onCancel={cancelImport} />}
       {selectedDatasetForCalc && <CalculatedColumnModal dataset={selectedDatasetForCalc} onClose={() => setCalculatingDatasetId(null)} />}
+      {editingColumn && (() => {
+        const ds = datasets.find(d => d.id === editingColumn.datasetId);
+        return ds ? <CalculatedColumnModal dataset={ds} initialName={editingColumn.name} initialFormula={editingColumn.formula} onClose={() => setEditingColumn(null)} /> : null;
+      })()}
       {showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
