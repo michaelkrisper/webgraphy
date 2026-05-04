@@ -1,17 +1,17 @@
-export type ColumnType = 'numeric' | 'date' | 'categorical' | 'ignore';
+export type ColumnType = "numeric" | "date" | "categorical" | "ignore";
 
 export interface ColumnConfig {
-  index: number;
-  name: string;
-  type: ColumnType;
-  dateFormat?: string;
+	index: number;
+	name: string;
+	type: ColumnType;
+	dateFormat?: string;
 }
 
 export interface ImportSettings {
-  delimiter: string;
-  decimalPoint: string;
-  startRow: number;
-  commentChar: string;
-  columnConfigs: ColumnConfig[];
-  xAxisColumn?: string;
+	delimiter: string;
+	decimalPoint: string;
+	startRow: number;
+	commentChar: string;
+	columnConfigs: ColumnConfig[];
+	xAxisColumn?: string;
 }

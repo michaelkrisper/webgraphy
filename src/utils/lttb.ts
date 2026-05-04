@@ -4,47 +4,99 @@
  */
 
 export function m4Float32(
-  xData: Float32Array, xRef: number,
-  yData: Float32Array, yRef: number,
-  threshold: number  // output size; actual buckets = threshold / 4
+	xData: Float32Array,
+	yData: Float32Array,
+	threshold: number, // output size; actual buckets = threshold / 4
+	out?: { x: Float32Array; y: Float32Array },
 ): { x: Float32Array; y: Float32Array } {
-  const n = xData.length;
-  if (n <= threshold) {
-    // pass-through: copy to absolute values
-    const xOut = new Float32Array(n);
-    const yOut = new Float32Array(n);
-    for (let i = 0; i < n; i++) { xOut[i] = xData[i] + xRef; yOut[i] = yData[i] + yRef; }
-    return { x: xOut, y: yOut };
-  }
+	const n = xData.length;
+	if (n <= threshold) {
+		if (out) {
+			if (out.x.length < n) {
+				out.x = new Float32Array(n);
+				out.y = new Float32Array(n);
+			}
+			out.x.set(xData);
+			out.y.set(yData);
+			return { x: out.x.subarray(0, n), y: out.y.subarray(0, n) };
+		}
+		return { x: xData, y: yData };
+	}
 
-  const numBuckets = Math.max(1, Math.floor(threshold / 4));
-  const bucketSize = n / numBuckets;
+	const numBuckets = Math.max(1, Math.floor(threshold / 4));
+	const bucketSize = n / numBuckets;
 
-  // Collect indices (up to 4 per bucket), deduplicated, sorted
-  const indices: number[] = [];
-  for (let b = 0; b < numBuckets; b++) {
-    const start = Math.floor(b * bucketSize);
-    const end = Math.min(n - 1, Math.floor((b + 1) * bucketSize) - 1);
-    if (start > end) continue;
+	const maxPoints = numBuckets * 5;
+	let xOut = out ? out.x : new Float32Array(maxPoints);
+	let yOut = out ? out.y : new Float32Array(maxPoints);
+	if (xOut.length < maxPoints) {
+		xOut = new Float32Array(maxPoints);
+		yOut = new Float32Array(maxPoints);
+	}
 
-    let minIdx = start, maxIdx = start;
-    for (let i = start + 1; i <= end; i++) {
-      if (yData[i] < yData[minIdx]) minIdx = i;
-      if (yData[i] > yData[maxIdx]) maxIdx = i;
-    }
+	let outIdx = 0;
+	// Use a simple array instead of TypedArray for fast local access
+	const bucket = [0, 0, 0, 0, 0];
 
-    // collect: first, last, min, max — deduplicated, in position order
-    const bucket = Array.from(new Set([start, end, minIdx, maxIdx]));
-    bucket.sort((a, b) => a - b);
-    for (const idx of bucket) indices.push(idx);
-  }
+	for (let b = 0; b < numBuckets; b++) {
+		const start = Math.floor(b * bucketSize);
+		const end = Math.min(n - 1, Math.floor((b + 1) * bucketSize) - 1);
+		if (start > end) continue;
 
-  const m = indices.length;
-  const xOut = new Float32Array(m);
-  const yOut = new Float32Array(m);
-  for (let i = 0; i < m; i++) {
-    xOut[i] = xData[indices[i]] + xRef;
-    yOut[i] = yData[indices[i]] + yRef;
-  }
-  return { x: xOut, y: yOut };
+		let minIdx = -1,
+			maxIdx = -1,
+			nanIdx = -1;
+		for (let i = start; i <= end; i++) {
+			if (Number.isNaN(yData[i]) || Number.isNaN(xData[i])) {
+				if (nanIdx === -1) nanIdx = i;
+			} else {
+				if (minIdx === -1 || yData[i] < yData[minIdx]) minIdx = i;
+				if (maxIdx === -1 || yData[i] > yData[maxIdx]) maxIdx = i;
+			}
+		}
+
+		let len = 0;
+		bucket[len++] = start;
+		if (end !== start) bucket[len++] = end;
+		if (minIdx !== -1 && minIdx !== start && minIdx !== end)
+			bucket[len++] = minIdx;
+		if (
+			maxIdx !== -1 &&
+			maxIdx !== start &&
+			maxIdx !== end &&
+			maxIdx !== minIdx
+		)
+			bucket[len++] = maxIdx;
+		if (
+			nanIdx !== -1 &&
+			nanIdx !== start &&
+			nanIdx !== end &&
+			nanIdx !== minIdx &&
+			nanIdx !== maxIdx
+		)
+			bucket[len++] = nanIdx;
+
+		for (let i = 1; i < len; i++) {
+			const key = bucket[i];
+			let j = i - 1;
+			while (j >= 0 && bucket[j] > key) {
+				bucket[j + 1] = bucket[j];
+				j = j - 1;
+			}
+			bucket[j + 1] = key;
+		}
+
+		for (let i = 0; i < len; i++) {
+			const idx = bucket[i];
+			xOut[outIdx] = xData[idx];
+			yOut[outIdx] = yData[idx];
+			outIdx++;
+		}
+	}
+
+	if (out) {
+		out.x = xOut;
+		out.y = yOut;
+	}
+	return { x: xOut.subarray(0, outIdx), y: yOut.subarray(0, outIdx) };
 }

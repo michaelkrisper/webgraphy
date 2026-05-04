@@ -1,20 +1,20 @@
-import React from 'react';
-import { Modal } from './Modal';
+import type React from "react";
+import { Modal } from "./Modal";
 
 interface LicenseModalProps {
-  onClose: () => void;
+	onClose: () => void;
 }
 
 export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
-  return (
-    <Modal
-      onClose={onClose}
-      title="License"
-      maxWidth="600px"
-      ariaLabel="Close License"
-    >
-      <div className="license-text">
-{`MIT License
+	return (
+		<Modal
+			onClose={onClose}
+			title="License"
+			maxWidth="600px"
+			ariaLabel="Close License"
+		>
+			<div className="license-text">
+				{`MIT License
 
 Copyright (c) 2026 Michael Krisper
 
@@ -35,11 +35,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`}
-      </div>
+			</div>
 
-      <p className="license-note">
-        This software is free to use, modify, and distribute, provided that the original copyright notice and this permission notice are included in all copies or substantial portions of the Software.
-      </p>
-    </Modal>
-  );
+			<p className="license-note">
+				This software is free to use, modify, and distribute, provided that the
+				original copyright notice and this permission notice are included in all
+				copies or substantial portions of the Software.
+			</p>
+		</Modal>
+	);
 };
