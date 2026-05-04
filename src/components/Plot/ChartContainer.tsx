@@ -737,6 +737,7 @@ const ChartContainer: React.FC = () => {
 					leftOffsets={leftOffsets}
 					rightOffsets={rightOffsets}
 					fontFamily={themeColors.fontFamily}
+					isInteracting={isInteracting}
 				/>
 				{xAxesMetrics.map((m) => {
 					const bY = padding.bottom - m.cumulativeOffset - m.height;

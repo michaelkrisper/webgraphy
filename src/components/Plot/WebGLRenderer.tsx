@@ -168,6 +168,7 @@ export const WebGLRenderer = React.memo(
 			yAxes,
 			width,
 			height,
+			isInteracting = false,
 		} = props;
 
 		const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -669,8 +670,11 @@ export const WebGLRenderer = React.memo(
 			};
 
 			drawFrameRef.current = drawFrame;
-			drawFrame(liveXAxesRef.current, liveYAxesRef.current);
-		}, [seriesMetadata]);
+			if (!isInteracting) {
+				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
+			}
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [seriesMetadata, isInteracting]);
 
 		const dpr = window.devicePixelRatio || 1;
 		return (

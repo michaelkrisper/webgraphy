@@ -31,6 +31,7 @@ interface AxesLayerProps {
 	leftOffsets: Record<string, number>;
 	rightOffsets: Record<string, number>;
 	fontFamily: string;
+	isInteracting?: boolean;
 }
 
 const AxesLayer = React.memo(
@@ -54,6 +55,7 @@ const AxesLayer = React.memo(
 				leftOffsets,
 				rightOffsets,
 				fontFamily,
+				isInteracting = false,
 			}: AxesLayerProps,
 			ref,
 		) => {
@@ -437,9 +439,11 @@ const AxesLayer = React.memo(
 			);
 
 			useEffect(() => {
-				draw(initialXAxes, initialYAxes);
+				if (!isInteracting) {
+					draw(initialXAxes, initialYAxes);
+				}
 				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [initialXAxes, initialYAxes]);
+			}, [initialXAxes, initialYAxes, isInteracting]);
 
 			const dpr = window.devicePixelRatio || 1;
 

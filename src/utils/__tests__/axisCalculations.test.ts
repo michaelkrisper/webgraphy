@@ -93,9 +93,9 @@ describe("syncAxesWithTargets", () => {
 			yAxes: [{ id: "y1", min: 0, max: 100 }],
 		};
 		const targetXAxes = { x1: { min: -10, max: 110 } };
-		const targetYs = {};
+		const targetYs: Record<string, { min: number; max: number }> = {};
 		
-		const updates = syncAxesWithTargets(state, targetXAxes, targetYs as any);
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
 		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
 		expect(updates.yUpdates).toEqual({});
 	});
