@@ -24,11 +24,12 @@ interface AxesLayerProps {
   secLabelBg: string;
   leftOffsets: Record<string, number>;
   rightOffsets: Record<string, number>;
+  fontFamily: string;
 }
 
 const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
   xAxes: initialXAxes, yAxes: initialYAxes, width, height, padding, series, axisLayout,
-  xAxesMetrics, axisColor, zeroLineColor, gridColor, plotBg, labelColor, secLabelBg, leftOffsets, rightOffsets
+  xAxesMetrics, axisColor, zeroLineColor, gridColor, plotBg, labelColor, secLabelBg, leftOffsets, rightOffsets, fontFamily
 }: AxesLayerProps, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -252,7 +253,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       if (!metrics) return;
       const baseY = height - padding.bottom + metrics.cumulativeOffset;
 
-      ctx.font = `${isMobile ? 10 : 9}px system-ui, -apple-system, sans-serif`;
+      ctx.font = `${isMobile ? 10 : 9}px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillStyle = axis.color || labelColor;
@@ -269,7 +270,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
 
       // Secondary Labels
       if (axis.ticks.secondaryLabels) {
-        ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+        ctx.font = `bold 10px ${fontFamily}`;
         ctx.textAlign = 'left';
         axis.ticks.secondaryLabels.forEach((sl: SecondaryLabel, i: number) => {
           const nextSl = axis.ticks.secondaryLabels![i + 1];
@@ -305,7 +306,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       }
 
       // Axis Title
-      ctx.font = `bold ${isMobile ? 14 : 12}px system-ui, -apple-system, sans-serif`;
+      ctx.font = `bold ${isMobile ? 14 : 12}px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillStyle = axis.color || labelColor;
@@ -326,7 +327,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       const labelX = isLeft ? spineX - 7 : spineX + 7;
       const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
 
-      ctx.font = `${isMobile ? 10 : 9}px system-ui, -apple-system, sans-serif`;
+      ctx.font = `${isMobile ? 10 : 9}px ${fontFamily}`;
       ctx.textAlign = isLeft ? 'right' : 'left';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = labelColor;
@@ -345,7 +346,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
       ctx.translate(titleX, padding.top + chartHeight / 2);
       ctx.rotate((isLeft ? -90 : 90) * Math.PI / 180);
       
-      ctx.font = `bold ${isMobile ? 14 : 12}px system-ui, -apple-system, sans-serif`;
+      ctx.font = `bold ${isMobile ? 14 : 12}px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
