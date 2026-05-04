@@ -673,7 +673,7 @@ export const WebGLRenderer = React.memo(
 			if (!isInteracting) {
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
-			// eslint-disable-next-line react-hooks/exhaustive-deps
+
 		}, [seriesMetadata, isInteracting]);
 
 		const dpr = window.devicePixelRatio || 1;

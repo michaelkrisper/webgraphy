@@ -56,7 +56,7 @@ export const exportToSVG = (
 ): string => {
 	// 1. Determine active axes and layout
 	const axisToMinDsIdx = new Map<string, number>();
-	const activeDatasetIds = new Set(series.map((s) => s.sourceId));
+	const activeDatasetIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 	datasets.forEach((d, dsIdx) => {
 		if (!activeDatasetIds.has(d.id)) return;
 		const xId = d.xAxisId || "axis-1";
@@ -353,7 +353,7 @@ export const exportToSVG = (
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
 		const title = Array.from(
-			new Set(datasetsForThisAxis.map((d) => d.xAxisColumn)),
+			datasetsForThisAxis.reduce((acc, d) => acc.add(d.xAxisColumn), new Set<string>()),
 		).join(" / ");
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
