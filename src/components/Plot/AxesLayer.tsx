@@ -449,7 +449,7 @@ const AxesLayer = React.memo(
 					drawRef.current(initialXAxes, initialYAxes);
 				}
 				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [initialXAxes, initialYAxes]);
+			}, [initialXAxes, initialYAxes, width, height]);
 
 			const dpr = window.devicePixelRatio || 1;
 
