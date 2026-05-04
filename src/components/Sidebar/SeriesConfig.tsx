@@ -139,26 +139,16 @@ export const SeriesConfigUI: React.FC<Props> = ({
 
 	return (
 		<div className={`sc-row${series.hidden ? " sc-row--hidden" : ""}`}>
-			{/* Drag Handle */}
+			{/* Combined Drag Handle & Visibility Toggle */}
 			<div
 				className="sc-drag-handle"
 				onMouseDown={onHandleMouseDown}
-				title="Drag to reorder"
-				aria-label="Drag to reorder"
-			>
-				<GripVertical size={12} />
-			</div>
-
-			{/* Visibility Toggle */}
-			<button
 				onClick={toggleVisibility}
-				className={`sc-btn sc-btn--plain`}
-				style={{ color: series.hidden ? "#94a3b8" : "var(--accent)" }}
-				title={series.hidden ? "Show Series" : "Hide Series"}
+				title={series.hidden ? "Show Series (Drag to reorder)" : "Hide Series (Drag to reorder)"}
 				aria-label={series.hidden ? "Show Series" : "Hide Series"}
 			>
-				{series.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
-			</button>
+				{series.hidden ? <EyeOff size={14} /> : <GripVertical size={14} />}
+			</div>
 
 			{/* Y Axis Cycle Button (1-9) */}
 			<button

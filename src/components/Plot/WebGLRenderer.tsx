@@ -169,6 +169,7 @@ export const WebGLRenderer = React.memo(
 			width,
 			height,
 			isInteracting = false,
+			highlightedSeriesId,
 		} = props;
 
 		const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -211,7 +212,7 @@ export const WebGLRenderer = React.memo(
 			const gl = canvas.getContext("webgl", {
 				preserveDrawingBuffer: true,
 				antialias: true,
-				alpha: true,
+				alpha: false,
 			});
 			if (!gl) return;
 			glRef.current = gl;
@@ -327,8 +328,9 @@ export const WebGLRenderer = React.memo(
 				if (!pg || !locs) return;
 
 				// Use latest props from ref to avoid stale closures
-				const { width, height, padding, highlightedSeriesId } =
+				const { width, height, padding, highlightedSeriesId, plotBg } =
 					propsRef.current;
+				const [bgR, bgG, bgB] = hexToRgba(plotBg);
 
 				const xAxesById = new Map<string, XAxisConfig>();
 				currentXAxes.forEach((a) => xAxesById.set(a.id, a));
@@ -344,7 +346,7 @@ export const WebGLRenderer = React.memo(
 					ph = height * dpr;
 
 				gl.viewport(0, 0, pw, ph);
-				gl.clearColor(0, 0, 0, 0);
+				gl.clearColor(bgR, bgG, bgB, 1);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
 				gl.useProgram(pg);
@@ -624,7 +626,7 @@ export const WebGLRenderer = React.memo(
 						if (s.pointStyle !== "none") {
 							const c = pointColorRgba;
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 5.0) * dpr);
+							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 7.0 : 4.0) * dpr);
 							const pStyle =
 								s.pointStyle === "circle"
 									? 0
@@ -674,8 +676,7 @@ export const WebGLRenderer = React.memo(
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
 
-		}, [seriesMetadata, isInteracting]);
-
+		}, [seriesMetadata, isInteracting, highlightedSeriesId]);
 		const dpr = window.devicePixelRatio || 1;
 		return (
 			<canvas

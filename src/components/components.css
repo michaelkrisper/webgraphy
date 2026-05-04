@@ -485,7 +485,7 @@
 	margin-bottom: 3px;
 	font-size: var(--mobile-font-size);
 	display: grid;
-	grid-template-columns: 18px var(--touch-target-size) repeat(
+	grid-template-columns: 24px repeat(
 			6,
 			var(--touch-target-size)
 		) 100px 1fr var(--touch-target-size);
@@ -502,7 +502,7 @@
 	width: var(--touch-target-size);
 	height: var(--touch-target-size);
 	flex-shrink: 0;
-	background: var(--bg2);
+	background: transparent;
 	border-right: 1px solid var(--border2);
 	font-size: var(--mobile-font-size);
 	color: var(--text-muted-color);
@@ -519,7 +519,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
+	width: 24px;
 	height: var(--touch-target-size);
 	background: var(--bg2);
 	border-right: 1px solid var(--border2);
@@ -545,7 +545,7 @@
 	border: none;
 	border-right: 1px solid var(--border2);
 	color: var(--text-muted-color);
-	background: var(--bg2);
+	background: transparent;
 }
 .sc-title-cell {
 	min-width: 40px;
@@ -561,7 +561,7 @@
 	font-size: var(--mobile-font-size);
 	padding: 2px 4px;
 	height: 100%;
-	background: var(--bg2);
+	background: transparent;
 	border: none;
 	outline: none;
 	color: var(--text-muted-color);
@@ -1181,7 +1181,7 @@
 }
 .sb-series-header {
 	display: grid;
-	grid-template-columns: 18px var(--touch-target-size) repeat(
+	grid-template-columns: 24px repeat(
 			6,
 			var(--touch-target-size)
 		) 100px 1fr var(--touch-target-size);
@@ -1204,6 +1204,9 @@
 }
 .sb-series-row {
 	transition: background 0.2s;
+}
+.sb-series-row:hover {
+	background-color: var(--bg3);
 }
 .sb-series-row--dragging {
 	opacity: 0.15;

@@ -114,7 +114,7 @@ export const Sidebar: React.FC = () => {
 	const rowRectsRef = useRef<{ top: number; height: number; id: string }[]>([]);
 
 	const startDrag = useCallback(
-		(seriesId: string) => {
+		(seriesId: string, startEvent: React.MouseEvent) => {
 			if (!seriesListRef.current) return;
 			const rows = Array.from(
 				seriesListRef.current.querySelectorAll<HTMLElement>("[data-series-id]"),
@@ -123,31 +123,45 @@ export const Sidebar: React.FC = () => {
 				const rect = r.getBoundingClientRect();
 				return { top: rect.top, height: rect.height, id: r.dataset.seriesId! };
 			});
-			const origIdx = rowRectsRef.current.findIndex((r) => r.id === seriesId);
-			setDragId(seriesId);
-			setDropIndex(origIdx);
+
+			const startY = startEvent.clientY;
+			let hasMoved = false;
 
 			const onMouseMove = (e: MouseEvent) => {
-				const rects = rowRectsRef.current.filter((r) => r.id !== seriesId);
-				let newIdx = rects.length;
-				for (let i = 0; i < rects.length; i++) {
-					if (e.clientY < rects[i].top + rects[i].height / 2) {
-						newIdx = i;
-						break;
-					}
+				if (!hasMoved && Math.abs(e.clientY - startY) > 5) {
+					hasMoved = true;
+					setDragId(seriesId);
+					const origIdx = rowRectsRef.current.findIndex((r) => r.id === seriesId);
+					setDropIndex(origIdx);
 				}
-				setDropIndex(newIdx);
+
+				if (hasMoved) {
+					const rects = rowRectsRef.current.filter((r) => r.id !== seriesId);
+					let newIdx = rects.length;
+					for (let i = 0; i < rects.length; i++) {
+						if (e.clientY < rects[i].top + rects[i].height / 2) {
+							newIdx = i;
+							break;
+						}
+					}
+					setDropIndex(newIdx);
+				}
 			};
 			const onMouseUp = () => {
 				window.removeEventListener("mousemove", onMouseMove);
 				window.removeEventListener("mouseup", onMouseUp);
-				setDropIndex((prevDrop) => {
-					setDragId((prevDrag) => {
-						if (prevDrag) reorderSeries(prevDrag, prevDrop ?? 0);
+				if (hasMoved) {
+					setDropIndex((prevDrop) => {
+						setDragId((prevDrag) => {
+							if (prevDrag) reorderSeries(prevDrag, prevDrop ?? 0);
+							return null;
+						});
 						return null;
 					});
-					return null;
-				});
+				} else {
+					setDragId(null);
+					setDropIndex(null);
+				}
 			};
 			window.addEventListener("mousemove", onMouseMove);
 			window.addEventListener("mouseup", onMouseUp);
@@ -823,13 +837,11 @@ export const Sidebar: React.FC = () => {
 									>
 										<div className="sb-series-header">
 											<div
-												title="Drag to reorder"
+												title="Drag to reorder or click to toggle visibility"
 												className="sb-series-header-cell"
+												style={{ width: "24px" }}
 											>
 												<ArrowUpDown size={12} />
-											</div>
-											<div title="Visibility" className="sb-series-header-cell">
-												<Eye size={12} />
 											</div>
 											<div title="Y-Axis #" className="sb-series-header-cell">
 												<Hash size={12} />
@@ -856,13 +868,13 @@ export const Sidebar: React.FC = () => {
 												title="Data Column"
 												className="sb-series-header-cell--text"
 											>
-												COL
+												Column
 											</div>
 											<div
 												title="Series Name"
 												className="sb-series-header-cell--text"
 											>
-												NAME
+												Title
 											</div>
 											<div />
 										</div>
@@ -905,8 +917,7 @@ export const Sidebar: React.FC = () => {
 														onHandleMouseDown={
 															!isGhost
 																? (e) => {
-																		e.preventDefault();
-																		startDrag(s.id);
+																		startDrag(s.id, e);
 																	}
 																: undefined
 														}
