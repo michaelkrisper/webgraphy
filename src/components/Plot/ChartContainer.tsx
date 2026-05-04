@@ -183,7 +183,7 @@ const ChartContainer: React.FC = () => {
 
   // 5. Hooks
   const { handleAutoScaleY, handleAutoScaleX } = useAutoScale({
-    isLoaded, series, activeYAxes, activeXAxesUsed,
+    isLoaded, series, datasets, xAxes, activeYAxes, activeXAxesUsed,
     padding, chartHeight, targetXAxes, targetYs, 
     syncViewport: (force) => syncViewportRef.current(force),
   });

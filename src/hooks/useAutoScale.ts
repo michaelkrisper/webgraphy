@@ -1,5 +1,5 @@
 // src/hooks/useAutoScale.ts
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useGraphStore } from '../store/useGraphStore';
 import { type YAxisConfig, type XAxisConfig, type SeriesConfig, type Dataset } from '../services/persistence';
 import { getColumnIndex } from '../utils/columns';
@@ -7,6 +7,8 @@ import { getColumnIndex } from '../utils/columns';
 interface UseAutoScaleOptions {
   isLoaded: boolean;
   series: SeriesConfig[];
+  datasets: Dataset[];
+  xAxes: XAxisConfig[];
   activeYAxes: YAxisConfig[];
   activeXAxesUsed: XAxisConfig[];
   padding: { top: number; right: number; bottom: number; left: number };
@@ -22,29 +24,61 @@ interface UseAutoScaleResult {
 }
 
 export function useAutoScale({
-  isLoaded, series, activeYAxes, activeXAxesUsed,
+  isLoaded, series, datasets, xAxes, activeYAxes, activeXAxesUsed,
   padding, chartHeight, targetXAxes, targetYs, syncViewport,
 }: UseAutoScaleOptions): UseAutoScaleResult {
   const wasEmptyRef = useRef(true);
 
+  const datasetsById = useMemo(() => {
+    const map = new Map<string, Dataset>();
+    datasets.forEach(d => map.set(d.id, d));
+    return map;
+  }, [datasets]);
+
+  const xAxesById = useMemo(() => {
+    const map = new Map<string, XAxisConfig>();
+    xAxes.forEach(a => map.set(a.id, a));
+    return map;
+  }, [xAxes]);
+
+  const activeDatasetIdsSet = useMemo(() => {
+    const set = new Set<string>();
+    series.forEach(s => set.add(s.sourceId));
+    return set;
+  }, [series]);
+
+  const seriesByYAxisId = useMemo(() => {
+    const map = new Map<string, SeriesConfig[]>();
+    series.forEach(s => {
+      if (!map.has(s.yAxisId)) map.set(s.yAxisId, []);
+      map.get(s.yAxisId)!.push(s);
+    });
+    return map;
+  }, [series]);
+
   // Use refs for dependencies to keep callbacks stable
-  const depsRef = useRef({ padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport });
-  depsRef.current = { padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport };
+  const depsRef = useRef({
+    padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport,
+    datasets, xAxes, datasetsById, xAxesById, activeDatasetIdsSet, seriesByYAxisId
+  });
+  depsRef.current = {
+    padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport,
+    datasets, xAxes, datasetsById, xAxesById, activeDatasetIdsSet, seriesByYAxisId
+  };
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
-    const { padding: p, chartHeight: ch, syncViewport: sv } = depsRef.current;
-    const state = useGraphStore.getState();
-    const axisSeries = state.series.filter(s => s.yAxisId === axisId);
-    if (axisSeries.length === 0) return;
+    const {
+      padding: p, chartHeight: ch, syncViewport: sv,
+      datasetsById: dsById, xAxesById: xaById, seriesByYAxisId: sByY
+    } = depsRef.current;
+
+    const axisSeries = sByY.get(axisId);
+    if (!axisSeries || axisSeries.length === 0) return;
     
     let yMin = Infinity, yMax = -Infinity;
-    const datasetsByIdLocal = new Map<string, Dataset>();
-    state.datasets.forEach(d => datasetsByIdLocal.set(d.id, d));
-    const xAxesByIdLocal = new Map<string, XAxisConfig>();
-    state.xAxes.forEach(a => xAxesByIdLocal.set(a.id, a));
 
     axisSeries.forEach(s => {
-      const ds = datasetsByIdLocal.get(s.sourceId);
+      const ds = dsById.get(s.sourceId);
       if (!ds) return;
       const yIdx = getColumnIndex(ds, s.yColumn);
       if (yIdx === -1) return;
@@ -59,7 +93,7 @@ export function useAutoScale({
         }
       } else {
         // Viewport-filtered fit (scroll wheel double-tap)
-        const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
+        const xAxis = xaById.get(ds?.xAxisId || 'axis-1');
         if (!xAxis) return;
         const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         if (xIdx === -1) return;
@@ -96,16 +130,18 @@ export function useAutoScale({
   }, [targetYs]);
 
   const handleAutoScaleX = useCallback((xAxisId?: string) => {
-    const { activeXAxesUsed: axUsed, syncViewport: sv } = depsRef.current;
-    const state = useGraphStore.getState();
-    if (state.datasets.length === 0) return;
-    const activeDatasetIds = new Set<string>();
-    state.series.forEach(s => activeDatasetIds.add(s.sourceId));
+    const {
+      activeXAxesUsed: axUsed, syncViewport: sv,
+      datasets: allDs, activeDatasetIdsSet: activeDsIds
+    } = depsRef.current;
+
+    if (allDs.length === 0) return;
+
     const axesToScale = xAxisId ? [xAxisId] : axUsed.map(a => a.id);
     const xs = targetXAxes.current;
     
     axesToScale.forEach(id => {
-      const activeDs = state.datasets.filter(d => (d.xAxisId || 'axis-1') === id && activeDatasetIds.has(d.id));
+      const activeDs = allDs.filter(d => (d.xAxisId || 'axis-1') === id && activeDsIds.has(d.id));
       if (activeDs.length === 0) return;
       let xMin = Infinity, xMax = -Infinity;
       activeDs.forEach(ds => {
@@ -127,27 +163,22 @@ export function useAutoScale({
     
     // If no series, there's nothing to auto-scale or check visibility for.
     // We stay in "wasEmpty" state until at least one series is added.
-    if (state.series.length === 0) {
+    if (series.length === 0) {
       wasEmptyRef.current = true;
       return;
     }
 
-    const datasetsByIdLocal = new Map<string, Dataset>();
-    state.datasets.forEach(d => datasetsByIdLocal.set(d.id, d));
-
     // Determine if we need to reset the view (e.g., first data load or no data visible)
     let shouldReset = wasEmptyRef.current;
 
-    if (!shouldReset && state.datasets.length > 0) {
+    if (!shouldReset && datasets.length > 0) {
       let hasValidData = false;
       let anyDataVisible = false;
-      const xAxesByIdLocal = new Map<string, XAxisConfig>();
-      state.xAxes.forEach(a => xAxesByIdLocal.set(a.id, a));
 
       const EPSILON = 1e-10;
-      state.series.forEach(s => {
-        const ds = datasetsByIdLocal.get(s.sourceId);
-        const xAxis = xAxesByIdLocal.get(ds?.xAxisId || 'axis-1');
+      series.forEach(s => {
+        const ds = datasetsById.get(s.sourceId);
+        const xAxis = xAxesById.get(ds?.xAxisId || 'axis-1');
         if (!ds || !xAxis) return;
         const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const xCol = ds.data[xIdx];
@@ -163,7 +194,7 @@ export function useAutoScale({
       if (hasValidData && !anyDataVisible) shouldReset = true;
     }
 
-    if (shouldReset && state.datasets.length > 0) {
+    if (shouldReset && datasets.length > 0) {
       // Mark as no longer empty immediately to prevent re-entry before state update
       wasEmptyRef.current = false;
       
@@ -172,8 +203,8 @@ export function useAutoScale({
       
       // Calculate X bounds per axis
       const xBounds = new Map<string, { min: number; max: number }>();
-      state.series.forEach(s => {
-        const ds = datasetsByIdLocal.get(s.sourceId);
+      series.forEach(s => {
+        const ds = datasetsById.get(s.sourceId);
         if (!ds) return;
         const xIdx = getColumnIndex(ds, ds.xAxisColumn);
         const col = ds.data[xIdx];
@@ -199,19 +230,13 @@ export function useAutoScale({
       });
 
       // Calculate Y bounds per axis
-      const seriesByYAxisIdLocal = new Map<string, SeriesConfig[]>();
-      state.series.forEach(s => {
-        if (!seriesByYAxisIdLocal.has(s.yAxisId)) seriesByYAxisIdLocal.set(s.yAxisId, []);
-        seriesByYAxisIdLocal.get(s.yAxisId)!.push(s);
-      });
-
       const ys = targetYs.current;
-      depsRef.current.activeYAxes.forEach(axis => {
-        const axisSeries = seriesByYAxisIdLocal.get(axis.id) || [];
+      activeYAxes.forEach(axis => {
+        const axisSeries = seriesByYAxisId.get(axis.id) || [];
         if (axisSeries.length === 0) return;
         let yMin = Infinity, yMax = -Infinity;
         axisSeries.forEach(s => {
-          const ds = datasetsByIdLocal.get(s.sourceId);
+          const ds = datasetsById.get(s.sourceId);
           if (!ds) return;
           const yIdx = getColumnIndex(ds, s.yColumn);
           const yCol = ds.data[yIdx];
@@ -235,7 +260,7 @@ export function useAutoScale({
         syncViewport();
       }
     }
-  }, [isLoaded, syncViewport, series, targetXAxes, targetYs]);
+  }, [isLoaded, syncViewport, series, datasets, datasetsById, xAxesById, seriesByYAxisId, activeYAxes, targetXAxes, targetYs]);
 
   // New series detection
   const prevSeriesRef = useRef(series);
