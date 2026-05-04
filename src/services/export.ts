@@ -196,10 +196,10 @@ export const exportToSVG = (
     if (visEnd < ds.rowCount - 1) visEnd++;
     const xSlice = xData.subarray(visStart, visEnd + 1);
     const ySlice = yData.subarray(visStart, visEnd + 1);
-    const sampled = m4Float32(xSlice, xCol.refPoint, ySlice, yCol.refPoint, width);
+    const sampled = m4Float32(xSlice, ySlice, width);
     const seriesVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: yAxis.min, yMax: yAxis.max, width, height, padding };
     const screenPoints: {x: number, y: number}[] = [];
-    for (let i = 0; i < sampled.x.length; i++) screenPoints.push(worldToScreen(sampled.x[i], sampled.y[i], seriesVp));
+    for (let i = 0; i < sampled.x.length; i++) screenPoints.push(worldToScreen(sampled.x[i] + xCol.refPoint, sampled.y[i] + yCol.refPoint, seriesVp));
     if (screenPoints.length > 1 && s.lineStyle !== 'none') {
       const pathData = screenPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
       let dashArray = ''; if (s.lineStyle === 'dashed') dashArray = 'stroke-dasharray="8,6"'; else if (s.lineStyle === 'dotted') dashArray = 'stroke-dasharray="2,4"';

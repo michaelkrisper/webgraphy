@@ -371,20 +371,15 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
         const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
         const decimated = sliceLen > pixelBudget
-          ? m4Float32(sliceX, xRef, sliceY, colY.refPoint, pixelBudget)
+          ? m4Float32(sliceX, sliceY, pixelBudget)
           : null; // use raw slice directly
 
         const drawCount = decimated ? decimated.x.length : sliceLen;
 
-        // Uniforms: decimated uses absolute coords (refPoint baked in by m4Float32), raw uses relative
         const xScaleVal = (chartWidth * dpr) / xRange;
-        const xOffsetVal = decimated
-          ? (padding.left * dpr) - xAxis.min * xScaleVal
-          : (padding.left * dpr) - (xAxis.min - xRef) * xScaleVal;
+        const xOffsetVal = (padding.left * dpr) - (xAxis.min - xRef) * xScaleVal;
         const yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-        const yOffsetVal = decimated
-          ? ((height - padding.bottom) * dpr) - yAxis.min * yScaleVal
-          : ((height - padding.bottom) * dpr) - (yAxis.min - colY.refPoint) * yScaleVal;
+        const yOffsetVal = ((height - padding.bottom) * dpr) - (yAxis.min - colY.refPoint) * yScaleVal;
 
         // Upload to a per-series dynamic buffer (STREAM_DRAW — changes every frame when zooming)
         const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
@@ -436,8 +431,6 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
           } else {
             const segSrcX = decimated ? decimated.x : sliceX;
             const segSrcY = decimated ? decimated.y : sliceY;
-            // decimated: absolute coords (refPoint baked in) — matches absolute uniform offset
-            // raw slice: relative coords — matches relative uniform offset; no extra ref needed
             const getSegX = (i: number) => segSrcX[i];
             const getSegY = (i: number) => segSrcY[i];
 

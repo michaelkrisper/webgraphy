@@ -4,17 +4,14 @@
  */
 
 export function m4Float32(
-  xData: Float32Array, xRef: number,
-  yData: Float32Array, yRef: number,
+  xData: Float32Array,
+  yData: Float32Array,
   threshold: number  // output size; actual buckets = threshold / 4
 ): { x: Float32Array; y: Float32Array } {
   const n = xData.length;
   if (n <= threshold) {
-    // pass-through: copy to absolute values
-    const xOut = new Float32Array(n);
-    const yOut = new Float32Array(n);
-    for (let i = 0; i < n; i++) { xOut[i] = xData[i] + xRef; yOut[i] = yData[i] + yRef; }
-    return { x: xOut, y: yOut };
+    // pass-through
+    return { x: xData, y: yData };
   }
 
   const numBuckets = Math.max(1, Math.floor(threshold / 4));
@@ -43,8 +40,8 @@ export function m4Float32(
   const xOut = new Float32Array(m);
   const yOut = new Float32Array(m);
   for (let i = 0; i < m; i++) {
-    xOut[i] = xData[indices[i]] + xRef;
-    yOut[i] = yData[indices[i]] + yRef;
+    xOut[i] = xData[indices[i]];
+    yOut[i] = yData[indices[i]];
   }
   return { x: xOut, y: yOut };
 }
