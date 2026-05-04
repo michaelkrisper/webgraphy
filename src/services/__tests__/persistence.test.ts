@@ -263,53 +263,136 @@ describe('persistence', () => {
         await persistence.clearAppState();
         expect(mockDb.delete).toHaveBeenCalledWith('app_state', 'webgraphy-state');
     });
+
+    it('should catch error and log when saving invalid state', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        try {
+            const invalidState = { xAxes: [{ id: 'axis-1', min: 'invalid' }] } as unknown as AppState;
+
+            await persistence.saveAppState(invalidState);
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+              'Failed to save state to IndexedDB:',
+              expect.any(Error)
+            );
+        } finally {
+            consoleSpy.mockRestore();
+        }
+    });
+
+    it('should catch error and log when db.put throws', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const mockDb = {
+                objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+                put: vi.fn().mockRejectedValueOnce(new Error('Write failed')),
+            };
+            // Reset DB to ensure our mocked put gets called
+            vi.resetModules();
+            const idbMock = await import('idb');
+            const openDBMockInner = vi.mocked(idbMock.openDB);
+            openDBMockInner.mockResolvedValueOnce(mockDb);
+            const persistenceModule = await import('../persistence');
+            const localPersistence = persistenceModule.persistence;
+
+            const state: AppState = {
+                xAxes: [{ id: 'axis-1', name: 'X', min: 0, max: 100, showGrid: true, xMode: 'numeric' }],
+                yAxes: [],
+                series: [],
+                axisTitles: { x: '', y: '' }
+            };
+
+            await localPersistence.saveAppState(state);
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+              'Failed to save state to IndexedDB:',
+              expect.any(Error)
+            );
+        } finally {
+            consoleSpy.mockRestore();
+        }
+    });
   });
 
   describe('persistence error handling', () => {
     it('should propagate error when openDB fails', async () => {
-      openDBMock.mockRejectedValueOnce(new Error('Failed to open IndexedDB'));
+        vi.resetModules();
+        const idbMock = await import('idb');
+        const openDBMockInner = vi.mocked(idbMock.openDB);
+        openDBMockInner.mockRejectedValueOnce(new Error('Failed to open IndexedDB'));
+        const persistenceModule = await import('../persistence');
+        const localPersistence = persistenceModule.persistence;
 
-      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
+        const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
 
-      await expect(persistence.saveDataset(dataset)).rejects.toThrow('Failed to open IndexedDB');
+        await expect(localPersistence.saveDataset(dataset)).rejects.toThrow('Failed to open IndexedDB');
     });
 
     it('should propagate error when quota exceeded', async () => {
-      const mockDb = {
-        put: vi.fn().mockRejectedValueOnce(new DOMException('QuotaExceededError')),
-      };
-      openDBMock.mockResolvedValueOnce(mockDb);
+        const mockDb = {
+            objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+            put: vi.fn().mockRejectedValueOnce(new DOMException('QuotaExceededError')),
+        };
 
-      const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
+        vi.resetModules();
+        const idbMock = await import('idb');
+        const openDBMockInner = vi.mocked(idbMock.openDB);
+        openDBMockInner.mockResolvedValueOnce(mockDb);
+        const persistenceModule = await import('../persistence');
+        const localPersistence = persistenceModule.persistence;
 
-      await expect(persistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
+        const dataset: Dataset = { id: '1', name: 'test', columns: [], data: [], rowCount: 0, xAxisColumn: 'X', xAxisId: 'axis-1' };
+
+        await expect(localPersistence.saveDataset(dataset)).rejects.toThrow('QuotaExceededError');
     });
 
     it('should propagate errors if db.get fails', async () => {
-      const mockDb = {
-        get: vi.fn().mockRejectedValueOnce(new Error('Read failed')),
-      };
-      openDBMock.mockResolvedValueOnce(mockDb);
+        const mockDb = {
+            objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+            get: vi.fn().mockRejectedValueOnce(new Error('Read failed')),
+        };
 
-      await expect(persistence.loadDataset('1')).rejects.toThrow('Read failed');
+        vi.resetModules();
+        const idbMock = await import('idb');
+        const openDBMockInner = vi.mocked(idbMock.openDB);
+        openDBMockInner.mockResolvedValueOnce(mockDb);
+        const persistenceModule = await import('../persistence');
+        const localPersistence = persistenceModule.persistence;
+
+        await expect(localPersistence.loadDataset('1')).rejects.toThrow('Read failed');
     });
 
     it('should propagate errors if db.getAll fails', async () => {
-      const mockDb = {
-        getAll: vi.fn().mockRejectedValueOnce(new Error('Read all failed')),
-      };
-      openDBMock.mockResolvedValueOnce(mockDb);
+        const mockDb = {
+            objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+            getAll: vi.fn().mockRejectedValueOnce(new Error('Read all failed')),
+        };
 
-      await expect(persistence.getAllDatasets()).rejects.toThrow('Read all failed');
+        vi.resetModules();
+        const idbMock = await import('idb');
+        const openDBMockInner = vi.mocked(idbMock.openDB);
+        openDBMockInner.mockResolvedValueOnce(mockDb);
+        const persistenceModule = await import('../persistence');
+        const localPersistence = persistenceModule.persistence;
+
+        await expect(localPersistence.getAllDatasets()).rejects.toThrow('Read all failed');
     });
 
     it('should propagate errors if db.delete fails', async () => {
-      const mockDb = {
-        delete: vi.fn().mockRejectedValueOnce(new Error('Delete failed')),
-      };
-      openDBMock.mockResolvedValueOnce(mockDb);
+        const mockDb = {
+            objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+            delete: vi.fn().mockRejectedValueOnce(new Error('Delete failed')),
+        };
 
-      await expect(persistence.deleteDataset('1')).rejects.toThrow('Delete failed');
+        vi.resetModules();
+        const idbMock = await import('idb');
+        const openDBMockInner = vi.mocked(idbMock.openDB);
+        openDBMockInner.mockResolvedValueOnce(mockDb);
+        const persistenceModule = await import('../persistence');
+        const localPersistence = persistenceModule.persistence;
+
+        await expect(localPersistence.deleteDataset('1')).rejects.toThrow('Delete failed');
     });
   });
 });
