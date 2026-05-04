@@ -311,5 +311,19 @@ describe('persistence', () => {
 
       await expect(persistence.deleteDataset('1')).rejects.toThrow('Delete failed');
     });
+
+    it('should catch error when clearAppState fails', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const error = new Error('Delete failed');
+      const mockDb = {
+        delete: vi.fn().mockRejectedValueOnce(error),
+      };
+      openDBMock.mockResolvedValueOnce(mockDb);
+
+      await persistence.clearAppState();
+
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to clear state from IndexedDB:', error);
+      consoleSpy.mockRestore();
+    });
   });
 });
