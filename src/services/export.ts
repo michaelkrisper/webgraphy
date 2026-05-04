@@ -3,6 +3,7 @@ import { worldToScreen } from '../utils/coords';
 import { getColumnIndex } from '../utils/columns';
 import { m4Float32 } from '../utils/lttb';
 import { type Theme } from '../themes';
+import { formatAxisLabel, calcNumericPrecision, calcNumericStep } from '../utils/axisCalculations';
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
@@ -92,7 +93,7 @@ export const exportToSVG = (
     const actualStep = finalStep * magnitude;
     const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
     
-    const widestVal = Math.max(axis.min.toFixed(precision).length, axis.max.toFixed(precision).length);
+    const widestVal = Math.max(formatAxisLabel(axis.min, precision).length, formatAxisLabel(axis.max, precision).length);
     return widestVal * 6 + AXIS_WIDTH_BASE;
   };
 
@@ -254,7 +255,7 @@ export const exportToSVG = (
       const { x } = worldToScreen(t, 0, vp);
       if (x < padding.left || x > width - padding.right) continue;
       svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${theme.axisColor}" stroke-width="1" />`;
-      const label = axis.xMode === 'date' ? formatDate(t, xStep) : t.toFixed(xPrecision);
+      const label = axis.xMode === 'date' ? formatDate(t, xStep) : formatAxisLabel(t, xPrecision);
       svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="${theme.labelColor}">${label}</text>`;
     }
 
@@ -287,7 +288,7 @@ export const exportToSVG = (
       const { y } = worldToScreen(mainXConf.min, t, { xMin: mainXConf.min, xMax: mainXConf.max, yMin: axis.min, yMax: axis.max, width, height, padding });
       svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${theme.axisColor}" stroke-width="1" />`;
       const labelX = xPos + axisWidth - 8;
-      svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="${theme.labelColor}">${t.toFixed(precision)}</text>`;
+      svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
     }
 
     const axisSeries = series.filter(s => s.yAxisId === axis.id);

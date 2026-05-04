@@ -11,7 +11,16 @@ export function calcNumericStep(range: number, maxTicks: number): number {
 
 /** Decimal places needed to display a step value. */
 export function calcNumericPrecision(step: number): number {
-  return Math.max(0, -Math.floor(Math.log10(step || 1)));
+  return Math.min(20, Math.max(0, -Math.floor(Math.log10(step || 1))));
+}
+
+export function formatAxisLabel(val: number, precision: number): string {
+  if (Math.abs(val) < 1e-12) return '0';
+  const str = val.toFixed(precision);
+  if (str.length > 12) {
+    return val.toExponential(Math.min(precision, 4));
+  }
+  return str;
 }
 
 /** Generate tick values from min to max for a given step (capped at 200). */

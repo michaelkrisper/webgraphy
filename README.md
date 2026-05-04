@@ -11,7 +11,7 @@ Webgraphy is a precision-focused, high-performance data visualization applicatio
 
 - **Ultra High Performance:** Render millions of data points smoothly using raw WebGL with custom high-precision shaders.
 - **Advanced Data Handling:** Multi-threaded data parsing (CSV/JSON) using Web Workers to ensure a responsive UI even with large datasets.
-- **Precision Rendering:** Raw data rendering using custom WebGL shaders for maximum visual integrity and accuracy.
+- **Precision Rendering:** Raw data rendering using custom WebGL shaders for maximum visual integrity and accuracy, utilizing relative offsets (`refPoint`) to avoid floating-point artifacts.
 - **Rich Interaction:**
   - **Interactive Axes:** Pan and zoom directly on individual X or Y axes.
   - **Box Zoom:** `Ctrl + Drag` to precisely zoom into a specific region.
@@ -22,8 +22,37 @@ Webgraphy is a precision-focused, high-performance data visualization applicatio
   - Support for up to 9 independent X and Y axes.
   - Flexible X-Axis modes (Numeric, Date/Time).
   - View Snapshots to save and recall specific zoom/pan states.
+- **Formula Support:** Add calculated columns using a powerful formula engine. Supports math operations, moving averages (`avgN`, `avgTime`, `avgGroup`, `avgDay`), and Kalman filters.
+- **Regression Analysis:** Add linear, polynomial, exponential, logarithmic, or KDE fits to your data.
 - **Robust Persistence:** Automatic state recovery across browser sessions using IndexedDB for large datasets and LocalStorage for UI configurations.
 - **Professional Export:** High-quality export of charts to PNG or SVG formats.
+
+## Interactions & Shortcuts
+
+### Plot Area
+- **Mouse Wheel:** Zoom in and out.
+- **Click & Drag:** Pan the chart.
+- **Shift + Interaction:** Synchronize all X-axes (zoom/pan/keys).
+- **CTRL + Drag:** Draw a zoom selection box.
+- **CTRL + C:** Copy current tooltip data to clipboard.
+- **Hover:** Show tooltips for nearest data points.
+- **Double Click:** Auto-scale to fit all data.
+- **Drag & Drop:** Drop a CSV/JSON file onto the chart to import.
+
+### Axes (X & Y)
+- **Mouse Wheel:** Zoom only this axis.
+- **Drag:** Pan only this axis.
+- **Double Click:** Auto-scale this axis.
+- **CTRL + Double Click (Y):** Auto-scale to top or bottom half.
+- **Click on Title:** Rename the axis.
+
+### Keyboard
+- **← →:** Pan X axis (animated).
+- **↑ ↓:** Pan Y axis (hovered axis, or all).
+- **+ / =:** Zoom in (X and Y).
+- **- / _:** Zoom out (X and Y).
+- **Shift + ← →:** Pan all X-axes together.
+- **CTRL + + / -:** Zoom only X axis.
 
 ## Core Technologies
 
@@ -31,7 +60,7 @@ Webgraphy is a precision-focused, high-performance data visualization applicatio
 - **Rendering:** Raw WebGL (Custom Shaders)
 - **State Management:** Zustand
 - **Persistence:** IndexedDB (`idb`), LocalStorage
-- **Concurrency:** Web Workers
+- **Concurrency:** Web Workers for data processing and formula calculation.
 
 ## Development
 
@@ -51,6 +80,18 @@ npm run dev
 
 ```bash
 npm run build
+```
+
+### Linting
+
+```bash
+npm run lint
+```
+
+### Testing
+
+```bash
+npm run test
 ```
 
 ### Deploy to GitHub Pages

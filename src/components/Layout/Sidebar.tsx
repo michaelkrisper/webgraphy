@@ -6,7 +6,7 @@ import { THEMES, type ThemeName } from '../../themes';
 import { buildSeriesConfig } from '../../utils/series';
 import { SeriesConfigUI } from '../Sidebar/SeriesConfig';
 import ErrorBoundary from '../ErrorBoundary';
-import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Columns, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
+import { FilePlus, Trash2, ChevronRight, ChevronDown, HelpCircle, X, Eye, FileImage, Image, Calculator, ArrowUpDown, Hash, MoveHorizontal, Rows, Square, Minus, Circle, Palette, Sun, Moon, Terminal, Sparkles, List, FlaskConical, RotateCcw, Save, FolderOpen, Clock } from 'lucide-react';
 import { ImportSettingsDialog } from './ImportSettingsDialog';
 import { CalculatedColumnModal } from './CalculatedColumnModal';
 
@@ -251,7 +251,7 @@ export const Sidebar: React.FC = () => {
             {hdrBtn(handleLoadSession, <FolderOpen size={16} />, 'Load Session')}
             {hdrSep}
             <span className="sb-spacer" />
-            {hdrBtn(() => { const ax = xAxes[0]; if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid }); }, <Columns size={16} />, xAxes[0]?.showGrid ? 'Hide Vertical Grid' : 'Show Vertical Grid', xAxes[0]?.showGrid ? 'var(--accent)' : undefined)}
+            {hdrBtn(() => { const ax = xAxes[0]; if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid }); }, xAxes[0]?.showGrid ? <Rows size={16} style={{ transform: 'rotate(90deg)' }} /> : <Square size={16} />, xAxes[0]?.showGrid ? 'Hide Vertical Grid' : 'Show Vertical Grid', xAxes[0]?.showGrid ? 'var(--accent)' : undefined)}
             {hdrBtn(() => setLegendVisible(!legendVisible), <List size={16} />, legendVisible ? 'Hide Legend' : 'Show Legend', legendVisible ? 'var(--accent)' : undefined)}
             {hdrBtn(cycleTheme, THEME_ICONS[themeName] as React.ReactElement, THEME_LABELS[themeName])}
             {hdrSep}

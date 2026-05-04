@@ -7,7 +7,7 @@ import { applyKeyboardZoom, applyKeyboardPan } from '../../utils/keyboard';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset, type XAxisConfig, type YAxisConfig } from '../../services/persistence';
 import { getTimeStep, generateTimeTicks, generateSecondaryLabels } from '../../utils/time';
-import { calcNumericStep, calcNumericPrecision, calcNumericTicks, calcYAxisTicks, syncAxesWithTargets, type AxesFrame } from '../../utils/axisCalculations';
+import { calcNumericStep, calcNumericPrecision, calcNumericTicks, calcYAxisTicks, syncAxesWithTargets, formatAxisLabel, type AxesFrame } from '../../utils/axisCalculations';
 import { WebGLRenderer, type WebGLRendererHandle } from './WebGLRenderer';
 import { ChartLegend } from './ChartLegend';
 import { AxesLayer, type AxesLayerHandle } from './AxesLayer';
@@ -85,8 +85,8 @@ const ChartContainer: React.FC = () => {
     activeYAxes.forEach(axis => {
       const step = calcNumericStep(axis.max - axis.min, Math.max(2, Math.floor(height / 30)));
       const precision = calcNumericPrecision(step);
-      const widestValChars = Math.max(axis.min.toFixed(precision).length, axis.max.toFixed(precision).length);
-      const labelWidth = widestValChars * 6;
+      const widestValChars = Math.max(formatAxisLabel(axis.min, precision).length, formatAxisLabel(axis.max, precision).length);
+      const labelWidth = Math.min(100, widestValChars * 6);
       layout[axis.id] = { label: labelWidth, total: labelWidth + 24 };
     });
     return layout;

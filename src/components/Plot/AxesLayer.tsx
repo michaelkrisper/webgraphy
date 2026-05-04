@@ -2,6 +2,7 @@ import React, { useMemo, useImperativeHandle, forwardRef, useRef, useEffect } fr
 import { type SeriesConfig } from '../../services/persistence';
 import { type SecondaryLabel } from '../../utils/time';
 import { type XAxisLayout, type YAxisLayout, type XAxisMetrics } from './chartTypes';
+import { formatAxisLabel } from '../../utils/axisCalculations';
 
 export interface AxesLayerHandle {
   redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => void;
@@ -263,7 +264,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
         const normX = (timestamp - axis.min) / (axis.max - axis.min);
         if (normX < 0 || normX > 1) return;
         const x = padding.left + normX * chartWidth;
-        const label = typeof t === 'number' ? (Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.ticks.precision)) : t.label;
+        const label = typeof t === 'number' ? formatAxisLabel(t, axis.ticks.precision) : t.label;
         ctx.fillText(label, x, baseY + metrics.labelBottom - (isMobile ? 10 : 9));
       });
 
@@ -336,7 +337,7 @@ const AxesLayer = React.memo(forwardRef<AxesLayerHandle, AxesLayerProps>(({
         const normY = (t - axis.min) / (axis.max - axis.min);
         if (normY < 0 || normY > 1) return;
         const y = padding.top + (1 - normY) * chartHeight;
-        const label = Math.abs(t) < 1e-12 ? '0' : t.toFixed(axis.precision);
+        const label = formatAxisLabel(t, axis.precision);
         ctx.fillText(label, labelX, y);
       });
 
