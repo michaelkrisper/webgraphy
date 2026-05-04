@@ -182,8 +182,6 @@ export const WebGLRenderer = React.memo(
 		const segParamsRef = useRef<Map<string, string>>(new Map());
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
-		const isInteractingRef = useRef(isInteracting);
-		isInteractingRef.current = isInteracting;
 		const drawFrameRef = useRef<
 			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
 		>(null);
@@ -213,7 +211,7 @@ export const WebGLRenderer = React.memo(
 			const gl = canvas.getContext("webgl", {
 				preserveDrawingBuffer: true,
 				antialias: true,
-				alpha: false,
+				alpha: true,
 			});
 			if (!gl) return;
 			glRef.current = gl;
@@ -329,9 +327,8 @@ export const WebGLRenderer = React.memo(
 				if (!pg || !locs) return;
 
 				// Use latest props from ref to avoid stale closures
-				const { width, height, padding, highlightedSeriesId, plotBg } =
+				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
-				const [bgR, bgG, bgB] = hexToRgba(plotBg);
 
 				const xAxesById = new Map<string, XAxisConfig>();
 				currentXAxes.forEach((a) => xAxesById.set(a.id, a));
@@ -347,7 +344,7 @@ export const WebGLRenderer = React.memo(
 					ph = height * dpr;
 
 				gl.viewport(0, 0, pw, ph);
-				gl.clearColor(bgR, bgG, bgB, 1);
+				gl.clearColor(0, 0, 0, 0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
 				gl.useProgram(pg);
@@ -673,11 +670,11 @@ export const WebGLRenderer = React.memo(
 			};
 
 			drawFrameRef.current = drawFrame;
-			if (!isInteractingRef.current) {
+			if (!isInteracting) {
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
-			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [seriesMetadata]);
+
+		}, [seriesMetadata, isInteracting]);
 
 		const dpr = window.devicePixelRatio || 1;
 		return (

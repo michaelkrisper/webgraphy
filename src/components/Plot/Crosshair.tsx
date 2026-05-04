@@ -263,7 +263,7 @@ const Crosshair = React.memo(
 				});
 				const dss = dsByX[xAxis.id] || [];
 				const uniqueColumns = Array.from(
-					new Set(dss.map((d: Dataset) => d.xAxisColumn)),
+					dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 				);
 				const xAxisName =
 					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];

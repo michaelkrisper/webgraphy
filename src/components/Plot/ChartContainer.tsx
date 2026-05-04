@@ -105,12 +105,12 @@ const ChartContainer: React.FC = () => {
 	}, [yAxes]);
 
 	const activeYAxes = useMemo(() => {
-		const usedIds = new Set(series.map((s) => s.yAxisId));
+		const usedIds = series.reduce((acc, s) => acc.add(s.yAxisId), new Set<string>());
 		return yAxes.filter((a) => usedIds.has(a.id));
 	}, [yAxes, series]);
 
 	const activeXAxesUsed = useMemo(() => {
-		const activeDatasetIds = new Set(series.map((s) => s.sourceId));
+		const activeDatasetIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 		const axisToMinDsIdx = new Map<string, number>();
 		datasets.forEach((d, dsIdx) => {
 			if (activeDatasetIds.has(d.id)) {
@@ -228,7 +228,7 @@ const ChartContainer: React.FC = () => {
 
 	const computeXAxesLayout = useCallback(
 		(liveXAxes: XAxisConfig[]): XAxisLayout[] => {
-			const activeDsIds = new Set(series.map((s) => s.sourceId));
+			const activeDsIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 			const dsByX: DatasetsByAxisId = {};
 			datasets.forEach((d) => {
 				if (activeDsIds.has(d.id)) {
@@ -245,7 +245,7 @@ const ChartContainer: React.FC = () => {
 						isDate = axis.xMode === "date";
 					const dss = dsByX[axis.id] || [];
 					const uniqueColumns = Array.from(
-						new Set(dss.map((d: Dataset) => d.xAxisColumn)),
+						dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 					);
 					const title =
 						dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
@@ -327,7 +327,7 @@ const ChartContainer: React.FC = () => {
 
 	const computeYAxesLayout = useCallback(
 		(liveYAxes: YAxisConfig[]): YAxisLayout[] => {
-			const usedYAxisIds = new Set(series.map((s) => s.yAxisId));
+			const usedYAxisIds = series.reduce((acc, s) => acc.add(s.yAxisId), new Set<string>());
 			return liveYAxes
 				.filter((a) => usedYAxisIds.has(a.id))
 				.map((axis) => {
@@ -555,7 +555,7 @@ const ChartContainer: React.FC = () => {
 	}, [activeYAxes, chartHeight]);
 
 	const xAxesLayout = useMemo((): XAxisLayout[] => {
-		const activeDsIds = new Set(series.map((s) => s.sourceId));
+		const activeDsIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 		const dsByX: DatasetsByAxisId = {};
 		datasets.forEach((d) => {
 			if (activeDsIds.has(d.id)) {
@@ -570,7 +570,7 @@ const ChartContainer: React.FC = () => {
 				isDate = axis.xMode === "date";
 			const dss = dsByX[axis.id] || [];
 			const uniqueColumns = Array.from(
-				new Set(dss.map((d: Dataset) => d.xAxisColumn)),
+				dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 			);
 			const title =
 				dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
