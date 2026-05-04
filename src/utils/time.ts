@@ -135,7 +135,7 @@ export function generateTimeTicks(
 	while (current <= extendedMax) {
 		ticks.push({
 			timestamp: current,
-			label: formatPrimaryLabel(current, unit),
+			label: formatPrimaryLabelFromDate(d, unit),
 		});
 
 		if (unit === "second") d.setSeconds(d.getSeconds() + value);
@@ -153,8 +153,7 @@ export function generateTimeTicks(
 	return ticks;
 }
 
-function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
-	const d = new Date(ts * 1000);
+function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 	const pad = (n: number) => String(n).padStart(2, "0");
 
 	switch (unit) {
@@ -169,12 +168,17 @@ function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
 		case "week":
 			return `${d.getDate()}.${d.getMonth() + 1}.`;
 		case "month":
-			return d.toLocaleDateString("de-DE", { month: "short" });
+			return d.toLocaleDateString(undefined, { month: "short" });
 		case "year":
 			return String(d.getFullYear());
 		default:
 			return "";
 	}
+}
+
+export function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
+	const d = new Date(ts * 1000);
+	return formatPrimaryLabelFromDate(d, unit);
 }
 
 export interface SecondaryLabel {
@@ -190,15 +194,17 @@ export function generateSecondaryLabels(
 	const labels: SecondaryLabel[] = [];
 	const { unit } = step;
 
+	const d = new Date(0);
+
 	if (unit === "second" || unit === "minute" || unit === "hour") {
-		const d = new Date(min * 1000);
+		d.setTime(min * 1000);
 		d.setHours(0, 0, 0, 0);
 		d.setDate(d.getDate() - 1); // margin
 		let current = d.getTime() / 1000;
 		while (current <= max + 86400) {
 			labels.push({
 				timestamp: current,
-				label: new Date(current * 1000).toLocaleDateString("de-DE", {
+				label: d.toLocaleDateString(undefined, {
 					day: "2-digit",
 					month: "2-digit",
 					year: "numeric",
@@ -210,7 +216,7 @@ export function generateSecondaryLabels(
 		}
 	} else {
 		// day, week, month, year
-		const d = new Date(min * 1000);
+		d.setTime(min * 1000);
 		d.setHours(0, 0, 0, 0);
 		d.setMonth(0, 1);
 		d.setFullYear(d.getFullYear() - 1); // margin
@@ -218,7 +224,7 @@ export function generateSecondaryLabels(
 		while (current <= max + 31536000) {
 			labels.push({
 				timestamp: current,
-				label: String(new Date(current * 1000).getFullYear()),
+				label: String(d.getFullYear()),
 			});
 			d.setFullYear(d.getFullYear() + 1);
 			current = d.getTime() / 1000;
@@ -230,7 +236,7 @@ export function generateSecondaryLabels(
 }
 
 export function formatFullDate(ts: number): string {
-	const s = new Date(ts * 1000).toLocaleString("de-DE", {
+	const s = new Date(ts * 1000).toLocaleString(undefined, {
 		day: "2-digit",
 		month: "2-digit",
 		year: "numeric",
