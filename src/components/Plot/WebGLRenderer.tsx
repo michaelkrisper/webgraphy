@@ -213,7 +213,7 @@ export const WebGLRenderer = React.memo(
 			const gl = canvas.getContext("webgl", {
 				preserveDrawingBuffer: true,
 				antialias: true,
-				alpha: true,
+				alpha: false,
 			});
 			if (!gl) return;
 			glRef.current = gl;
@@ -329,8 +329,9 @@ export const WebGLRenderer = React.memo(
 				if (!pg || !locs) return;
 
 				// Use latest props from ref to avoid stale closures
-				const { width, height, padding, highlightedSeriesId } =
+				const { width, height, padding, highlightedSeriesId, plotBg } =
 					propsRef.current;
+				const [bgR, bgG, bgB] = hexToRgba(plotBg);
 
 				const xAxesById = new Map<string, XAxisConfig>();
 				currentXAxes.forEach((a) => xAxesById.set(a.id, a));
@@ -346,7 +347,7 @@ export const WebGLRenderer = React.memo(
 					ph = height * dpr;
 
 				gl.viewport(0, 0, pw, ph);
-				gl.clearColor(0, 0, 0, 0);
+				gl.clearColor(bgR, bgG, bgB, 1);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
 				gl.useProgram(pg);
