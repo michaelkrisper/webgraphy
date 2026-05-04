@@ -27,14 +27,23 @@ export function m4Float32(
     const end = Math.min(n - 1, Math.floor((b + 1) * bucketSize) - 1);
     if (start > end) continue;
 
-    let minIdx = start, maxIdx = start;
-    for (let i = start + 1; i <= end; i++) {
-      if (yData[i] < yData[minIdx]) minIdx = i;
-      if (yData[i] > yData[maxIdx]) maxIdx = i;
+    let minIdx = -1, maxIdx = -1, nanIdx = -1;
+    for (let i = start; i <= end; i++) {
+      if (Number.isNaN(yData[i]) || Number.isNaN(xData[i])) {
+        if (nanIdx === -1) nanIdx = i;
+      } else {
+        if (minIdx === -1 || yData[i] < yData[minIdx]) minIdx = i;
+        if (maxIdx === -1 || yData[i] > yData[maxIdx]) maxIdx = i;
+      }
     }
 
-    // collect: first, last, min, max — deduplicated, in position order
-    const bucket = Array.from(new Set([start, end, minIdx, maxIdx]));
+    // collect: first, last, min, max, and NaN (if any) — deduplicated, in position order
+    const arr = [start, end];
+    if (minIdx !== -1) arr.push(minIdx);
+    if (maxIdx !== -1) arr.push(maxIdx);
+    if (nanIdx !== -1) arr.push(nanIdx);
+
+    const bucket = Array.from(new Set(arr));
     bucket.sort((a, b) => a - b);
     for (const idx of bucket) indices.push(idx);
   }
