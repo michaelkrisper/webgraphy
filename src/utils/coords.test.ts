@@ -141,6 +141,21 @@ describe('Coordinate Conversions', () => {
       expect(worldToScreen(0, 0, view)).toEqual({ x: 50, y: 50 });
       expect(worldToScreen(100, 100, view)).toEqual({ x: 50, y: 50 });
     });
+
+    it('handles NaN and Infinity inputs', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 500,
+      };
+
+      expect(worldToScreen(NaN, 50, view)).toEqual({ x: NaN, y: 250 });
+      expect(worldToScreen(50, NaN, view)).toEqual({ x: 500, y: NaN });
+
+      // Infinity mapping -> Infinity for normal range
+      expect(worldToScreen(Infinity, 50, view)).toEqual({ x: Infinity, y: 250 });
+      expect(worldToScreen(50, -Infinity, view)).toEqual({ x: 500, y: Infinity }); // -(-Infinity) = Infinity
+    });
   });
 
   describe('screenToWorld', () => {
@@ -221,6 +236,21 @@ describe('Coordinate Conversions', () => {
       const result = screenToWorld(50, 50, view);
       expect(Number.isNaN(result.x)).toBe(true);
       expect(Number.isNaN(result.y)).toBe(true);
+    });
+
+    it('handles NaN and Infinity inputs', () => {
+      const view: Viewport = {
+        xMin: 0, xMax: 100,
+        yMin: 0, yMax: 100,
+        width: 1000, height: 500,
+      };
+
+      expect(screenToWorld(NaN, 250, view)).toEqual({ x: NaN, y: 50 });
+      expect(screenToWorld(500, NaN, view)).toEqual({ x: 50, y: NaN });
+
+      // Infinity mapping -> Infinity for normal range
+      expect(screenToWorld(Infinity, 250, view)).toEqual({ x: Infinity, y: 50 });
+      expect(screenToWorld(500, -Infinity, view)).toEqual({ x: 50, y: Infinity }); // -(-Infinity) = Infinity
     });
   });
 
