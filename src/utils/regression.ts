@@ -204,29 +204,32 @@ export function kdeSmoothing(x: Float64Array, y: Float64Array, bandwidth?: numbe
   }
 
   const result = new Float64Array(n);
+  const weightSum = new Float64Array(n);
   const h2 = 2 * h * h;
 
-  // For performance, limit kernel evaluation to ±3σ
+  // For performance, limit kernel evaluation to ±3σ and use symmetry
   for (let i = 0; i < n; i++) {
-    let weightedSum = 0, weightSum = 0;
     const xi = x[i];
-    // Binary search for start of window
-    let lo = 0, hi = n - 1;
-    const windowMin = xi - 3 * h;
     const windowMax = xi + 3 * h;
 
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (x[mid] < windowMin) lo = mid + 1; else hi = mid;
-    }
+    // Self weight is 1.0 since dx = 0
+    result[i] += y[i];
+    weightSum[i] += 1;
 
-    for (let j = lo; j < n && x[j] <= windowMax; j++) {
+    for (let j = i + 1; j < n && x[j] <= windowMax; j++) {
       const dx = xi - x[j];
       const w = Math.exp(-(dx * dx) / h2);
-      weightedSum += w * y[j];
-      weightSum += w;
+
+      result[i] += w * y[j];
+      weightSum[i] += w;
+
+      result[j] += w * y[i];
+      weightSum[j] += w;
     }
-    result[i] = weightSum > 0 ? weightedSum / weightSum : y[i];
+  }
+
+  for (let i = 0; i < n; i++) {
+    result[i] = weightSum[i] > 0 ? result[i] / weightSum[i] : y[i];
   }
 
   return result;
