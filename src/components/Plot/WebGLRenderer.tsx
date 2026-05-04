@@ -452,19 +452,29 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
               const gapLen = ((lStyle === 1) ? 6.0 : 4.0) * dpr;
               const period = dashLen + gapLen;
 
+              const scaleX = pChartWidth / xRange;
+              const scaleY = pChartHeight / yRange;
               let cumDist = 0;
+              let ax = getSegX(drawStart);
+              let ay = getSegY(drawStart);
+
               for (let i = 0; i < numSegs; i++) {
-                const i1 = drawStart + i, i2 = drawStart + i + 1;
-                const ax = getSegX(i1), ay = getSegY(i1);
-                const bx = getSegX(i2), by = getSegY(i2);
-                const screenDx = (bx - ax) / xRange * pChartWidth;
-                const screenDy = (by - ay) / yRange * pChartHeight;
+                const i2 = drawStart + i + 1;
+                const bx = getSegX(i2);
+                const by = getSegY(i2);
+                const screenDx = (bx - ax) * scaleX;
+                const screenDy = (by - ay) * scaleY;
                 const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
                 const off = i * 12;
-                const startDist = cumDist % period;
-                sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = startDist;
-                sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = startDist;
+
+                sharedArr[off]     = ax; sharedArr[off + 1] = ay; sharedArr[off + 2] = bx; sharedArr[off + 3] = by; sharedArr[off + 4] = 0; sharedArr[off + 5] = cumDist;
+                sharedArr[off + 6] = bx; sharedArr[off + 7] = by; sharedArr[off + 8] = ax; sharedArr[off + 9] = ay; sharedArr[off + 10] = 1; sharedArr[off + 11] = cumDist;
+
                 cumDist += segScreenLen;
+                if (cumDist >= period) cumDist %= period;
+
+                ax = bx;
+                ay = by;
               }
               gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
               gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
