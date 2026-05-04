@@ -5,6 +5,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    {
+      name: 'dev-csp-plugin',
+      apply: 'serve',
+      transformIndexHtml(html) {
+        return html
+          .replace(/script-src 'self';/g, "script-src 'self' 'unsafe-inline';")
+          .replace(/style-src 'self' https/g, "style-src 'self' 'unsafe-inline' https");
+      }
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',
