@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Check, Calculator, AlertCircle } from 'lucide-react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset } from '../../services/persistence';
@@ -17,11 +17,10 @@ interface CalculatedColumnModalProps {
 export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ dataset, onClose, initialName, initialFormula }) => {
   const { addCalculatedColumn, removeCalculatedColumn } = useGraphStore();
   const isEditing = !!initialName;
-  const [name, setName] = useState(initialName ?? '');
+  const [manualName, setManualName] = useState(initialName ?? '');
   const [nameUserEdited, setNameUserEdited] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
@@ -39,14 +38,11 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
     textareaRef,
   });
 
-  // Sync name to formula when user hasn't manually set a name
-  useEffect(() => {
-    if (!nameUserEdited) setName(formula);
-  }, [formula, nameUserEdited]);
+  const currentName = nameUserEdited ? manualName : formula;
 
   // Live validation
-  useEffect(() => {
-    if (!formula.trim()) { setValidationMsg(null); return; }
+  const validationMsg = useMemo(() => {
+    if (!formula.trim()) return null;
     // Skip validation for regression formulas (handled by worker)
     const isRegression = /^(?:linreg|polyreg|expreg|logreg|kde)\s*\(/i.test(formula.trim());
     if (isRegression) {
@@ -54,22 +50,22 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
       if (colMatch) {
         const colName = colMatch[1];
         const found = dataset.columns.some(c => c === colName || c.endsWith(`: ${colName}`));
-        setValidationMsg(found ? null : `Column not found: ${colName}`);
+        return found ? null : `Column not found: ${colName}`;
       } else {
-        setValidationMsg('Expected: function([column])');
+        return 'Expected: function([column])';
       }
-      return;
     }
     const result = compileFormula(formula, dataset.columns);
-    if (result.error) setValidationMsg(result.error);
-    else setValidationMsg(null);
+    return result.error || null;
   }, [formula, dataset.columns]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
+    const nameToSubmit = currentName.trim();
+
+    if (!nameToSubmit) {
       setError('Please enter a column name.');
       return;
     }
@@ -96,27 +92,27 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
     setIsCalculating(true);
     try {
       if (isEditing && initialName) removeCalculatedColumn(dataset.id, initialName);
-      const result = await addCalculatedColumn(dataset.id, name.trim(), closedFormula);
+      const result = await addCalculatedColumn(dataset.id, nameToSubmit, closedFormula);
       if (result.success) {
         onClose();
       } else {
-        setError(result.error || 'Failed to create calculated column.');
+        setError(result.error || 'Calculation failed');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsCalculating(false);
     }
   };
 
-  const insertColumn = (colName: string) => {
-    const displayName = colName.includes(': ') ? colName.split(': ')[1] : colName;
-    insertText(`[${displayName}]`, false);
+  const insertColumn = (col: string) => {
+    const colName = col.includes(': ') ? col.split(': ')[1] : col;
+    insertText(`[${colName}]`);
   };
 
   const title = (
-    <div className="calc-modal-title-row">
-      <Calculator size={20} color="var(--accent)" />
+    <div className="modal-title-content">
+      <Calculator className="modal-title-icon" />
       <h2 className="modal-title">{isEditing ? 'Edit Calculated Series' : 'Add Calculated Series'}</h2>
     </div>
   );
@@ -125,8 +121,8 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
     <Modal
       onClose={onClose}
       title={title}
-      maxWidth="700px" // Adjusted to roughly match the original card size, maybe needs tweaking
-      padding="0" // Reset padding as original uses specific padding in inner elements
+      maxWidth="700px"
+      padding="0"
     >
         <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
           <div className="calc-field">
@@ -135,8 +131,8 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
               id="col-name"
               type="text"
               className="calc-input"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setNameUserEdited(true); }}
+              value={currentName}
+              onChange={(e) => { setManualName(e.target.value); setNameUserEdited(true); }}
               placeholder="e.g. Adjusted Temperature"
               maxLength={50}
             />

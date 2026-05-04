@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } fr
 import { type Dataset, type SeriesConfig, type YAxisConfig, type XAxisConfig } from '../../services/persistence';
 import { getColumnIndex } from '../../utils/columns';
 import { m4Float32 } from '../../utils/lttb';
+import { hexToRgba } from '../../utils/colors';
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -143,18 +144,6 @@ interface Props {
 export interface WebGLRendererHandle {
   redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
 }
-
-export const hexToRgba = (hex: string): number[] => {
-  if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7) return [0, 0, 0];
-  try {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
-    return [isNaN(r) ? 0 : r, isNaN(g) ? 0 : g, isNaN(b) ? 0 : b];
-  } catch {
-    return [0, 0, 0];
-  }
-};
 
 /**
  * WebGLRenderer Component (v0.5.2 - Optimized Lifecycle & Stable Initialization)

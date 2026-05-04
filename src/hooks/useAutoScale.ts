@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability */
 // src/hooks/useAutoScale.ts
 import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useGraphStore } from '../store/useGraphStore';
@@ -61,10 +62,13 @@ export function useAutoScale({
     padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport,
     datasets, xAxes, datasetsById, xAxesById, activeDatasetIdsSet, seriesByYAxisId
   });
-  depsRef.current = {
-    padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport,
-    datasets, xAxes, datasetsById, xAxesById, activeDatasetIdsSet, seriesByYAxisId
-  };
+
+  useEffect(() => {
+    depsRef.current = {
+      padding, chartHeight, activeXAxesUsed, activeYAxes, syncViewport,
+      datasets, xAxes, datasetsById, xAxesById, activeDatasetIdsSet, seriesByYAxisId
+    };
+  });
 
   const handleAutoScaleY = useCallback((axisId: string, mouseY?: number) => {
     const {
@@ -115,7 +119,7 @@ export function useAutoScale({
     });
 
     if (yMin !== Infinity) {
-      let nMin = yMin, nMax = yMax;
+      let nMin: number, nMax: number;
       const r = yMax - yMin || 1, pad = r * 0.05;
       if (mouseY !== undefined) {
         if (mouseY < p.top + ch / 3) { nMin = yMin - r - 3 * pad; nMax = yMax + pad; }
@@ -123,7 +127,6 @@ export function useAutoScale({
         else { nMin = yMin - pad; nMax = yMax + pad; }
       } else { nMin = yMin - pad; nMax = yMax + pad; }
       
-      // eslint-disable-next-line react-hooks/immutability
       targetYs.current[axisId] = { min: nMin, max: nMax };
       sv();
     }

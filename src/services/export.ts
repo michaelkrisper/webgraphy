@@ -268,12 +268,9 @@ export const exportToSVG = (
   activeYAxes.forEach(axis => {
     const isLeft = axis.position === 'left';
     const axisWidth = axisWidthMap[axis.id];
-    let xPos = 0;
-    if (isLeft) {
-      xPos = padding.left - (yAxesOffsets[axis.id] || 0) - axisWidth;
-    } else {
-      xPos = width - padding.right + (yAxesOffsets[axis.id] || 0);
-    }
+    const xPos = isLeft
+      ? padding.left - (yAxesOffsets[axis.id] || 0) - axisWidth
+      : width - padding.right + (yAxesOffsets[axis.id] || 0);
     
     const range = axis.max - axis.min, step = range / Math.max(2, Math.floor(chartHeight / 30));
     const firstTick = Math.ceil(axis.min / step) * step;

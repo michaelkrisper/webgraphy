@@ -339,7 +339,7 @@ async function parseJSON(file: File, settings?: ParseSettings) {
     raw = secureJSONParse(text);
   } catch (error) {
     console.error('Worker: Failed to parse JSON data:', error);
-    throw new Error('Invalid JSON format: ' + (error instanceof Error ? error.message : String(error)));
+    throw new Error('Invalid JSON format: ' + (error instanceof Error ? error.message : String(error)), { cause: error });
   }
 
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Invalid JSON format: Expected a non-empty array of objects');

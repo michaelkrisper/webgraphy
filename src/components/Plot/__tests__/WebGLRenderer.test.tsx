@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hexToRgba } from '../WebGLRenderer';
+import { hexToRgba } from '../../../utils/colors';
 
 describe('hexToRgba', () => {
   it('correctly converts valid full hex strings', () => {
