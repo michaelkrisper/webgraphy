@@ -61,6 +61,25 @@ describe("Regression Utilities", () => {
 			expect(result[3]).toBeCloseTo(9);
 		});
 
+		it("should fit a cubic curve (y = x^3)", () => {
+			const x = new Float64Array([1, 2, 3, 4]);
+			const y = new Float64Array([1, 8, 27, 64]);
+			const result = polynomialRegression(x, y, 3);
+			expect(result[0]).toBeCloseTo(1);
+			expect(result[1]).toBeCloseTo(8);
+			expect(result[2]).toBeCloseTo(27);
+			expect(result[3]).toBeCloseTo(64);
+		});
+
+		it("should handle singular matrix scenarios gracefully", () => {
+			// All X values identical -> singular matrix
+			const x = new Float64Array([2, 2, 2]);
+			const y = new Float64Array([1, 2, 3]);
+			const result = polynomialRegression(x, y, 2);
+			expect(result.length).toBe(3);
+			// Since it's singular, it will fall back to 0s for undefined terms
+		});
+
 		it("should cap degree at n-1", () => {
 			const x = new Float64Array([0, 1]);
 			const y = new Float64Array([1, 2]);
@@ -111,6 +130,20 @@ describe("Regression Utilities", () => {
 			expect(result[3]).toBeCloseTo(5, 0);
 			expect(result[6]).toBeGreaterThan(result[3]);
 		});
+
+		it("should handle zero range (flat line) gracefully", () => {
+			const x = new Float64Array([0, 1, 2]);
+			const y = new Float64Array([0, 0, 0]); // L will be 0, yRange = 0
+			const result = logisticRegression(x, y);
+			expect(result.every((v) => v === 0)).toBe(true);
+		});
+
+		it("should handle identical X values around midpoint gracefully", () => {
+			const x = new Float64Array([5, 5, 5, 5, 5]);
+			const y = new Float64Array([1, 2, 5, 8, 9]); // midpoint around idx 2
+			const result = logisticRegression(x, y);
+			expect(result.length).toBe(5);
+		});
 	});
 
 	describe("kdeSmoothing", () => {
@@ -129,6 +162,15 @@ describe("Regression Utilities", () => {
 			const result = kdeSmoothing(x, y);
 			expect(result.length).toBe(6);
 			expect(result[0]).toBeCloseTo(1, 0);
+		});
+
+		it("should fallback when stdX is 0 (all x identical)", () => {
+			const x = new Float64Array([2, 2, 2]);
+			const y = new Float64Array([1, 2, 3]);
+			const result = kdeSmoothing(x, y);
+			expect(result.length).toBe(3);
+			// When stdX is 0, weights become NaN, so it falls back to original y values.
+			expect(result[0]).toBe(1);
 		});
 	});
 });

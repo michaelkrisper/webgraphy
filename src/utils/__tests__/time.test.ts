@@ -166,6 +166,16 @@ describe("generateTimeTicks", () => {
 		]);
 	});
 
+	it("generates ticks for weeks starting on a Sunday", () => {
+		// 1970-01-04 was a Sunday. 3 days after epoch.
+		// min = 3 * 86400 = 259200. Max = min + 86400 * 14.
+		const min = 259200;
+		const max = min + 86400 * 14;
+		const ticks = generateTimeTicks(min, max, { unit: "week", value: 1 });
+		// The logic aligns to Monday. For Sunday (day 0), it subtracts 6 days to get to Monday.
+		expect(ticks.length).toBeGreaterThan(0);
+	});
+
 	it("generates ticks for months", () => {
 		// We use { unit: 'month', value: 1 }, min = 0, max = 86400 * 60 (~2 months)
 		// Expected ticks: -2678400 (margin), 0, 2678400, 5097600, 7776000 (margin)

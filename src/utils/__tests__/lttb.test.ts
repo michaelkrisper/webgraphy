@@ -119,4 +119,62 @@ describe("m4Float32", () => {
 		expect(Array.from(result.y)).toContain(500);
 		expect(Array.from(result.y)).toContain(-500);
 	});
+
+	it("should handle NaN values in data", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4]);
+		const yData = new Float32Array([0, NaN, -10, NaN, 0]);
+		const threshold = 4; // 1 bucket
+
+		const result = m4Float32(xData, yData, threshold);
+		// NaN should be included in the output if it's the first NaN in the bucket
+		expect(Number.isNaN(result.y[1])).toBe(true);
+		expect(result.x.length).toBeGreaterThan(0);
+	});
+
+	it("should reuse the out buffer if provided", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4]);
+		const yData = new Float32Array([0, 10, -10, 5, 0]);
+		const threshold = 4;
+
+		const out = {
+			x: new Float32Array(10),
+			y: new Float32Array(10),
+		};
+
+		const result = m4Float32(xData, yData, threshold, out);
+		expect(result.x.buffer).toBe(out.x.buffer);
+		expect(result.y.buffer).toBe(out.y.buffer);
+	});
+
+	it("should resize the out buffer if it is too small", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4]);
+		const yData = new Float32Array([0, 10, -10, 5, 0]);
+		const threshold = 4;
+
+		const out = {
+			x: new Float32Array(1), // Too small, needs maxPoints = 1 * 5 = 5
+			y: new Float32Array(1),
+		};
+
+		const origBuffer = out.x.buffer;
+
+		const result = m4Float32(xData, yData, threshold, out);
+		expect(result.x.buffer).not.toBe(origBuffer); // Should have created a new buffer
+		expect(out.x.length).toBeGreaterThanOrEqual(5);
+	});
+
+	it("should resize the out buffer if it is too small when n <= threshold", () => {
+		const xData = new Float32Array([1, 2, 3]);
+		const yData = new Float32Array([10, 20, 30]);
+		const threshold = 5;
+
+		const out = {
+			x: new Float32Array(1), // Too small, needs n = 3
+			y: new Float32Array(1),
+		};
+
+		const result = m4Float32(xData, yData, threshold, out);
+		expect(out.x.length).toBeGreaterThanOrEqual(3);
+		expect(Array.from(result.x)).toEqual([1, 2, 3]);
+	});
 });

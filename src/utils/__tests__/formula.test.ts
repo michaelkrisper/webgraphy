@@ -215,7 +215,7 @@ describe("compileFormula", () => {
 		expect(evalSumArgs([])).toBe(30);
 	});
 
-	it("should test sumday, avghour, sumhour", () => {
+	it("should test sumday, avghour, sumhour, avgminute, avgsecond", () => {
 		const resSumDay = compileFormula("sumday([Temp])", columns);
 		const ctxSumDay = resSumDay.createContext?.();
 		const t1 = new Date("2023-01-01T10:00:00Z").getTime() / 1000;
@@ -237,6 +237,18 @@ describe("compileFormula", () => {
 		expect(resSumHour.evaluate([10, t1], ctxSumHour)).toBe(10);
 		expect(resSumHour.evaluate([20, t1 + 10], ctxSumHour)).toBe(30);
 		expect(resSumHour.evaluate([40, t2], ctxSumHour)).toBe(40);
+
+		const resAvgMin = compileFormula("avgminute([Temp])", columns);
+		const ctxAvgMin = resAvgMin.createContext?.();
+		expect(resAvgMin.evaluate([10, t1], ctxAvgMin)).toBe(10);
+		expect(resAvgMin.evaluate([20, t1 + 10], ctxAvgMin)).toBe(15); // same minute
+		expect(resAvgMin.evaluate([40, t1 + 60], ctxAvgMin)).toBe(40); // next minute
+
+		const resAvgSec = compileFormula("avgsecond([Temp])", columns);
+		const ctxAvgSec = resAvgSec.createContext?.();
+		expect(resAvgSec.evaluate([10, t1], ctxAvgSec)).toBe(10);
+		expect(resAvgSec.evaluate([20, t1], ctxAvgSec)).toBe(15); // same second
+		expect(resAvgSec.evaluate([40, t1 + 1], ctxAvgSec)).toBe(40); // next second
 	});
 
 	it("should cover missing branches for evaluation logic", () => {
@@ -271,6 +283,17 @@ describe("compileFormula", () => {
 		const resAvg1d = compileFormula("avg1d([Temp])", columns);
 		const ctxAvg1d = resAvg1d.createContext?.();
 		expect(resAvg1d.evaluate([10, 1000], ctxAvg1d)).toBe(10);
+
+		// Test evaluation without ctx for functions that expect one
+		expect(resAvg1d.evaluate([10, 1000])).toBe(10);
+		
+		const resSumDay = compileFormula("sumday([Temp])", columns);
+		expect(resSumDay.evaluate([20, 1000])).toBe(20);
+
+		// Test column not found via bestEnd fallback
+		// e.g. "[A: Unknown]" where "A:" exists but not "A: Unknown"
+		const resUnknown = compileFormula("[A: Unknown]", columns);
+		expect(resUnknown.error).toContain("Column not found: A: Unknown");
 
 		// Defensive fallback testing - providing unknown functions triggers an error
 		// earlier in the lexer as checked in 'should return error for invalid characters'

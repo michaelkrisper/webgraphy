@@ -5,6 +5,7 @@ import {
 	calcNumericStep,
 	calcNumericTicks,
 	calcYAxisTicks,
+	syncAxesWithTargets,
 } from "../axisCalculations";
 
 describe("calcNumericStep", () => {
@@ -51,5 +52,51 @@ describe("calcYAxisTicks", () => {
 		const result = calcYAxisTicks(5, 5, 400);
 		expect(result.ticks).toEqual([]);
 		expect(result.actualStep).toBe(1);
+	});
+	it("handles negative or zero step gracefully", () => {
+		const result = calcYAxisTicks(0, 100, 400, -5);
+		expect(result.ticks).toEqual([]);
+		expect(result.actualStep).toBe(1);
+	});
+});
+
+describe("syncAxesWithTargets", () => {
+	it("returns empty updates if targets match state within EPSILON", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const targetXAxes = { x1: { min: 0 + 1e-11, max: 100 - 1e-11 } };
+		const targetYs = { y1: { min: 0, max: 100 } };
+		
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
+		expect(updates.xUpdates).toEqual({});
+		expect(updates.yUpdates).toEqual({});
+	});
+
+	it("returns updates if targets differ from state by more than EPSILON", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const targetXAxes = { x1: { min: -10, max: 110 } };
+		const targetYs = { y1: { min: 10, max: 90 } };
+		
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
+		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
+		expect(updates.yUpdates).toEqual({ y1: { min: 10, max: 90 } });
+	});
+
+	it("ignores axes without targets", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }, { id: "x2", min: 0, max: 50 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const targetXAxes = { x1: { min: -10, max: 110 } };
+		const targetYs = {};
+		
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs as any);
+		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
+		expect(updates.yUpdates).toEqual({});
 	});
 });
