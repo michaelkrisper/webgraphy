@@ -113,7 +113,7 @@ export function generateTimeTicks(min: number, max: number, step: TimeStep): Tim
 
   let current = d.getTime() / 1000;
   // Use a slightly larger max for margin (approx 1 step)
-  const marginSeconds = (unit === 'month' ? 31 * 86400 : unit === 'year' ? 366 * 86400 : UNIT_SECONDS[unit]) * value;
+  const marginSeconds = (unit === 'month' ? 31 * 86400 : unit === 'year' ? 366 * 86400 : (UNIT_SECONDS[unit as keyof typeof UNIT_SECONDS] || 1)) * value;
   const extendedMax = max + marginSeconds;
 
   while (current <= extendedMax) {
@@ -137,7 +137,7 @@ export function generateTimeTicks(min: number, max: number, step: TimeStep): Tim
   return ticks;
 }
 
-export function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
+function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
   const d = new Date(ts * 1000);
   const pad = (n: number) => String(n).padStart(2, '0');
 

@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels, formatPrimaryLabel } from '../time';
-
-
-describe('formatPrimaryLabel', () => {
-    it('returns empty string for unknown unit', () => {
-        expect(formatPrimaryLabel(0, 'unknown' as never)).toBe('');
-    });
-});
+import { formatFullDate, generateTimeTicks, getTimeStep, generateSecondaryLabels } from '../time';
 
 describe('formatFullDate', () => {
     let originalTz: string | undefined;
@@ -155,7 +148,8 @@ describe('generateTimeTicks', () => {
         expect(ticks.length).toBe(501);
     });
     it('returns empty label for unknown unit', () => {
-        expect(formatPrimaryLabel(0, 'unknown' as never)).toBe('');
+        const ticks = generateTimeTicks(0, 10, { unit: 'unknown' as never, value: 1 });
+        expect(ticks[0]?.label).toBe('');
     });
 });
 
