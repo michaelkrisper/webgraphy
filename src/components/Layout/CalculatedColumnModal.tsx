@@ -1,26 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Check, Calculator, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Check, Calculator, AlertCircle } from 'lucide-react';
 import { useGraphStore } from '../../store/useGraphStore';
 import { type Dataset } from '../../services/persistence';
 import { compileFormula } from '../../utils/formula';
-
-const BRACKET_PAIRS: Record<string, string> = { '(': ')', '[': ']' };
-const CLOSING_BRACKETS = new Set([')', ']']);
-
-const ALL_FUNCTIONS = [
-  'sin(', 'cos(', 'tan(', 'asin(', 'acos(', 'atan(',
-  'sqrt(', 'abs(', 'exp(', 'log(', 'ln(', 'round(', 'floor(', 'ceil(',
-  'min(', 'max(', 'avg(', 'sum(',
-  'avg5(', 'avg5c(', 'avg5l(', 'avg5r(', 'avg10(', 'avg50(', 'avg100(',
-  'avg5s(', 'avg5sc(', 'avg5sl(', 'avg5sr(', 'avg5m(', 'avg1h(', 'avg1hc(', 'avg1hl(', 'avg1hr(', 'avg1d(',
-  'avgDay(', 'avgDayc(', 'avgDayl(', 'avgDayr(',
-  'avgHour(', 'avgHourc(', 'avgHourl(', 'avgHourr(',
-  'avgMinute(', 'avgMinutec(', 'avgMinutel(', 'avgMinuter(',
-  'avgSecond(', 'avgSecondc(', 'avgSecondl(', 'avgSecondr(',
-  'sumDay(', 'sumHour(', 'sumMinute(', 'sumSecond(',
-  'filter(',
-  'linreg(', 'polyreg(', 'expreg(', 'logreg(', 'kde(',
-];
+import { Modal } from './Modal';
+import { FormulaShortcuts } from './FormulaShortcuts';
+import { useFormulaEditor } from '../../hooks/useFormulaEditor';
 
 interface CalculatedColumnModalProps {
   dataset: Dataset;
@@ -32,15 +17,27 @@ interface CalculatedColumnModalProps {
 export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ dataset, onClose, initialName, initialFormula }) => {
   const { addCalculatedColumn, removeCalculatedColumn } = useGraphStore();
   const isEditing = !!initialName;
-  const [formula, setFormula] = useState(initialFormula ?? '');
   const [name, setName] = useState(initialName ?? '');
   const [nameUserEdited, setNameUserEdited] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    formula,
+    setFormula,
+    suggestions,
+    selectedSuggestion,
+    handleFormulaKeyDown,
+    handleFormulaChange,
+    applySuggestion,
+    insertText,
+  } = useFormulaEditor({
+    initialFormula,
+    columns: dataset.columns,
+    textareaRef,
+  });
 
   // Sync name to formula when user hasn't manually set a name
   useEffect(() => {
@@ -67,113 +64,6 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
     if (result.error) setValidationMsg(result.error);
     else setValidationMsg(null);
   }, [formula, dataset.columns]);
-
-  const getCompletions = useCallback((text: string, cursorPos: number) => {
-    // Check if we're typing a column name inside brackets
-    const beforeCursor = text.slice(0, cursorPos);
-    const bracketMatch = beforeCursor.match(/\[([^\]]*)$/);
-    if (bracketMatch) {
-      const partial = bracketMatch[1].toLowerCase();
-      const cols = dataset.columns
-        .map(c => c.includes(': ') ? c.split(': ')[1] : c)
-        .filter(c => c.toLowerCase().startsWith(partial))
-        .slice(0, 8);
-      return cols.map(c => `${c}]`);
-    }
-    // Check if we're typing a function name
-    const funcMatch = beforeCursor.match(/([a-zA-Z]\w*)$/);
-    if (funcMatch) {
-      const partial = funcMatch[1].toLowerCase();
-      if (partial.length < 2) return [];
-      return ALL_FUNCTIONS
-        .filter(f => f.toLowerCase().startsWith(partial))
-        .slice(0, 8);
-    }
-    return [];
-  }, [dataset.columns]);
-
-  const applySuggestion = useCallback((suggestion: string, currentValue: string, cursorPos: number) => {
-    const before = currentValue.slice(0, cursorPos);
-    const after = currentValue.slice(cursorPos);
-    const bracketMatch = before.match(/\[([^\]]*)$/);
-    const funcMatch = before.match(/([a-zA-Z]\w*)$/);
-    let replaceStart = cursorPos;
-    if (bracketMatch) replaceStart = cursorPos - bracketMatch[1].length;
-    else if (funcMatch) replaceStart = cursorPos - funcMatch[1].length;
-    const newFormula = before.slice(0, replaceStart) + suggestion + after;
-    setFormula(newFormula);
-    setSuggestions([]);
-    const newPos = replaceStart + suggestion.length;
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
-        textareaRef.current.focus();
-      }
-    });
-  }, []);
-
-  const handleFormulaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const ta = e.currentTarget;
-    const { selectionStart, selectionEnd, value } = ta;
-
-    // Auto-close brackets
-    if (BRACKET_PAIRS[e.key]) {
-      e.preventDefault();
-      const closing = BRACKET_PAIRS[e.key];
-      const before = value.slice(0, selectionStart);
-      const selected = value.slice(selectionStart, selectionEnd);
-      const after = value.slice(selectionEnd);
-      const newFormula = before + e.key + selected + closing + after;
-      setFormula(newFormula);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = selectionStart + 1 + selected.length;
-      });
-      return;
-    }
-
-    // Skip over closing brackets if already there
-    if (CLOSING_BRACKETS.has(e.key) && value[selectionStart] === e.key) {
-      e.preventDefault();
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = selectionStart + 1;
-      });
-      return;
-    }
-
-    // Handle suggestions navigation
-    if (suggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedSuggestion(s => Math.min(s + 1, suggestions.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedSuggestion(s => Math.max(s - 1, 0));
-        return;
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        if (suggestions[selectedSuggestion]) {
-          e.preventDefault();
-          applySuggestion(suggestions[selectedSuggestion], value, selectionStart);
-          return;
-        }
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setSuggestions([]);
-        return;
-      }
-    }
-  }, [suggestions, selectedSuggestion, applySuggestion]);
-
-  const handleFormulaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setFormula(newValue);
-    const completions = getCompletions(newValue, e.target.selectionStart);
-    setSuggestions(completions);
-    setSelectedSuggestion(0);
-  }, [getCompletions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,56 +111,24 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
 
   const insertColumn = (colName: string) => {
     const displayName = colName.includes(': ') ? colName.split(': ')[1] : colName;
-    const insertion = `[${displayName}]`;
-    const ta = textareaRef.current;
-    const pos = ta ? ta.selectionEnd : -1;
-    setFormula(prev => {
-      if (ta && pos >= 0) return prev.slice(0, pos) + insertion + prev.slice(pos);
-      return prev + insertion;
-    });
-    requestAnimationFrame(() => {
-      if (ta) {
-        const newPos = (pos >= 0 ? pos : ta.value.length) + insertion.length;
-        ta.selectionStart = ta.selectionEnd = newPos;
-        ta.focus();
-      }
-    });
+    insertText(`[${displayName}]`, false);
   };
 
-  const insertOperator = (op: string) => {
-    const ta = textareaRef.current;
-    const pos = ta ? ta.selectionEnd : -1;
-    // If op ends with '(', auto-close and place cursor inside
-    const endsWithParen = op.endsWith('(');
-    const insertion = endsWithParen ? op + ')' : op;
-    const cursorOffset = endsWithParen ? op.length : insertion.length;
-    setFormula(prev => {
-      if (ta && pos >= 0) return prev.slice(0, pos) + insertion + prev.slice(pos);
-      return prev + insertion;
-    });
-    requestAnimationFrame(() => {
-      if (ta) {
-        const newPos = (pos >= 0 ? pos : ta.value.length - insertion.length) + cursorOffset;
-        ta.selectionStart = ta.selectionEnd = newPos;
-        ta.focus();
-      }
-    });
-  };
+  const title = (
+    <div className="calc-modal-title-row">
+      <Calculator size={20} color="var(--accent)" />
+      <h2 className="modal-title">{isEditing ? 'Edit Calculated Series' : 'Add Calculated Series'}</h2>
+    </div>
+  );
 
   return (
-    <div className="modal-overlay">
-      <div className="calc-modal-card">
-        <div className="calc-modal-header">
-          <div className="calc-modal-title-row">
-            <Calculator size={20} color="var(--accent)" />
-            <h2 className="modal-title">{isEditing ? 'Edit Calculated Series' : 'Add Calculated Series'}</h2>
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={24} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
+    <Modal
+      onClose={onClose}
+      title={title}
+      maxWidth="700px" // Adjusted to roughly match the original card size, maybe needs tweaking
+      padding="0" // Reset padding as original uses specific padding in inner elements
+    >
+        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
           <div className="calc-field">
             <label htmlFor="col-name" className="calc-label">Column Name</label>
             <input
@@ -337,68 +195,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             </div>
           </div>
 
-          <div className="calc-shortcuts">
-            <div className="calc-shortcuts-label">Shortcuts</div>
-            {[
-              {
-                label: 'Operators',
-                items: [
-                  { label: '+', insert: '+', title: '' },
-                  { label: '−', insert: '-', title: '' },
-                  { label: '×', insert: '*', title: '' },
-                  { label: '÷', insert: '/', title: '' },
-                  { label: 'xⁿ', insert: '^', title: 'Power / exponent' },
-                  { label: '(', insert: '(', title: '' },
-                  { label: ')', insert: ')', title: '' },
-                ],
-              },
-              {
-                label: 'Constants',
-                items: [
-                  { label: 'π', insert: 'pi', title: 'Pi (3.14159…)' },
-                  { label: 'e', insert: 'e', title: "Euler's number (2.71828…)" },
-                ],
-              },
-              {
-                label: 'Functions',
-                items: [
-                  { label: 'avg()', insert: 'avg()', title: 'Average of ALL numeric columns in this row' },
-                  { label: 'avgDay(x)', insert: 'avgDay(', title: 'Cumulative average resetting every Day' },
-                  { label: 'avgHour(x)', insert: 'avgHour(', title: 'Cumulative average resetting every Hour' },
-                  { label: 'sqrt(x)', insert: 'sqrt(', title: 'Square root' },
-                  { label: 'sin(x)', insert: 'sin(', title: 'Sine (radians)' },
-                  { label: 'cos(x)', insert: 'cos(', title: 'Cosine (radians)' },
-                  { label: 'tan(x)', insert: 'tan(', title: 'Tangent (radians)' },
-                  { label: 'log(x)', insert: 'log(', title: 'Base-10 logarithm' },
-                  { label: 'avg5(x)', insert: 'avg5(', title: 'Rolling average over N rows (central by default). Alignment suffix: avg5c = central, avg5l = left/trailing, avg5r = right/leading' },
-                  { label: 'avg5s(x)', insert: 'avg5s(', title: 'Rolling average over time window: avgNs/avgNm/avgNh/avgNd. Central by default. Alignment suffix: avg5sc, avg5sl, avg5sr' },
-                  { label: 'filter(x)', insert: 'filter(', title: 'Kalman filter (adaptive noise smoothing)' },
-                  { label: 'linreg', insert: 'linreg(', title: 'Linear regression: linreg([col])' },
-                  { label: 'polyreg', insert: 'polyreg(', title: 'Polynomial regression: polyreg([col], degree). Default degree=3' },
-                  { label: 'expreg', insert: 'expreg(', title: 'Exponential regression: expreg([col])' },
-                  { label: 'logreg', insert: 'logreg(', title: 'Logistic regression: logreg([col])' },
-                  { label: 'kde', insert: 'kde(', title: 'KDE smoothing: kde([col]) or kde([col], bandwidth)' },
-                ],
-              },
-            ].map(group => (
-              <div key={group.label} className="calc-shortcut-group">
-                <div className="calc-shortcut-group-label">{group.label}</div>
-                <div className="calc-shortcut-btns">
-                  {group.items.map(item => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => insertOperator(item.insert)}
-                      title={item.title}
-                      className="calc-shortcut-btn"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <FormulaShortcuts onInsertOperator={(op) => insertText(op, true)} />
 
           {error && (
             <div className="calc-error">
@@ -436,7 +233,6 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({ da
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
