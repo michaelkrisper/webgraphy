@@ -437,12 +437,24 @@ const AxesLayer = React.memo(
 				[],
 			);
 
+			const isInteractingRef = useRef(isInteracting);
+			isInteractingRef.current = isInteracting;
+
 			useEffect(() => {
 				if (!isInteracting) {
+					draw(lastXAxes.current, lastYAxes.current);
+				}
+				// eslint-disable-next-line react-hooks/exhaustive-deps
+			}, [isInteracting]);
+
+			useEffect(() => {
+				if (!isInteractingRef.current) {
+					lastXAxes.current = initialXAxes;
+					lastYAxes.current = initialYAxes;
 					draw(initialXAxes, initialYAxes);
 				}
 				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [initialXAxes, initialYAxes, isInteracting]);
+			}, [initialXAxes, initialYAxes]);
 
 			const dpr = window.devicePixelRatio || 1;
 
