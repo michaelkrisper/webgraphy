@@ -182,6 +182,8 @@ export const WebGLRenderer = React.memo(
 		const segParamsRef = useRef<Map<string, string>>(new Map());
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
+		const isInteractingRef = useRef(isInteracting);
+		isInteractingRef.current = isInteracting;
 		const drawFrameRef = useRef<
 			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
 		>(null);
@@ -670,11 +672,11 @@ export const WebGLRenderer = React.memo(
 			};
 
 			drawFrameRef.current = drawFrame;
-			if (!isInteracting) {
+			if (!isInteractingRef.current) {
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [seriesMetadata, isInteracting]);
+		}, [seriesMetadata]);
 
 		const dpr = window.devicePixelRatio || 1;
 		return (

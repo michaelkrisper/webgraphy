@@ -441,13 +441,6 @@ const AxesLayer = React.memo(
 			isInteractingRef.current = isInteracting;
 
 			useEffect(() => {
-				if (!isInteracting) {
-					draw(lastXAxes.current, lastYAxes.current);
-				}
-				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [isInteracting]);
-
-			useEffect(() => {
 				if (!isInteractingRef.current) {
 					lastXAxes.current = initialXAxes;
 					lastYAxes.current = initialYAxes;
