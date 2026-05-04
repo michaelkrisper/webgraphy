@@ -175,6 +175,8 @@ export const exportToSVG = (
   const xAxesMap = new Map(xAxes.map(a => [a.id, a]));
   const yAxesMap = new Map(yAxes.map(a => [a.id, a]));
 
+  const m4Out = { x: new Float32Array(0), y: new Float32Array(0) };
+
   series.forEach(s => {
     if (s.hidden) return;
     const ds = datasetsMap.get(s.sourceId);
@@ -196,7 +198,7 @@ export const exportToSVG = (
     if (visEnd < ds.rowCount - 1) visEnd++;
     const xSlice = xData.subarray(visStart, visEnd + 1);
     const ySlice = yData.subarray(visStart, visEnd + 1);
-    const sampled = m4Float32(xSlice, ySlice, width);
+    const sampled = m4Float32(xSlice, ySlice, width, m4Out);
     const seriesVp = { xMin: xAxis.min, xMax: xAxis.max, yMin: yAxis.min, yMax: yAxis.max, width, height, padding };
     const screenPoints: {x: number, y: number}[] = [];
     for (let i = 0; i < sampled.x.length; i++) screenPoints.push(worldToScreen(sampled.x[i] + xCol.refPoint, sampled.y[i] + yCol.refPoint, seriesVp));

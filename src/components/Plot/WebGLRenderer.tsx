@@ -169,6 +169,7 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
   const programRef = useRef<WebGLProgram | null>(null);
   const locationsRef = useRef<WebGLLocations | null>(null);
   const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
+  const m4OutsRef = useRef<Map<string, { x: Float32Array; y: Float32Array }>>(new Map());
   const segParamsRef = useRef<Map<string, string>>(new Map());
   const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
   const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
@@ -370,8 +371,15 @@ export const WebGLRenderer = React.memo(forwardRef<WebGLRendererHandle, Props>((
         // M4-decimate the visible slice; m4Float32 passes through when sliceLen <= pixelBudget
         const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
         const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
+
+        let m4Out = m4OutsRef.current.get(s.id);
+        if (!m4Out) {
+          m4Out = { x: new Float32Array(0), y: new Float32Array(0) };
+          m4OutsRef.current.set(s.id, m4Out);
+        }
+
         const decimated = sliceLen > pixelBudget
-          ? m4Float32(sliceX, sliceY, pixelBudget)
+          ? m4Float32(sliceX, sliceY, pixelBudget, m4Out)
           : null; // use raw slice directly
 
         const drawCount = decimated ? decimated.x.length : sliceLen;
