@@ -1,55 +1,62 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import { X } from "lucide-react";
+import type React from "react";
 
 interface ModalProps {
-  onClose: () => void;
-  title: string | React.ReactNode;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-  headerActions?: React.ReactNode;
-  maxWidth?: string;
-  width?: string;
-  height?: string;
-  maxHeight?: string;
-  borderRadius?: string;
-  padding?: string;
-  ariaLabel?: string;
+	onClose: () => void;
+	title: string | React.ReactNode;
+	children: React.ReactNode;
+	footer?: React.ReactNode;
+	headerActions?: React.ReactNode;
+	maxWidth?: string;
+	width?: string;
+	height?: string;
+	maxHeight?: string;
+	borderRadius?: string;
+	padding?: string;
+	ariaLabel?: string;
 }
 
 /**
  * A reusable Modal component that provides a consistent backdrop and layout.
  */
 export const Modal: React.FC<ModalProps> = ({
-  onClose,
-  title,
-  children,
-  footer,
-  headerActions,
-  maxWidth = '600px',
-  width = '90%',
-  height,
-  maxHeight = '90vh',
-  borderRadius = '0',
-  padding = '24px',
-  ariaLabel
+	onClose,
+	title,
+	children,
+	footer,
+	headerActions,
+	maxWidth = "600px",
+	width = "90%",
+	height,
+	maxHeight = "90vh",
+	borderRadius = "0",
+	padding = "24px",
+	ariaLabel,
 }) => {
-  return (
-    <div className="modal-overlay">
-      <div className="modal-card" style={{ padding, borderRadius, maxWidth, width, height, maxHeight }}>
-        <div className="modal-header">
-          {typeof title === 'string' ? (
-            <h2 className="modal-title">{title}</h2>
-          ) : (
-            title
-          )}
-          {headerActions}
-          <button onClick={onClose} aria-label={ariaLabel || "Close dialog"} className="modal-close">
-            <X size={24} />
-          </button>
-        </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-footer">{footer}</div>}
-      </div>
-    </div>
-  );
+	return (
+		<div className="modal-overlay">
+			<div
+				className="modal-card"
+				style={{ padding, borderRadius, maxWidth, width, height, maxHeight }}
+			>
+				<div className="modal-header">
+					{typeof title === "string" ? (
+						<h2 className="modal-title">{title}</h2>
+					) : (
+						title
+					)}
+					{headerActions}
+					<button
+						onClick={onClose}
+						aria-label={ariaLabel || "Close dialog"}
+						className="modal-close"
+					>
+						<X size={24} />
+					</button>
+				</div>
+				<div className="modal-body">{children}</div>
+				{footer && <div className="modal-footer">{footer}</div>}
+			</div>
+		</div>
+	);
 };
