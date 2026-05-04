@@ -114,14 +114,37 @@ self.onmessage = (event) => {
       const timeCol = columnData[localTimeIdx];
       const valCol = columnData[localValueIdx];
 
+      const d = new Date();
+      let lastYr = -1, lastMo = -1, lastDa = -1, lastHr = -1, lastMin = -1, lastSec = -1;
+      let lastRes = "";
+
       const getTimeKey = (t: number): string => {
         const ms = t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000;
-        const d = new Date(ms);
-        const base = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        if (granularity === 'day') return base;
-        if (granularity === 'hour') return `${base}-${d.getHours()}`;
-        if (granularity === 'minute') return `${base}-${d.getHours()}-${d.getMinutes()}`;
-        return `${base}-${d.getHours()}-${d.getMinutes()}-${d.getSeconds()}`;
+        d.setTime(ms);
+
+        if (granularity === 'day') {
+            const yr = d.getFullYear(), mo = d.getMonth(), da = d.getDate();
+            if (yr === lastYr && mo === lastMo && da === lastDa) return lastRes;
+            lastYr = yr; lastMo = mo; lastDa = da;
+            return (lastRes = `${yr}-${mo}-${da}`);
+        }
+        if (granularity === 'hour') {
+            const yr = d.getFullYear(), mo = d.getMonth(), da = d.getDate(), hr = d.getHours();
+            if (yr === lastYr && mo === lastMo && da === lastDa && hr === lastHr) return lastRes;
+            lastYr = yr; lastMo = mo; lastDa = da; lastHr = hr;
+            return (lastRes = `${yr}-${mo}-${da}-${hr}`);
+        }
+        if (granularity === 'minute') {
+            const yr = d.getFullYear(), mo = d.getMonth(), da = d.getDate(), hr = d.getHours(), min = d.getMinutes();
+            if (yr === lastYr && mo === lastMo && da === lastDa && hr === lastHr && min === lastMin) return lastRes;
+            lastYr = yr; lastMo = mo; lastDa = da; lastHr = hr; lastMin = min;
+            return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}`);
+        }
+
+        const yr = d.getFullYear(), mo = d.getMonth(), da = d.getDate(), hr = d.getHours(), min = d.getMinutes(), sec = d.getSeconds();
+        if (yr === lastYr && mo === lastMo && da === lastDa && hr === lastHr && min === lastMin && sec === lastSec) return lastRes;
+        lastYr = yr; lastMo = mo; lastDa = da; lastHr = hr; lastMin = min; lastSec = sec;
+        return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}-${sec}`);
       };
 
       // Pass 1: aggregate per group, track representative row index per alignment
