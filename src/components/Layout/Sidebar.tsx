@@ -110,11 +110,11 @@ export const Sidebar: React.FC = () => {
   }, [datasets, calculatingDatasetId]);
 
   const datasetsById = useMemo(() => {
-    const map = new Map();
+    const obj: Record<string, typeof datasets[0]> = {};
     for (const d of datasets) {
-      map.set(d.id, d);
+      obj[d.id] = d;
     }
-    return map;
+    return obj;
   }, [datasets]);
 
   useEffect(() => {
@@ -430,7 +430,7 @@ export const Sidebar: React.FC = () => {
                         >
                           <SeriesConfigUI
                             series={s}
-                            dataset={datasetsById.get(s.sourceId)}
+                            dataset={datasetsById[s.sourceId]}
                             onHandleMouseDown={!isGhost ? (e) => { e.preventDefault(); startDrag(s.id); } : undefined}
                           />
                         </div>
