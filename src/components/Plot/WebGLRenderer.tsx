@@ -485,10 +485,10 @@ export const WebGLRenderer = React.memo(
 						const isHighlighted = highlightedSeriesId === s.id;
 						const baseLineWidth = isHighlighted ? 2.5 : 1;
 
-						if (s.lineStyle !== "none" && drawCount > 1) {
+						if (s.lineStyle !== "none") {
 							const c = lineColorRgba;
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, 4.0 * dpr);
+							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 2.5 : 1.5) * dpr);
 							const lStyle =
 								s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
 							gl.uniform1i(locs.lineStyleLoc, lStyle);
