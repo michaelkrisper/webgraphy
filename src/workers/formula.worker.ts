@@ -235,18 +235,11 @@ self.onmessage = (event) => {
         // 'l': shift = 0
       }
 
-      if (shift !== 0 && shift < rowCount) {
+      if (shift > 0 && shift < rowCount) {
         const out = new Float64Array(rowCount);
-        if (shift > 0) {
-          // Shift forward: each row i gets value from row i+shift (center/right lookahead)
-          for (let i = 0; i < rowCount - shift; i++) out[i] = resultData[i + shift];
-          for (let i = rowCount - shift; i < rowCount; i++) out[i] = resultData[rowCount - 1];
-        } else {
-          // Shift backward: leading window (unused currently but kept for symmetry)
-          const s = -shift;
-          for (let i = s; i < rowCount; i++) out[i] = resultData[i - s];
-          for (let i = 0; i < s; i++) out[i] = resultData[0];
-        }
+        // Shift forward: each row i gets value from row i+shift (center/right lookahead)
+        for (let i = 0; i < rowCount - shift; i++) out[i] = resultData[i + shift];
+        for (let i = rowCount - shift; i < rowCount; i++) out[i] = resultData[rowCount - 1];
         resultData.set(out);
       }
     }
