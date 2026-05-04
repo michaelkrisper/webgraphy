@@ -144,8 +144,8 @@ export interface WebGLRendererHandle {
   redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
 }
 
-const hexToRgba = (hex: string): number[] => {
-  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return [0, 0, 0];
+export const hexToRgba = (hex: string): number[] => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7) return [0, 0, 0];
   try {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
