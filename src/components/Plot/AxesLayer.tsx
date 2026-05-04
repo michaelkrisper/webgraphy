@@ -65,6 +65,7 @@ const AxesLayer = React.memo(
 
 			const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
 			const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
+			const drawRef = useRef<(xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => void>(() => {});
 
 			const seriesByYAxisId = useMemo(() => {
 				const grouped: Record<string, SeriesConfig[]> = {};
@@ -424,16 +425,17 @@ const AxesLayer = React.memo(
 				ctx.restore();
 			};
 
+			drawRef.current = draw;
+
 			useImperativeHandle(
 				ref,
 				() => ({
 					redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
 						lastXAxes.current = xAxes;
 						lastYAxes.current = yAxes;
-						draw(xAxes, yAxes);
+						drawRef.current(xAxes, yAxes);
 					},
 				}),
-				// eslint-disable-next-line react-hooks/exhaustive-deps
 				[],
 			);
 
@@ -441,20 +443,13 @@ const AxesLayer = React.memo(
 			isInteractingRef.current = isInteracting;
 
 			useEffect(() => {
-				if (!isInteracting) {
-					draw(lastXAxes.current, lastYAxes.current);
-				}
-				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [isInteracting]);
-
-			useEffect(() => {
 				if (!isInteractingRef.current) {
 					lastXAxes.current = initialXAxes;
 					lastYAxes.current = initialYAxes;
-					draw(initialXAxes, initialYAxes);
+					drawRef.current(initialXAxes, initialYAxes);
 				}
 				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [initialXAxes, initialYAxes]);
+			}, [initialXAxes, initialYAxes, width, height]);
 
 			const dpr = window.devicePixelRatio || 1;
 

@@ -23,7 +23,6 @@ import {
 	Save,
 	Sparkles,
 	Square,
-	SquareSplitVertical,
 	Sun,
 	Terminal,
 	Trash2,
@@ -377,7 +376,7 @@ export const Sidebar: React.FC = () => {
 								if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
 							},
 							xAxes[0]?.showGrid ? (
-								<SquareSplitVertical size={16} />
+								<Rows size={16} style={{ transform: "rotate(90deg)" }} />
 							) : (
 								<Square size={16} />
 							),
