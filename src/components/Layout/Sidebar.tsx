@@ -473,9 +473,11 @@ export const Sidebar: React.FC = () => {
 								ref={fileInputRef}
 								type="file"
 								accept=".csv,.json"
-								onChange={(e) =>
-									e.target.files?.[0] && importFile(e.target.files[0])
-								}
+								onChange={(e) => {
+									const f = e.target.files?.[0];
+									if (f) importFile(f);
+									e.target.value = "";
+								}}
 								style={{ display: "none" }}
 							/>
 

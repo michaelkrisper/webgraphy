@@ -62,6 +62,7 @@ export const useDataImport = () => {
 
 				if (msgType === "success") {
 					const incoming = (datasets as Dataset[]) || [];
+					const isSplitImport = incoming.length > 1;
 					for (const raw of incoming) {
 						const currentState = useGraphStore.getState();
 						const ds = processImportedDataset(
@@ -72,7 +73,10 @@ export const useDataImport = () => {
 						await persistence.saveDataset(ds);
 						addDataset(ds);
 
-						if (ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
+						if (
+							!isSplitImport &&
+							ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD
+						) {
 							const seriesBeforeAdd = useGraphStore.getState().series;
 							const nonXColumns = ds.columns
 								.filter((c) => c !== ds.xAxisColumn)

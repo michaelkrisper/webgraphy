@@ -89,7 +89,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		null,
 	);
 	// null = no split; otherwise the column name to split by
-	const [splitByColumn, setSplitByColumn] = useState<string | null>(null);
+	const [splitByColumns, setSplitByColumns] = useState<string[]>([]);
 
 	const previewData = useMemo(() => {
 		if (fileType === "json") {
@@ -289,13 +289,11 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								commentChar,
 								columnConfigs,
 								xAxisColumn,
-								splitByColumn:
-									splitByColumn &&
-									columnConfigs.find(
-										(c) => c.name === splitByColumn && c.type === "categorical",
-									)
-										? splitByColumn
-										: undefined,
+								splitByColumns: splitByColumns.filter((name) =>
+									columnConfigs.some(
+										(c) => c.name === name && c.type === "categorical",
+									),
+								),
 							})
 						}
 						className="isd-btn-confirm"
@@ -402,10 +400,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 												>
 													<input
 														type="checkbox"
-														checked={splitByColumn === config.name}
+														checked={splitByColumns.includes(config.name)}
 														onChange={(e) =>
-															setSplitByColumn(
-																e.target.checked ? config.name : null,
+															setSplitByColumns((prev) =>
+																e.target.checked
+																	? prev.includes(config.name)
+																		? prev
+																		: [...prev, config.name]
+																	: prev.filter((n) => n !== config.name),
 															)
 														}
 													/>

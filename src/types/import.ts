@@ -14,8 +14,8 @@ export interface ImportSettings {
 	commentChar: string;
 	columnConfigs: ColumnConfig[];
 	xAxisColumn?: string;
-	// If set, parser splits rows by the value of this categorical column,
-	// producing one Dataset per distinct group value. The split column itself
-	// is excluded from the resulting datasets' columns.
-	splitByColumn?: string;
+	// If set, parser splits rows by the combined values of these categorical
+	// columns, producing one Dataset per distinct combination. The split
+	// columns are excluded from the resulting datasets' columns.
+	splitByColumns?: string[];
 }
