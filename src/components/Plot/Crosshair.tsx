@@ -376,42 +376,42 @@ const Crosshair = React.memo(
 						
 						if (style === "square") {
 							// Square marker
-							ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-							ctx.fillRect(xs - 5.5, ys - 5.5, 11, 11);
+							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+							ctx.fillRect(xs - 6.5, ys - 6.5, 13, 13);
 							ctx.fillStyle = color;
-							ctx.fillRect(xs - 4.5, ys - 4.5, 9, 9);
+							ctx.fillRect(xs - 5.5, ys - 5.5, 11, 11);
 							ctx.strokeStyle = "#fff";
-							ctx.lineWidth = 1.5;
-							ctx.strokeRect(xs - 4.5, ys - 4.5, 9, 9);
+							ctx.lineWidth = 2.5;
+							ctx.strokeRect(xs - 5.5, ys - 5.5, 11, 11);
 						} else if (style === "cross") {
 							// Cross marker
-							ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-							ctx.lineWidth = 3.0;
+							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+							ctx.lineWidth = 5.0;
 							ctx.beginPath();
-							ctx.moveTo(xs - 4.5, ys - 4.5); ctx.lineTo(xs + 4.5, ys + 4.5);
-							ctx.moveTo(xs + 4.5, ys - 4.5); ctx.lineTo(xs - 4.5, ys + 4.5);
+							ctx.moveTo(xs - 5.5, ys - 5.5); ctx.lineTo(xs + 5.5, ys + 5.5);
+							ctx.moveTo(xs + 5.5, ys - 5.5); ctx.lineTo(xs - 5.5, ys + 5.5);
 							ctx.stroke();
 							
 							ctx.strokeStyle = color;
-							ctx.lineWidth = 1.5;
+							ctx.lineWidth = 2.5;
 							ctx.beginPath();
-							ctx.moveTo(xs - 4.5, ys - 4.5); ctx.lineTo(xs + 4.5, ys + 4.5);
-							ctx.moveTo(xs + 4.5, ys - 4.5); ctx.lineTo(xs - 4.5, ys + 4.5);
+							ctx.moveTo(xs - 5.5, ys - 5.5); ctx.lineTo(xs + 5.5, ys + 5.5);
+							ctx.moveTo(xs + 5.5, ys - 5.5); ctx.lineTo(xs - 5.5, ys + 5.5);
 							ctx.stroke();
 						} else {
 							// Circle marker (default or "circle" or "none")
 							ctx.beginPath();
-							ctx.arc(xs, ys, 5.5, 0, Math.PI * 2);
-							ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+							ctx.arc(xs, ys, 6.5, 0, Math.PI * 2);
+							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
 							ctx.fill();
 
 							ctx.beginPath();
-							ctx.arc(xs, ys, 4.5, 0, Math.PI * 2);
+							ctx.arc(xs, ys, 5.5, 0, Math.PI * 2);
 							ctx.fillStyle = color;
 							ctx.fill();
 
 							ctx.strokeStyle = "#fff";
-							ctx.lineWidth = 1.5;
+							ctx.lineWidth = 2.5;
 							ctx.stroke();
 						}
 					}

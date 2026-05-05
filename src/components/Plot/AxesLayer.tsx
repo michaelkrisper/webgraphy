@@ -1,5 +1,6 @@
 import React, {
 	forwardRef,
+	useCallback,
 	useEffect,
 	useImperativeHandle,
 	useMemo,
@@ -76,7 +77,7 @@ const AxesLayer = React.memo(
 				return grouped;
 			}, [series]);
 
-			const drawGrid = (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
+			const drawGrid = useCallback((xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
 				const canvas = gridCanvasRef.current;
 				if (!canvas) return;
 				const ctx = canvas.getContext("2d");
@@ -149,9 +150,9 @@ const AxesLayer = React.memo(
 				});
 
 				ctx.restore();
-			};
+			}, [width, height, padding, plotBg, gridColor, zeroLineColor]);
 
-			const draw = (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
+			const draw = useCallback((xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
 				drawGrid(xAxes, yAxes);
 
 				const canvas = canvasRef.current;
@@ -443,9 +444,13 @@ const AxesLayer = React.memo(
 				});
 
 				ctx.restore();
-			};
+			}, [drawGrid, width, height, padding, xAxesMetrics, axisColor, zeroLineColor, labelColor, secLabelBg, fontFamily, axisLayout, seriesByYAxisId, leftOffsets, rightOffsets]);
 
-			drawRef.current = draw;
+			useEffect(() => {
+				drawRef.current = draw;
+			}, [draw]);
+
+
 
 			useImperativeHandle(
 				ref,
@@ -460,7 +465,9 @@ const AxesLayer = React.memo(
 			);
 
 			const isInteractingRef = useRef(isInteracting);
-			isInteractingRef.current = isInteracting;
+			useEffect(() => {
+				isInteractingRef.current = isInteracting;
+			}, [isInteracting]);
 
 			useEffect(() => {
 				if (!isInteractingRef.current) {
@@ -468,7 +475,6 @@ const AxesLayer = React.memo(
 					lastYAxes.current = initialYAxes;
 					drawRef.current(initialXAxes, initialYAxes);
 				}
-				// eslint-disable-next-line react-hooks/exhaustive-deps
 			}, [initialXAxes, initialYAxes, width, height]);
 
 			const dpr = window.devicePixelRatio || 1;

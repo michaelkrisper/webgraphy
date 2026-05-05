@@ -34,6 +34,7 @@ import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
 import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
+import { EmptyState } from "./EmptyState";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 
@@ -823,39 +824,6 @@ const ChartContainer: React.FC = () => {
 		});
 	}, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, xAxisCategoryLabels]);
 
-	const isEmpty = series.length === 0;
-	const dummyYAxesLayout = useMemo((): YAxisLayout[] => {
-		if (!isEmpty) return activeYAxesLayout;
-		const { ticks, precision, actualStep } = calcYAxisTicks(0, 1, chartHeight);
-		return [{
-			id: "__dummy_y__",
-			name: "",
-			min: 0,
-			max: 1,
-			position: "left" as const,
-			color: themeColors.labelColor,
-			showGrid: true,
-			ticks,
-			precision,
-			actualStep,
-		}];
-	}, [isEmpty, activeYAxesLayout, chartHeight, themeColors.labelColor]);
-
-	const dummyXAxesLayout = useMemo((): XAxisLayout[] => {
-		if (!isEmpty) return xAxesLayout;
-		const step = calcNumericStep(1, Math.max(2, Math.floor(chartWidth / 60)));
-		const result = step > 0 ? calcNumericTicks(0, 1, step) : [0, 0.5, 1];
-		return [{
-			id: "__dummy_x__",
-			min: 0,
-			max: 1,
-			ticks: { result, step, precision: calcNumericPrecision(step), isXDate: false as const },
-			title: "",
-			color: themeColors.labelColor,
-			showGrid: true,
-		}];
-	}, [isEmpty, xAxesLayout, chartWidth, themeColors.labelColor]);
-
 	// 8. Render
 	return (
 		<>
@@ -931,7 +899,7 @@ const ChartContainer: React.FC = () => {
 					</div>
 				)}
 				{datasets.length === 0 && (
-					<div className="chart-no-data">No data</div>
+					<EmptyState width={width} height={height} padding={padding} />
 				)}
 				<div className="chart-webgl-layer">
 					<ErrorBoundary level="component">
@@ -953,8 +921,8 @@ const ChartContainer: React.FC = () => {
 				</div>
 				<AxesLayer
 					ref={axesLayerRef}
-					xAxes={dummyXAxesLayout}
-					yAxes={dummyYAxesLayout}
+					xAxes={xAxesLayout}
+					yAxes={activeYAxesLayout}
 					width={width}
 					height={height}
 					padding={padding}

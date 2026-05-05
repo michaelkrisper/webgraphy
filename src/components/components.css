@@ -1034,7 +1034,7 @@
 	flex: 1;
 }
 .sb-section-title {
-	margin: 8px;
+	margin: 8px 8px 0 8px;
 	font-size: 0.75rem;
 	font-weight: 700;
 	color: var(--text-muted-color);

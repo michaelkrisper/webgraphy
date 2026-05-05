@@ -439,7 +439,6 @@ export const Sidebar: React.FC = () => {
 									display: "flex",
 									alignItems: "center",
 									justifyContent: "space-between",
-									marginBottom: "12px",
 								}}
 							>
 								<div
@@ -463,8 +462,9 @@ export const Sidebar: React.FC = () => {
 									onClick={() => fileInputRef.current?.click()}
 									className="sb-icon-btn"
 									title="Import File (CSV/JSON)"
+									style={{ padding: "8px 12px" }}
 								>
-									<FilePlus size={16} />
+									<FilePlus size={20} />
 								</button>
 							</div>
 							<input
@@ -498,7 +498,7 @@ export const Sidebar: React.FC = () => {
 											}}
 										>
 											<p style={{ margin: "0 0 12px 0", fontSize: "0.9rem" }}>
-												No data loaded
+												Drag file here or use the import button
 											</p>
 											<button
 												onClick={loadDemoData}
