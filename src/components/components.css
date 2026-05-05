@@ -949,23 +949,6 @@
 	font-weight: bold;
 	text-align: left;
 }
-.chart-fit-btns {
-	position: absolute;
-	z-index: 25;
-	display: flex;
-	gap: 4px;
-}
-.chart-fit-btn {
-	padding: 4px 10px;
-	font-size: 11px;
-	font-weight: 600;
-	background: var(--tooltip-bg);
-	border: 1px solid var(--tooltip-border);
-
-	color: var(--tooltip-color);
-	cursor: pointer;
-	box-shadow: 0 1px 4px var(--shadow);
-}
 
 /* ── Sidebar ────────────────────────────────────────── */
 .sb-header {

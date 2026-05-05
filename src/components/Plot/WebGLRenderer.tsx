@@ -83,10 +83,8 @@ const FRAGMENT_SHADER_SOURCE = `
         float dOut = r - halfSize;
         float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
         if (a <= 0.0) discard;
-        float dInner = r - (halfSize - 1.0);
-        float fillMask = 1.0 - smoothstep(-0.5, 0.5, dInner);
-        vec3 rgb = mix(vec3(1.0), u_color.rgb, fillMask);
-        gl_FragColor = vec4(rgb, u_color.a * a);
+        float alpha = u_color.a * a;
+        gl_FragColor = vec4(u_color.rgb * alpha, alpha);
       }
 
       void drawSquare() {
@@ -98,11 +96,8 @@ const FRAGMENT_SHADER_SOURCE = `
         float dOut = max(ap.x, ap.y) - halfSize;
         float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
         if (a <= 0.0) discard;
-        // 1 device-pixel white ring just inside the edge
-        float dInner = max(ap.x, ap.y) - (halfSize - 1.0);
-        float fillMask = 1.0 - smoothstep(-0.5, 0.5, dInner);
-        vec3 rgb = mix(vec3(1.0), u_color.rgb, fillMask);
-        gl_FragColor = vec4(rgb, u_color.a * a);
+        float alpha = u_color.a * a;
+        gl_FragColor = vec4(u_color.rgb * alpha, alpha);
       }
 
       void drawCross() {
@@ -110,7 +105,7 @@ const FRAGMENT_SHADER_SOURCE = `
         // Stroke half-width: at least 1px in point-coord space, scaled with size
         float t = max(0.15, 1.5 / max(u_point_size, 2.0));
         if (abs(p.x - p.y) > t && abs(p.x + p.y) > t) discard;
-        gl_FragColor = u_color;
+        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
       }
 
       void drawLineSegment() {
@@ -121,11 +116,11 @@ const FRAGMENT_SHADER_SOURCE = `
           float dist = mod(v_dist_start + mod(v_t * v_len, total), total);
           if (dist > dashLen * u_dpr) discard;
         }
-        gl_FragColor = u_color;
+        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
       }
 
       void drawSolid() {
-        gl_FragColor = u_color;
+        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
       }
 
       void main() {
@@ -190,6 +185,7 @@ export const WebGLRenderer = React.memo(
 			yAxes,
 			width,
 			height,
+			padding,
 			isInteracting = false,
 			highlightedSeriesId,
 		} = props;
@@ -241,7 +237,7 @@ export const WebGLRenderer = React.memo(
 			glRef.current = gl;
 
 			gl.enable(gl.BLEND);
-			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+			gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
 			const vs = gl.createShader(gl.VERTEX_SHADER)!;
 			gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
@@ -678,14 +674,8 @@ export const WebGLRenderer = React.memo(
 
 						if (s.pointStyle !== "none") {
 							const c = pointColorRgba;
-							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 6.0) * dpr);
-							const pStyle =
-								s.pointStyle === "circle"
-									? 0
-									: s.pointStyle === "square"
-										? 1
-										: 2;
+							const baseSize = (isHighlighted ? 8.0 : 6.0) * dpr;
+							const pStyle = s.pointStyle === "circle" ? 0 : s.pointStyle === "square" ? 1 : 2;
 							gl.uniform1i(locs.styleLoc, pStyle);
 
 							gl.disableVertexAttribArray(locs.otherLoc);
@@ -703,9 +693,20 @@ export const WebGLRenderer = React.memo(
 							gl.enableVertexAttribArray(locs.yLoc);
 							gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
+							// Pass 1: Borders
+							// Pure White
+							gl.uniform4f(locs.colorLoc, 1.0, 1.0, 1.0, 1.0);
+							// Slightly larger size for border pass
+							gl.uniform1f(locs.sizeLoc, baseSize + (pStyle === 2 ? 3.0 : 2.0) * dpr);
 							for (const seg of drawRanges) {
-								if (seg.count >= 1)
-									gl.drawArrays(gl.POINTS, seg.start, seg.count);
+								if (seg.count >= 1) gl.drawArrays(gl.POINTS, seg.start, seg.count);
+							}
+
+							// Pass 2: Centers
+							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
+							gl.uniform1f(locs.sizeLoc, baseSize);
+							for (const seg of drawRanges) {
+								if (seg.count >= 1) gl.drawArrays(gl.POINTS, seg.start, seg.count);
 							}
 						}
 					},
@@ -719,6 +720,14 @@ export const WebGLRenderer = React.memo(
 			}
 
 		}, [seriesMetadata, isInteracting, highlightedSeriesId]);
+
+		// Redraw when dimensions or padding change
+		useEffect(() => {
+			if (!isInteracting && drawFrameRef.current) {
+				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
+			}
+		}, [width, height, padding, isInteracting]);
+
 		const dpr = window.devicePixelRatio || 1;
 		return (
 			<canvas

@@ -20,7 +20,10 @@
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(npx knip *)",
       "Bash(npx eslint *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)"
     ]
   }
 }

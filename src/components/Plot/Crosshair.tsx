@@ -236,6 +236,7 @@ const Crosshair = React.memo(
 						color: string;
 						yScreen: number;
 						xScreen: number;
+						pointStyle: string;
 					}[];
 				}
 			>();
@@ -307,6 +308,7 @@ const Crosshair = React.memo(
 					color: s.lineColor || "#333",
 					yScreen,
 					xScreen,
+					pointStyle: s.pointStyle,
 				});
 			});
 
@@ -367,25 +369,51 @@ const Crosshair = React.memo(
 				ctx.stroke();
 
 				// Draw point markers (snapped to data)
-				ctx.setLineDash([]); // Reset dash for circles
+				ctx.setLineDash([]); // Reset dash for markers
 				for (const group of snap.entries) {
 					for (const item of group.items) {
-						// Marker shadow/glow
-						ctx.beginPath();
-						ctx.arc(item.xScreen, item.yScreen, 5, 0, Math.PI * 2);
-						ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-						ctx.fill();
+						const { xScreen: xs, yScreen: ys, pointStyle: style, color } = item;
+						
+						if (style === "square") {
+							// Square marker
+							ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+							ctx.fillRect(xs - 5.5, ys - 5.5, 11, 11);
+							ctx.fillStyle = color;
+							ctx.fillRect(xs - 4.5, ys - 4.5, 9, 9);
+							ctx.strokeStyle = "#fff";
+							ctx.lineWidth = 1.5;
+							ctx.strokeRect(xs - 4.5, ys - 4.5, 9, 9);
+						} else if (style === "cross") {
+							// Cross marker
+							ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+							ctx.lineWidth = 3.0;
+							ctx.beginPath();
+							ctx.moveTo(xs - 4.5, ys - 4.5); ctx.lineTo(xs + 4.5, ys + 4.5);
+							ctx.moveTo(xs + 4.5, ys - 4.5); ctx.lineTo(xs - 4.5, ys + 4.5);
+							ctx.stroke();
+							
+							ctx.strokeStyle = color;
+							ctx.lineWidth = 1.5;
+							ctx.beginPath();
+							ctx.moveTo(xs - 4.5, ys - 4.5); ctx.lineTo(xs + 4.5, ys + 4.5);
+							ctx.moveTo(xs + 4.5, ys - 4.5); ctx.lineTo(xs - 4.5, ys + 4.5);
+							ctx.stroke();
+						} else {
+							// Circle marker (default or "circle" or "none")
+							ctx.beginPath();
+							ctx.arc(xs, ys, 5.5, 0, Math.PI * 2);
+							ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+							ctx.fill();
 
-						// Marker circle
-						ctx.beginPath();
-						ctx.arc(item.xScreen, item.yScreen, 4, 0, Math.PI * 2);
-						ctx.fillStyle = item.color;
-						ctx.fill();
+							ctx.beginPath();
+							ctx.arc(xs, ys, 4.5, 0, Math.PI * 2);
+							ctx.fillStyle = color;
+							ctx.fill();
 
-						// Marker border
-						ctx.strokeStyle = "#fff";
-						ctx.lineWidth = 1.5;
-						ctx.stroke();
+							ctx.strokeStyle = "#fff";
+							ctx.lineWidth = 1.5;
+							ctx.stroke();
+						}
 					}
 				}
 

@@ -862,9 +862,23 @@ const ChartContainer: React.FC = () => {
 			<main
 				className="plot-area"
 				ref={containerRef}
-				onMouseDown={(e) => handleMouseDown(e, "all")}
-				onTouchStart={(e) => handleTouchStart(e, "all")}
-				onWheel={(e) => handleWheel(e, "all")}
+				onMouseDown={(e) => {
+					if (datasets.length > 0) handleMouseDown(e, "all");
+				}}
+				onTouchStart={(e) => {
+					if (datasets.length > 0) handleTouchStart(e, "all");
+				}}
+				onWheel={(e) => {
+					if (datasets.length > 0) handleWheel(e, "all");
+				}}
+				onDoubleClick={() => {
+					if (datasets.length > 0 && typeof handleAutoScaleX === 'function') {
+						handleAutoScaleX();
+						if (Array.isArray(activeYAxes)) {
+							activeYAxes.forEach((a) => handleAutoScaleY(a.id));
+						}
+					}
+				}}
 				onDragOver={(e) => {
 					e.preventDefault();
 					setIsDragOver(true);
@@ -916,7 +930,9 @@ const ChartContainer: React.FC = () => {
 						</span>
 					</div>
 				)}
-				{datasets.length === 0 && <div className="chart-no-data">No data</div>}
+				{datasets.length === 0 && (
+					<div className="chart-no-data">No data</div>
+				)}
 				<div className="chart-webgl-layer">
 					<ErrorBoundary level="component">
 						<WebGLRenderer
@@ -1073,23 +1089,6 @@ const ChartContainer: React.FC = () => {
 							useGraphStore.getState().setHighlightedSeries(id)
 						}
 					/>
-				)}
-				{datasets.length > 0 && (
-					<div
-						className="chart-fit-btns"
-						style={{ bottom: padding.bottom + 8, right: padding.right + 8 }}
-					>
-						<button
-							onClick={() => {
-								handleAutoScaleX();
-								activeYAxes.forEach((a) => handleAutoScaleY(a.id));
-							}}
-							title="Fit All (Double-click plot also works)"
-							className="chart-fit-btn"
-						>
-							Fit All
-						</button>
-					</div>
 				)}
 			</main>
 			{pendingFile && (
