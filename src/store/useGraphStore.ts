@@ -67,7 +67,7 @@ const createInitialXAxes = (): XAxisConfig[] => {
 		min: 0,
 		max: 100,
 		showGrid: i === 0,
-		xMode: "date",
+		xMode: "numeric",
 	}));
 };
 
@@ -288,7 +288,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
 			const col = dataset.data[xColIdx];
 			const bounds = col?.bounds || { min: 0, max: 100 };
-			const isDate = col?.isFloat64 || false;
+			
+			let xMode: "date" | "numeric" | "categorical" = "numeric";
+			if (col?.categoryLabels) {
+				xMode = "categorical";
+			} else if (col?.isFloat64) {
+				xMode = "date";
+			}
 
 			const nextXAxes = state.xAxes.map((a) =>
 				a.id === dataset.xAxisId
@@ -296,7 +302,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 							...a,
 							min: bounds.min,
 							max: bounds.max,
-							xMode: (isDate ? "date" : "numeric") as "date" | "numeric",
+							xMode,
 						}
 					: a,
 			);
@@ -330,7 +336,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
 					const bounds = col.bounds || { min: 0, max: 100 };
-					const isDate = col.isFloat64 || false;
+					
+					let xMode: "date" | "numeric" | "categorical" = "numeric";
+					if (col.categoryLabels) {
+						xMode = "categorical";
+					} else if (col.isFloat64) {
+						xMode = "date";
+					}
 
 					nextXAxes = state.xAxes.map((a) =>
 						a.id === updatedDataset.xAxisId
@@ -338,7 +350,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 									...a,
 									min: bounds.min,
 									max: bounds.max,
-									xMode: (isDate ? "date" : "numeric") as "date" | "numeric",
+									xMode,
 								}
 							: a,
 					);

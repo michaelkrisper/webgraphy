@@ -601,7 +601,8 @@ export const Sidebar: React.FC = () => {
 															disabled={datasets.length === 1}
 															style={{
 																padding: "0 5px",
-																height: "20px",
+																height: "22px",
+																boxSizing: "border-box",
 																background: "none",
 																border: `1px solid ${t.border}`,
 																borderRight: "none",
@@ -618,66 +619,6 @@ export const Sidebar: React.FC = () => {
 														>
 															{(ds.xAxisId || "axis-1").split("-")[1]}
 														</button>
-														{(() => {
-															const axis = xAxes.find(
-																(a) => a.id === (ds.xAxisId || "axis-1"),
-															);
-															const xColIdx = ds.columns.indexOf(ds.xAxisColumn);
-															const xColIsCategorical =
-																xColIdx >= 0 &&
-																!!ds.data[xColIdx]?.categoryLabels;
-															const effectiveMode = xColIsCategorical
-																? "categorical"
-																: axis?.xMode;
-															const locked = xColIsCategorical;
-															return (
-																<button
-																	disabled={locked}
-																	onClick={() => {
-																		if (locked || !axis) return;
-																		const next:
-																			| "date"
-																			| "numeric"
-																			| "categorical" =
-																			axis.xMode === "date"
-																				? "numeric"
-																				: axis.xMode === "numeric"
-																					? "categorical"
-																					: "date";
-																		updateXAxis(axis.id, { xMode: next });
-																	}}
-																	title={
-																		locked
-																			? "Categorical column — axis type locked"
-																			: effectiveMode === "date"
-																				? "Switch to Numeric Axis"
-																				: effectiveMode === "numeric"
-																					? "Switch to Categorical Axis"
-																					: "Switch to Time Axis"
-																	}
-																	style={{
-																		padding: "2px",
-																		background: "none",
-																		border: `1px solid ${t.border}`,
-																		borderRight: "none",
-																		cursor: locked ? "not-allowed" : "pointer",
-																		color: t.accent,
-																		display: "flex",
-																		alignItems: "center",
-																		justifyContent: "center",
-																		opacity: locked ? 0.5 : 1,
-																	}}
-																>
-																	{effectiveMode === "date" ? (
-																		<Clock size={14} />
-																	) : effectiveMode === "categorical" ? (
-																		<Tag size={14} />
-																	) : (
-																		<Hash size={14} />
-																	)}
-																</button>
-															);
-														})()}
 														<select
 															value={ds.xAxisColumn}
 															onChange={(e) =>
@@ -694,7 +635,7 @@ export const Sidebar: React.FC = () => {
 																border: `1px solid ${t.border}`,
 																background: t.selectBg,
 																color: t.selectColor,
-																maxWidth: "80px",
+																maxWidth: "100px",
 															}}
 														>
 															{ds.columns.map((c) => (

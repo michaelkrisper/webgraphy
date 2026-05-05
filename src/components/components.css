@@ -482,15 +482,17 @@
 .sc-row {
 	border: 1px solid var(--border2);
 
-	margin-bottom: 3px;
 	font-size: var(--mobile-font-size);
 	display: grid;
 	grid-template-columns: 24px repeat(
 			6,
 			var(--touch-target-size)
-		) 100px 1fr var(--touch-target-size);
+		) 120px 1fr var(--touch-target-size);
 	align-items: center;
 	overflow: hidden;
+}
+.sb-series-row + .sb-series-row .sc-row {
+	border-top: none;
 }
 .sc-row--hidden {
 	opacity: 0.5;
@@ -536,7 +538,7 @@
 	height: var(--touch-target-size);
 }
 .sc-select {
-	width: 100px;
+	width: 120px;
 	font-size: var(--mobile-font-size);
 	padding: 2px;
 	height: var(--touch-target-size);
@@ -1214,7 +1216,7 @@
 	grid-template-columns: 24px repeat(
 			6,
 			var(--touch-target-size)
-		) 100px 1fr var(--touch-target-size);
+		) 120px 1fr var(--touch-target-size);
 	padding: 4px 0;
 	color: var(--text-light);
 
