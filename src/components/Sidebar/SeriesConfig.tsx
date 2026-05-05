@@ -1,7 +1,6 @@
 import {
 	Ban,
 	Circle,
-	Eye,
 	EyeOff,
 	GripVertical,
 	Rows,

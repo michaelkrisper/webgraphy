@@ -5,7 +5,6 @@ import {
 	ChevronRight,
 	Circle,
 	Clock,
-	Eye,
 	FileImage,
 	FilePlus,
 	FlaskConical,
