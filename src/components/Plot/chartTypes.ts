@@ -26,12 +26,19 @@ export interface XAxisLayout {
 	title: string;
 	color: string;
 	showGrid: boolean;
+	// If set, axis tick labels are categorical.
+	// Default mapping: tick value t maps to categoryLabels[Math.round(t)].
+	// If categoryTicks is provided, the i-th label corresponds to categoryTicks[i].
+	categoryLabels?: string[];
+	categoryTicks?: number[];
 }
 
 export interface YAxisLayout extends YAxisConfig {
 	ticks: number[];
 	precision: number;
 	actualStep: number;
+	// If set, axis tick labels are categorical: tick value t maps to categoryLabels[Math.round(t)].
+	categoryLabels?: string[];
 }
 
 export interface XAxisMetrics {

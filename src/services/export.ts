@@ -1,7 +1,7 @@
 import type { Theme } from "../themes";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
-import { m4Float32 } from "../utils/lttb";
+import { m4Float32 } from "../utils/decimation";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -276,16 +276,30 @@ export const exportToSVG = (
 				),
 			);
 		if (screenPoints.length > 1 && s.lineStyle !== "none") {
-			const pathData = screenPoints
-				.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-				.join(" ");
-			let dashArray = "";
-			if (s.lineStyle === "dashed") dashArray = 'stroke-dasharray="8,6"';
-			else if (s.lineStyle === "dotted") dashArray = 'stroke-dasharray="2,4"';
-			svg += `<path d="${pathData}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
+			let pathData = "";
+			let penDown = false;
+			let prevScreenX = -Infinity;
+			for (let i = 0; i < sampled.x.length; i++) {
+				const p = screenPoints[i];
+				if (Number.isNaN(sampled.y[i]) || p.x < prevScreenX - 1) {
+					penDown = false;
+				}
+				if (!Number.isNaN(sampled.y[i])) {
+					pathData += `${penDown ? "L" : "M"} ${p.x} ${p.y} `;
+					penDown = true;
+					prevScreenX = p.x;
+				}
+			}
+			if (pathData) {
+				let dashArray = "";
+				if (s.lineStyle === "dashed") dashArray = 'stroke-dasharray="8,6"';
+				else if (s.lineStyle === "dotted") dashArray = 'stroke-dasharray="2,4"';
+				svg += `<path d="${pathData.trim()}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
+			}
 		}
 		if (s.pointStyle !== "none") {
-			screenPoints.forEach((p) => {
+			screenPoints.forEach((p, i) => {
+				if (Number.isNaN(sampled.y[i])) return;
 				if (s.pointStyle === "circle")
 					svg += `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${escapeHTML(s.pointColor)}" />`;
 				else if (s.pointStyle === "square")

@@ -252,7 +252,7 @@ describe("useDataImport hook", () => {
 
 		await act(async () => {
 			await getMockWorker().onmessage?.({
-				data: { type: "success", dataset: mockDataset },
+				data: { type: "success", datasets: [mockDataset] },
 			} as MessageEvent);
 		});
 
@@ -305,7 +305,7 @@ describe("useDataImport hook", () => {
 
 		await act(async () => {
 			await getMockWorker().onmessage?.({
-				data: { type: "success", dataset: mockDataset },
+				data: { type: "success", datasets: [mockDataset] },
 			} as MessageEvent);
 		});
 
@@ -482,7 +482,7 @@ describe("useDataImport hook", () => {
 
 		await act(async () => {
 			await getMockWorker().onmessage?.({
-				data: { type: "success", dataset: mockDataset },
+				data: { type: "success", datasets: [mockDataset] },
 			} as MessageEvent);
 		});
 
@@ -533,7 +533,7 @@ describe("useDataImport hook", () => {
 
 		await act(async () => {
 			await getMockWorker().onmessage?.({
-				data: { type: "success", dataset: mockDataset },
+				data: { type: "success", datasets: [mockDataset] },
 			} as MessageEvent);
 		});
 

@@ -10,7 +10,6 @@ import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
 import { formatFullDate } from "../../utils/time";
 
-const SNAP_PX = 30;
 
 interface SeriesMetadata {
 	series: SeriesConfig;
@@ -19,8 +18,8 @@ interface SeriesMetadata {
 	xAxis: XAxisConfig;
 	xIdx: number;
 	yIdx: number;
-	xCol: { data: Float32Array; refPoint: number };
-	yCol: { data: Float32Array; refPoint: number };
+	xCol: { data: Float32Array; refPoint: number; categoryLabels?: string[] };
+	yCol: { data: Float32Array; refPoint: number; categoryLabels?: string[] };
 }
 
 interface CrosshairProps {
@@ -162,11 +161,6 @@ const Crosshair = React.memo(
 
 		const snap = useMemo(() => {
 			if (!pos || !snapMetadata || seriesMetadata.length === 0) return null;
-			const { xAxisConf } = snapMetadata;
-			const xWorldPerPx =
-				(xAxisConf.max - xAxisConf.min) /
-				Math.max(1, width - padding.left - padding.right);
-			const xSnapWorld = SNAP_PX * xWorldPerPx;
 			let bestDist = Infinity;
 			let bestXWorld: number | null = null;
 			let bestSeriesXConf: XAxisConfig | null = null;
@@ -226,7 +220,7 @@ const Crosshair = React.memo(
 				}
 			});
 
-			if (bestXWorld === null || !bestSeriesXConf || bestDist > xSnapWorld)
+			if (bestXWorld === null || !bestSeriesXConf)
 				return null;
 			const finalBestXWorld = bestXWorld as number;
 			const finalXConf = bestSeriesXConf as XAxisConfig;
@@ -235,11 +229,18 @@ const Crosshair = React.memo(
 				{
 					xLabel: string;
 					xAxisName: string;
-					items: { label: string; value: number; color: string }[];
+					items: {
+						label: string;
+						value: number;
+						valueLabel?: string;
+						color: string;
+						yScreen: number;
+						xScreen: number;
+					}[];
 				}
 			>();
 
-			seriesMetadata.forEach(({ series: s, ds, xAxis, xCol, yCol }) => {
+			seriesMetadata.forEach(({ series: s, ds, xAxis, xCol, yCol, axis }) => {
 				const xData = xCol.data,
 					yData = yCol.data;
 				const refX = xCol.refPoint,
@@ -248,13 +249,17 @@ const Crosshair = React.memo(
 				const yVal = yData[bestI] + refY;
 				const xVal = xData[bestI] + refX;
 				const label = s.name || s.yColumn;
+				const xCatLabel =
+					xCol.categoryLabels?.[Math.round(xVal)];
 				const xLab =
-					xAxis.xMode === "date"
-						? formatFullDate(xVal)
-						: parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, {
-								minimumFractionDigits: 0,
-								maximumFractionDigits: 10,
-							});
+					xCatLabel !== undefined
+						? xCatLabel
+						: xAxis.xMode === "date"
+							? formatFullDate(xVal)
+							: parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, {
+									minimumFractionDigits: 0,
+									maximumFractionDigits: 10,
+								});
 				const dsByX: Record<string, Dataset[]> = {};
 				datasets.forEach((d) => {
 					const xId = d.xAxisId || "axis-1";
@@ -268,12 +273,41 @@ const Crosshair = React.memo(
 				const xAxisName =
 					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
 				const groupKey = `${xLab}|${xAxisName}`;
+
+				const yScreen = worldToScreen(0, yVal, {
+					xMin: 0,
+					xMax: 1,
+					yMin: axis.min,
+					yMax: axis.max,
+					width,
+					height,
+					padding,
+				}).y;
+
+				const xScreen = worldToScreen(xVal, 0, {
+					xMin: xAxis.min,
+					xMax: xAxis.max,
+					yMin: 0,
+					yMax: 1,
+					width,
+					height,
+					padding,
+				}).x;
+
 				let group = entriesMap.get(groupKey);
 				if (!group) {
 					group = { xLabel: xLab, xAxisName, items: [] };
 					entriesMap.set(groupKey, group);
 				}
-				group.items.push({ label, value: yVal, color: s.lineColor || "#333" });
+				const yCatLabel = yCol.categoryLabels?.[Math.round(yVal)];
+				group.items.push({
+					label,
+					value: yVal,
+					valueLabel: yCatLabel,
+					color: s.lineColor || "#333",
+					yScreen,
+					xScreen,
+				});
 			});
 
 			const entries = Array.from(entriesMap.values());
@@ -298,7 +332,7 @@ const Crosshair = React.memo(
 							const itemsText = g.items
 								.map(
 									(i) =>
-										`${i.label}: ${i.value.toLocaleString(undefined, { maximumSignificantDigits: 7 })}`,
+										`${i.label}: ${i.valueLabel ?? i.value.toLocaleString(undefined, { maximumSignificantDigits: 7 })}`,
 								)
 								.join("\n");
 							return `${g.xAxisName}: ${g.xLabel}\n${itemsText}`;
@@ -311,7 +345,7 @@ const Crosshair = React.memo(
 			return () => window.removeEventListener("keydown", handleKeyDown);
 		}, [snap]);
 
-		// Draw snap line on canvas
+		// Draw snap line and point markers on canvas
 		useEffect(() => {
 			const canvas = canvasRef.current;
 			if (!canvas) return;
@@ -319,20 +353,45 @@ const Crosshair = React.memo(
 			if (!ctx) return;
 			const dpr = window.devicePixelRatio || 1;
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			if (snap && !isPanning) {
+			if (snap && !isPanning && pos) {
 				ctx.save();
 				ctx.scale(dpr, dpr);
+
+				// Draw vertical line at mouse position (not snapped)
 				ctx.strokeStyle = snapLineColor;
 				ctx.lineWidth = 1;
 				ctx.setLineDash([3, 3]);
 				ctx.beginPath();
-				ctx.moveTo(snap.snapScreenX, padding.top);
-				ctx.lineTo(snap.snapScreenX, height - padding.bottom);
+				ctx.moveTo(pos.x, padding.top);
+				ctx.lineTo(pos.x, height - padding.bottom);
 				ctx.stroke();
+
+				// Draw point markers (snapped to data)
+				ctx.setLineDash([]); // Reset dash for circles
+				for (const group of snap.entries) {
+					for (const item of group.items) {
+						// Marker shadow/glow
+						ctx.beginPath();
+						ctx.arc(item.xScreen, item.yScreen, 5, 0, Math.PI * 2);
+						ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+						ctx.fill();
+
+						// Marker circle
+						ctx.beginPath();
+						ctx.arc(item.xScreen, item.yScreen, 4, 0, Math.PI * 2);
+						ctx.fillStyle = item.color;
+						ctx.fill();
+
+						// Marker border
+						ctx.strokeStyle = "#fff";
+						ctx.lineWidth = 1.5;
+						ctx.stroke();
+					}
+				}
+
 				ctx.restore();
 			}
-		}, [snap, isPanning, snapLineColor, padding, height]);
-
+		}, [snap, isPanning, pos, snapLineColor, padding, height]);
 		if (isPanning || !pos)
 			return (
 				<canvas
@@ -369,8 +428,8 @@ const Crosshair = React.memo(
 					<div
 						className="chart-tooltip"
 						style={{
-							left: snap.snapScreenX + 12,
-							top: (pos?.y || 0) + 15,
+							left: pos.x + 12,
+							top: pos.y + 15,
 							whiteSpace: "pre",
 							boxShadow: "0 10px 15px -3px var(--shadow)",
 						}}
@@ -399,9 +458,9 @@ const Crosshair = React.memo(
 								</div>
 								<div className="chart-tooltip-items">
 									{group.items.map((item, itemIdx) => {
-										const formatted = parseFloat(
-											item.value.toPrecision(7),
-										).toLocaleString();
+										const formatted =
+											item.valueLabel ??
+											parseFloat(item.value.toPrecision(7)).toLocaleString();
 										const sepIdx = formatted.search(/[.,]/);
 										const intPart =
 											sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);

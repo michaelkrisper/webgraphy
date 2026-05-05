@@ -97,6 +97,9 @@ export function usePanZoom({
 
 	const isInteracting = !!panTarget || !!zoomBoxState || isWheeling;
 
+	// Track shift state in a ref so updatePan (called from rAF/event handlers) sees the latest value.
+	const shiftDownRef = useRef(false);
+
 	const updatePan = useCallback(() => {
 		const ps = panStateRef.current;
 		if (!ps.active || !ps.target) return;
@@ -112,6 +115,7 @@ export function usePanZoom({
 			activeXAxes.forEach((axis) => {
 				if (
 					ps.target !== "all" &&
+					!shiftDownRef.current &&
 					(ps.target as { xAxisId?: string }).xAxisId !== axis.id
 				)
 					return;
@@ -136,6 +140,7 @@ export function usePanZoom({
 			activeYAxes.forEach((axis) => {
 				if (
 					ps.target !== "all" &&
+					!shiftDownRef.current &&
 					(ps.target as { yAxisId?: string }).yAxisId !== axis.id
 				)
 					return;
@@ -359,6 +364,7 @@ export function usePanZoom({
 				}
 			} else {
 				setPanTarget(target);
+				shiftDownRef.current = e.shiftKey;
 				lastMousePos.current = { x: e.clientX, y: e.clientY };
 			}
 		},
@@ -409,6 +415,7 @@ export function usePanZoom({
 	useEffect(() => {
 		panTargetRef.current = panTarget;
 		isShiftPressedRef.current = isShiftPressed;
+		shiftDownRef.current = isShiftPressed;
 	}, [panTarget, isShiftPressed]);
 
 	useEffect(() => {
@@ -477,6 +484,8 @@ export function usePanZoom({
 			}
 			const target = panTargetRef.current;
 			if (!target || !lastMousePos.current) return;
+
+			shiftDownRef.current = e.shiftKey;
 
 			const ps = panStateRef.current;
 			if (!ps.active) {

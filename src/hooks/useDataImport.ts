@@ -58,28 +58,39 @@ export const useDataImport = () => {
 			);
 
 			worker.onmessage = async (event) => {
-				const { type: msgType, dataset, error: msgError } = event.data;
+				const { type: msgType, datasets, error: msgError } = event.data;
 
 				if (msgType === "success") {
-					const currentState = useGraphStore.getState();
-					const ds = processImportedDataset(
-						dataset as Dataset,
-						currentState.datasets.length,
-					);
+					const incoming = (datasets as Dataset[]) || [];
+					for (const raw of incoming) {
+						const currentState = useGraphStore.getState();
+						const ds = processImportedDataset(
+							raw,
+							currentState.datasets.length,
+						);
 
-					await persistence.saveDataset(ds);
-					addDataset(ds);
+						await persistence.saveDataset(ds);
+						addDataset(ds);
 
-					if (ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
-						const seriesBeforeAdd = useGraphStore.getState().series;
-						const nonXColumns = ds.columns
-							.filter((c) => c !== ds.xAxisColumn)
-							.slice(0, 4);
-						nonXColumns.forEach((col, i) => {
-							addSeries(
-								buildSeriesConfig(col, ds.id, seriesBeforeAdd.length + i),
-							);
-						});
+						if (ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
+							const seriesBeforeAdd = useGraphStore.getState().series;
+							const nonXColumns = ds.columns
+								.filter((c) => c !== ds.xAxisColumn)
+								.slice(0, 4);
+							nonXColumns.forEach((col, i) => {
+								const colIdx = ds.columns.indexOf(col);
+								const isCategorical =
+									colIdx >= 0 && !!ds.data[colIdx]?.categoryLabels;
+								addSeries(
+									buildSeriesConfig(
+										col,
+										ds.id,
+										seriesBeforeAdd.length + i,
+										isCategorical,
+									),
+								);
+							});
+						}
 					}
 
 					setIsImporting(false);

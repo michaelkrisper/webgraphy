@@ -124,6 +124,7 @@ const AxesLayer = React.memo(
 
 				// Zero lines for Y axes (horizontal, only when showGrid active)
 				yAxes.forEach((axis) => {
+					if (axis.categoryLabels) return;
 					if (axis.showGrid && axis.min <= 0 && axis.max >= 0) {
 						const normY = (0 - axis.min) / (axis.max - axis.min);
 						const y = height - padding.bottom - normY * chartHeight;
@@ -218,7 +219,7 @@ const AxesLayer = React.memo(
 				// Zero line (from first X axis)
 				if (xAxes.length > 0) {
 					const axis = xAxes[0];
-					if (axis.min <= 0 && axis.max >= 0) {
+					if (!axis.categoryLabels && axis.min <= 0 && axis.max >= 0) {
 						const normX = (0 - axis.min) / (axis.max - axis.min);
 						const x = padding.left + normX * chartWidth;
 						ctx.strokeStyle = zeroLineColor;
@@ -294,10 +295,21 @@ const AxesLayer = React.memo(
 						const normX = (timestamp - axis.min) / (axis.max - axis.min);
 						if (normX < 0 || normX > 1) return;
 						const x = padding.left + normX * chartWidth;
-						const label =
-							typeof t === "number"
-								? formatAxisLabel(t, axis.ticks.precision ?? 0)
-								: t.label;
+						let label: string;
+						if (axis.categoryLabels) {
+							const v = typeof t === "number" ? t : t.timestamp;
+							const idx = axis.categoryTicks
+								? axis.categoryTicks.indexOf(v)
+								: Math.round(v);
+							const name = idx >= 0 ? axis.categoryLabels[idx] : undefined;
+							if (name === undefined) return;
+							label = name;
+						} else {
+							label =
+								typeof t === "number"
+									? formatAxisLabel(t, axis.ticks.precision ?? 0)
+									: t.label;
+						}
 						ctx.fillText(
 							label,
 							x,
@@ -383,7 +395,15 @@ const AxesLayer = React.memo(
 						const normY = (t - axis.min) / (axis.max - axis.min);
 						if (normY < 0 || normY > 1) return;
 						const y = padding.top + (1 - normY) * chartHeight;
-						const label = formatAxisLabel(t, axis.precision);
+						let label: string;
+						if (axis.categoryLabels) {
+							const idx = Math.round(t);
+							const name = axis.categoryLabels[idx];
+							if (name === undefined) return;
+							label = name;
+						} else {
+							label = formatAxisLabel(t, axis.precision);
+						}
 						ctx.fillText(label, labelX, y);
 					});
 

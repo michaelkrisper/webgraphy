@@ -15,6 +15,7 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import {
 	type AxesFrame,
+	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
 	calcNumericTicks,
@@ -43,7 +44,7 @@ const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
 
 const getXAxisMetrics = (
 	isMobile: boolean,
-	xMode: "date" | "numeric",
+	xMode: "date" | "numeric" | "categorical",
 ): Omit<XAxisMetrics, "id" | "cumulativeOffset"> => {
 	if (xMode === "date") {
 		return {
@@ -89,6 +90,7 @@ const ChartContainer: React.FC = () => {
 	const datasets = useGraphStore((s) => s.datasets);
 	const highlightedSeriesId = useGraphStore((s) => s.highlightedSeriesId);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
+	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const [themeName] = useTheme();
 	const themeColors = THEMES[themeName];
 
@@ -108,6 +110,119 @@ const ChartContainer: React.FC = () => {
 		const usedIds = series.reduce((acc, s) => acc.add(s.yAxisId), new Set<string>());
 		return yAxes.filter((a) => usedIds.has(a.id));
 	}, [yAxes, series]);
+
+	// Per-axis categorical labels: only when ALL series on the axis bind to a column
+	// that has categoryLabels, and they all share the same label set.
+	const yAxisCategoryLabels = useMemo(() => {
+		const dsById = new Map<string, Dataset>();
+		datasets.forEach((d) => dsById.set(d.id, d));
+		const out = new Map<string, string[] | undefined>();
+		const seriesByAxis = new Map<string, typeof series>();
+		series.forEach((s) => {
+			const arr = seriesByAxis.get(s.yAxisId) || [];
+			arr.push(s);
+			seriesByAxis.set(s.yAxisId, arr);
+		});
+		seriesByAxis.forEach((axisSeries, axisId) => {
+			let labels: string[] | undefined;
+			let mismatch = false;
+			for (const s of axisSeries) {
+				const ds = dsById.get(s.sourceId);
+				if (!ds) {
+					mismatch = true;
+					break;
+				}
+				const colIdx = ds.columns.indexOf(s.yColumn);
+				const col = colIdx >= 0 ? ds.data[colIdx] : undefined;
+				const cl = col?.categoryLabels;
+				if (!cl) {
+					mismatch = true;
+					break;
+				}
+				if (!labels) labels = cl;
+				else if (labels.length !== cl.length || labels.some((v, i) => v !== cl[i])) {
+					mismatch = true;
+					break;
+				}
+			}
+			out.set(axisId, mismatch ? undefined : labels);
+		});
+		return out;
+	}, [series, datasets]);
+
+	// Per-X-axis categorical labels:
+	// - if axis.xMode === "categorical": force categorical, derive labels from
+	//   column.categoryLabels if available, else stringify unique integer values.
+	// - else: auto-detect (all bound datasets' xAxisColumn share categoryLabels).
+	const xAxisCategoryLabels = useMemo(() => {
+		const out = new Map<
+			string,
+			{ labels: string[]; ticks?: number[] } | undefined
+		>();
+		const activeDsIds = series.reduce(
+			(acc, s) => acc.add(s.sourceId),
+			new Set<string>(),
+		);
+		const dssByX = new Map<string, Dataset[]>();
+		datasets.forEach((d) => {
+			if (!activeDsIds.has(d.id)) return;
+			const xId = d.xAxisId || "axis-1";
+			const arr = dssByX.get(xId) || [];
+			arr.push(d);
+			dssByX.set(xId, arr);
+		});
+		const xAxisById = new Map(xAxes.map((a) => [a.id, a]));
+		dssByX.forEach((dss, axisId) => {
+			const cfg = xAxisById.get(axisId);
+			const forced = cfg?.xMode === "categorical";
+			let labels: string[] | undefined;
+			let mismatch = false;
+			for (const d of dss) {
+				const colIdx = d.columns.indexOf(d.xAxisColumn);
+				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
+				const cl = col?.categoryLabels;
+				if (!cl) {
+					mismatch = true;
+					break;
+				}
+				if (!labels) labels = cl;
+				else if (
+					labels.length !== cl.length ||
+					labels.some((v, i) => v !== cl[i])
+				) {
+					mismatch = true;
+					break;
+				}
+			}
+			if (!mismatch && labels) {
+				out.set(axisId, { labels });
+				return;
+			}
+			if (forced) {
+				// Derive labels from unique values across bound datasets.
+				const uniq = new Set<number>();
+				for (const d of dss) {
+					const colIdx = d.columns.indexOf(d.xAxisColumn);
+					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
+					if (!col) continue;
+					const ref = col.refPoint;
+					const arr = col.data;
+					for (let i = 0; i < arr.length; i++) {
+						uniq.add(arr[i] + ref);
+					}
+					if (uniq.size > 1000) break;
+				}
+				const sorted = Array.from(uniq).sort((a, b) => a - b);
+				out.set(axisId, {
+					labels: sorted.map((v) => String(v)),
+					ticks: sorted,
+				});
+				return;
+			}
+			out.set(axisId, undefined);
+		});
+		return out;
+	}, [series, datasets, xAxes]);
 
 	const activeXAxesUsed = useMemo(() => {
 		const activeDatasetIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
@@ -130,20 +245,29 @@ const ChartContainer: React.FC = () => {
 	const axisLayout = useMemo(() => {
 		const layout: Record<string, { total: number; label: number }> = {};
 		activeYAxes.forEach((axis) => {
-			const step = calcNumericStep(
-				axis.max - axis.min,
-				Math.max(2, Math.floor(height / 30)),
-			);
-			const precision = calcNumericPrecision(step);
-			const widestValChars = Math.max(
-				formatAxisLabel(axis.min, precision).length,
-				formatAxisLabel(axis.max, precision).length,
-			);
+			const categoryLabels = yAxisCategoryLabels.get(axis.id);
+			let widestValChars: number;
+			if (categoryLabels) {
+				widestValChars = categoryLabels.reduce(
+					(acc, n) => Math.max(acc, n?.length ?? 0),
+					1,
+				);
+			} else {
+				const step = calcNumericStep(
+					axis.max - axis.min,
+					Math.max(2, Math.floor(height / 30)),
+				);
+				const precision = calcNumericPrecision(step);
+				widestValChars = Math.max(
+					formatAxisLabel(axis.min, precision).length,
+					formatAxisLabel(axis.max, precision).length,
+				);
+			}
 			const labelWidth = Math.min(100, widestValChars * 6);
 			layout[axis.id] = { label: labelWidth, total: labelWidth + 24 };
 		});
 		return layout;
-	}, [activeYAxes, height]);
+	}, [activeYAxes, height, yAxisCategoryLabels]);
 
 	const leftAxes = useMemo(
 		() => activeYAxes.filter((a) => a.position === "left"),
@@ -243,6 +367,9 @@ const ChartContainer: React.FC = () => {
 				.map((axis) => {
 					const r = axis.max - axis.min,
 						isDate = axis.xMode === "date";
+					const catInfo = xAxisCategoryLabels.get(axis.id);
+					const categoryLabels = catInfo?.labels;
+					const categoryTicks = catInfo?.ticks;
 					const dss = dsByX[axis.id] || [];
 					const uniqueColumns = Array.from(
 						dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
@@ -264,7 +391,30 @@ const ChartContainer: React.FC = () => {
 							},
 							title,
 							color,
+							categoryLabels,
+							categoryTicks,
 						};
+					if (categoryLabels) {
+						const result = categoryTicks
+							? categoryTicks.filter((v) => v >= axis.min && v <= axis.max)
+							: calcCategoricalTicks(axis.min, axis.max, categoryLabels.length);
+						return {
+							id: axis.id,
+							min: axis.min,
+							max: axis.max,
+							showGrid: axis.showGrid,
+							ticks: {
+								result,
+								step: 1,
+								precision: 0,
+								isXDate: false as const,
+							},
+							title,
+							color,
+							categoryLabels,
+							categoryTicks,
+						};
+					}
 					if (!isDate) {
 						const step = calcNumericStep(
 							r,
@@ -322,7 +472,7 @@ const ChartContainer: React.FC = () => {
 					}
 				});
 		},
-		[series, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed],
+		[series, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed, xAxisCategoryLabels],
 	);
 
 	const computeYAxesLayout = useCallback(
@@ -331,15 +481,18 @@ const ChartContainer: React.FC = () => {
 			return liveYAxes
 				.filter((a) => usedYAxisIds.has(a.id))
 				.map((axis) => {
+					const categoryLabels = yAxisCategoryLabels.get(axis.id);
 					const { ticks, precision, actualStep } = calcYAxisTicks(
 						axis.min,
 						axis.max,
 						chartHeight,
+						categoryLabels ? 1 : undefined,
+						categoryLabels?.length,
 					);
-					return { ...axis, ticks, precision, actualStep };
+					return { ...axis, ticks, precision, actualStep, categoryLabels };
 				});
 		},
-		[series, chartHeight],
+		[series, chartHeight, yAxisCategoryLabels],
 	);
 
 	const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
@@ -545,14 +698,17 @@ const ChartContainer: React.FC = () => {
 	// 7. Memos for static rendering (JSX)
 	const activeYAxesLayout = useMemo((): YAxisLayout[] => {
 		return activeYAxes.map((axis) => {
+			const categoryLabels = yAxisCategoryLabels.get(axis.id);
 			const { ticks, precision, actualStep } = calcYAxisTicks(
 				axis.min,
 				axis.max,
 				chartHeight,
+				categoryLabels ? 1 : undefined,
+				categoryLabels?.length,
 			);
-			return { ...axis, ticks, precision, actualStep };
+			return { ...axis, ticks, precision, actualStep, categoryLabels };
 		});
-	}, [activeYAxes, chartHeight]);
+	}, [activeYAxes, chartHeight, yAxisCategoryLabels]);
 
 	const xAxesLayout = useMemo((): XAxisLayout[] => {
 		const activeDsIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
@@ -568,6 +724,9 @@ const ChartContainer: React.FC = () => {
 		return activeXAxesUsed.map((axis) => {
 			const r = axis.max - axis.min,
 				isDate = axis.xMode === "date";
+			const catInfo = xAxisCategoryLabels.get(axis.id);
+			const categoryLabels = catInfo?.labels;
+			const categoryTicks = catInfo?.ticks;
 			const dss = dsByX[axis.id] || [];
 			const uniqueColumns = Array.from(
 				dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
@@ -584,7 +743,31 @@ const ChartContainer: React.FC = () => {
 					ticks: { result: [], step: 1, precision: 0, isXDate: false as const },
 					title,
 					color,
+					categoryLabels,
+					categoryTicks,
 				};
+
+			if (categoryLabels) {
+				const result = categoryTicks
+					? categoryTicks.filter((v) => v >= axis.min && v <= axis.max)
+					: calcCategoricalTicks(axis.min, axis.max, categoryLabels.length);
+				return {
+					id: axis.id,
+					min: axis.min,
+					max: axis.max,
+					showGrid: axis.showGrid,
+					ticks: {
+						result,
+						step: 1,
+						precision: 0,
+						isXDate: false as const,
+					},
+					title,
+					color,
+					categoryLabels,
+					categoryTicks,
+				};
+			}
 
 			if (!isDate) {
 				const step = calcNumericStep(
@@ -638,7 +821,40 @@ const ChartContainer: React.FC = () => {
 				};
 			}
 		});
-	}, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor]);
+	}, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, xAxisCategoryLabels]);
+
+	const isEmpty = series.length === 0;
+	const dummyYAxesLayout = useMemo((): YAxisLayout[] => {
+		if (!isEmpty) return activeYAxesLayout;
+		const { ticks, precision, actualStep } = calcYAxisTicks(0, 1, chartHeight);
+		return [{
+			id: "__dummy_y__",
+			name: "",
+			min: 0,
+			max: 1,
+			position: "left" as const,
+			color: themeColors.labelColor,
+			showGrid: true,
+			ticks,
+			precision,
+			actualStep,
+		}];
+	}, [isEmpty, activeYAxesLayout, chartHeight, themeColors.labelColor]);
+
+	const dummyXAxesLayout = useMemo((): XAxisLayout[] => {
+		if (!isEmpty) return xAxesLayout;
+		const step = calcNumericStep(1, Math.max(2, Math.floor(chartWidth / 60)));
+		const result = step > 0 ? calcNumericTicks(0, 1, step) : [0, 0.5, 1];
+		return [{
+			id: "__dummy_x__",
+			min: 0,
+			max: 1,
+			ticks: { result, step, precision: calcNumericPrecision(step), isXDate: false as const },
+			title: "",
+			color: themeColors.labelColor,
+			showGrid: true,
+		}];
+	}, [isEmpty, xAxesLayout, chartWidth, themeColors.labelColor]);
 
 	// 8. Render
 	return (
@@ -721,8 +937,8 @@ const ChartContainer: React.FC = () => {
 				</div>
 				<AxesLayer
 					ref={axesLayerRef}
-					xAxes={xAxesLayout}
-					yAxes={activeYAxesLayout}
+					xAxes={dummyXAxesLayout}
+					yAxes={dummyYAxesLayout}
 					width={width}
 					height={height}
 					padding={padding}
@@ -811,21 +1027,23 @@ const ChartContainer: React.FC = () => {
 						/>
 					);
 				})}
-				<Crosshair
-					containerRef={containerRef}
-					padding={padding}
-					width={width}
-					height={height}
-					isPanning={isInteracting}
-					xAxes={xAxes}
-					yAxes={activeYAxes}
-					datasets={datasets}
-					series={series}
-					tooltipColor={themeColors.tooltipColor}
-					snapLineColor={themeColors.snapLineColor}
-					tooltipDividerColor={themeColors.tooltipDividerColor}
-					tooltipSubColor={themeColors.tooltipSubColor}
-				/>
+				{crosshairVisible && (
+					<Crosshair
+						containerRef={containerRef}
+						padding={padding}
+						width={width}
+						height={height}
+						isPanning={isInteracting}
+						xAxes={xAxes}
+						yAxes={activeYAxes}
+						datasets={datasets}
+						series={series}
+						tooltipColor={themeColors.tooltipColor}
+						snapLineColor={themeColors.snapLineColor}
+						tooltipDividerColor={themeColors.tooltipDividerColor}
+						tooltipSubColor={themeColors.tooltipSubColor}
+					/>
+				)}
 				{zoomBoxState && (
 					<svg
 						width="100%"

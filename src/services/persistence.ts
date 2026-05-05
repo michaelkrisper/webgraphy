@@ -12,6 +12,9 @@ export interface DataColumn {
 	bounds: { min: number; max: number };
 	data: Float32Array;
 	formula?: string;
+	// Present only for categorical columns. Indexed by integer category id (0,1,2,...);
+	// data[i] holds the integer id, categoryLabels[id] is the display name.
+	categoryLabels?: string[];
 }
 
 export interface Dataset {
@@ -30,7 +33,7 @@ export interface XAxisConfig {
 	min: number;
 	max: number;
 	showGrid: boolean;
-	xMode: "date" | "numeric";
+	xMode: "date" | "numeric" | "categorical";
 }
 
 export interface YAxisConfig {
@@ -69,7 +72,7 @@ const XAxisConfigSchema = z.object({
 	min: z.number(),
 	max: z.number(),
 	showGrid: z.boolean(),
-	xMode: z.enum(["date", "numeric"]),
+	xMode: z.enum(["date", "numeric", "categorical"]),
 });
 const YAxisConfigSchema = z.object({
 	id: z.string(),

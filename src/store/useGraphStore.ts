@@ -21,6 +21,8 @@ interface GraphState {
 	highlightedSeriesId: string | null;
 	legendVisible: boolean;
 	setLegendVisible: (visible: boolean) => void;
+	crosshairVisible: boolean;
+	setCrosshairVisible: (visible: boolean) => void;
 
 	// Actions
 	addDataset: (dataset: Dataset) => void;
@@ -97,6 +99,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (typeof localStorage !== "undefined")
 			localStorage.setItem("legendVisible", String(visible));
 		set({ legendVisible: visible });
+	},
+	crosshairVisible:
+		typeof localStorage !== "undefined"
+			? localStorage.getItem("crosshairVisible") !== "false"
+			: true,
+	setCrosshairVisible: (visible) => {
+		if (typeof localStorage !== "undefined")
+			localStorage.setItem("crosshairVisible", String(visible));
+		set({ crosshairVisible: visible });
 	},
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
@@ -290,6 +301,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					: a,
 			);
 
+			persistence.saveDataset(dataset);
+
 			return {
 				datasets: [...state.datasets, dataset],
 				xAxes: nextXAxes,
@@ -331,6 +344,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					);
 				}
 			}
+
+			persistence.saveDataset(updatedDataset);
 
 			return {
 				datasets: nextDatasets,
@@ -525,7 +540,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				}));
 			}
 			set({ ...savedState, datasets: allDatasets, isLoaded: true });
-			debouncedSaveState();
+			// Don't call debouncedSaveState immediately to avoid overwriting with incomplete data
 		} else if (allDatasets.length > 0) {
 			set({ datasets: allDatasets, isLoaded: true });
 		} else if (localStorage.getItem("webgraphy-cleared")) {

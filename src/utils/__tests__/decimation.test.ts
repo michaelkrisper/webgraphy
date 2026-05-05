@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { m4Float32 } from "../lttb";
+import { m4ByXFloat32, m4Float32 } from "../decimation";
 
 describe("m4Float32", () => {
 	it("should pass-through if n <= threshold", () => {
@@ -176,5 +176,77 @@ describe("m4Float32", () => {
 		const result = m4Float32(xData, yData, threshold, out);
 		expect(out.x.length).toBeGreaterThanOrEqual(3);
 		expect(Array.from(result.x)).toEqual([1, 2, 3]);
+	});
+});
+
+describe("m4ByXFloat32", () => {
+	it("returns empty for empty input", () => {
+		const x = new Float32Array([]);
+		const y = new Float32Array([]);
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 4);
+		expect(r.x.length).toBe(0);
+	});
+
+	it("emits start/min/max/end per pixel-anchored bucket", () => {
+		const x = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7]);
+		const y = new Float32Array([10, 20, 0, 15, 5, 0, 100, 50]);
+		// 2 buckets across [0, 8): bucket0=x<4 (idx 0..3), bucket1=x<8 (idx 4..7)
+		const r = m4ByXFloat32(x, y, 0, 0, 8, 2);
+		expect(Array.from(r.y)).toEqual([10, 20, 0, 15, 5, 0, 100, 50]);
+	});
+
+	it("preserves extrema across buckets", () => {
+		const x = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const y = new Float32Array([0, 100, -100, 0, 0, 0, 0, 500, -500, 0]);
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 2);
+		const ys = Array.from(r.y);
+		expect(ys).toContain(100);
+		expect(ys).toContain(-100);
+		expect(ys).toContain(500);
+		expect(ys).toContain(-500);
+	});
+
+	it("bucket boundaries are stable under slice change", () => {
+		// Same world-X buckets must pick same extrema regardless of how many points are in slice
+		const xFull = new Float32Array(1000);
+		const yFull = new Float32Array(1000);
+		for (let i = 0; i < 1000; i++) {
+			xFull[i] = i;
+			yFull[i] = Math.sin(i * 0.1) * 100;
+		}
+		const r1 = m4ByXFloat32(xFull, yFull, 0, 100, 200, 10);
+		// Slice subarray covering same world range [100, 200) plus boundary points
+		const xSub = xFull.subarray(99, 201);
+		const ySub = yFull.subarray(99, 201);
+		const r2 = m4ByXFloat32(xSub, ySub, 0, 100, 200, 10);
+		expect(Array.from(r2.y)).toEqual(Array.from(r1.y));
+	});
+
+	it("respects xRef offset", () => {
+		const x = new Float32Array([0, 1, 2, 3]);
+		const y = new Float32Array([1, 2, 3, 4]);
+		// xRef=1000 → world X = 1000..1003
+		const r = m4ByXFloat32(x, y, 1000, 1000, 1004, 2);
+		expect(r.x.length).toBeGreaterThan(0);
+		expect(Array.from(r.y)).toContain(1);
+		expect(Array.from(r.y)).toContain(4);
+	});
+
+	it("skips empty buckets", () => {
+		const x = new Float32Array([0, 1, 9]);
+		const y = new Float32Array([1, 2, 3]);
+		// 5 buckets across [0,10): bucket 1..3 empty
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 5);
+		expect(Array.from(r.y).sort()).toEqual([1, 2, 3]);
+	});
+
+	it("ignores NaN y values", () => {
+		const x = new Float32Array([0, 1, 2, 3]);
+		const y = new Float32Array([1, NaN, 3, NaN]);
+		const r = m4ByXFloat32(x, y, 0, 0, 4, 1);
+		const ys = Array.from(r.y);
+		expect(ys).not.toContain(NaN);
+		expect(ys).toContain(1);
+		expect(ys).toContain(3);
 	});
 });

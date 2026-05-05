@@ -23,6 +23,19 @@ export function formatAxisLabel(val: number, precision: number): string {
 	return str;
 }
 
+/** Generate categorical integer ticks 0..N-1 within [min,max]. */
+export function calcCategoricalTicks(
+	min: number,
+	max: number,
+	categoryCount: number,
+): number[] {
+	const lo = Math.max(0, Math.ceil(min));
+	const hi = Math.min(categoryCount - 1, Math.floor(max));
+	const ticks: number[] = [];
+	for (let i = lo; i <= hi; i++) ticks.push(i);
+	return ticks;
+}
+
 /** Generate tick values from min to max for a given step (capped at 200). */
 export function calcNumericTicks(
 	min: number,
@@ -44,9 +57,17 @@ export function calcYAxisTicks(
 	max: number,
 	chartHeight: number,
 	lockedStep?: number,
+	categoryCount?: number,
 ): { ticks: number[]; precision: number; actualStep: number } {
 	const range = max - min;
 	if (range <= 0) return { ticks: [], precision: 0, actualStep: 1 };
+	if (categoryCount !== undefined) {
+		return {
+			ticks: calcCategoricalTicks(min, max, categoryCount),
+			precision: 0,
+			actualStep: 1,
+		};
+	}
 	const step =
 		lockedStep ??
 		calcNumericStep(range, Math.max(2, Math.floor(chartHeight / 30)));

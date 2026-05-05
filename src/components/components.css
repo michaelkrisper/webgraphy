@@ -812,6 +812,19 @@
 	color: var(--text-color);
 	margin-top: 4px;
 }
+.isd-split-by {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
+	margin-top: 4px;
+	color: var(--text-color);
+	cursor: pointer;
+	user-select: none;
+}
+.isd-split-by input {
+	margin: 0;
+}
 .isd-data-row-even {
 	background: var(--bg);
 }
@@ -986,6 +999,23 @@
 	background: none;
 	border: none;
 	cursor: pointer;
+	position: relative;
+}
+.sb-hdr-btn--off::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	right: 4px;
+	top: 4px;
+	bottom: 4px;
+	background: linear-gradient(
+		to top right,
+		transparent calc(50% - 1.25px),
+		#dc3545 calc(50% - 1.25px),
+		#dc3545 calc(50% + 1.25px),
+		transparent calc(50% + 1.25px)
+	);
+	pointer-events: none;
 }
 .sb-hdr-sep {
 	width: 1px;

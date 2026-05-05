@@ -1,4 +1,4 @@
-import { Check, Clock, EyeOff, FileType, Hash, Type } from "lucide-react";
+import { Check, Clock, EyeOff, FileType, Hash, Tag } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import type {
@@ -88,6 +88,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	const [xAxisColumnOverride, setXAxisColumnOverride] = useState<string | null>(
 		null,
 	);
+	// null = no split; otherwise the column name to split by
+	const [splitByColumn, setSplitByColumn] = useState<string | null>(null);
 
 	const previewData = useMemo(() => {
 		if (fileType === "json") {
@@ -287,6 +289,13 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								commentChar,
 								columnConfigs,
 								xAxisColumn,
+								splitByColumn:
+									splitByColumn &&
+									columnConfigs.find(
+										(c) => c.name === splitByColumn && c.type === "categorical",
+									)
+										? splitByColumn
+										: undefined,
 							})
 						}
 						className="isd-btn-confirm"
@@ -348,7 +357,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 													{ type: "date", icon: Clock, label: "Date/Time" },
 													{
 														type: "categorical",
-														icon: Type,
+														icon: Tag,
 														label: "Categorical",
 													},
 													{ type: "ignore", icon: EyeOff, label: "Ignore" },
@@ -385,6 +394,23 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 													}
 													className="isd-date-input"
 												/>
+											)}
+											{config.type === "categorical" && (
+												<label
+													className="isd-split-by"
+													title="Split file into one dataset per distinct value of this column"
+												>
+													<input
+														type="checkbox"
+														checked={splitByColumn === config.name}
+														onChange={(e) =>
+															setSplitByColumn(
+																e.target.checked ? config.name : null,
+															)
+														}
+													/>
+													<span>Split by category</span>
+												</label>
 											)}
 										</th>
 									))}

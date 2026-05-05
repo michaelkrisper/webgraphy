@@ -5,6 +5,8 @@ import {
 	ChevronRight,
 	Circle,
 	Clock,
+	Columns,
+	Crosshair,
 	FileImage,
 	FilePlus,
 	FlaskConical,
@@ -21,8 +23,8 @@ import {
 	Rows,
 	Save,
 	Sparkles,
-	Square,
 	Sun,
+	Tag,
 	Terminal,
 	Trash2,
 	X,
@@ -77,7 +79,8 @@ export const Sidebar: React.FC = () => {
 	const addSeries = useGraphStore((s) => s.addSeries);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const setLegendVisible = useGraphStore((s) => s.setLegendVisible);
-
+	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
+	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
 	const [themeName, cycleTheme] = useTheme();
 	const t = THEMES[themeName];
 
@@ -289,7 +292,12 @@ export const Sidebar: React.FC = () => {
 		const dataset = datasets.find((d) => d.id === datasetId);
 		if (!dataset) return;
 
-		addSeries(buildSeriesConfig(columnName, datasetId, series.length));
+		const colIdx = dataset.columns.indexOf(columnName);
+		const isCategorical =
+			colIdx >= 0 && !!dataset.data[colIdx]?.categoryLabels;
+		addSeries(
+			buildSeriesConfig(columnName, datasetId, series.length, isCategorical),
+		);
 	};
 
 	if (isCollapsed) {
@@ -307,11 +315,12 @@ export const Sidebar: React.FC = () => {
 		icon: React.ReactNode,
 		title: string,
 		color?: string,
+		off?: boolean,
 	) => (
 		<button
 			onClick={onClick}
 			title={title}
-			className="sb-hdr-btn"
+			className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
 			style={color ? { color } : undefined}
 		>
 			{icon}
@@ -388,13 +397,17 @@ export const Sidebar: React.FC = () => {
 								const ax = xAxes[0];
 								if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
 							},
-							xAxes[0]?.showGrid ? (
-								<Rows size={16} style={{ transform: "rotate(90deg)" }} />
-							) : (
-								<Square size={16} />
-							),
+							<Columns size={16} />,
 							xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid",
-							xAxes[0]?.showGrid ? "var(--accent)" : undefined,
+							undefined,
+							!xAxes[0]?.showGrid,
+						)}
+						{hdrBtn(
+							() => setCrosshairVisible(!crosshairVisible),
+							<Crosshair size={16} />,
+							crosshairVisible ? "Hide Crosshair" : "Show Crosshair",
+							undefined,
+							!crosshairVisible,
 						)}
 						{hdrBtn(
 							() => setLegendVisible(!legendVisible),
@@ -602,47 +615,66 @@ export const Sidebar: React.FC = () => {
 														>
 															{(ds.xAxisId || "axis-1").split("-")[1]}
 														</button>
-														<button
-															onClick={() => {
-																const axis = xAxes.find(
-																	(a) => a.id === (ds.xAxisId || "axis-1"),
-																);
-																if (axis) {
-																	updateXAxis(axis.id, {
-																		xMode:
+														{(() => {
+															const axis = xAxes.find(
+																(a) => a.id === (ds.xAxisId || "axis-1"),
+															);
+															const xColIdx = ds.columns.indexOf(ds.xAxisColumn);
+															const xColIsCategorical =
+																xColIdx >= 0 &&
+																!!ds.data[xColIdx]?.categoryLabels;
+															const effectiveMode = xColIsCategorical
+																? "categorical"
+																: axis?.xMode;
+															const locked = xColIsCategorical;
+															return (
+																<button
+																	disabled={locked}
+																	onClick={() => {
+																		if (locked || !axis) return;
+																		const next:
+																			| "date"
+																			| "numeric"
+																			| "categorical" =
 																			axis.xMode === "date"
 																				? "numeric"
-																				: "date",
-																	});
-																}
-															}}
-															title={
-																xAxes.find(
-																	(a) => a.id === (ds.xAxisId || "axis-1"),
-																)?.xMode === "date"
-																	? "Switch to Numeric Axis"
-																	: "Switch to Time Axis"
-															}
-															style={{
-																padding: "2px",
-																background: "none",
-																border: `1px solid ${t.border}`,
-																borderRight: "none",
-																cursor: "pointer",
-																color: t.accent,
-																display: "flex",
-																alignItems: "center",
-																justifyContent: "center",
-															}}
-														>
-															{xAxes.find(
-																(a) => a.id === (ds.xAxisId || "axis-1"),
-															)?.xMode === "date" ? (
-																<Clock size={14} />
-															) : (
-																<Hash size={14} />
-															)}
-														</button>
+																				: axis.xMode === "numeric"
+																					? "categorical"
+																					: "date";
+																		updateXAxis(axis.id, { xMode: next });
+																	}}
+																	title={
+																		locked
+																			? "Categorical column — axis type locked"
+																			: effectiveMode === "date"
+																				? "Switch to Numeric Axis"
+																				: effectiveMode === "numeric"
+																					? "Switch to Categorical Axis"
+																					: "Switch to Time Axis"
+																	}
+																	style={{
+																		padding: "2px",
+																		background: "none",
+																		border: `1px solid ${t.border}`,
+																		borderRight: "none",
+																		cursor: locked ? "not-allowed" : "pointer",
+																		color: t.accent,
+																		display: "flex",
+																		alignItems: "center",
+																		justifyContent: "center",
+																		opacity: locked ? 0.5 : 1,
+																	}}
+																>
+																	{effectiveMode === "date" ? (
+																		<Clock size={14} />
+																	) : effectiveMode === "categorical" ? (
+																		<Tag size={14} />
+																	) : (
+																		<Hash size={14} />
+																	)}
+																</button>
+															);
+														})()}
 														<select
 															value={ds.xAxisColumn}
 															onChange={(e) =>
@@ -653,7 +685,9 @@ export const Sidebar: React.FC = () => {
 															title="X-Axis"
 															style={{
 																fontSize: "0.75rem",
-																padding: "2px 4px",
+																height: "22px",
+																boxSizing: "border-box",
+																padding: "0 4px",
 																border: `1px solid ${t.border}`,
 																background: t.selectBg,
 																color: t.selectColor,
@@ -805,7 +839,7 @@ export const Sidebar: React.FC = () => {
 								onClick={() => toggleSection("series")}
 								className="sb-section-toggle"
 							>
-								<h2 className="sb-section-title">Series Config</h2>
+								<h2 className="sb-section-title">Data Series</h2>
 								{openSections.series ? (
 									<ChevronDown size={16} color="var(--text-muted-color)" />
 								) : (

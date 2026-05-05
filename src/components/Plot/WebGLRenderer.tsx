@@ -13,7 +13,7 @@ import type {
 } from "../../services/persistence";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
-import { m4Float32 } from "../../utils/lttb";
+import { m4ByXFloat32 } from "../../utils/decimation";
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -74,20 +74,42 @@ const FRAGMENT_SHADER_SOURCE = `
       uniform int u_style;
       uniform int u_line_style;
       uniform float u_dpr;
+      uniform float u_point_size;
 
       void drawCircle() {
-        float d = length(gl_PointCoord - 0.5);
-        if (d > 0.5) discard;
-        gl_FragColor = u_color;
+        vec2 p = (gl_PointCoord - 0.5) * u_point_size;
+        float r = length(p);
+        float halfSize = 0.5 * u_point_size;
+        float dOut = r - halfSize;
+        float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
+        if (a <= 0.0) discard;
+        float dInner = r - (halfSize - 1.0);
+        float fillMask = 1.0 - smoothstep(-0.5, 0.5, dInner);
+        vec3 rgb = mix(vec3(1.0), u_color.rgb, fillMask);
+        gl_FragColor = vec4(rgb, u_color.a * a);
       }
 
       void drawSquare() {
-        gl_FragColor = u_color;
+        // Work in device pixels for crisp axis-aligned AA.
+        vec2 p = (gl_PointCoord - 0.5) * u_point_size;
+        vec2 ap = abs(p);
+        float halfSize = 0.5 * u_point_size;
+        // Signed distance to outer edge (negative inside)
+        float dOut = max(ap.x, ap.y) - halfSize;
+        float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
+        if (a <= 0.0) discard;
+        // 1 device-pixel white ring just inside the edge
+        float dInner = max(ap.x, ap.y) - (halfSize - 1.0);
+        float fillMask = 1.0 - smoothstep(-0.5, 0.5, dInner);
+        vec3 rgb = mix(vec3(1.0), u_color.rgb, fillMask);
+        gl_FragColor = vec4(rgb, u_color.a * a);
       }
 
       void drawCross() {
         vec2 p = gl_PointCoord - 0.5;
-        if (abs(p.x - p.y) > 0.1 && abs(p.x + p.y) > 0.1) discard;
+        // Stroke half-width: at least 1px in point-coord space, scaled with size
+        float t = max(0.15, 1.5 / max(u_point_size, 2.0));
+        if (abs(p.x - p.y) > t && abs(p.x + p.y) > t) discard;
         gl_FragColor = u_color;
       }
 
@@ -181,6 +203,7 @@ export const WebGLRenderer = React.memo(
 			new Map(),
 		);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
+		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
 		const drawFrameRef = useRef<
@@ -212,10 +235,13 @@ export const WebGLRenderer = React.memo(
 			const gl = canvas.getContext("webgl", {
 				preserveDrawingBuffer: true,
 				antialias: true,
-				alpha: false,
+				alpha: true,
 			});
 			if (!gl) return;
 			glRef.current = gl;
+
+			gl.enable(gl.BLEND);
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 			const vs = gl.createShader(gl.VERTEX_SHADER)!;
 			gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
@@ -328,10 +354,8 @@ export const WebGLRenderer = React.memo(
 				if (!pg || !locs) return;
 
 				// Use latest props from ref to avoid stale closures
-				const { width, height, padding, highlightedSeriesId, plotBg } =
+				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
-				const [bgR, bgG, bgB] = hexToRgba(plotBg);
-
 				const xAxesById = new Map<string, XAxisConfig>();
 				currentXAxes.forEach((a) => xAxesById.set(a.id, a));
 				const yAxesById = new Map<string, YAxisConfig>();
@@ -346,7 +370,7 @@ export const WebGLRenderer = React.memo(
 					ph = height * dpr;
 
 				gl.viewport(0, 0, pw, ph);
-				gl.clearColor(bgR, bgG, bgB, 1);
+				gl.clearColor(0, 0, 0, 0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
 				gl.useProgram(pg);
@@ -388,11 +412,28 @@ export const WebGLRenderer = React.memo(
 						const xRange = xAxis.max - xAxis.min || 1;
 						const yRange = yAxis.max - yAxis.min || 1;
 
-						// Viewport-aware M4: decimate only the visible raw slice to 2 points/pixel.
-						// Single path — no level switching, so zoom is seamless at all scales.
-						const pixelBudget = Math.max(500, Math.round(chartWidth * dpr) * 2);
+						// Pixel-anchored M4: 1 bucket per device pixel, tied to world-X (xAxis.min..max).
+						// Bucket boundaries don't shift with slice length, so extrema stay stable under zoom.
+						// Pass-through threshold is generous: small/medium datasets render raw, avoiding
+						// any decimation-induced extrema flicker when points pan across bucket boundaries.
+						const numBuckets = Math.max(64, Math.round(chartWidth * dpr));
+						const pixelBudget = numBuckets * 16;
 
-						// Binary-search the visible raw range (±1 for boundary continuity)
+						// Binary-search requires globally monotonic X. If column has internal drops
+						// (e.g. concatenated groups), fall back to scanning the full array —
+						// the per-segment loop below splits at xDrop and handles each correctly.
+						const xDataLen = xData.length;
+						let isMonotonic = monoCacheRef.current.get(xData);
+						if (isMonotonic === undefined) {
+							isMonotonic = true;
+							for (let i = 1; i < xDataLen; i++) {
+								if (xData[i] < xData[i - 1]) {
+									isMonotonic = false;
+									break;
+								}
+							}
+							monoCacheRef.current.set(xData, isMonotonic);
+						}
 						let rawStart = 0,
 							rawEnd = xData.length - 1;
 						{
@@ -417,29 +458,81 @@ export const WebGLRenderer = React.memo(
 								} else lo = m + 1;
 							}
 						}
-						const sliceStart = Math.max(0, rawStart > 0 ? rawStart - 1 : 0);
-						const sliceEnd = Math.min(
-							xData.length - 1,
-							rawEnd < xData.length - 1 ? rawEnd + 1 : rawEnd,
-						);
-						const sliceLen = sliceEnd - sliceStart + 1;
+						const sliceStart = isMonotonic
+							? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
+							: 0;
+						const sliceEnd = isMonotonic
+							? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
+							: xDataLen - 1;
 
 						// M4-decimate the visible slice; m4Float32 passes through when sliceLen <= pixelBudget
 						const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
 						const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
+						const sliceLen2 = sliceX.length;
 
+						// Find contiguous non-NaN, monotonically-increasing-X segments
+						const rawSegments: { start: number; end: number }[] = [];
+						{
+							let segStart = -1;
+							for (let i = 0; i <= sliceLen2; i++) {
+								const nan = i === sliceLen2 || Number.isNaN(sliceY[i]);
+								const xDrop = !nan && i > 0 && segStart !== -1 && sliceX[i] < sliceX[i - 1];
+								const break_ = nan || xDrop;
+								if (!break_ && segStart === -1) segStart = i;
+								else if (break_ && segStart !== -1) {
+									rawSegments.push({ start: segStart, end: i - 1 });
+									segStart = -1;
+									if (xDrop && !nan) segStart = i; // start new segment at current point
+								}
+							}
+						}
+
+						// Decimate each segment independently so NaN gaps are preserved
 						let m4Out = m4OutsRef.current.get(s.id);
 						if (!m4Out) {
 							m4Out = { x: new Float32Array(0), y: new Float32Array(0) };
 							m4OutsRef.current.set(s.id, m4Out);
 						}
 
-						const decimated =
-							sliceLen > pixelBudget
-								? m4Float32(sliceX, sliceY, pixelBudget, m4Out)
-								: null; // use raw slice directly
+						// Build final draw data: array of {x, y} per segment (decimated or raw)
+						const drawSegments: { x: Float32Array; y: Float32Array }[] = [];
+						let totalDrawCount = 0;
+						for (const { start, end } of rawSegments) {
+							const segLen = end - start + 1;
+							const segX = sliceX.subarray(start, end + 1);
+							const segY = sliceY.subarray(start, end + 1);
+							if (segLen > pixelBudget) {
+								const dec = m4ByXFloat32(
+									segX,
+									segY,
+									xRef,
+									xAxis.min,
+									xAxis.max,
+									numBuckets,
+									m4Out,
+								);
+								drawSegments.push({ x: dec.x.slice(), y: dec.y.slice() });
+								totalDrawCount += dec.x.length;
+							} else {
+								drawSegments.push({ x: segX, y: segY });
+								totalDrawCount += segLen;
+							}
+						}
 
-						const drawCount = decimated ? decimated.x.length : sliceLen;
+						// Flatten all segments into a single buffer separated by NaN sentinels
+						const flatX = new Float32Array(totalDrawCount + Math.max(0, drawSegments.length - 1));
+						const flatY = new Float32Array(flatX.length);
+						// Track per-segment offsets for multi-draw
+						const drawRanges: { start: number; count: number }[] = [];
+						let offset = 0;
+						for (const seg of drawSegments) {
+							drawRanges.push({ start: offset, count: seg.x.length });
+							flatX.set(seg.x, offset);
+							flatY.set(seg.y, offset);
+							offset += seg.x.length + 1; // +1 gap (NaN sentinel, unused in GPU)
+						}
+
+						const drawCount = flatX.length;
 
 						const xScaleVal = (chartWidth * dpr) / xRange;
 						const xOffsetVal =
@@ -465,19 +558,9 @@ export const WebGLRenderer = React.memo(
 						}
 
 						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							decimated ? decimated.x : sliceX,
-							gl.STREAM_DRAW,
-						);
+						gl.bufferData(gl.ARRAY_BUFFER, flatX, gl.STREAM_DRAW);
 						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							decimated ? decimated.y : sliceY,
-							gl.STREAM_DRAW,
-						);
-
-						const drawStart = 0;
+						gl.bufferData(gl.ARRAY_BUFFER, flatY, gl.STREAM_DRAW);
 
 						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
 						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
@@ -504,87 +587,71 @@ export const WebGLRenderer = React.memo(
 
 								gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
 								gl.enableVertexAttribArray(locs.xLoc);
-								gl.vertexAttribPointer(
-									locs.xLoc,
-									1,
-									gl.FLOAT,
-									false,
-									0,
-									drawStart * 4,
-								);
+								gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
 
 								gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
 								gl.enableVertexAttribArray(locs.yLoc);
-								gl.vertexAttribPointer(
-									locs.yLoc,
-									1,
-									gl.FLOAT,
-									false,
-									0,
-									drawStart * 4,
-								);
+								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
 								gl.lineWidth(baseLineWidth);
-								gl.drawArrays(gl.LINE_STRIP, 0, drawCount);
+								for (const seg of drawRanges) {
+									if (seg.count >= 2)
+										gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
+								}
 							} else {
-								const segSrcX = decimated ? decimated.x : sliceX;
-								const segSrcY = decimated ? decimated.y : sliceY;
-								const getSegX = (i: number) => segSrcX[i];
-								const getSegY = (i: number) => segSrcY[i];
-
 								const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-								const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawStart}-${drawCount}`;
+								const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
 									segBuffer = gl.createBuffer()!;
 									buffersRef.current.set(segBufferKey, segBuffer);
 								}
 
-								const numSegs = drawCount - 1;
+								// Count total line segments across all draw segments (skip gaps)
+								let totalLineSegs = 0;
+								for (const seg of drawSegments) totalLineSegs += Math.max(0, seg.x.length - 1);
+
 								if (segParamsRef.current.get(segBufferKey) !== paramKey) {
-									const reqSize = numSegs * 12;
-									const sharedArr = new Float32Array(reqSize);
+									const sharedArr = new Float32Array(totalLineSegs * 12);
 									const pChartWidth = chartWidth * dpr;
 									const pChartHeight = chartHeight * dpr;
 									const dashLen = (lStyle === 1 ? 8.0 : 2.0) * dpr;
 									const gapLen = (lStyle === 1 ? 6.0 : 4.0) * dpr;
 									const period = dashLen + gapLen;
-
 									const scaleX = pChartWidth / xRange;
 									const scaleY = pChartHeight / yRange;
-									let cumDist = 0;
-									let ax = getSegX(drawStart);
-									let ay = getSegY(drawStart);
 
-									for (let i = 0; i < numSegs; i++) {
-										const i2 = drawStart + i + 1;
-										const bx = getSegX(i2);
-										const by = getSegY(i2);
-										const screenDx = (bx - ax) * scaleX;
-										const screenDy = (by - ay) * scaleY;
-										const segScreenLen = Math.sqrt(
-											screenDx * screenDx + screenDy * screenDy,
-										);
-										const off = i * 12;
-
-										sharedArr[off] = ax;
-										sharedArr[off + 1] = ay;
-										sharedArr[off + 2] = bx;
-										sharedArr[off + 3] = by;
-										sharedArr[off + 4] = 0;
-										sharedArr[off + 5] = cumDist;
-										sharedArr[off + 6] = bx;
-										sharedArr[off + 7] = by;
-										sharedArr[off + 8] = ax;
-										sharedArr[off + 9] = ay;
-										sharedArr[off + 10] = 1;
-										sharedArr[off + 11] = cumDist;
-
-										cumDist += segScreenLen;
-										if (cumDist >= period) cumDist %= period;
-
-										ax = bx;
-										ay = by;
+									let outIdx = 0;
+									for (const seg of drawSegments) {
+										let cumDist = 0;
+										let ax = seg.x[0];
+										let ay = seg.y[0];
+										const n = seg.x.length - 1;
+										for (let i = 0; i < n; i++) {
+											const bx = seg.x[i + 1];
+											const by = seg.y[i + 1];
+											const screenDx = (bx - ax) * scaleX;
+											const screenDy = (by - ay) * scaleY;
+											const segScreenLen = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
+											const off = outIdx * 12;
+											sharedArr[off] = ax;
+											sharedArr[off + 1] = ay;
+											sharedArr[off + 2] = bx;
+											sharedArr[off + 3] = by;
+											sharedArr[off + 4] = 0;
+											sharedArr[off + 5] = cumDist;
+											sharedArr[off + 6] = bx;
+											sharedArr[off + 7] = by;
+											sharedArr[off + 8] = ax;
+											sharedArr[off + 9] = ay;
+											sharedArr[off + 10] = 1;
+											sharedArr[off + 11] = cumDist;
+											cumDist += segScreenLen;
+											if (cumDist >= period) cumDist %= period;
+											ax = bx;
+											ay = by;
+											outIdx++;
+										}
 									}
 									gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 									gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
@@ -598,35 +665,21 @@ export const WebGLRenderer = React.memo(
 								gl.enableVertexAttribArray(locs.yLoc);
 								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
 								gl.enableVertexAttribArray(locs.otherLoc);
-								gl.vertexAttribPointer(
-									locs.otherLoc,
-									2,
-									gl.FLOAT,
-									false,
-									24,
-									8,
-								);
+								gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
 								gl.enableVertexAttribArray(locs.tLoc);
 								gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
 								gl.enableVertexAttribArray(locs.distStartLoc);
-								gl.vertexAttribPointer(
-									locs.distStartLoc,
-									1,
-									gl.FLOAT,
-									false,
-									24,
-									20,
-								);
+								gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
 
 								gl.lineWidth(baseLineWidth);
-								gl.drawArrays(gl.LINES, 0, numSegs * 2);
+								gl.drawArrays(gl.LINES, 0, totalLineSegs * 2);
 							}
 						}
 
 						if (s.pointStyle !== "none") {
 							const c = pointColorRgba;
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 7.0 : 4.0) * dpr);
+							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 8.0 : 6.0) * dpr);
 							const pStyle =
 								s.pointStyle === "circle"
 									? 0
@@ -644,27 +697,16 @@ export const WebGLRenderer = React.memo(
 
 							gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
 							gl.enableVertexAttribArray(locs.xLoc);
-							gl.vertexAttribPointer(
-								locs.xLoc,
-								1,
-								gl.FLOAT,
-								false,
-								0,
-								drawStart * 4,
-							);
+							gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
 
 							gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
 							gl.enableVertexAttribArray(locs.yLoc);
-							gl.vertexAttribPointer(
-								locs.yLoc,
-								1,
-								gl.FLOAT,
-								false,
-								0,
-								drawStart * 4,
-							);
+							gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
-							gl.drawArrays(gl.POINTS, 0, drawCount);
+							for (const seg of drawRanges) {
+								if (seg.count >= 1)
+									gl.drawArrays(gl.POINTS, seg.start, seg.count);
+							}
 						}
 					},
 				);

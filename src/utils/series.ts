@@ -5,6 +5,7 @@ export const buildSeriesConfig = (
 	columnName: string,
 	sourceId: string,
 	existingSeriesCount: number,
+	isCategorical = false,
 ): SeriesConfig => {
 	const color = COLOR_PALETTE[existingSeriesCount % COLOR_PALETTE.length];
 	const axisNum = (existingSeriesCount % 9) + 1;
@@ -16,7 +17,7 @@ export const buildSeriesConfig = (
 		yAxisId: `axis-${axisNum}`,
 		pointStyle: "circle",
 		pointColor: color,
-		lineStyle: "solid",
+		lineStyle: isCategorical ? "none" : "solid",
 		lineColor: color,
 		hidden: false,
 	};

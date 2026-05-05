@@ -18,6 +18,7 @@ interface ParseSettings {
 	commentChar?: string;
 	columnConfigs?: ColumnConfigEntry[];
 	xAxisColumn?: string;
+	splitByColumn?: string;
 }
 
 interface ParseConfig {
@@ -34,28 +35,11 @@ self.onmessage = async (event) => {
 		else if (type === "json") result = await parseJSON(file, settings);
 		else throw new Error(`Unsupported file type: ${type}`);
 
-		const rowCount = result.rowCount;
-		const columns = result.columns;
+		const allColumns: string[] = result.columns;
+		const allData: Float64Array[] = result.data;
+		const totalRows: number = result.rowCount;
+		const categoricalMaps: Map<string, number>[] = result.categoricalMaps;
 
-		// ⚡ Bolt Optimization: Combine bounds calculation and relative data calculation
-		// into a single pass and use column-major (SOA) architecture for much better cache locality
-		const colCount = columns.length;
-		const relativeData = new Array(colCount);
-
-		// We've already parsed the data and calculated active columns in parseCSV/parseJSON
-		// Now we combine bounds calculation, chunk min/max calculation and float data mapping into a single pass per column
-		for (let j = 0; j < colCount; j++) {
-			relativeData[j] = processRawColumn(result.data[j]);
-		}
-
-		// ⚡ Bolt Optimization: Pre-calculate non-ignored configs to avoid O(N) array filtering operations inside .find() in the inner loop
-		const nonIgnoredConfigs = settings?.columnConfigs
-			? settings.columnConfigs.filter(
-					(cc: { type: string }) => cc.type !== "ignore",
-				)
-			: [];
-
-		// ⚡ Bolt Optimization: Map configs by name for O(1) lookup
 		const configByName = new Map<string, ColumnConfigEntry>();
 		if (settings?.columnConfigs) {
 			for (let i = 0; i < settings.columnConfigs.length; i++) {
@@ -64,39 +48,110 @@ self.onmessage = async (event) => {
 			}
 		}
 
-		const dataset = {
-			id: crypto.randomUUID(),
-			name: file.name,
-			columns: columns,
-			rowCount: rowCount,
-			xAxisColumn: settings?.xAxisColumn,
-			data: columns.map((colName, colIdx) => {
-				const nonIgnoredName = nonIgnoredConfigs[colIdx]?.name;
-				const config =
-					configByName.get(colName) ||
-					(nonIgnoredName ? configByName.get(nonIgnoredName) : undefined);
-				const isPotentialX =
-					config?.type === "date" ||
-					colIdx === 0 ||
-					colName.toLowerCase().includes("time") ||
-					colName.toLowerCase().includes("date");
+		// Group row indices by split-column value, if split is active and the column
+		// is categorical and present in active columns.
+		const splitColName = settings?.splitByColumn;
+		const splitColIdx = splitColName ? allColumns.indexOf(splitColName) : -1;
+		const splitConfig = splitColName ? configByName.get(splitColName) : undefined;
+		const doSplit =
+			splitColName !== undefined &&
+			splitColIdx >= 0 &&
+			splitConfig?.type === "categorical";
 
-				return {
-					isFloat64: isPotentialX,
-					refPoint: relativeData[colIdx].refPoint,
-					bounds: relativeData[colIdx].bounds,
-					data: relativeData[colIdx].data,
-				} as DataColumn;
-			}),
-		};
+		const groups: { name: string; rowIdxs: number[] }[] = [];
+		if (doSplit) {
+			const splitData = allData[splitColIdx];
+			const valueToName = new Map<number, string>();
+			const map = categoricalMaps[splitColIdx];
+			map.forEach((id, key) => valueToName.set(id, key));
+			const groupByValue = new Map<number, number[]>();
+			for (let r = 0; r < totalRows; r++) {
+				const v = splitData[r];
+				let arr = groupByValue.get(v);
+				if (!arr) {
+					arr = [];
+					groupByValue.set(v, arr);
+				}
+				arr.push(r);
+			}
+			groupByValue.forEach((rowIdxs, v) => {
+				groups.push({ name: valueToName.get(v) || String(v), rowIdxs });
+			});
+			groups.sort((a, b) => a.name.localeCompare(b.name));
+		} else {
+			groups.push({
+				name: "",
+				rowIdxs: Array.from({ length: totalRows }, (_, i) => i),
+			});
+		}
 
-		const transferList: ArrayBuffer[] = [];
-		dataset.data.forEach((col) => {
-			transferList.push(col.data.buffer as ArrayBuffer);
+		// Output columns exclude the split column itself
+		const outputColIdxs: number[] = [];
+		const outputColumns: string[] = [];
+		for (let i = 0; i < allColumns.length; i++) {
+			if (doSplit && i === splitColIdx) continue;
+			outputColIdxs.push(i);
+			outputColumns.push(allColumns[i]);
+		}
+
+		const datasets = groups.map((group) => {
+			// Build per-group, per-column Float64Arrays by gathering selected row indices
+			const rowIdxs = group.rowIdxs;
+			const groupRowCount = rowIdxs.length;
+			const groupData: Float64Array[] = outputColIdxs.map((srcCol) => {
+				const src = allData[srcCol];
+				const dst = new Float64Array(groupRowCount);
+				for (let r = 0; r < groupRowCount; r++) dst[r] = src[rowIdxs[r]];
+				return dst;
+			});
+
+			const colCount = groupData.length;
+			const relativeData = new Array(colCount);
+			for (let j = 0; j < colCount; j++) {
+				relativeData[j] = processRawColumn(groupData[j]);
+			}
+
+			const baseName = group.name ? `${file.name} (${group.name})` : file.name;
+			return {
+				id: crypto.randomUUID(),
+				name: baseName,
+				columns: outputColumns,
+				rowCount: groupRowCount,
+				xAxisColumn: settings?.xAxisColumn,
+				data: outputColumns.map((colName, colIdx) => {
+					const config = configByName.get(colName);
+					const isPotentialX =
+						config?.type === "date" ||
+						colIdx === 0 ||
+						colName.toLowerCase().includes("time") ||
+						colName.toLowerCase().includes("date");
+					let categoryLabels: string[] | undefined;
+					if (config?.type === "categorical") {
+						const srcIdx = outputColIdxs[colIdx];
+						const map = categoricalMaps[srcIdx];
+						categoryLabels = new Array(map.size);
+						map.forEach((id, key) => {
+							categoryLabels![id] = key;
+						});
+					}
+					return {
+						isFloat64: isPotentialX,
+						refPoint: relativeData[colIdx].refPoint,
+						bounds: relativeData[colIdx].bounds,
+						data: relativeData[colIdx].data,
+						categoryLabels,
+					} as DataColumn;
+				}),
+			};
 		});
 
+		const transferList: ArrayBuffer[] = [];
+		datasets.forEach((ds) =>
+			ds.data.forEach((col) => transferList.push(col.data.buffer as ArrayBuffer)),
+		);
+
 		(self as unknown as Worker).postMessage(
-			{ type: "success", dataset },
+			{ type: "success", datasets },
 			transferList,
 		);
 	} catch (error: unknown) {
@@ -396,7 +451,12 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 		}
 	}
 
-	return { columns: finalHeaders, rowCount: actualRowCount, data: data };
+	return {
+		columns: finalHeaders,
+		rowCount: actualRowCount,
+		data: data,
+		categoricalMaps,
+	};
 }
 
 async function parseJSON(file: File, settings?: ParseSettings) {
@@ -471,7 +531,12 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 		}
 	}
 
-	return { columns: finalHeaders, rowCount: rowCount, data: data };
+	return {
+		columns: finalHeaders,
+		rowCount: rowCount,
+		data: data,
+		categoricalMaps,
+	};
 }
 
 function parseValue(

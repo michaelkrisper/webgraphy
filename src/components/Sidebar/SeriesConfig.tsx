@@ -68,9 +68,24 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		const size = 12;
 		switch (series.pointStyle) {
 			case "circle":
-				return <Circle size={size} fill="currentColor" />;
+				return <Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />;
 			case "square":
-				return <Square size={size} fill="currentColor" />;
+				return (
+					<svg width={size} height={size} viewBox="0 0 24 24">
+						<rect
+							x="3"
+							y="3"
+							width="18"
+							height="18"
+							rx="2"
+							ry="2"
+							fill="currentColor"
+							stroke="white"
+							strokeWidth="2"
+							paintOrder="stroke fill"
+						/>
+					</svg>
+				);
 			case "cross":
 				return <X size={size + 2} strokeWidth={3} />;
 			case "none":
@@ -211,7 +226,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					onClick={() =>
 						updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })
 					}
-					className={`sc-btn${currentYAxis.showGrid ? "" : " sc-btn--plain"}`}
+					className="sc-btn sc-btn--plain"
 					title="Toggle Grid"
 					aria-label="Toggle Grid"
 				>
