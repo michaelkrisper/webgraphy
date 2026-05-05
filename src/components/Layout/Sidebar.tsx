@@ -413,7 +413,8 @@ export const Sidebar: React.FC = () => {
 							() => setLegendVisible(!legendVisible),
 							<List size={16} />,
 							legendVisible ? "Hide Legend" : "Show Legend",
-							legendVisible ? "var(--accent)" : undefined,
+							undefined,
+							!legendVisible,
 						)}
 						{hdrBtn(
 							cycleTheme,

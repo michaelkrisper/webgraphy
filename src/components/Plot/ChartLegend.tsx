@@ -6,12 +6,14 @@ interface ChartLegendProps {
 	series: SeriesConfig[];
 	onToggleVisibility: (id: string, hidden: boolean) => void;
 	onHighlight: (id: string | null) => void;
+	padding?: { top: number; right: number; bottom: number; left: number };
 }
 
 export const ChartLegend: React.FC<ChartLegendProps> = ({
 	series,
 	onToggleVisibility,
 	onHighlight,
+	padding,
 }) => {
 	const [position, setPosition] = useState<{ x: number; y: number } | null>(
 		null,
@@ -86,7 +88,10 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			style={
 				position
 					? { left: position.x, top: position.y }
-					: { right: 20, top: 20 }
+					: {
+							right: (padding?.right ?? 0) + 10,
+							top: (padding?.top ?? 0) + 10,
+						}
 			}
 		>
 			{visibleSeries.map((s) => (
@@ -115,10 +120,27 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 							/>
 						)}
 						{s.pointStyle === "circle" && (
-							<circle cx="10" cy="5" r="2.5" fill={s.pointColor} />
+							<circle
+								cx="10"
+								cy="5"
+								r="2.5"
+								fill={s.pointColor}
+								stroke="white"
+								strokeWidth="0.75"
+								paintOrder="stroke fill"
+							/>
 						)}
 						{s.pointStyle === "square" && (
-							<rect x="7.5" y="2.5" width="5" height="5" fill={s.pointColor} />
+							<rect
+								x="7.5"
+								y="2.5"
+								width="5"
+								height="5"
+								fill={s.pointColor}
+								stroke="white"
+								strokeWidth="0.75"
+								paintOrder="stroke fill"
+							/>
 						)}
 						{s.pointStyle === "cross" && (
 							<path

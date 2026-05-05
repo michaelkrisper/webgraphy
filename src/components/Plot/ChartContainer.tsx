@@ -1065,6 +1065,7 @@ const ChartContainer: React.FC = () => {
 				{series.length > 0 && legendVisible && (
 					<ChartLegend
 						series={series}
+						padding={padding}
 						onToggleVisibility={(id, hidden) =>
 							useGraphStore.getState().updateSeriesVisibility(id, hidden)
 						}
