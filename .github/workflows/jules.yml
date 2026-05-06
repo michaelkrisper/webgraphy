@@ -6,6 +6,13 @@ on:
   pull_request_review_comment:
     types: [created, edited]
 
+concurrency:
+  group: jules
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   jules-trigger:
     # Nur ausführen bei @jules Mention und Ausschluss von Bots
