@@ -362,14 +362,14 @@ export const exportToSVG = (
 			svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${theme.axisColor}" stroke-width="1" />`;
 			const label =
 				axis.xMode === "date" ? formatDate(t, xStep) : formatAxisLabel(t, xPrecision);
-			svg += `<text x="${x}" y="${baseY + 20}" text-anchor="middle" font-size="9" fill="${theme.labelColor}">${label}</text>`;
+			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${theme.labelColor}">${label}</text>`;
 		}
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
 		const title = Array.from(
 			datasetsForThisAxis.reduce((acc, d) => acc.add(d.xAxisColumn), new Set<string>()),
 		).join(" / ");
-		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 42}" text-anchor="middle" font-size="10" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
+		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
 
 	activeYAxes.forEach((axis) => {
@@ -402,7 +402,7 @@ export const exportToSVG = (
 			});
 			svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${theme.axisColor}" stroke-width="1" />`;
 			const labelX = xPos + axisWidth - 8;
-			svg += `<text x="${labelX}" y="${y + 3}" text-anchor="end" font-size="9" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
+			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
 		}
 
 		const axisSeries = series.filter((s) => s.yAxisId === axis.id);
@@ -410,10 +410,10 @@ export const exportToSVG = (
 		const titleX = isLeft ? xPos + 5 : xPos + axisWidth - 5;
 		const titleY = padding.top + chartHeight / 2,
 			rotate = isLeft ? -90 : 90;
-		const estW = Math.min(chartHeight, fullTitle.length * 6 + 8);
+		const estW = Math.min(chartHeight, fullTitle.length * 8 + 8);
 		svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
-		svg += `<rect x="-${estW / 2}" y="-8" width="${estW}" height="16" fill="${theme.secLabelBg}" rx="2" />`;
-		svg += `<text x="0" y="4" text-anchor="middle" font-size="10" font-weight="bold" fill="${theme.labelColor}">`;
+		svg += `<rect x="-${estW / 2}" y="-10" width="${estW}" height="20" fill="${theme.secLabelBg}" rx="2" />`;
+		svg += `<text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="${theme.labelColor}">`;
 		axisSeries.forEach((s, i) => {
 			if (i > 0) svg += `<tspan fill="${theme.labelColor}"> / </tspan>`;
 			svg += `<tspan fill="${escapeHTML(s.lineColor)}">${escapeHTML(s.name || s.yColumn)}</tspan>`;

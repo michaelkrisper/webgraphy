@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { persistence } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import type { ImportSettings } from "../../types/import";
@@ -213,7 +213,7 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as unknown as ReturnType<typeof parseData>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -262,7 +262,7 @@ describe("useDataImport hook", () => {
 			data: [],
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as unknown as ReturnType<typeof parseData>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -385,7 +385,7 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as unknown as ReturnType<typeof parseData>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -433,7 +433,7 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as unknown as ReturnType<typeof parseData>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);

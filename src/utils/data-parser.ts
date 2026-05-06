@@ -132,11 +132,12 @@ export async function parseData(file: File, type: string, settings?: ParseSettin
 			xAxisColumn: settings?.xAxisColumn,
 			data: outputColumns.map((colName, colIdx) => {
 				const config = configByName.get(colName);
-				const isPotentialX =
+				const isDate =
 					config?.type === "date" ||
-					colIdx === 0 ||
-					colName.toLowerCase().includes("time") ||
-					colName.toLowerCase().includes("date");
+					(!config?.type &&
+						(colIdx === 0 ||
+							colName.toLowerCase().includes("time") ||
+							colName.toLowerCase().includes("date")));
 				let categoryLabels: string[] | undefined;
 				if (config?.type === "categorical") {
 					const srcIdx = outputColIdxs[colIdx];
@@ -147,7 +148,7 @@ export async function parseData(file: File, type: string, settings?: ParseSettin
 					});
 				}
 				return {
-					isFloat64: isPotentialX,
+					isFloat64: isDate,
 					refPoint: relativeData[colIdx].refPoint,
 					bounds: relativeData[colIdx].bounds,
 					data: relativeData[colIdx].data,

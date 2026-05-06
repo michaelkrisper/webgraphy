@@ -11,13 +11,13 @@ import {
 	FlaskConical,
 	FolderOpen,
 	Hash,
-	HelpCircle,
 	Image,
 	List,
 	Minus,
 	Moon,
 	MoveHorizontal,
 	Palette,
+	PanelRightClose,
 	RotateCcw,
 	Rows,
 	Save,
@@ -25,7 +25,6 @@ import {
 	Sun,
 	Terminal,
 	Trash2,
-	X,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,6 +35,7 @@ import { exportSession, importSession } from "../../services/session";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES, type ThemeName } from "../../themes";
 import { buildSeriesConfig } from "../../utils/series";
+import packageJson from "../../../package.json";
 import ErrorBoundary from "../ErrorBoundary";
 import { SeriesConfigUI } from "../Sidebar/SeriesConfig";
 import { CalculatedColumnModal } from "./CalculatedColumnModal";
@@ -46,10 +46,10 @@ import { ImprintModal } from "./ImprintModal";
 import { LicenseModal } from "./LicenseModal";
 
 const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
-	light: <Sun size={18} />,
-	dark: <Moon size={18} />,
-	matrix: <Terminal size={18} />,
-	unicorn: <Sparkles size={18} />,
+	light: <Sun size={24} />,
+	dark: <Moon size={24} />,
+	matrix: <Terminal size={24} />,
+	unicorn: <Sparkles size={24} />,
 };
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -58,6 +58,29 @@ const THEME_LABELS: Record<ThemeName, string> = {
 	matrix: "Matrix Mode",
 	unicorn: "Unicorn Kitty Mode",
 };
+
+const HeaderButton = ({
+	onClick,
+	icon,
+	title,
+	color,
+	off,
+}: {
+	onClick: () => void;
+	icon: React.ReactNode;
+	title: string;
+	color?: string;
+	off?: boolean;
+}) => (
+	<button
+		onClick={onClick}
+		title={title}
+		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
+		style={color ? { color } : undefined}
+	>
+		{icon}
+	</button>
+);
 
 /**
  * Sidebar Component
@@ -68,11 +91,11 @@ export const Sidebar: React.FC = () => {
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);
 	const axisTitles = useGraphStore((s) => s.axisTitles);
+	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const removeDataset = useGraphStore((s) => s.removeDataset);
 	const updateDataset = useGraphStore((s) => s.updateDataset);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const reorderSeries = useGraphStore((s) => s.reorderSeries);
-	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const setHighlightedSeries = useGraphStore((s) => s.setHighlightedSeries);
 	const addSeries = useGraphStore((s) => s.addSeries);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
@@ -96,6 +119,14 @@ export const Sidebar: React.FC = () => {
 	} | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const sessionInputRef = useRef<HTMLInputElement>(null);
+
+	const handleImport = () => {
+		fileInputRef.current?.click();
+	};
+
+	const handleLoadSession = () => {
+		sessionInputRef.current?.click();
+	};
 
 	const [width, setWidth] = useState(() =>
 		Math.min(600, window.innerWidth * 0.35),
@@ -262,10 +293,6 @@ export const Sidebar: React.FC = () => {
 		downloadFile(json, "webgraphy-session.json", "application/json");
 	};
 
-	const handleLoadSession = useCallback(() => {
-		sessionInputRef.current?.click();
-	}, []);
-
 	const handleImportSession = async (file: File) => {
 		try {
 			const text = await file.text();
@@ -277,11 +304,11 @@ export const Sidebar: React.FC = () => {
 				isLoaded: true,
 			});
 			// Trigger re-save
-			importedDatasets.forEach(() => {});
+			importedDatasets.forEach(() => { });
 		} catch (err) {
 			alert(
 				"Failed to import session: " +
-					(err instanceof Error ? err.message : String(err)),
+				(err instanceof Error ? err.message : String(err)),
 			);
 		}
 	};
@@ -308,22 +335,6 @@ export const Sidebar: React.FC = () => {
 		);
 	}
 
-	const hdrBtn = (
-		onClick: () => void,
-		icon: React.ReactNode,
-		title: string,
-		color?: string,
-		off?: boolean,
-	) => (
-		<button
-			onClick={onClick}
-			title={title}
-			className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
-			style={color ? { color } : undefined}
-		>
-			{icon}
-		</button>
-	);
 	const hdrSep = <span className="sb-hdr-sep" />;
 
 	return (
@@ -366,66 +377,66 @@ export const Sidebar: React.FC = () => {
 						style={{ cursor: "pointer" }}
 						onClick={() => setIsCollapsed(true)}
 					/>
+					<HeaderButton onClick={handleImport} icon={<FilePlus size={24} />} title="Import Data Source" />
 					<div className="sb-hdr-btns">
-						{hdrBtn(loadDemoData, <FlaskConical size={16} />, "Load Demo Data")}
-						{hdrBtn(
-							() => {
+						<HeaderButton
+							onClick={() => {
 								if (confirm("Reset all data?"))
 									datasets.forEach((d) => removeDataset(d.id));
-							},
-							<RotateCcw size={16} />,
-							"Reset",
-							"var(--danger)",
-						)}
+							}}
+							icon={<RotateCcw size={24} />}
+							title="Reset"
+							color="var(--danger)"
+						/>
+						<HeaderButton
+							onClick={loadDemoData}
+							icon={<FlaskConical size={24} />}
+							title="Load Demo Data"
+						/>
 						{hdrSep}
-						{hdrBtn(handleExportSVG, <FileImage size={16} />, "Export SVG")}
-						{hdrBtn(handleExportPNG, <Image size={16} />, "Export PNG")}
+						<HeaderButton onClick={handleExportSVG} icon={<FileImage size={24} />} title="Export SVG" />
+						<HeaderButton onClick={handleExportPNG} icon={<Image size={24} />} title="Export PNG" />
 						{hdrSep}
-						{hdrBtn(handleExportSession, <Save size={16} />, "Save Session")}
-						{hdrBtn(
-                                                        // eslint-disable-next-line react-hooks/refs
-							handleLoadSession,
-							<FolderOpen size={16} />,
-							"Load Session",
-						)}
+						<HeaderButton onClick={handleExportSession} icon={<Save size={24} />} title="Save Session" />
+						<HeaderButton
+							onClick={handleLoadSession}
+							icon={<FolderOpen size={24} />}
+							title="Load Session"
+						/>
 						{hdrSep}
 						<span className="sb-spacer" />
-						{hdrBtn(
-							() => {
+						<HeaderButton
+							onClick={() => {
 								const ax = xAxes[0];
 								if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
-							},
-							<Columns size={16} />,
-							xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid",
-							undefined,
-							!xAxes[0]?.showGrid,
-						)}
-						{hdrBtn(
-							() => setCrosshairVisible(!crosshairVisible),
-							<Crosshair size={16} />,
-							crosshairVisible ? "Hide Crosshair" : "Show Crosshair",
-							undefined,
-							!crosshairVisible,
-						)}
-						{hdrBtn(
-							() => setLegendVisible(!legendVisible),
-							<List size={16} />,
-							legendVisible ? "Hide Legend" : "Show Legend",
-							undefined,
-							!legendVisible,
-						)}
-						{hdrBtn(
-							cycleTheme,
-							THEME_ICONS[themeName] as React.ReactElement,
-							THEME_LABELS[themeName],
-						)}
+							}}
+							icon={<Columns size={24} />}
+							title={xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
+							off={!xAxes[0]?.showGrid}
+						/>
+						<HeaderButton
+							onClick={() => setCrosshairVisible(!crosshairVisible)}
+							icon={<Crosshair size={24} />}
+							title={crosshairVisible ? "Hide Crosshair" : "Show Crosshair"}
+							off={!crosshairVisible}
+						/>
+						<HeaderButton
+							onClick={() => setLegendVisible(!legendVisible)}
+							icon={<List size={24} />}
+							title={legendVisible ? "Hide Legend" : "Show Legend"}
+							off={!legendVisible}
+						/>
+						<HeaderButton
+							onClick={cycleTheme}
+							icon={THEME_ICONS[themeName] as React.ReactElement}
+							title={THEME_LABELS[themeName]}
+						/>
 						{hdrSep}
-						{hdrBtn(() => setShowHelp(true), <HelpCircle size={16} />, "Help")}
-						{hdrBtn(
-							() => setIsCollapsed(true),
-							<X size={16} />,
-							"Collapse Sidebar",
-						)}
+						<HeaderButton
+							onClick={() => setIsCollapsed(true)}
+							icon={<PanelRightClose size={24} />}
+							title="Collapse Sidebar"
+						/>
 					</div>
 				</header>
 
@@ -458,14 +469,6 @@ export const Sidebar: React.FC = () => {
 										<ChevronRight size={16} color={t.textMuted} />
 									)}
 								</div>
-								<button
-									onClick={() => fileInputRef.current?.click()}
-									className="sb-icon-btn"
-									title="Import File (CSV/JSON/Excel)"
-									style={{ padding: "8px 12px" }}
-								>
-									<FilePlus size={20} />
-								</button>
 							</div>
 							<input
 								ref={fileInputRef}
@@ -497,23 +500,9 @@ export const Sidebar: React.FC = () => {
 												color: t.textLight,
 											}}
 										>
-											<p style={{ margin: "0 0 12px 0", fontSize: "0.9rem" }}>
+											<p style={{ margin: "0", fontSize: "0.9rem" }}>
 												Drag file here or use the import button
 											</p>
-											<button
-												onClick={loadDemoData}
-												style={{
-													background: "none",
-													border: `1px solid ${t.border2}`,
-													padding: "6px 12px",
-													borderRadius: "0",
-													fontSize: "0.8rem",
-													color: t.textMuted,
-													cursor: "pointer",
-												}}
-											>
-												Load Demo Data
-											</button>
 										</div>
 									)}
 
@@ -554,6 +543,9 @@ export const Sidebar: React.FC = () => {
 													{ds.name.includes(": ")
 														? ds.name.split(": ")[1]
 														: ds.name}
+												</span>
+												<span style={{ fontSize: "0.7rem", color: t.textMuted, opacity: 0.8 }}>
+													{ds.rowCount.toLocaleString()} lines
 												</span>
 												<div
 													style={{
@@ -892,8 +884,8 @@ export const Sidebar: React.FC = () => {
 														onHandleMouseDown={
 															!isGhost
 																? (e) => {
-																		startDrag(s.id, e);
-																	}
+																	startDrag(s.id, e);
+																}
 																: undefined
 														}
 													/>
@@ -918,19 +910,19 @@ export const Sidebar: React.FC = () => {
 					style={{ display: "none" }}
 				/>
 
-				<footer className="sb-footer">
-					<button
-						onClick={() => setShowLicense(true)}
-						className="sb-footer-btn"
-					>
-						License
-					</button>
-					<button
-						onClick={() => setShowImprint(true)}
-						className="sb-footer-btn"
-					>
-						Imprint
-					</button>
+				<footer className="sb-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "8px 12px", whiteSpace: "nowrap" }}>
+					<div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--text-muted-color)" }}>
+						<span style={{ opacity: 0.8 }}>v{packageJson.version}</span>
+						<span style={{ opacity: 0.5 }}>|</span>
+						<button onClick={() => setShowHelp(true)} className="sb-footer-btn" title="Help" style={{ fontSize: "0.7rem", padding: 0 }}>Help</button>
+						<span style={{ opacity: 0.5 }}>|</span>
+						<button onClick={() => setShowLicense(true)} className="sb-footer-btn" title="License" style={{ fontSize: "0.7rem", padding: 0 }}>License</button>
+						<span style={{ opacity: 0.5 }}>|</span>
+						<button onClick={() => setShowImprint(true)} className="sb-footer-btn" title="Imprint" style={{ fontSize: "0.7rem", padding: 0 }}>Imprint</button>
+					</div>
+					<div style={{ fontSize: "0.7rem", color: "var(--text-muted-color)", opacity: 0.8, textAlign: "right" }}>
+						MIT License, Michael Krisper
+					</div>
 				</footer>
 			</aside>
 

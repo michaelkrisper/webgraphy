@@ -37,6 +37,7 @@ import { Crosshair } from "./Crosshair";
 import { EmptyState } from "./EmptyState";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
+import { Move } from "lucide-react";
 
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
@@ -513,6 +514,11 @@ const ChartContainer: React.FC = () => {
 		targetYs,
 		syncViewport: (force) => syncViewportRef.current(force),
 	});
+
+	const handleFitAll = useCallback(() => {
+		handleAutoScaleX();
+		activeYAxes.forEach((ax) => handleAutoScaleY(ax.id));
+	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
 
 	const {
 		panTarget,
@@ -1011,6 +1017,37 @@ const ChartContainer: React.FC = () => {
 						/>
 					);
 				})}
+				{datasets.length > 0 && (
+					<button
+						onClick={handleFitAll}
+						title="Fit All"
+						style={{
+							position: "absolute",
+							bottom: padding.bottom - 29,
+							left: padding.left - 29,
+							zIndex: 100,
+							backgroundColor: "transparent",
+							border: "none",
+							borderRadius: "4px",
+							color: themeColors.textMuted,
+							padding: "4px",
+							cursor: "pointer",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							opacity: 0.6,
+							transition: "opacity 0.2s",
+						}}
+						onMouseEnter={(e) =>
+							(e.currentTarget.style.opacity = "1")
+						}
+						onMouseLeave={(e) =>
+							(e.currentTarget.style.opacity = "0.6")
+						}
+					>
+						<Move size={18} />
+					</button>
+				)}
 				{crosshairVisible && (
 					<Crosshair
 						containerRef={containerRef}

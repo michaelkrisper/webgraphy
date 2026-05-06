@@ -30,7 +30,7 @@ export const useDataImport = () => {
 		type: "csv" | "json" | "excel";
 		sheets?: string[];
 		selectedSheet?: string;
-		workbook?: any;
+		workbook?: unknown;
 	} | null>(null);
 	const { addDataset, addSeries } = useGraphStore();
 
@@ -56,7 +56,7 @@ export const useDataImport = () => {
 						selectedSheet,
 						workbook,
 					});
-				} catch (err) {
+				} catch {
 					setError("Failed to parse Excel file.");
 				}
 			};
@@ -145,7 +145,7 @@ export const useDataImport = () => {
 
 				setIsImporting(false);
 				setPendingFile(null);
-			} catch (err: any) {
+			} catch (err: unknown) {
 				setError(err instanceof Error ? err.message : String(err));
 				setIsImporting(false);
 			}

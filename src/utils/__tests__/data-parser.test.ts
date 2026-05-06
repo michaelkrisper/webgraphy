@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseData } from "../data-parser";
 
 function createMockFile(content: string, name: string, type: string) {
-	const file = new File([content], name, { type }) as any;
+	const file = new File([content], name, { type });
 	file.stream = () => ({
 		getReader: () => {
 			let done = false;
@@ -21,7 +21,7 @@ function createMockFile(content: string, name: string, type: string) {
 
 describe("data-parser", () => {
 	it("should throw an error for unsupported file types", async () => {
-		await expect(parseData(null as any, "unsupported")).rejects.toThrow("Unsupported file type");
+		await expect(parseData(null as unknown as File, "unsupported")).rejects.toThrow("Unsupported file type");
 	});
 
 	it("should handle native Error instances in catch block", async () => {
@@ -31,7 +31,7 @@ describe("data-parser", () => {
 				throw new Error("File stream error");
 			},
 		};
-		await expect(parseData(mockFile as any, "csv", {})).rejects.toThrow("File stream error");
+		await expect(parseData(mockFile as unknown as File, "csv", {})).rejects.toThrow("File stream error");
 	});
 
 	it("should handle non-Error instances in catch block", async () => {
@@ -41,7 +41,7 @@ describe("data-parser", () => {
 				throw "String error thrown";
 			},
 		};
-		await expect(parseData(mockFile as any, "csv", {})).rejects.toThrow("String error thrown");
+		await expect(parseData(mockFile as unknown as File, "csv", {})).rejects.toThrow("String error thrown");
 	});
 
 	describe("CSV parsing", () => {
