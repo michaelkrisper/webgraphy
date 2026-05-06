@@ -12,16 +12,19 @@ import { Modal } from "./Modal";
 interface ImportSettingsDialogProps {
 	fileName: string;
 	fileContent: string; // Preview content
-	fileType: "csv" | "json";
+	fileType: "csv" | "json" | "excel";
+	sheets?: string[];
+	selectedSheet?: string;
+	onSheetChange?: (sheet: string) => void;
 	onConfirm: (settings: ImportSettings) => void | Promise<void>;
 	onCancel: () => void;
 }
 
 function detectDelimiter(
 	fileContent: string,
-	fileType: "csv" | "json",
+	fileType: "csv" | "json" | "excel",
 ): string {
-	if (fileType !== "csv") return ",";
+	if (fileType !== "csv" && fileType !== "excel") return ",";
 	const firstLine = fileContent.split("\n")[0];
 	const candidates = [",", ";", "\t", "|"];
 	let best = ",";
@@ -71,6 +74,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	fileName,
 	fileContent,
 	fileType,
+	sheets,
+	selectedSheet,
+	onSheetChange,
 	onConfirm,
 	onCancel,
 }) => {
@@ -212,6 +218,23 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		>
 			<div className="isd-body">
 				<div className="isd-general-fields">
+					{fileType === "excel" && sheets && sheets.length > 1 && (
+						<div className="isd-field-group-md">
+							<label htmlFor="import-sheet" className="isd-field-label">
+								Sheet:
+							</label>
+							<select
+								id="import-sheet"
+								value={selectedSheet}
+								onChange={(e) => onSheetChange?.(e.target.value)}
+								className="isd-select"
+							>
+								{sheets.map((s) => (
+									<option key={s} value={s}>{s}</option>
+								))}
+							</select>
+						</div>
+					)}
 					{fileType === "csv" && (
 						<div className="isd-field-group-md">
 							<label htmlFor="import-delimiter" className="isd-field-label">
@@ -244,7 +267,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							<option value=",">Comma (,)</option>
 						</select>
 					</div>
-					{fileType === "csv" && (
+					{fileType !== "json" && (
 						<>
 							<div className="isd-field-group-sm">
 								<label htmlFor="import-start-row" className="isd-field-label">

@@ -80,11 +80,21 @@ function generateRawWeatherData(
 	return rawData;
 }
 
-function processColumns(
-	rawData: number[][],
-	rowCount: number,
-	columns: string[],
-): DataColumn[] {
+export function generateDemoDataset(rowCount = 1000000): Dataset {
+	const columns = [
+		"Timestamp",
+		"Temperature (°C)",
+		"Humidity (%)",
+		"Solar Irradiance (W/m²)",
+		"Wind Speed (m/s)",
+	];
+	const datasetId = "demo-dataset";
+
+	// Set start time to Jan 1st of the current year, midnight
+	const currentYear = new Date().getFullYear();
+	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+
+	const rawData = generateRawWeatherData(rowCount, startTime);
 	const colBounds = columns.map((_, colIdx) => {
 		let min = Infinity,
 			max = -Infinity;
@@ -106,7 +116,7 @@ function processColumns(
 		return { data, refPoint };
 	});
 
-	const result = columns.map((colName, colIdx) => {
+	const data = columns.map((colName, colIdx) => {
 		const col = relativeData[colIdx];
 		return {
 			isFloat64: colName === "Timestamp",
@@ -115,27 +125,6 @@ function processColumns(
 			data: col.data,
 		} as DataColumn;
 	});
-
-	return result;
-}
-
-export function generateDemoDataset(): Dataset {
-	const rowCount = 1000000; // Increased to 1M to demonstrate high performance
-	const columns = [
-		"Timestamp",
-		"Temperature (°C)",
-		"Humidity (%)",
-		"Solar Irradiance (W/m²)",
-		"Wind Speed (m/s)",
-	];
-	const datasetId = "demo-dataset";
-
-	// Set start time to Jan 1st of the current year, midnight
-	const currentYear = new Date().getFullYear();
-	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
-
-	const rawData = generateRawWeatherData(rowCount, startTime);
-	const data = processColumns(rawData, rowCount, columns);
 
 	const prefix = "A: ";
 	return {

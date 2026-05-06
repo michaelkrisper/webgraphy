@@ -15,11 +15,11 @@ describe("demoData", () => {
 
 	describe("generateDemoDataset", () => {
 		it("should generate a dataset with correct structure and metadata", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			expect(dataset.id).toBe("demo-dataset");
 			expect(dataset.name).toBe("A - Demo Weather Station");
-			expect(dataset.rowCount).toBe(1000000);
+			expect(dataset.rowCount).toBe(100);
 			expect(dataset.columns).toHaveLength(5);
 			expect(dataset.columns).toContain("A: Timestamp");
 			expect(dataset.columns).toContain("A: Temperature (°C)");
@@ -31,7 +31,7 @@ describe("demoData", () => {
 		});
 
 		it("should have correct data column structures", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			dataset.data.forEach((column, index) => {
 				expect(column.data).toBeInstanceOf(Float32Array);
@@ -49,7 +49,7 @@ describe("demoData", () => {
 		});
 
 		it("should have data values within reasonable bounds", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			const tempCol = dataset.data[1];
 			expect(tempCol.bounds.min).toBeGreaterThanOrEqual(-50);
@@ -67,7 +67,7 @@ describe("demoData", () => {
 		});
 
 		it("should have bounds that match the actual data", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			dataset.data.forEach((column) => {
 				let min = Infinity;
@@ -86,7 +86,7 @@ describe("demoData", () => {
 		});
 
 		it("should generate deterministic timestamps strictly increasing by 60", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 			const tsCol = dataset.data[0];
 
 			expect(tsCol.refPoint).toBe(
@@ -109,7 +109,7 @@ describe("demoData", () => {
 
 		it("should generate expected specific data values when randomness is mocked", () => {
 			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(
 				0.5,

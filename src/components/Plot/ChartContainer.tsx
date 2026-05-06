@@ -62,7 +62,7 @@ const ChartContainer: React.FC = () => {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
-	const { importFile, confirmImport, cancelImport, pendingFile } =
+	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
 		useDataImport();
 	const [width, setWidth] = useState(800);
 	const [height, setHeight] = useState(600);
@@ -1064,6 +1064,9 @@ const ChartContainer: React.FC = () => {
 					fileName={pendingFile.file.name}
 					fileContent={pendingFile.preview}
 					fileType={pendingFile.type}
+					sheets={pendingFile.sheets}
+					selectedSheet={pendingFile.selectedSheet}
+					onSheetChange={changeSheet}
 					onConfirm={confirmImport}
 					onCancel={cancelImport}
 				/>

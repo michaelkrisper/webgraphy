@@ -170,7 +170,7 @@ export const Sidebar: React.FC = () => {
 	);
 	const toggleSection = (key: keyof typeof openSections) =>
 		setOpenSections((s) => ({ ...s, [key]: !s[key] }));
-	const { importFile, confirmImport, cancelImport, pendingFile } =
+	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
 		useDataImport();
 
 	const selectedDatasetForCalc = useMemo(() => {
@@ -461,7 +461,7 @@ export const Sidebar: React.FC = () => {
 								<button
 									onClick={() => fileInputRef.current?.click()}
 									className="sb-icon-btn"
-									title="Import File (CSV/JSON)"
+									title="Import File (CSV/JSON/Excel)"
 									style={{ padding: "8px 12px" }}
 								>
 									<FilePlus size={20} />
@@ -470,7 +470,7 @@ export const Sidebar: React.FC = () => {
 							<input
 								ref={fileInputRef}
 								type="file"
-								accept=".csv,.json"
+								accept=".csv,.json,.xlsx,.xls"
 								onChange={(e) => {
 									const f = e.target.files?.[0];
 									if (f) importFile(f);
@@ -940,6 +940,9 @@ export const Sidebar: React.FC = () => {
 					fileName={pendingFile.file.name}
 					fileContent={pendingFile.preview}
 					fileType={pendingFile.type}
+					sheets={pendingFile.sheets}
+					selectedSheet={pendingFile.selectedSheet}
+					onSheetChange={changeSheet}
 					onConfirm={confirmImport}
 					onCancel={cancelImport}
 				/>

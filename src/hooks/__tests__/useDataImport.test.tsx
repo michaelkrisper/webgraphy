@@ -4,6 +4,7 @@ import { persistence } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import type { ImportSettings } from "../../types/import";
 import { useDataImport } from "../useDataImport";
+import { parseData } from "../../utils/data-parser";
 
 // Mock the graph store
 vi.mock("../../store/useGraphStore", () => ({
@@ -28,31 +29,19 @@ vi.mock("../../services/persistence", () => ({
 	},
 }));
 
+// Mock the parseData function
+vi.mock("../../utils/data-parser", () => ({
+	parseData: vi.fn(),
+}));
+
 // Mock URL.createObjectURL since JSDOM might not have it
 if (typeof URL.createObjectURL === "undefined") {
 	URL.createObjectURL = vi.fn(() => "blob:test-url");
 }
 
-interface MockWorkerInstance {
-	postMessage: ReturnType<typeof vi.fn>;
-	terminate: ReturnType<typeof vi.fn>;
-	onmessage?: (event: MessageEvent) => void;
-}
-
-type MockWorkerConstructor = ReturnType<typeof vi.fn> & {
-	mock: { instances: MockWorkerInstance[] };
-};
-
 describe("useDataImport hook", () => {
-	let originalWorker: typeof Worker;
 	const mockAddDataset = vi.fn();
 	const mockAddSeries = vi.fn();
-	let MockWorkerCtor: MockWorkerConstructor;
-
-	const getMockWorker = () =>
-		MockWorkerCtor.mock.instances[
-			MockWorkerCtor.mock.instances.length - 1
-		] as MockWorkerInstance;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -66,20 +55,6 @@ describe("useDataImport hook", () => {
 			datasets: [],
 			series: [],
 		} as ReturnType<typeof useGraphStore.getState>);
-
-		// Mock Worker
-		originalWorker = global.Worker;
-		MockWorkerCtor = vi.fn().mockImplementation(function (
-			this: MockWorkerInstance,
-		) {
-			this.postMessage = vi.fn();
-			this.terminate = vi.fn();
-		}) as MockWorkerConstructor;
-		global.Worker = MockWorkerCtor as unknown as typeof Worker;
-	});
-
-	afterEach(() => {
-		global.Worker = originalWorker;
 	});
 
 	it("should initialize correctly", () => {
@@ -202,7 +177,7 @@ describe("useDataImport hook", () => {
 		expect(result.current.isImporting).toBe(false);
 	});
 
-	it("should process import with worker successfully", async () => {
+	it("should process import with parseData successfully", async () => {
 		const { result } = renderHook(() => useDataImport());
 
 		const file = new File([""], "test.csv", { type: "text/csv" });
@@ -228,18 +203,6 @@ describe("useDataImport hook", () => {
 			columnConfigs: [],
 		};
 
-		act(() => {
-			result.current.confirmImport(settings);
-		});
-
-		expect(result.current.isImporting).toBe(true);
-		expect(global.Worker).toHaveBeenCalled();
-		expect(getMockWorker().postMessage).toHaveBeenCalledWith({
-			file,
-			type: "csv",
-			settings,
-		});
-
 		const mockDataset = {
 			id: "ds-1",
 			name: "test.csv",
@@ -250,24 +213,24 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+
 		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "success", datasets: [mockDataset] },
-			} as MessageEvent);
+			await result.current.confirmImport(settings);
 		});
 
+		expect(parseData).toHaveBeenCalledWith(file, "csv", settings);
 		expect(persistence.saveDataset).toHaveBeenCalled();
 		expect(mockAddDataset).toHaveBeenCalled();
 		expect(mockAddDataset.mock.calls[0][0].name).toBe("A - test.csv");
 		expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe("A: Col1");
 		expect(result.current.isImporting).toBe(false);
 		expect(result.current.pendingFile).toBeNull();
-		expect(getMockWorker().terminate).toHaveBeenCalled();
 
 		global.FileReader = originalFileReader;
 	});
 
-	it("should process import with worker successfully when xAxisColumn is undefined", async () => {
+	it("should process import with parseData successfully when xAxisColumn is undefined", async () => {
 		const { result } = renderHook(() => useDataImport());
 
 		const file = new File([""], "test2.csv", { type: "text/csv" });
@@ -291,10 +254,6 @@ describe("useDataImport hook", () => {
 			columnConfigs: [],
 		};
 
-		act(() => {
-			result.current.confirmImport(settings);
-		});
-
 		const mockDataset = {
 			id: "ds-2",
 			name: "test2.csv",
@@ -303,10 +262,10 @@ describe("useDataImport hook", () => {
 			data: [],
 		};
 
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+
 		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "success", datasets: [mockDataset] },
-			} as MessageEvent);
+			await result.current.confirmImport(settings);
 		});
 
 		expect(mockAddDataset.mock.calls[0][0].xAxisColumn).toBeUndefined();
@@ -319,49 +278,7 @@ describe("useDataImport hook", () => {
 		global.FileReader = originalFileReader;
 	});
 
-	it("should handle unknown worker message types", async () => {
-		const { result } = renderHook(() => useDataImport());
-
-		const file = new File([""], "test.csv", { type: "text/csv" });
-		const originalFileReader = global.FileReader;
-		class MockFileReader {
-			onload: ((event: { target: { result: string } }) => void) | null = null;
-			readAsText() {
-				this.onload?.({ target: { result: "data" } });
-			}
-		}
-		global.FileReader = MockFileReader as unknown as typeof FileReader;
-
-		act(() => {
-			result.current.importFile(file);
-		});
-
-		const settings: ImportSettings = {
-			delimiter: ",",
-			decimalPoint: ".",
-			startRow: 1,
-			columnConfigs: [],
-		};
-
-		act(() => {
-			result.current.confirmImport(settings);
-		});
-
-		expect(result.current.isImporting).toBe(true);
-
-		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "unknown" },
-			} as MessageEvent);
-		});
-
-		// The state should remain unchanged (still importing)
-		expect(result.current.isImporting).toBe(true);
-
-		global.FileReader = originalFileReader;
-	});
-
-	it("should handle worker errors", async () => {
+	it("should handle parseData errors", async () => {
 		const { result } = renderHook(() => useDataImport());
 
 		const file = new File([""], "test.json", { type: "application/json" });
@@ -385,24 +302,15 @@ describe("useDataImport hook", () => {
 			columnConfigs: [],
 		};
 
-		act(() => {
-			result.current.confirmImport(settings);
-		});
-
-		expect(result.current.isImporting).toBe(true);
-		expect(result.current.error).toBeNull();
-
 		const errorMessage = "Failed to parse JSON";
+		vi.mocked(parseData).mockRejectedValueOnce(new Error(errorMessage));
 
 		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "error", error: errorMessage },
-			} as MessageEvent);
+			await result.current.confirmImport(settings);
 		});
 
 		expect(result.current.isImporting).toBe(false);
 		expect(result.current.error).toBe(errorMessage);
-		expect(getMockWorker().terminate).toHaveBeenCalled();
 		expect(persistence.saveDataset).not.toHaveBeenCalled();
 		expect(mockAddDataset).not.toHaveBeenCalled();
 
@@ -466,9 +374,6 @@ describe("useDataImport hook", () => {
 			columnConfigs: [],
 			xAxisColumn: "",
 		};
-		act(() => {
-			result.current.confirmImport(settings);
-		});
 
 		const mockDataset = {
 			id: "ds-auto",
@@ -480,10 +385,10 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+
 		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "success", datasets: [mockDataset] },
-			} as MessageEvent);
+			await result.current.confirmImport(settings);
 		});
 
 		expect(mockAddSeries).toHaveBeenCalledTimes(2);
@@ -517,9 +422,6 @@ describe("useDataImport hook", () => {
 			columnConfigs: [],
 			xAxisColumn: "",
 		};
-		act(() => {
-			result.current.confirmImport(settings);
-		});
 
 		const mockDataset = {
 			id: "ds-wide",
@@ -531,10 +433,10 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
+		vi.mocked(parseData).mockResolvedValueOnce([mockDataset] as any);
+
 		await act(async () => {
-			await getMockWorker().onmessage?.({
-				data: { type: "success", datasets: [mockDataset] },
-			} as MessageEvent);
+			await result.current.confirmImport(settings);
 		});
 
 		expect(mockAddSeries).not.toHaveBeenCalled();
