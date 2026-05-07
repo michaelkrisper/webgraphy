@@ -1063,6 +1063,7 @@ const ChartContainer: React.FC = () => {
 						snapLineColor={themeColors.snapLineColor}
 						tooltipDividerColor={themeColors.tooltipDividerColor}
 						tooltipSubColor={themeColors.tooltipSubColor}
+						plotBg={themeColors.plotBg}
 					/>
 				)}
 				{zoomBoxState && (

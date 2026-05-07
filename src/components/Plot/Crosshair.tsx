@@ -36,6 +36,7 @@ interface CrosshairProps {
 	snapLineColor: string;
 	tooltipDividerColor: string;
 	tooltipSubColor: string;
+	plotBg: string;
 }
 
 const Crosshair = React.memo(
@@ -53,6 +54,7 @@ const Crosshair = React.memo(
 		snapLineColor,
 		tooltipDividerColor,
 		tooltipSubColor,
+		plotBg,
 	}: CrosshairProps) => {
 		const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 		const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -380,7 +382,7 @@ const Crosshair = React.memo(
 							ctx.fillRect(xs - 6.5, ys - 6.5, 13, 13);
 							ctx.fillStyle = color;
 							ctx.fillRect(xs - 5.5, ys - 5.5, 11, 11);
-							ctx.strokeStyle = "#fff";
+							ctx.strokeStyle = plotBg;
 							ctx.lineWidth = 2.5;
 							ctx.strokeRect(xs - 5.5, ys - 5.5, 11, 11);
 						} else if (style === "cross") {
@@ -410,7 +412,7 @@ const Crosshair = React.memo(
 							ctx.fillStyle = color;
 							ctx.fill();
 
-							ctx.strokeStyle = "#fff";
+							ctx.strokeStyle = plotBg;
 							ctx.lineWidth = 2.5;
 							ctx.stroke();
 						}
@@ -419,7 +421,7 @@ const Crosshair = React.memo(
 
 				ctx.restore();
 			}
-		}, [snap, isPanning, pos, snapLineColor, padding, height]);
+		}, [snap, isPanning, pos, snapLineColor, padding, height, plotBg]);
 		if (isPanning || !pos)
 			return (
 				<canvas
