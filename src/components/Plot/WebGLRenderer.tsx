@@ -188,6 +188,7 @@ export const WebGLRenderer = React.memo(
 			padding,
 			isInteracting = false,
 			highlightedSeriesId,
+			plotBg,
 		} = props;
 
 		const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -693,9 +694,9 @@ export const WebGLRenderer = React.memo(
 							gl.enableVertexAttribArray(locs.yLoc);
 							gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
-							// Pass 1: Borders
-							// Pure White
-							gl.uniform4f(locs.colorLoc, 1.0, 1.0, 1.0, 1.0);
+							// Pass 1: Borders — use plot background color like crosshair dots
+							const bg = hexToRgba(plotBg ?? "#ffffff");
+							gl.uniform4f(locs.colorLoc, bg[0], bg[1], bg[2], 1.0);
 							// Slightly larger size for border pass
 							gl.uniform1f(locs.sizeLoc, baseSize + (pStyle === 2 ? 3.0 : 2.0) * dpr);
 							for (const seg of drawRanges) {
