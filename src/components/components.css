@@ -523,9 +523,26 @@
 	border-top: none;
 	border-bottom: none;
 	border-left: none;
+	position: relative;
 }
 .sc-btn--plain {
 	background: none;
+}
+.sc-btn--off::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	right: 4px;
+	top: 4px;
+	bottom: 4px;
+	background: linear-gradient(
+		to top right,
+		transparent calc(50% - 1.25px),
+		#dc3545 calc(50% - 1.25px),
+		#dc3545 calc(50% + 1.25px),
+		transparent calc(50% + 1.25px)
+	);
+	pointer-events: none;
 }
 .sc-drag-handle {
 	display: flex;

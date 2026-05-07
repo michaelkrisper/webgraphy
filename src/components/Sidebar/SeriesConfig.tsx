@@ -3,7 +3,7 @@ import {
 	Circle,
 	EyeOff,
 	GripVertical,
-	Rows,
+	Rows3,
 	Square,
 	Trash2,
 	X,
@@ -226,11 +226,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					onClick={() =>
 						updateYAxis(currentYAxis.id, { showGrid: !currentYAxis.showGrid })
 					}
-					className="sc-btn sc-btn--plain"
+					className={`sc-btn sc-btn--plain${!currentYAxis.showGrid ? " sc-btn--off" : ""}`}
 					title="Toggle Grid"
 					aria-label="Toggle Grid"
 				>
-					{currentYAxis.showGrid ? <Rows size={16} /> : <Square size={16} />}
+					{currentYAxis.showGrid ? <Rows3 size={16} /> : <Square size={16} />}
 				</button>
 			) : (
 				<div className="sc-cell-placeholder" />

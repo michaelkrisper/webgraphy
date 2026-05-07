@@ -4,7 +4,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Circle,
-	Columns,
+	Columns3,
 	Crosshair,
 	FileImage,
 	FilePlus,
@@ -410,7 +410,7 @@ export const Sidebar: React.FC = () => {
 								const ax = xAxes[0];
 								if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
 							}}
-							icon={<Columns size={24} />}
+							icon={<Columns3 size={24} />}
 							title={xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
 							off={!xAxes[0]?.showGrid}
 						/>
