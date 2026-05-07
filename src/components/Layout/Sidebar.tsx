@@ -19,7 +19,7 @@ import {
 	Palette,
 	PanelRightClose,
 	RotateCcw,
-	Rows,
+	Rows3,
 	Save,
 	Cat,
 	Sun,
@@ -817,7 +817,7 @@ export const Sidebar: React.FC = () => {
 												<MoveHorizontal size={12} />
 											</div>
 											<div title="Grid" className="sb-series-header-cell">
-												<Rows size={12} />
+												<Rows3 size={12} />
 											</div>
 											<div title="Line Style" className="sb-series-header-cell">
 												<Minus size={12} />

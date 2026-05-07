@@ -126,16 +126,8 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					/>
 				)}
 				{series.lineStyle === "none" && (
-					<g opacity="0.4">
-						<line
-							x1="1"
-							y1="8"
-							x2="15"
-							y2="8"
-							stroke={color}
-							strokeWidth="1"
-							strokeDasharray="2,2"
-						/>
+					<g>
+						<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" opacity="0.4" />
 						<line
 							x1="4"
 							y1="4"
@@ -143,7 +135,6 @@ export const SeriesConfigUI: React.FC<Props> = ({
 							y2="12"
 							stroke="#dc3545"
 							strokeWidth="1.5"
-							opacity="1"
 						/>
 					</g>
 				)}

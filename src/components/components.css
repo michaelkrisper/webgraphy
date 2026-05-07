@@ -528,6 +528,10 @@
 .sc-btn--plain {
 	background: none;
 }
+.sc-btn--off {
+	color: var(--text-muted-color);
+	opacity: 0.5;
+}
 .sc-btn--off::after {
 	content: "";
 	position: absolute;
@@ -543,6 +547,7 @@
 		transparent calc(50% + 1.25px)
 	);
 	pointer-events: none;
+	opacity: 1;
 }
 .sc-drag-handle {
 	display: flex;
