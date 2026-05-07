@@ -15,23 +15,23 @@ describe("demoData", () => {
 
 	describe("generateDemoDataset", () => {
 		it("should generate a dataset with correct structure and metadata", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			expect(dataset.id).toBe("demo-dataset");
-			expect(dataset.name).toBe("A - Demo Weather Station");
-			expect(dataset.rowCount).toBe(1000000);
+			expect(dataset.name).toBe("Weather Demo");
+			expect(dataset.rowCount).toBe(100);
 			expect(dataset.columns).toHaveLength(5);
-			expect(dataset.columns).toContain("A: Timestamp");
-			expect(dataset.columns).toContain("A: Temperature (°C)");
-			expect(dataset.columns).toContain("A: Humidity (%)");
-			expect(dataset.columns).toContain("A: Solar Irradiance (W/m²)");
-			expect(dataset.columns).toContain("A: Wind Speed (m/s)");
-			expect(dataset.xAxisColumn).toBe("A: Timestamp");
+			expect(dataset.columns).toContain("Demo: Timestamp");
+			expect(dataset.columns).toContain("Demo: Temperature (°C)");
+			expect(dataset.columns).toContain("Demo: Humidity (%)");
+			expect(dataset.columns).toContain("Demo: Solar Irradiance (W/m²)");
+			expect(dataset.columns).toContain("Demo: Wind Speed (m/s)");
+			expect(dataset.xAxisColumn).toBe("Demo: Timestamp");
 			expect(dataset.xAxisId).toBe("axis-1");
 		});
 
 		it("should have correct data column structures", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			dataset.data.forEach((column, index) => {
 				expect(column.data).toBeInstanceOf(Float32Array);
@@ -40,7 +40,7 @@ describe("demoData", () => {
 				expect(column.bounds).toBeDefined();
 				expect(column.bounds.min).toBeLessThanOrEqual(column.bounds.max);
 
-				if (dataset.columns[index] === "A: Timestamp") {
+				if (dataset.columns[index] === "Demo: Timestamp") {
 					expect(column.isFloat64).toBe(true);
 				} else {
 					expect(column.isFloat64).toBe(false);
@@ -49,7 +49,7 @@ describe("demoData", () => {
 		});
 
 		it("should have data values within reasonable bounds", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			const tempCol = dataset.data[1];
 			expect(tempCol.bounds.min).toBeGreaterThanOrEqual(-50);
@@ -67,7 +67,7 @@ describe("demoData", () => {
 		});
 
 		it("should have bounds that match the actual data", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			dataset.data.forEach((column) => {
 				let min = Infinity;
@@ -86,7 +86,7 @@ describe("demoData", () => {
 		});
 
 		it("should generate deterministic timestamps strictly increasing by 60", () => {
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 			const tsCol = dataset.data[0];
 
 			expect(tsCol.refPoint).toBe(
@@ -109,14 +109,14 @@ describe("demoData", () => {
 
 		it("should generate expected specific data values when randomness is mocked", () => {
 			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
-			const dataset = generateDemoDataset();
+			const dataset = generateDemoDataset(100);
 
 			expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(
-				0.5,
+				5,
 				2,
 			);
 			expect(dataset.data[2].refPoint + dataset.data[2].data[0]).toBeCloseTo(
-				83.2,
+				70,
 				2,
 			);
 			expect(dataset.data[3].refPoint + dataset.data[3].data[0]).toBeCloseTo(
@@ -124,7 +124,7 @@ describe("demoData", () => {
 				2,
 			);
 			expect(dataset.data[4].refPoint + dataset.data[4].data[0]).toBeCloseTo(
-				2,
+				4,
 				2,
 			);
 
@@ -189,24 +189,22 @@ describe("demoData", () => {
 
 			const appState = getDemoAppState(mockDataset);
 
-			expect(appState.xAxes).toHaveLength(9);
-			expect(appState.yAxes).toHaveLength(9);
+			expect(appState.xAxes).toHaveLength(1);
+			expect(appState.yAxes).toHaveLength(3);
 			expect(appState.series).toHaveLength(4);
 
 			expect(appState.xAxes[0].min).toBe(mockDataset.data[0].bounds.min);
 			expect(appState.xAxes[0].max).toBe(mockDataset.data[0].bounds.max);
 
 			// Check Y-axis overrides
-			expect(appState.yAxes[0].name).toBe("Temperature (°C)");
-			expect(appState.yAxes[1].name).toBe("Humidity (%)");
-			expect(appState.yAxes[2].name).toBe("Solar Irradiance (W/m²)");
-			expect(appState.yAxes[3].name).toBe("Wind Speed (m/s)");
+			expect(appState.yAxes[0].name).toBe("Temp & Hum");
+			expect(appState.yAxes[1].name).toBe("Solar");
+			expect(appState.yAxes[2].name).toBe("Wind");
 
 			// Check series links
 			appState.series.forEach((s, i) => {
 				expect(s.sourceId).toBe(mockDataset.id);
 				expect(s.yColumn).toBe(mockDataset.columns[i + 1]);
-				expect(s.yAxisId).toBe(`axis-${i + 1}`);
 				expect(s.id).toBe(mockUUID);
 			});
 

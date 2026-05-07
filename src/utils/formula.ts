@@ -6,6 +6,15 @@
  * Implements a Shunting-yard algorithm to evaluate expressions without using eval() or new Function().
  */
 
+import { processRawColumn } from "./data-processing";
+import {
+	exponentialRegression,
+	kdeSmoothing,
+	linearRegression,
+	logisticRegression,
+	polynomialRegression,
+} from "./regression";
+
 interface FormulaContext {
 	queues: Record<number, number[]>;
 	sums: Record<number, number>;
@@ -681,6 +690,407 @@ export function compileFormula(
 			usedColumnIndices: [],
 			error: err instanceof Error ? err.message : String(err),
 			createContext: () => ({}) as FormulaContext,
+		};
+	}
+}
+
+// --- Sync Evaluation Logic (Migrated from Worker) ---
+
+const REGRESSION_PATTERNS: { pattern: RegExp; type: string }[] = [
+	{ pattern: /^linreg\(\[([^\]]+)\]\)$/i, type: "linear" },
+	{ pattern: /^polyreg\(\[([^\]]+)\]\s*,\s*(\d+)\)$/i, type: "poly" },
+	{ pattern: /^polyreg\(\[([^\]]+)\]\)$/i, type: "poly_default" },
+	{ pattern: /^expreg\(\[([^\]]+)\]\)$/i, type: "exponential" },
+	{ pattern: /^logreg\(\[([^\]]+)\]\)$/i, type: "logistic" },
+	{ pattern: /^kde\(\[([^\]]+)\]\)$/i, type: "kde" },
+	{ pattern: /^kde\(\[([^\]]+)\]\s*,\s*([0-9.]+)\)$/i, type: "kde_bw" },
+];
+
+function tryRegressionFormula(
+	formula: string,
+	columns: string[],
+	rowCount: number,
+	columnData: { data: Float32Array; refPoint: number }[],
+): Float64Array | null {
+	const trimmed = formula.trim();
+
+	for (const { pattern, type } of REGRESSION_PATTERNS) {
+		const match = trimmed.match(pattern);
+		if (!match) continue;
+
+		const colName = match[1];
+		// Find column index
+		let yColIdx = columns.indexOf(colName);
+		if (yColIdx === -1) {
+			yColIdx = columns.findIndex(
+				(c) => c.endsWith(`: ${colName}`) || c === colName,
+			);
+		}
+		if (yColIdx === -1) return null;
+
+		// Build x and y arrays
+		const xArr = new Float64Array(rowCount);
+		const yArr = new Float64Array(rowCount);
+		const xRef = columnData[0]?.refPoint || 0; // x column is first in columnData for regression
+		const yRef = columnData[1]?.refPoint || 0;
+		const xData = columnData[0]?.data;
+		const yData = columnData[1]?.data;
+		if (!xData || !yData) return null;
+
+		for (let i = 0; i < rowCount; i++) {
+			xArr[i] = xData[i] + xRef;
+			yArr[i] = yData[i] + yRef;
+		}
+
+		switch (type) {
+			case "linear":
+				return linearRegression(xArr, yArr);
+			case "poly":
+				return polynomialRegression(xArr, yArr, parseInt(match[2], 10));
+			case "poly_default":
+				return polynomialRegression(xArr, yArr, 3);
+			case "exponential":
+				return exponentialRegression(xArr, yArr);
+			case "logistic":
+				return logisticRegression(xArr, yArr);
+			case "kde":
+				return kdeSmoothing(xArr, yArr);
+			case "kde_bw":
+				return kdeSmoothing(xArr, yArr, parseFloat(match[2]));
+		}
+	}
+	return null;
+}
+
+export interface FormulaWorkerParams {
+	datasetId: string;
+	name: string;
+	formula: string;
+	columns: string[];
+	rowCount: number;
+	columnData: { data: Float32Array; refPoint: number }[];
+}
+
+export interface FormulaEvaluationResult {
+	type: "success" | "error";
+	newColumn?: {
+		isFloat64: boolean;
+		refPoint: number;
+		bounds: { min: number; max: number };
+		data: Float32Array;
+		formula?: string;
+	};
+	sparseXColumn?: {
+		isFloat64: boolean;
+		refPoint: number;
+		bounds: { min: number; max: number };
+		data: Float32Array;
+	};
+	datasetId?: string;
+	name?: string;
+	error?: string;
+}
+
+export function evaluateFormulaSync(
+	params: FormulaWorkerParams,
+): FormulaEvaluationResult {
+	const { datasetId, name, formula, columns, rowCount, columnData } = params;
+
+	try {
+		// Try regression formulas first (they need full-column access)
+		const regressionResult = tryRegressionFormula(
+			formula,
+			columns,
+			rowCount,
+			columnData,
+		);
+		if (regressionResult) {
+			const processed = processRawColumn(regressionResult);
+			return {
+				type: "success",
+				newColumn: {
+					isFloat64: false,
+					refPoint: processed.refPoint,
+					bounds: processed.bounds,
+					data: processed.data,
+				},
+				datasetId,
+				name,
+			};
+		}
+
+		// Two-pass for group-average functions (avgday/avghour/avgminute/avgsecond)
+		const groupAvgMatch = formula
+			.trim()
+			.match(/^avg(day|hour|minute|second)([lcr])?\(\[(.+)\]\)$/i);
+		if (groupAvgMatch) {
+			const granularity = groupAvgMatch[1].toLowerCase();
+			const align = (groupAvgMatch[2]?.toLowerCase() ?? "c") as "l" | "c" | "r";
+			const colName = groupAvgMatch[3];
+
+			const compiled = compileFormula(formula, columns);
+			if (compiled.error) {
+				return { type: "error", error: compiled.error };
+			}
+
+			const cols = columns as string[];
+			const timeGlobalIdx =
+				cols.findIndex(
+					(c: string) =>
+						c.toLowerCase().includes("time") ||
+						c.toLowerCase().includes("date"),
+				) ?? 0;
+			const valueGlobalIdx = (() => {
+				let idx = cols.indexOf(colName);
+				if (idx === -1)
+					idx = cols.findIndex(
+						(c: string) => c.endsWith(`: ${colName}`) || c === colName,
+					);
+				return idx;
+			})();
+			if (valueGlobalIdx === -1) {
+				return { type: "error", error: `Column not found: ${colName}` };
+			}
+
+			const localTimeIdx = compiled.usedColumnIndices.indexOf(timeGlobalIdx);
+			const localValueIdx = compiled.usedColumnIndices.indexOf(valueGlobalIdx);
+			if (localTimeIdx === -1 || localValueIdx === -1) {
+				return { type: "error", error: "Could not resolve column indices" };
+			}
+
+			const timeCol = columnData[localTimeIdx];
+			const valCol = columnData[localValueIdx];
+
+			const d = new Date();
+			let lastYr = -1,
+				lastMo = -1,
+				lastDa = -1,
+				lastHr = -1,
+				lastMin = -1,
+				lastSec = -1;
+			let lastRes = "";
+
+			const getTimeKey = (t: number): string => {
+				const ms = t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000;
+				d.setTime(ms);
+
+				if (granularity === "day") {
+					const yr = d.getFullYear(),
+						mo = d.getMonth(),
+						da = d.getDate();
+					if (yr === lastYr && mo === lastMo && da === lastDa) return lastRes;
+					lastYr = yr;
+					lastMo = mo;
+					lastDa = da;
+					return (lastRes = `${yr}-${mo}-${da}`);
+				}
+				if (granularity === "hour") {
+					const yr = d.getFullYear(),
+						mo = d.getMonth(),
+						da = d.getDate(),
+						hr = d.getHours();
+					if (yr === lastYr && mo === lastMo && da === lastDa && hr === lastHr)
+						return lastRes;
+					lastYr = yr;
+					lastMo = mo;
+					lastDa = da;
+					lastHr = hr;
+					return (lastRes = `${yr}-${mo}-${da}-${hr}`);
+				}
+				if (granularity === "minute") {
+					const yr = d.getFullYear(),
+						mo = d.getMonth(),
+						da = d.getDate(),
+						hr = d.getHours(),
+						min = d.getMinutes();
+					if (
+						yr === lastYr &&
+						mo === lastMo &&
+						da === lastDa &&
+						hr === lastHr &&
+						min === lastMin
+					)
+						return lastRes;
+					lastYr = yr;
+					lastMo = mo;
+					lastDa = da;
+					lastHr = hr;
+					lastMin = min;
+					return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}`);
+				}
+
+				const yr = d.getFullYear(),
+					mo = d.getMonth(),
+					da = d.getDate(),
+					hr = d.getHours(),
+					min = d.getMinutes(),
+					sec = d.getSeconds();
+				if (
+					yr === lastYr &&
+					mo === lastMo &&
+					da === lastDa &&
+					hr === lastHr &&
+					min === lastMin &&
+					sec === lastSec
+				)
+					return lastRes;
+				lastYr = yr;
+				lastMo = mo;
+				lastDa = da;
+				lastHr = hr;
+				lastMin = min;
+				lastSec = sec;
+				return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}-${sec}`);
+			};
+
+			// Pass 1: aggregate per group, track representative row index per alignment
+			const groupSums = new Map<string, number>();
+			const groupCounts = new Map<string, number>();
+			const groupFirst = new Map<string, number>();
+			const groupLast = new Map<string, number>();
+			for (let i = 0; i < rowCount; i++) {
+				const t = timeCol.data[i] + timeCol.refPoint;
+				const v = valCol.data[i] + valCol.refPoint;
+				const key = getTimeKey(t);
+				groupSums.set(key, (groupSums.get(key) ?? 0) + v);
+				groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
+				if (!groupFirst.has(key)) groupFirst.set(key, i);
+				groupLast.set(key, i);
+			}
+
+			// Build compact (x, y) arrays — one point per group at representative position
+			const repXVals: number[] = [];
+			const repYVals: number[] = [];
+			groupFirst.forEach((firstIdx, key) => {
+				const lastIdx = groupLast.get(key)!;
+				let repIdx: number;
+				if (align === "l") repIdx = firstIdx;
+				else if (align === "r") repIdx = lastIdx;
+				else repIdx = Math.round((firstIdx + lastIdx) / 2);
+				repXVals.push(timeCol.data[repIdx] + timeCol.refPoint);
+				repYVals.push(groupSums.get(key)! / groupCounts.get(key)!);
+			});
+
+			const compactX = new Float64Array(repXVals);
+			const compactY = new Float64Array(repYVals);
+			const order = Array.from({ length: compactX.length }, (_, i) => i).sort(
+				(a, b) => compactX[a] - compactX[b],
+			);
+			const sortedX = new Float64Array(order.map((i) => compactX[i]));
+			const sortedY = new Float64Array(order.map((i) => compactY[i]));
+
+			const processedX = processRawColumn(sortedX);
+			const processedY = processRawColumn(sortedY);
+			return {
+				type: "success",
+				newColumn: {
+					isFloat64: false,
+					refPoint: processedY.refPoint,
+					bounds: processedY.bounds,
+					data: processedY.data,
+				},
+				sparseXColumn: {
+					isFloat64: false,
+					refPoint: processedX.refPoint,
+					bounds: processedX.bounds,
+					data: processedX.data,
+				},
+				datasetId,
+				name,
+			};
+		}
+
+		const { evaluate, usedColumnIndices, error, createContext } =
+			compileFormula(formula, columns);
+		if (error) {
+			return { type: "error", error };
+		}
+
+		const resultData = new Float64Array(rowCount);
+		const rowValues = new Array(usedColumnIndices.length);
+		const ctx = createContext ? createContext() : undefined;
+
+		for (let i = 0; i < rowCount; i++) {
+			for (let j = 0; j < usedColumnIndices.length; j++) {
+				rowValues[j] = columnData[j].data[i] + columnData[j].refPoint;
+			}
+			resultData[i] = evaluate(rowValues, ctx);
+		}
+
+		const avgAlignMatch = formula.match(/avg(\d+)(s|m|h|d)?([lcr])?\s*\(/i);
+		if (avgAlignMatch) {
+			const num = parseInt(avgAlignMatch[1], 10);
+			const unit = avgAlignMatch[2]?.toLowerCase();
+			const align = (avgAlignMatch[3]?.toLowerCase() ?? "c") as "l" | "c" | "r";
+
+			let shift = 0;
+			if (unit) {
+				if (align !== "l") {
+					let windowSec = num;
+					if (unit === "m") windowSec = num * 60;
+					else if (unit === "h") windowSec = num * 3600;
+					else if (unit === "d") windowSec = num * 86400;
+
+					const timeLocalIdx = 0;
+					const timeColData = columnData[timeLocalIdx];
+					if (timeColData && rowCount > 1) {
+						const sampleSize = Math.min(rowCount - 1, 200);
+						const step = Math.floor((rowCount - 1) / sampleSize);
+						let totalInterval = 0;
+						let count = 0;
+						for (let i = 0; i < rowCount - 1; i += step) {
+							const t0 = timeColData.data[i] + timeColData.refPoint;
+							const t1 = timeColData.data[i + 1] + timeColData.refPoint;
+							const dtMs = Math.abs(
+								(t1 > 1e11 ? t1 : t1 * 1000) - (t0 > 1e11 ? t0 : t0 * 1000),
+							);
+							if (dtMs > 0) {
+								totalInterval += dtMs;
+								count++;
+							}
+						}
+						if (count > 0) {
+							const medianIntervalSec = totalInterval / count / 1000;
+							const halfRows = Math.round(windowSec / 2 / medianIntervalSec);
+							shift =
+								align === "c" ? halfRows : windowSec / medianIntervalSec - 1;
+							if (align === "r")
+								shift = Math.round(windowSec / medianIntervalSec) - 1;
+						}
+					}
+				}
+			} else {
+				if (align === "c") shift = Math.floor(num / 2);
+				else if (align === "r") shift = num - 1;
+			}
+
+			if (shift > 0 && shift < rowCount) {
+				const out = new Float64Array(rowCount);
+				for (let i = 0; i < rowCount - shift; i++)
+					out[i] = resultData[i + shift];
+				for (let i = rowCount - shift; i < rowCount; i++)
+					out[i] = resultData[rowCount - 1];
+				resultData.set(out);
+			}
+		}
+
+		const processed = processRawColumn(resultData);
+
+		return {
+			type: "success",
+			newColumn: {
+				isFloat64: false,
+				refPoint: processed.refPoint,
+				bounds: processed.bounds,
+				data: processed.data,
+			},
+			datasetId,
+			name,
+		};
+	} catch (err) {
+		return {
+			type: "error",
+			error: err instanceof Error ? err.message : String(err),
 		};
 	}
 }

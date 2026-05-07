@@ -9,7 +9,7 @@ import {
 	type YAxisConfig,
 } from "../services/persistence";
 import { getColumnIndex } from "../utils/columns";
-import { compileFormula } from "../utils/formula";
+import { compileFormula, evaluateFormulaSync } from "../utils/formula";
 
 interface GraphState {
 	datasets: Dataset[];
@@ -93,7 +93,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	highlightedSeriesId: null,
 	legendVisible:
 		typeof localStorage !== "undefined"
-			? localStorage.getItem("legendVisible") === "true"
+			? localStorage.getItem("legendVisible") !== "false"
 			: true,
 	setLegendVisible: (visible) => {
 		if (typeof localStorage !== "undefined")
@@ -164,78 +164,57 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			}));
 		}
 
-		return new Promise((resolve) => {
-			const worker = new Worker(
-				new URL("../workers/formula.worker.ts", import.meta.url),
-				{ type: "module" },
-			);
-
-			worker.onmessage = (event) => {
-				const {
-					type,
-					newColumn,
-					sparseXColumn,
-					error: workerError,
-				} = event.data;
-				if (type === "success") {
-					if (sparseXColumn) {
-						// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
-						const xColName = dataset.xAxisColumn;
-						const sparseRowCount = sparseXColumn.data.length;
-						const letter = String.fromCharCode(65 + get().datasets.length);
-						const sparseDataset: Dataset = {
-							id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
-							name: `${letter} - ${trimmedName}`,
-							columns: [
-								`${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
-								`${letter}: ${trimmedName}`,
-							],
-							data: [{ ...sparseXColumn }, { ...newColumn, formula }],
-							rowCount: sparseRowCount,
-							xAxisColumn: `${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
-							xAxisId: dataset.xAxisId,
-						};
-						get().addDataset(sparseDataset);
-						persistence.saveDataset(sparseDataset);
-					} else {
-						const updatedDataset = {
-							...dataset,
-							columns: [...dataset.columns, trimmedName],
-							data: [...dataset.data, { ...newColumn, formula }],
-						};
-						set((state) => ({
-							datasets: state.datasets.map((d) =>
-								d.id === datasetId ? updatedDataset : d,
-							),
-						}));
-						persistence.saveDataset(updatedDataset);
-					}
-					if (get().isLoaded) debouncedSaveState();
-					resolve({ success: true });
-				} else {
-					resolve({
-						success: false,
-						error: workerError || "Worker calculation failed",
-					});
-				}
-				worker.terminate();
-			};
-
-			worker.onerror = (err) => {
-				resolve({ success: false, error: err.message });
-				worker.terminate();
-			};
-
-			worker.postMessage({
-				datasetId,
-				name: trimmedName,
-				formula,
-				columns: dataset.columns,
-				rowCount: dataset.rowCount,
-				columnData,
-				xColumnIndex: getColumnIndex(dataset, dataset.xAxisColumn),
-			});
+		const result = evaluateFormulaSync({
+			datasetId,
+			name: trimmedName,
+			formula,
+			columns: dataset.columns,
+			rowCount: dataset.rowCount,
+			columnData,
 		});
+
+		if (result.type === "success") {
+			const { newColumn, sparseXColumn } = result;
+			if (sparseXColumn && newColumn) {
+				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
+				const xColName = dataset.xAxisColumn;
+				const sparseRowCount = sparseXColumn.data.length;
+				const letter = String.fromCharCode(65 + get().datasets.length);
+				const sparseDataset: Dataset = {
+					id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
+					name: `${letter} - ${trimmedName}`,
+					columns: [
+						`${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
+						`${letter}: ${trimmedName}`,
+					],
+					data: [{ ...sparseXColumn }, { ...newColumn, formula }],
+					rowCount: sparseRowCount,
+					xAxisColumn: `${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
+					xAxisId: dataset.xAxisId,
+				};
+				get().addDataset(sparseDataset);
+				persistence.saveDataset(sparseDataset);
+			} else if (newColumn) {
+				const updatedDataset = {
+					...dataset,
+					columns: [...dataset.columns, trimmedName],
+					data: [...dataset.data, { ...newColumn, formula }],
+				};
+				set((state) => ({
+					datasets: state.datasets.map((d) =>
+						d.id === datasetId ? updatedDataset : d,
+					),
+				}));
+				persistence.saveDataset(updatedDataset);
+			}
+			if (get().isLoaded) debouncedSaveState();
+			return { success: true };
+		}
+
+		return {
+			success: false,
+			error: result.error || "Calculation failed",
+		};
 	},
 
 	removeCalculatedColumn: (datasetId, columnName) => {
@@ -569,13 +548,29 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const demoState = getDemoAppState(demoDataset);
 
 		await persistence.saveDataset(demoDataset);
-		await persistence.saveAppState(demoState);
-
-		set({
-			...demoState,
-			datasets: [demoDataset],
-			isLoaded: true,
+		
+		set((state) => {
+			const xColIdx = getColumnIndex(demoDataset, demoDataset.xAxisColumn);
+			const col = demoDataset.data[xColIdx];
+			const bounds = col?.bounds || { min: 0, max: 100 };
+			const xId = demoDataset.xAxisId || "axis-1";
+			
+			return {
+				datasets: [...state.datasets, demoDataset],
+				xAxes: state.xAxes.map(a => a.id === xId ? {
+					...a,
+					min: bounds.min,
+					max: bounds.max,
+					xMode: col?.isFloat64 ? "date" : "numeric"
+				} : a),
+				yAxes: demoState.yAxes,
+				series: demoState.series,
+				axisTitles: demoState.axisTitles,
+				isLoaded: true,
+			};
 		});
+
+		debouncedSaveState();
 	},
 }));
 

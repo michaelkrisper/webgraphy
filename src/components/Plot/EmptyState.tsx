@@ -80,7 +80,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ width, height, padding }
 						<img src="/favicon.svg" alt="logo" style={{ width: "48px", height: "48px" }} />
 						<h2 style={{ margin: 0, color: t.text, fontSize: "2.5rem", fontWeight: 300, letterSpacing: "0.15em" }}>WEBGRAPHY</h2>
 					</div>
-					<p style={{ margin: 0, color: t.textMuted, fontSize: "0.95rem", opacity: 0.7, letterSpacing: "0.05em" }}>Let's visualize your data</p>
+					<p style={{ margin: 0, color: t.textMuted, fontSize: "0.95rem", opacity: 0.7, letterSpacing: "0.05em" }}>Visualize and explore your data</p>
 				</div>
 			</div>
 		</div>

@@ -21,7 +21,7 @@ npm run test       # Run Vitest unit tests (jsdom environment)
 ### Data Flow
 
 ```
-CSV/JSON file → data-parser.worker.ts (Web Worker, transferable Float32Arrays)
+CSV/JSON file → src/utils/data-parser.ts (Synchronous parser on main thread)
     → IndexedDB (datasets via idb) + localStorage (axes/series/UI state)
     → Zustand store (useGraphStore.ts)
     → ChartContainer.tsx (layout, ticks, interaction)
@@ -29,7 +29,6 @@ CSV/JSON file → data-parser.worker.ts (Web Worker, transferable Float32Arrays)
 ```
 
 - **Float32Array throughout** — columns stored as relative values (`value - refPoint`) for high-precision rendering
-- **Transferable objects** — worker ships parsed data to main thread zero-copy
 - On app mount, `loadPersistedState()` rehydrates from IndexedDB/localStorage; falls back to demo weather dataset
 
 ### State Management (`src/store/useGraphStore.ts`)

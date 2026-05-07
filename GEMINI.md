@@ -10,13 +10,12 @@
 - **Persistence:** 
     - **IndexedDB (`idb`):** Stores large datasets for fast retrieval across sessions.
     - **LocalStorage:** Stores UI state and application configuration.
-- **Concurrency:** Web Workers for heavy data parsing (CSV/JSON).
 - **Optimization:** Direct raw data rendering path optimized for massive datasets.
 
 ## Architecture & Data Flow
 
-1.  **Data Import:** Files (CSV/JSON) are read and passed to `data-parser.worker.ts`.
-2.  **Processing:** The worker parses the data, calculates bounds, and transforms values to relative offsets (`refPoint`) for high-precision rendering.
+1.  **Data Import:** Files (CSV/JSON) are read and parsed by `src/utils/data-parser.ts`.
+2.  **Processing:** The parser calculates bounds, and transforms values to relative offsets (`refPoint`) for high-precision rendering.
 3.  **Persistence:** The processed dataset is stored in IndexedDB.
 4.  **State Sync:** `useGraphStore` (Zustand) manages the active datasets and series configurations.
 5.  **Rendering:** `WebGLRenderer` consumes datasets and series configs and renders raw data to a canvas using specialized shaders. To ensure high responsiveness during interaction, the renderer bypasses the global store and React render cycle for per-frame updates.
