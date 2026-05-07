@@ -528,11 +528,10 @@
 .sc-btn--plain {
 	background: none;
 }
-.sc-btn--off {
-	color: var(--text-muted-color);
-	opacity: 0.5;
+.sc-strikethrough {
+	position: relative;
 }
-.sc-btn--off::after {
+.sc-strikethrough::after {
 	content: "";
 	position: absolute;
 	left: 4px;
@@ -547,6 +546,12 @@
 		transparent calc(50% + 1.25px)
 	);
 	pointer-events: none;
+}
+.sc-btn--off {
+	color: var(--text-muted-color);
+	opacity: 0.5;
+}
+.sc-btn--off::after {
 	opacity: 1;
 }
 .sc-drag-handle {

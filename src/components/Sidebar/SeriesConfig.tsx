@@ -89,29 +89,10 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				return <X size={size + 2} strokeWidth={3} />;
 			case "none":
 				return (
-					<div style={{ position: "relative", width: size, height: size, opacity: 0.5 }}>
-						<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
-						<svg
-							style={{
-								position: "absolute",
-								inset: 0,
-								width: size,
-								height: size,
-								pointerEvents: "none",
-							}}
-							viewBox="0 0 24 24"
-						>
-							<line
-								x1="3"
-								y1="3"
-								x2="21"
-								y2="21"
-								stroke="#dc3545"
-								strokeWidth="2"
-								opacity="1"
-							/>
-						</svg>
-					</div>
+					<svg width={size} height={size} viewBox="0 0 16 16" opacity={0.5}>
+						<circle cx="8" cy="8" r="6" fill="currentColor" stroke="white" strokeWidth="1" />
+						<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="2.5" />
+					</svg>
 				);
 			default:
 				return null;
@@ -149,16 +130,9 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					/>
 				)}
 				{series.lineStyle === "none" && (
-					<g>
-						<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" opacity="0.4" />
-						<line
-							x1="4"
-							y1="4"
-							x2="12"
-							y2="12"
-							stroke="#dc3545"
-							strokeWidth="1.5"
-						/>
+					<g opacity="0.5">
+						<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
+						<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="2.5" />
 					</g>
 				)}
 			</svg>
