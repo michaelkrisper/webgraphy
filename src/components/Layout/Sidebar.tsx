@@ -21,7 +21,7 @@ import {
 	RotateCcw,
 	Rows,
 	Save,
-	Sparkles,
+	Cat,
 	Sun,
 	Terminal,
 	Trash2,
@@ -49,7 +49,7 @@ const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
 	light: <Sun size={24} />,
 	dark: <Moon size={24} />,
 	matrix: <Terminal size={24} />,
-	unicorn: <Sparkles size={24} />,
+	unicorn: <Cat size={24} />,
 };
 
 const THEME_LABELS: Record<ThemeName, string> = {
