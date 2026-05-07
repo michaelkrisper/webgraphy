@@ -67,4 +67,54 @@ describe("ImportSettingsDialog", () => {
 		expect(screen.getByText("Data1")).toBeInTheDocument();
 		expect(screen.getByText("Data2")).toBeInTheDocument();
 	});
+
+	it("auto-detects semicolon delimiter and comma decimal point", () => {
+		const csvContent = "Header1;Header2\n1,2;3,4\n5,6;7,8";
+		const onConfirm = vi.fn();
+		const onCancel = vi.fn();
+
+		render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={csvContent}
+				fileType="csv"
+				onConfirm={onConfirm}
+				onCancel={onCancel}
+				theme={theme}
+			/>,
+		);
+
+		// Delimiter should be detected as ";"
+		const delimiterSelect = screen.getByLabelText(/Delimiter/i);
+		expect(delimiterSelect).toHaveValue(";");
+
+		// Decimal point should be detected as ","
+		const decimalSelect = screen.getByLabelText(/Decimal Point/i);
+		expect(decimalSelect).toHaveValue(",");
+	});
+
+	it("auto-detects tab delimiter and dot decimal point", () => {
+		const csvContent = "Header1\tHeader2\n1.2\t3.4\n5.6\t7.8";
+		const onConfirm = vi.fn();
+		const onCancel = vi.fn();
+
+		render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={csvContent}
+				fileType="csv"
+				onConfirm={onConfirm}
+				onCancel={onCancel}
+				theme={theme}
+			/>,
+		);
+
+		// Delimiter should be detected as "\t"
+		const delimiterSelect = screen.getByLabelText(/Delimiter/i);
+		expect(delimiterSelect).toHaveValue("\t");
+
+		// Decimal point should be detected as "."
+		const decimalSelect = screen.getByLabelText(/Decimal Point/i);
+		expect(decimalSelect).toHaveValue(".");
+	});
 });

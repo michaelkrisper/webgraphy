@@ -1,6 +1,6 @@
 import { Check, Clock, EyeOff, FileType, Hash, Tag } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
 	ColumnConfig,
 	ColumnType,
@@ -25,18 +25,65 @@ function detectDelimiter(
 	fileType: "csv" | "json" | "excel",
 ): string {
 	if (fileType !== "csv" && fileType !== "excel") return ",";
-	const firstLine = fileContent.split("\n")[0];
+	if (!fileContent) return ",";
+
+	const lines = fileContent
+		.split(/\r?\n/)
+		.slice(0, 100)
+		.filter((l) => l.trim());
+	if (lines.length === 0) return ",";
+
 	const candidates = [",", ";", "\t", "|"];
 	let best = ",";
-	let maxCount = -1;
+	let maxScore = -1;
+
 	for (const d of candidates) {
-		const count = firstLine.split(d).length;
-		if (count > maxCount) {
-			maxCount = count;
+		let totalCount = 0;
+		const counts = new Map<number, number>();
+		let maxConsistency = 0;
+
+		for (const line of lines) {
+			const count = line.split(d).length - 1;
+			totalCount += count;
+			if (count > 0) {
+				const c = (counts.get(count) || 0) + 1;
+				counts.set(count, c);
+				maxConsistency = Math.max(maxConsistency, c);
+			}
+		}
+
+		// Score: number of lines with the most consistent non-zero count,
+		// plus a small bonus for total count to break ties.
+		const score = maxConsistency * 1000 + totalCount;
+		if (score > maxScore) {
+			maxScore = score;
 			best = d;
 		}
 	}
 	return best;
+}
+
+function detectDecimalPoint(fileContent: string, delimiter: string): string {
+	if (!fileContent) return ".";
+	const lines = fileContent
+		.split(/\r?\n/)
+		.slice(0, 100)
+		.filter((l) => l.trim());
+	let dotCount = 0;
+	let commaCount = 0;
+
+	const dotRegex = /\d\.\d/g;
+	const commaRegex = /\d,\d/g;
+
+	for (const line of lines) {
+		const fields = line.split(delimiter);
+		for (const field of fields) {
+			dotCount += (field.match(dotRegex) || []).length;
+			commaCount += (field.match(commaRegex) || []).length;
+		}
+	}
+
+	return commaCount > dotCount ? "," : ".";
 }
 
 function detectColumnTypeAndFormat(
@@ -83,7 +130,16 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	const [delimiter, setDelimiter] = useState<string>(() =>
 		detectDelimiter(fileContent, fileType),
 	);
-	const [decimalPoint, setDecimalPoint] = useState<string>(".");
+	const [decimalPoint, setDecimalPoint] = useState<string>(() =>
+		detectDecimalPoint(fileContent, detectDelimiter(fileContent, fileType)),
+	);
+
+	// Re-detect settings when file content or type changes (e.g. sheet change)
+	useEffect(() => {
+		const d = detectDelimiter(fileContent, fileType);
+		setDelimiter(d);
+		setDecimalPoint(detectDecimalPoint(fileContent, d));
+	}, [fileContent, fileType]);
 	const [startRow, setStartRow] = useState<number>(1);
 	const [commentChar, setCommentChar] = useState<string>("#");
 	// Stores per-column user overrides, keyed by column name
@@ -243,12 +299,16 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							<select
 								id="import-delimiter"
 								value={delimiter}
-								onChange={(e) => setDelimiter(e.target.value)}
+								onChange={(e) => {
+									const newDelim = e.target.value;
+									setDelimiter(newDelim);
+									setDecimalPoint(detectDecimalPoint(fileContent, newDelim));
+								}}
 								className="isd-select"
 							>
 								<option value=",">Comma (,)</option>
 								<option value=";">Semicolon (;)</option>
-								<option value="\t">Tab</option>
+								<option value={"\t"}>Tab</option>
 								<option value="|">Pipe (|)</option>
 							</select>
 						</div>
