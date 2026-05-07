@@ -1,5 +1,4 @@
 import {
-	Ban,
 	Circle,
 	EyeOff,
 	GripVertical,
@@ -89,7 +88,31 @@ export const SeriesConfigUI: React.FC<Props> = ({
 			case "cross":
 				return <X size={size + 2} strokeWidth={3} />;
 			case "none":
-				return <Ban size={size + 2} strokeWidth={2.5} opacity={0.5} />;
+				return (
+					<div style={{ position: "relative", width: size, height: size, opacity: 0.5 }}>
+						<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
+						<svg
+							style={{
+								position: "absolute",
+								inset: 0,
+								width: size,
+								height: size,
+								pointerEvents: "none",
+							}}
+							viewBox="0 0 24 24"
+						>
+							<line
+								x1="3"
+								y1="3"
+								x2="21"
+								y2="21"
+								stroke="#dc3545"
+								strokeWidth="2"
+								opacity="1"
+							/>
+						</svg>
+					</div>
+				);
 			default:
 				return null;
 		}
