@@ -1,0 +1,11 @@
+# Gemini CLI Ignore File
+# Non-essential files and directories to ignore
+
+coverage/
+dist/
+node_modules/
+graphify-out/
+.git/
+.claude/
+.jules/
+*.log

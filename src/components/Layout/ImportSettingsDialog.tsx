@@ -253,55 +253,57 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							</select>
 						</div>
 					)}
-					<div className="isd-field-group-md">
-						<label htmlFor="import-decimal" className="isd-field-label">
-							Decimal Point:
-						</label>
-						<select
-							id="import-decimal"
-							value={decimalPoint}
-							onChange={(e) => setDecimalPoint(e.target.value)}
-							className="isd-select"
-						>
-							<option value=".">Dot (.)</option>
-							<option value=",">Comma (,)</option>
-						</select>
-					</div>
+					{fileType !== "excel" && (
+						<div className="isd-field-group-md">
+							<label htmlFor="import-decimal" className="isd-field-label">
+								Decimal Point:
+							</label>
+							<select
+								id="import-decimal"
+								value={decimalPoint}
+								onChange={(e) => setDecimalPoint(e.target.value)}
+								className="isd-select"
+							>
+								<option value=".">Dot (.)</option>
+								<option value=",">Comma (,)</option>
+							</select>
+						</div>
+					)}
 					{fileType !== "json" && (
-						<>
-							<div className="isd-field-group-sm">
-								<label htmlFor="import-start-row" className="isd-field-label">
-									Start Row:
-								</label>
-								<input
-									id="import-start-row"
-									type="number"
-									min="1"
-									value={startRow}
-									onChange={(e) =>
-										setStartRow(parseInt(e.target.value, 10) || 1)
-									}
-									className="isd-input"
-								/>
-							</div>
-							<div className="isd-field-group-sm">
-								<label
-									htmlFor="import-comment-char"
-									className="isd-field-label"
-								>
-									Comment:
-								</label>
-								<input
-									id="import-comment-char"
-									type="text"
-									maxLength={1}
-									value={commentChar}
-									onChange={(e) => setCommentChar(e.target.value)}
-									className="isd-input"
-									placeholder="#"
-								/>
-							</div>
-						</>
+						<div className="isd-field-group-sm">
+							<label htmlFor="import-start-row" className="isd-field-label">
+								Start Row:
+							</label>
+							<input
+								id="import-start-row"
+								type="number"
+								min="1"
+								value={startRow}
+								onChange={(e) =>
+									setStartRow(parseInt(e.target.value, 10) || 1)
+								}
+								className="isd-input"
+							/>
+						</div>
+					)}
+					{fileType === "csv" && (
+						<div className="isd-field-group-sm">
+							<label
+								htmlFor="import-comment-char"
+								className="isd-field-label"
+							>
+								Comment:
+							</label>
+							<input
+								id="import-comment-char"
+								type="text"
+								maxLength={1}
+								value={commentChar}
+								onChange={(e) => setCommentChar(e.target.value)}
+								className="isd-input"
+								placeholder="#"
+							/>
+						</div>
 					)}
 					<button
 						onClick={() =>

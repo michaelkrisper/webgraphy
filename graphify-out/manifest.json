@@ -1,0 +1,362 @@
+{
+  "/home/mik/webgraphy/eslint.config.js": {
+    "mtime": 1777901190.9349644,
+    "hash": "b8893da386a89dfd3672dad848f4ec7e"
+  },
+  "/home/mik/webgraphy/vite.config.ts": {
+    "mtime": 1777901190.9510026,
+    "hash": "94a3777ff6033737303b0fcd533b1f5d"
+  },
+  "/home/mik/webgraphy/vitest.config.ts": {
+    "mtime": 1777901190.9510026,
+    "hash": "948066be96f19c631febbe9f5f6ba8f4"
+  },
+  "/home/mik/webgraphy/src/App.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "47c711baea5ed80c032e91f74751f17c"
+  },
+  "/home/mik/webgraphy/src/main.tsx": {
+    "mtime": 1777902738.6218448,
+    "hash": "93d236a529b4b30951687e6495d4294c"
+  },
+  "/home/mik/webgraphy/src/themes.ts": {
+    "mtime": 1777902738.6499166,
+    "hash": "025e28e29ac62b4670a8029de9a0a068"
+  },
+  "/home/mik/webgraphy/src/utils/columns.ts": {
+    "mtime": 1777902738.669968,
+    "hash": "505ce836403a323dbd75adeefc8fb32e"
+  },
+  "/home/mik/webgraphy/src/utils/keyboard.ts": {
+    "mtime": 1777902738.6779885,
+    "hash": "4149651a2f797aeb8252f0733d31a9ce"
+  },
+  "/home/mik/webgraphy/src/utils/series.ts": {
+    "mtime": 1777968936.6934152,
+    "hash": "c1d8da85c2f6f07309af16a3b289f4af"
+  },
+  "/home/mik/webgraphy/src/utils/random.ts": {
+    "mtime": 1777902738.6779885,
+    "hash": "34dfbaee0bad8d78037b444092225c4c"
+  },
+  "/home/mik/webgraphy/src/utils/coords.test.ts": {
+    "mtime": 1777902738.6900191,
+    "hash": "72d1f2ea3f000bd8447765e8edf3126e"
+  },
+  "/home/mik/webgraphy/src/utils/decimation.ts": {
+    "mtime": 1777967010.3493433,
+    "hash": "54397ce8fd180020937c4da1de5e10b5"
+  },
+  "/home/mik/webgraphy/src/utils/time.ts": {
+    "mtime": 1778079235.033395,
+    "hash": "2c8184d6994a14b2d5320e9e822b6e7d"
+  },
+  "/home/mik/webgraphy/src/utils/data-processing.ts": {
+    "mtime": 1777904812.891955,
+    "hash": "09e8f733e8728f3b1bf70a1719ad5638"
+  },
+  "/home/mik/webgraphy/src/utils/coords.ts": {
+    "mtime": 1777902738.669968,
+    "hash": "2764ed008140c90f6a96454fdcae0eec"
+  },
+  "/home/mik/webgraphy/src/utils/regression.ts": {
+    "mtime": 1777902738.6940296,
+    "hash": "bd71136bbc7932c0f82160f0485f4df5"
+  },
+  "/home/mik/webgraphy/src/utils/colors.ts": {
+    "mtime": 1777905183.5874953,
+    "hash": "fbc03caf322ec7565941c2e4240e0f06"
+  },
+  "/home/mik/webgraphy/src/utils/data-parser.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "ee80825446c7495ba7d113c57bd4e281"
+  },
+  "/home/mik/webgraphy/src/utils/formula.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "79606a47abc2a8438b4f6c1a034cceb7"
+  },
+  "/home/mik/webgraphy/src/utils/regression.test.ts": {
+    "mtime": 1777902738.686009,
+    "hash": "0be4c73240271f08340687f0d0d71df5"
+  },
+  "/home/mik/webgraphy/src/utils/json.ts": {
+    "mtime": 1777902738.673978,
+    "hash": "5e0ba4ee5ca451c68fc139b76a3dddb5"
+  },
+  "/home/mik/webgraphy/src/utils/axisCalculations.ts": {
+    "mtime": 1777974988.6563604,
+    "hash": "7b74ddc3777f4dba264a64298315aaa3"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/axisCalculations.test.ts": {
+    "mtime": 1777908115.6162488,
+    "hash": "2f41d9c6d68a206a0dd70454b875ea0b"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/json.test.ts": {
+    "mtime": 1777902738.657937,
+    "hash": "8db226e4ab112aa933b0c5b454758d69"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/keyboard.test.ts": {
+    "mtime": 1777902743.0196598,
+    "hash": "9dea1af96d3fe04f4234a9371e036fc0"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/columns.test.ts": {
+    "mtime": 1777902738.6659577,
+    "hash": "64ae5989f6ae89899d945abf4442ae97"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/series.test.ts": {
+    "mtime": 1777902738.6659577,
+    "hash": "ad66301569b0b92fa70e9b518d02c29e"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/data-parser.test.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "3e0b4477a24e6c97521d7913f2d51948"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/decimation.test.ts": {
+    "mtime": 1777967028.7959075,
+    "hash": "d196307156c085697e93216a44fe2173"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/random.test.ts": {
+    "mtime": 1777902738.6619473,
+    "hash": "791b076631a10d865b73341b8b5f11de"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/formula.test.ts": {
+    "mtime": 1777905889.9340324,
+    "hash": "9ff888f4896d91f101a92973dd67e979"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/regression.test.ts": {
+    "mtime": 1777905670.7842467,
+    "hash": "f0b5602370d8d51d135972c29e18761f"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/data-processing.test.ts": {
+    "mtime": 1777902738.657937,
+    "hash": "7add4b42975c6f8fbcac76bbfb256e61"
+  },
+  "/home/mik/webgraphy/src/utils/__tests__/time.test.ts": {
+    "mtime": 1778079276.5247655,
+    "hash": "d6e884b7689bac27919575d5e613dd6a"
+  },
+  "/home/mik/webgraphy/src/types/import.ts": {
+    "mtime": 1777980304.1930707,
+    "hash": "176225635d593c8182fc9cd4751a4782"
+  },
+  "/home/mik/webgraphy/src/components/ErrorBoundary.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "3d28088c2200599db5ac9fe5a497190b"
+  },
+  "/home/mik/webgraphy/src/components/Sidebar/SeriesConfig.tsx": {
+    "mtime": 1777979185.0098212,
+    "hash": "bb2b16e2f382929bb00f9d9294c2105f"
+  },
+  "/home/mik/webgraphy/src/components/Sidebar/ColorPicker.tsx": {
+    "mtime": 1777902742.9956944,
+    "hash": "3363356bebe3f37e29c041b726015fda"
+  },
+  "/home/mik/webgraphy/src/components/Plot/Crosshair.tsx": {
+    "mtime": 1778136956.1809292,
+    "hash": "5f24eb74bca6440df629db5a20f11945"
+  },
+  "/home/mik/webgraphy/src/components/Plot/AxesLayer.tsx": {
+    "mtime": 1778079126.411769,
+    "hash": "94e5119f05d240da61ad3c924ba7c593"
+  },
+  "/home/mik/webgraphy/src/components/Plot/EmptyState.tsx": {
+    "mtime": 1778135787.6087046,
+    "hash": "2dae93ac868e8f48341b4c18f8c44138"
+  },
+  "/home/mik/webgraphy/src/components/Plot/ChartLegend.tsx": {
+    "mtime": 1777980126.8266993,
+    "hash": "2f29146841b2eae8e5764c58a8579ae2"
+  },
+  "/home/mik/webgraphy/src/components/Plot/ChartContainer.tsx": {
+    "mtime": 1778136960.236953,
+    "hash": "cdee215695c0456bf8da42cdb8a68922"
+  },
+  "/home/mik/webgraphy/src/components/Plot/chartTypes.ts": {
+    "mtime": 1777975963.7268083,
+    "hash": "6130e12d53136aeb81214f7d2bc0188c"
+  },
+  "/home/mik/webgraphy/src/components/Plot/WebGLRenderer.tsx": {
+    "mtime": 1778079126.4157689,
+    "hash": "95826b7809525757631bca311774f12d"
+  },
+  "/home/mik/webgraphy/src/components/Plot/__tests__/WebGLRenderer.test.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "580ff0e154c993de4ca4ab126bbe99bd"
+  },
+  "/home/mik/webgraphy/src/components/__tests__/ErrorBoundary.test.tsx": {
+    "mtime": 1777902738.625855,
+    "hash": "c81b3b162218e8247c6fafdd403c1837"
+  },
+  "/home/mik/webgraphy/src/components/Layout/ImportSettingsDialog.tsx": {
+    "mtime": 1778135395.135198,
+    "hash": "b0a0c1838413a8af5a8c5b56c1c5ec74"
+  },
+  "/home/mik/webgraphy/src/components/Layout/HelpModal.tsx": {
+    "mtime": 1777961762.2691343,
+    "hash": "d36c8504639a76935f5ef05a65960011"
+  },
+  "/home/mik/webgraphy/src/components/Layout/FormulaShortcuts.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "d2110c8b99f167203a8d5fb33f1a2361"
+  },
+  "/home/mik/webgraphy/src/components/Layout/Modal.tsx": {
+    "mtime": 1777961759.8424673,
+    "hash": "8e7370d08f98f990ee80404828048e9b"
+  },
+  "/home/mik/webgraphy/src/components/Layout/ImprintModal.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "a8d5c2f77eb6f2684adb79241e9da2fe"
+  },
+  "/home/mik/webgraphy/src/components/Layout/LicenseModal.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "d6c70e00641d1284758f3c2d7582ca68"
+  },
+  "/home/mik/webgraphy/src/components/Layout/CollapsedMenuButton.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "69d595b99b189c97f5bc04f8d4e4257d"
+  },
+  "/home/mik/webgraphy/src/components/Layout/Sidebar.tsx": {
+    "mtime": 1778135395.135198,
+    "hash": "0638bab9c3299e1be86e38be7c2eab2d"
+  },
+  "/home/mik/webgraphy/src/components/Layout/CalculatedColumnModal.tsx": {
+    "mtime": 1777902738.625855,
+    "hash": "a21c6d67091458cd9c18d2c2ad77e00d"
+  },
+  "/home/mik/webgraphy/src/components/Layout/__tests__/ImportSettingsDialog.test.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "d8972e3dcec8875232ca317e7677ab0f"
+  },
+  "/home/mik/webgraphy/src/components/Layout/__tests__/HelpModal.test.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "7560abd5ed67a86b67a57c5c1cb2207d"
+  },
+  "/home/mik/webgraphy/src/components/Layout/__tests__/Sidebar.test.tsx": {
+    "mtime": 1777902738.6218448,
+    "hash": "9c8d021e5671a5d0cc6e535d8e23ef57"
+  },
+  "/home/mik/webgraphy/src/components/Layout/__tests__/CollapsedMenuButton.test.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "364b73403b042fd90feff6e8d540c0f4"
+  },
+  "/home/mik/webgraphy/src/components/Layout/__tests__/LicenseModal.test.tsx": {
+    "mtime": 1777902738.6138241,
+    "hash": "bda4434808770e27f55fbb9b9b204e5a"
+  },
+  "/home/mik/webgraphy/src/__tests__/setup.ts": {
+    "mtime": 1777902738.6138241,
+    "hash": "a0872535f1edd4972dbebb077c866a24"
+  },
+  "/home/mik/webgraphy/src/hooks/useFormulaEditor.ts": {
+    "mtime": 1777902742.983707,
+    "hash": "6540ed40af70420101e6a2e839ef51e8"
+  },
+  "/home/mik/webgraphy/src/hooks/useDataImport.ts": {
+    "mtime": 1778135444.355408,
+    "hash": "619c457ccc8440d159b0520c719757fb"
+  },
+  "/home/mik/webgraphy/src/hooks/useAutoScale.ts": {
+    "mtime": 1777902743.0036867,
+    "hash": "bdfe433f8bfa1901bd74fb0c452d3642"
+  },
+  "/home/mik/webgraphy/src/hooks/useTheme.ts": {
+    "mtime": 1777902738.625855,
+    "hash": "2cd26af7be649e1ffa83a51b2671c5bb"
+  },
+  "/home/mik/webgraphy/src/hooks/usePanZoom.ts": {
+    "mtime": 1777971407.6969543,
+    "hash": "afcb46d1acaaa844d91baa4c724f1343"
+  },
+  "/home/mik/webgraphy/src/hooks/__tests__/useDataImport.test.tsx": {
+    "mtime": 1778135395.135198,
+    "hash": "eaf3510fe20025d91b12c14e5947d81e"
+  },
+  "/home/mik/webgraphy/src/services/demoData.ts": {
+    "mtime": 1778135395.135198,
+    "hash": "502d439efb681c443680e9cfc9ab6c6b"
+  },
+  "/home/mik/webgraphy/src/services/export.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "50c333875cd72e2dbfba0063a42221ff"
+  },
+  "/home/mik/webgraphy/src/services/session.ts": {
+    "mtime": 1777902738.641896,
+    "hash": "3dc261585e3eeab12fe1b099e398f103"
+  },
+  "/home/mik/webgraphy/src/services/persistence.ts": {
+    "mtime": 1777975904.394446,
+    "hash": "07139cbd8476850471da43a3966c1a54"
+  },
+  "/home/mik/webgraphy/src/services/__tests__/export.test.ts": {
+    "mtime": 1777902743.0116732,
+    "hash": "e8302f58444b5285f60bcb764beb6f4b"
+  },
+  "/home/mik/webgraphy/src/services/__tests__/persistence.test.ts": {
+    "mtime": 1777902743.0036867,
+    "hash": "a75e55b1332549d8a448f8af948f5d84"
+  },
+  "/home/mik/webgraphy/src/services/__tests__/demoData.test.ts": {
+    "mtime": 1778135395.135198,
+    "hash": "87adb960e3b9d2c35eccb947032a964c"
+  },
+  "/home/mik/webgraphy/src/services/__tests__/session.test.ts": {
+    "mtime": 1777902738.6378858,
+    "hash": "11f52d7c9e93e43f96b7a28acc580ecb"
+  },
+  "/home/mik/webgraphy/src/store/useGraphStore.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "a01032ea2b1d6ef6890f582e4e34f7be"
+  },
+  "/home/mik/webgraphy/src/store/__tests__/alignment.test.ts": {
+    "mtime": 1777902738.6499166,
+    "hash": "b2f0c655cf2d406bdece2d4f7ee78166"
+  },
+  "/home/mik/webgraphy/src/store/__tests__/useGraphStore.test.ts": {
+    "mtime": 1778135395.139198,
+    "hash": "59b582c649fe7277f80ced40e2e40d1d"
+  },
+  "/home/mik/webgraphy/GEMINI.md": {
+    "mtime": 1778137304.046142,
+    "hash": "f444f397bb6476b861cdf3b8de14ab2c"
+  },
+  "/home/mik/webgraphy/index.html": {
+    "mtime": 1778135806.1808012,
+    "hash": "16b7801d43716f133c5f318625366e31"
+  },
+  "/home/mik/webgraphy/README.md": {
+    "mtime": 1777960656.4437058,
+    "hash": "5d7aec7fa459b5791b69ef4333ecebe2"
+  },
+  "/home/mik/webgraphy/CLAUDE.md": {
+    "mtime": 1778137347.3422906,
+    "hash": "3a56b69bd67e0897790861687b21f0ca"
+  },
+  "/home/mik/webgraphy/plan.md": {
+    "mtime": 1777901190.9349644,
+    "hash": "cfc728f97bc2ad98d8cd9483a5ff1ad8"
+  },
+  "/home/mik/webgraphy/public/pwa-192x192.png": {
+    "mtime": 1777901190.938974,
+    "hash": "b01b7f0717757ef03f0ac04209e56bfc"
+  },
+  "/home/mik/webgraphy/public/pwa-512x512.png": {
+    "mtime": 1777901190.938974,
+    "hash": "844e3bf38fe517980e637ef49c88af91"
+  },
+  "/home/mik/webgraphy/public/favicon.svg": {
+    "mtime": 1777901190.938974,
+    "hash": "17b89c4704423c6cf7d0c8257b82ea94"
+  },
+  "/home/mik/webgraphy/src/assets/vite.svg": {
+    "mtime": 1777901190.938974,
+    "hash": "9960a24288958394ac50e57ff638b036"
+  },
+  "/home/mik/webgraphy/src/assets/hero.png": {
+    "mtime": 1777901190.938974,
+    "hash": "5cf2b0762834cdddc0dd3ec1397b5011"
+  },
+  "/home/mik/webgraphy/src/assets/react.svg": {
+    "mtime": 1777901190.938974,
+    "hash": "f0402b67b6ce880f65666bb49e841696"
+  }
+}
