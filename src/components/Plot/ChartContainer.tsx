@@ -97,6 +97,18 @@ const ChartContainer: React.FC = () => {
 	const themeColors = THEMES[themeName];
 
 	// 3. Layout Memos
+	const activeDsIdsSet = useMemo(() => {
+		const set = new Set<string>();
+		series.forEach((s) => set.add(s.sourceId));
+		return set;
+	}, [series]);
+
+	const usedYAxisIdsSet = useMemo(() => {
+		const set = new Set<string>();
+		series.forEach((s) => set.add(s.yAxisId));
+		return set;
+	}, [series]);
+
 	const xAxesById = useMemo(() => {
 		const m = new Map<string, XAxisConfig>();
 		xAxes.forEach((a) => m.set(a.id, a));
@@ -109,9 +121,8 @@ const ChartContainer: React.FC = () => {
 	}, [yAxes]);
 
 	const activeYAxes = useMemo(() => {
-		const usedIds = series.reduce((acc, s) => acc.add(s.yAxisId), new Set<string>());
-		return yAxes.filter((a) => usedIds.has(a.id));
-	}, [yAxes, series]);
+		return yAxes.filter((a) => usedYAxisIdsSet.has(a.id));
+	}, [yAxes, usedYAxisIdsSet]);
 
 	// Per-axis categorical labels: only when ALL series on the axis bind to a column
 	// that has categoryLabels, and they all share the same label set.
@@ -161,13 +172,9 @@ const ChartContainer: React.FC = () => {
 			string,
 			{ labels: string[]; ticks?: number[] } | undefined
 		>();
-		const activeDsIds = series.reduce(
-			(acc, s) => acc.add(s.sourceId),
-			new Set<string>(),
-		);
 		const dssByX = new Map<string, Dataset[]>();
 		datasets.forEach((d) => {
-			if (!activeDsIds.has(d.id)) return;
+			if (!activeDsIdsSet.has(d.id)) return;
 			const xId = d.xAxisId || "axis-1";
 			const arr = dssByX.get(xId) || [];
 			arr.push(d);
@@ -224,13 +231,12 @@ const ChartContainer: React.FC = () => {
 			out.set(axisId, undefined);
 		});
 		return out;
-	}, [series, datasets, xAxes]);
+	}, [activeDsIdsSet, datasets, xAxes]);
 
 	const activeXAxesUsed = useMemo(() => {
-		const activeDatasetIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 		const axisToMinDsIdx = new Map<string, number>();
 		datasets.forEach((d, dsIdx) => {
-			if (activeDatasetIds.has(d.id)) {
+			if (activeDsIdsSet.has(d.id)) {
 				const xId = d.xAxisId || "axis-1";
 				if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!)
 					axisToMinDsIdx.set(xId, dsIdx);
@@ -242,7 +248,7 @@ const ChartContainer: React.FC = () => {
 				(a, b) =>
 					(axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0),
 			);
-	}, [xAxes, series, datasets]);
+	}, [xAxes, activeDsIdsSet, datasets]);
 
 	const axisLayout = useMemo(() => {
 		const layout: Record<string, { total: number; label: number }> = {};
@@ -354,10 +360,9 @@ const ChartContainer: React.FC = () => {
 
 	const computeXAxesLayout = useCallback(
 		(liveXAxes: XAxisConfig[]): XAxisLayout[] => {
-			const activeDsIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 			const dsByX: DatasetsByAxisId = {};
 			datasets.forEach((d) => {
-				if (activeDsIds.has(d.id)) {
+				if (activeDsIdsSet.has(d.id)) {
 					const xId = d.xAxisId || "axis-1";
 					if (!dsByX[xId]) dsByX[xId] = [];
 					dsByX[xId].push(d);
@@ -474,14 +479,13 @@ const ChartContainer: React.FC = () => {
 					}
 				});
 		},
-		[series, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed, xAxisCategoryLabels],
+		[activeDsIdsSet, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed, xAxisCategoryLabels],
 	);
 
 	const computeYAxesLayout = useCallback(
 		(liveYAxes: YAxisConfig[]): YAxisLayout[] => {
-			const usedYAxisIds = series.reduce((acc, s) => acc.add(s.yAxisId), new Set<string>());
 			return liveYAxes
-				.filter((a) => usedYAxisIds.has(a.id))
+				.filter((a) => usedYAxisIdsSet.has(a.id))
 				.map((axis) => {
 					const categoryLabels = yAxisCategoryLabels.get(axis.id);
 					const { ticks, precision, actualStep } = calcYAxisTicks(
@@ -494,7 +498,7 @@ const ChartContainer: React.FC = () => {
 					return { ...axis, ticks, precision, actualStep, categoryLabels };
 				});
 		},
-		[series, chartHeight, yAxisCategoryLabels],
+		[usedYAxisIdsSet, chartHeight, yAxisCategoryLabels],
 	);
 
 	const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
@@ -718,10 +722,9 @@ const ChartContainer: React.FC = () => {
 	}, [activeYAxes, chartHeight, yAxisCategoryLabels]);
 
 	const xAxesLayout = useMemo((): XAxisLayout[] => {
-		const activeDsIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
 		const dsByX: DatasetsByAxisId = {};
 		datasets.forEach((d) => {
-			if (activeDsIds.has(d.id)) {
+			if (activeDsIdsSet.has(d.id)) {
 				const xId = d.xAxisId || "axis-1";
 				if (!dsByX[xId]) dsByX[xId] = [];
 				dsByX[xId].push(d);
@@ -828,7 +831,7 @@ const ChartContainer: React.FC = () => {
 				};
 			}
 		});
-	}, [activeXAxesUsed, chartWidth, series, datasets, themeColors.labelColor, xAxisCategoryLabels]);
+	}, [activeXAxesUsed, chartWidth, activeDsIdsSet, datasets, themeColors.labelColor, xAxisCategoryLabels]);
 
 	// 8. Render
 	return (
