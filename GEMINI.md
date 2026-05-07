@@ -53,10 +53,17 @@ npm run deploy
 
 ## Development Conventions
 
-- **Token Optimization:** 
-    - Use `code-graph` MCP (`search_code`, `get_dependencies`) to map data flows between Web Workers, IndexedDB, and the WebGL renderer before reading source files.
-    - Use `refactor` MCP for consistent updates across React components or shader uniforms.
 - **Performance First:** Heavy processing must stay in Web Workers. WebGL is the primary rendering path for data.
 - **Precision:** Shaders are designed for ultra-precision, using relative offsets (`refPoint`) to handle large coordinate values without floating-point artifacts.
 - **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
 - **Persistence Awareness:** Any changes to the `GraphState` that should survive a refresh must be persisted via the `persistence` service.
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
