@@ -37,6 +37,11 @@
 	justify-content: center;
 	min-width: var(--touch-target-size);
 	min-height: var(--touch-target-size);
+	transition: background-color 0.2s;
+}
+.modal-close:hover {
+	background-color: var(--bg3);
+	border-radius: 4px;
 }
 .modal-body {
 	flex: 1;
@@ -342,6 +347,11 @@
 	justify-content: center;
 	cursor: pointer;
 	color: var(--text-muted);
+	transition: background-color 0.2s;
+}
+.collapsed-menu-btn:hover {
+	background-color: var(--bg3);
+	border-radius: 4px;
 }
 .collapsed-menu-btn img {
 	width: 18px;
@@ -985,6 +995,11 @@
 	border: none;
 	cursor: pointer;
 	position: relative;
+	transition: background-color 0.2s;
+}
+.sb-hdr-btn:hover {
+	background-color: var(--bg3);
+	border-radius: 4px;
 }
 .sb-hdr-btn--off::after {
 	content: "";
