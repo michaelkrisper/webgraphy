@@ -29,3 +29,7 @@ smoke-test-data.csv
 coverage/
 
 .jules/
+
+# Claude / tooling
+.claude/
+graphify-out/
