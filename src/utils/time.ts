@@ -168,7 +168,7 @@ function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 		case "week":
 			return `${d.getDate()}.${d.getMonth() + 1}.`;
 		case "month":
-			return d.toLocaleDateString(undefined, { month: "short" });
+			return d.toLocaleDateString("de-DE", { month: "short" });
 		case "year":
 			return String(d.getFullYear());
 		default:
@@ -204,7 +204,7 @@ export function generateSecondaryLabels(
 		while (current <= max + 86400) {
 			labels.push({
 				timestamp: current,
-				label: d.toLocaleDateString(undefined, {
+				label: d.toLocaleDateString("de-DE", {
 					day: "2-digit",
 					month: "2-digit",
 					year: "numeric",
@@ -236,7 +236,7 @@ export function generateSecondaryLabels(
 }
 
 export function formatFullDate(ts: number): string {
-	const s = new Date(ts * 1000).toLocaleString(undefined, {
+	const s = new Date(ts * 1000).toLocaleString("de-DE", {
 		day: "2-digit",
 		month: "2-digit",
 		year: "numeric",
