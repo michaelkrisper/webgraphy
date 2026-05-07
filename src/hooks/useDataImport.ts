@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { WorkBook } from "xlsx";
 import { type Dataset, persistence } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
@@ -30,7 +31,7 @@ export const useDataImport = () => {
 		type: "csv" | "json" | "excel";
 		sheets?: string[];
 		selectedSheet?: string;
-		workbook?: unknown;
+		workbook?: WorkBook;
 	} | null>(null);
 	const { addDataset, addSeries } = useGraphStore();
 
