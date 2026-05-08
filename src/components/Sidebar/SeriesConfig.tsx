@@ -3,7 +3,6 @@ import {
 	EyeOff,
 	GripVertical,
 	Rows3,
-	Square,
 	Trash2,
 	X,
 } from "lucide-react";
