@@ -550,9 +550,23 @@
 .sc-btn--off {
 	color: var(--text-muted-color);
 	opacity: 0.5;
+	position: relative;
 }
 .sc-btn--off::after {
-	opacity: 1;
+	content: "";
+	position: absolute;
+	left: 2px;
+	right: 2px;
+	top: 2px;
+	bottom: 2px;
+	background: linear-gradient(
+		to bottom right,
+		transparent calc(50% - 1.25px),
+		#dc3545 calc(50% - 1.25px),
+		#dc3545 calc(50% + 1.25px),
+		transparent calc(50% + 1.25px)
+	);
+	pointer-events: none;
 }
 .sc-drag-handle {
 	display: flex;
@@ -1036,7 +1050,7 @@
 	top: 4px;
 	bottom: 4px;
 	background: linear-gradient(
-		to top right,
+		to bottom right,
 		transparent calc(50% - 1.25px),
 		#dc3545 calc(50% - 1.25px),
 		#dc3545 calc(50% + 1.25px),

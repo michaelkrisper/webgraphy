@@ -89,55 +89,39 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				return <X size={size + 2} strokeWidth={3} />;
 			case "none":
 				return (
-					<svg width={size} height={size} viewBox="0 0 16 16" opacity={0.5}>
+					<svg width={size} height={size} viewBox="0 0 16 16">
 						<circle cx="8" cy="8" r="6" fill="currentColor" stroke="white" strokeWidth="1" />
-						<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="2.5" />
 					</svg>
 				);
 			default:
 				return null;
-		}
-	};
+			}
+			};
 
-	const renderLineStyleIcon = () => {
-		const color = "currentColor";
-		return (
+			const renderLineStyleIcon = () => {
+			const color = "currentColor";
+			return (
 			<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
 				{series.lineStyle === "solid" && (
 					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
 				)}
 				{series.lineStyle === "dashed" && (
 					<line
-						x1="1"
-						y1="8"
-						x2="15"
-						y2="8"
-						stroke={color}
-						strokeWidth="2.5"
-						strokeDasharray="4,3"
+						x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="4,3"
 					/>
 				)}
 				{series.lineStyle === "dotted" && (
 					<line
-						x1="1"
-						y1="8"
-						x2="15"
-						y2="8"
-						stroke={color}
-						strokeWidth="2.5"
-						strokeDasharray="1,3"
+						x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="1,3"
 						strokeLinecap="round"
 					/>
 				)}
 				{series.lineStyle === "none" && (
-					<g opacity="0.5">
-						<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
-						<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="2.5" />
-					</g>
+					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
 				)}
 			</svg>
-		);
-	};
+			);
+			};
 
 	return (
 		<div className={`sc-row${series.hidden ? " sc-row--hidden" : ""}`}>
@@ -218,7 +202,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					title="Toggle Grid"
 					aria-label="Toggle Grid"
 				>
-					{currentYAxis.showGrid ? <Rows3 size={16} /> : <Square size={16} />}
+					<Rows3 size={16} />
 				</button>
 			) : (
 				<div className="sc-cell-placeholder" />
@@ -232,7 +216,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 						styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
 					handleUpdate({ lineStyle: next });
 				}}
-				className="sc-btn"
+				className={`sc-btn${series.lineStyle === "none" ? " sc-btn--off" : ""}`}
 				title={`Line Style: ${series.lineStyle}`}
 				aria-label="Cycle Line Style"
 			>
@@ -247,7 +231,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 						styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
 					handleUpdate({ pointStyle: next });
 				}}
-				className="sc-btn"
+				className={`sc-btn${series.pointStyle === "none" ? " sc-btn--off" : ""}`}
 				title="Point Style"
 				aria-label="Cycle Point Style"
 			>
