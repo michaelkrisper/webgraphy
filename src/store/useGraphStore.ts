@@ -95,6 +95,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	axisTitles: { x: "X-Axis", y: "Y-Axis" },
 	isLoaded: false,
 	highlightedSeriesId: null,
+	needsReset: false,
+	setNeedsReset: (needsReset) => set({ needsReset }),
 	legendVisible:
 		typeof localStorage !== "undefined"
 			? localStorage.getItem("legendVisible") !== "false"
