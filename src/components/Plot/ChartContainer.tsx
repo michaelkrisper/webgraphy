@@ -42,18 +42,16 @@ import { Move } from "lucide-react";
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
-const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
 
 const getXAxisMetrics = (
-	isMobile: boolean,
 	xMode: "date" | "numeric" | "categorical",
 ): Omit<XAxisMetrics, "id" | "cumulativeOffset"> => {
 	if (xMode === "date") {
 		return {
-			height: isMobile ? 60 : 70,
-			labelBottom: isMobile ? 20 : 25,
-			secLabelBottom: isMobile ? 30 : 36,
-			titleBottom: isMobile ? 50 : 60,
+			height: 70,
+			labelBottom: 25,
+			secLabelBottom: 36,
+			titleBottom: 60,
 		};
 	}
 	return { height: 50, labelBottom: 26, secLabelBottom: 0, titleBottom: 40 };
@@ -93,8 +91,31 @@ const ChartContainer: React.FC = () => {
 	const highlightedSeriesId = useGraphStore((s) => s.highlightedSeriesId);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
+	const isResizingSidebar = useGraphStore((s) => s.isResizingSidebar);
 	const [themeName] = useTheme();
 	const themeColors = THEMES[themeName];
+
+	// Dimension management during sidebar resize
+	useEffect(() => {
+		if (!containerRef.current) return;
+		const observer = new ResizeObserver((entries) => {
+			if (entries.length > 0 && !isResizingSidebar) {
+				const e = entries[entries.length - 1];
+				setWidth(e.contentRect.width);
+				setHeight(e.contentRect.height);
+			}
+		});
+		observer.observe(containerRef.current);
+		return () => observer.disconnect();
+	}, [isResizingSidebar]);
+
+	useEffect(() => {
+		if (!isResizingSidebar && containerRef.current) {
+			const rect = containerRef.current.getBoundingClientRect();
+			setWidth(rect.width);
+			setHeight(rect.height);
+		}
+	}, [isResizingSidebar]);
 
 	// 3. Layout Memos
 	const activeDsIdsSet = useMemo(() => {
@@ -303,20 +324,18 @@ const ChartContainer: React.FC = () => {
 	}, [leftAxes, rightAxes, axisLayout]);
 
 	const xAxesMetrics = useMemo((): XAxisMetrics[] => {
-		const isMobile = width < 768 || height < 500;
 		const result: XAxisMetrics[] = [];
 		let currentOffset = 0;
 		for (const axis of activeXAxesUsed) {
-			const base = getXAxisMetrics(isMobile, axis.xMode);
+			const base = getXAxisMetrics(axis.xMode);
 			result.push({ ...base, id: axis.id, cumulativeOffset: currentOffset });
 			currentOffset += base.height;
 		}
 		return result;
-	}, [activeXAxesUsed, width, height]);
+	}, [activeXAxesUsed]);
 
 	const padding = useMemo(() => {
-		const isMobile = width < 768 || height < 500;
-		const base = isMobile ? BASE_PADDING_MOBILE : BASE_PADDING_DESKTOP;
+		const base = BASE_PADDING_DESKTOP;
 		const leftSum = leftAxes.reduce(
 			(sum, a) => sum + (axisLayout[a.id]?.total || 40),
 			0,
@@ -335,7 +354,7 @@ const ChartContainer: React.FC = () => {
 			right: base.right + rightSum,
 			bottom,
 		};
-	}, [leftAxes, rightAxes, axisLayout, xAxesMetrics, width, height]);
+	}, [leftAxes, rightAxes, axisLayout, xAxesMetrics]);
 
 	const chartWidth = Math.max(0, width - padding.left - padding.right);
 	const chartHeight = Math.max(0, height - padding.top - padding.bottom);

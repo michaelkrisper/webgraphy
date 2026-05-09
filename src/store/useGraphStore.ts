@@ -23,6 +23,8 @@ interface GraphState {
 	setLegendVisible: (visible: boolean) => void;
 	crosshairVisible: boolean;
 	setCrosshairVisible: (visible: boolean) => void;
+	isResizingSidebar: boolean;
+	setIsResizingSidebar: (isResizing: boolean) => void;
 
 	// Actions
 	addDataset: (dataset: Dataset) => void;
@@ -109,6 +111,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			localStorage.setItem("crosshairVisible", String(visible));
 		set({ crosshairVisible: visible });
 	},
+	isResizingSidebar: false,
+	setIsResizingSidebar: (isResizing) => set({ isResizingSidebar: isResizing }),
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
 		const state = get();

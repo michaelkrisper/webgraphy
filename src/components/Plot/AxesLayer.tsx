@@ -163,7 +163,6 @@ const AxesLayer = React.memo(
 				const dpr = window.devicePixelRatio || 1;
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-				const isMobile = width < 768 || height < 500;
 				const chartWidth = width - padding.left - padding.right;
 				const chartHeight = height - padding.top - padding.bottom;
 
@@ -285,7 +284,7 @@ const AxesLayer = React.memo(
 					if (!metrics) return;
 					const baseY = height - padding.bottom + metrics.cumulativeOffset;
 
-					ctx.font = `${isMobile ? 10 : 9}px ${fontFamily}`;
+					ctx.font = `9px ${fontFamily}`;
 					ctx.textAlign = "center";
 					ctx.textBaseline = "bottom";
 					ctx.fillStyle = axis.color || labelColor;
@@ -314,7 +313,7 @@ const AxesLayer = React.memo(
 						ctx.fillText(
 							label,
 							x,
-							baseY + metrics.labelBottom - (isMobile ? 10 : 9),
+							baseY + metrics.labelBottom - 9,
 						);
 					});
 
@@ -361,14 +360,14 @@ const AxesLayer = React.memo(
 					}
 
 					// Axis Title
-					ctx.font = `bold ${isMobile ? 14 : 12}px ${fontFamily}`;
+					ctx.font = `bold 12px ${fontFamily}`;
 					ctx.textAlign = "center";
 					ctx.textBaseline = "bottom";
 					ctx.fillStyle = axis.color || labelColor;
 					ctx.fillText(
 						axis.title,
 						padding.left + chartWidth / 2,
-						baseY + metrics.titleBottom - (isMobile ? 14 : 12),
+						baseY + metrics.titleBottom - 12,
 					);
 				});
 
@@ -386,7 +385,7 @@ const AxesLayer = React.memo(
 					const labelX = isLeft ? spineX - 7 : spineX + 7;
 					const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
 
-					ctx.font = `${isMobile ? 10 : 9}px ${fontFamily}`;
+					ctx.font = `9px ${fontFamily}`;
 					ctx.textAlign = isLeft ? "right" : "left";
 					ctx.textBaseline = "middle";
 					ctx.fillStyle = labelColor;
@@ -413,7 +412,7 @@ const AxesLayer = React.memo(
 					ctx.translate(titleX, padding.top + chartHeight / 2);
 					ctx.rotate(((isLeft ? -90 : 90) * Math.PI) / 180);
 
-					ctx.font = `bold ${isMobile ? 14 : 12}px ${fontFamily}`;
+					ctx.font = `bold 12px ${fontFamily}`;
 					ctx.textAlign = "center";
 					ctx.textBaseline = "middle";
 

@@ -102,6 +102,7 @@ export const Sidebar: React.FC = () => {
 	const setLegendVisible = useGraphStore((s) => s.setLegendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
+	const setIsResizingSidebar = useGraphStore((s) => s.setIsResizingSidebar);
 	const [themeName, cycleTheme] = useTheme();
 	const t = THEMES[themeName];
 
@@ -128,12 +129,8 @@ export const Sidebar: React.FC = () => {
 		sessionInputRef.current?.click();
 	};
 
-	const [width, setWidth] = useState(() =>
-		Math.min(600, window.innerWidth * 0.35),
-	);
-	const [isCollapsed, setIsCollapsed] = useState(
-		() => window.innerWidth < 768 || window.innerHeight < 500,
-	);
+	const [width, setWidth] = useState(300);
+	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isResizing, setIsResizing] = useState(false);
 	const [openSections, setOpenSections] = useState({
 		sources: true,
@@ -239,6 +236,7 @@ export const Sidebar: React.FC = () => {
 			);
 			setWidth(finalWidth);
 			setIsResizing(false);
+			setIsResizingSidebar(false);
 		};
 
 		if (isResizing) {
@@ -246,6 +244,7 @@ export const Sidebar: React.FC = () => {
 			document.addEventListener("mouseup", handleMouseUp);
 			document.body.style.cursor = "col-resize";
 			document.body.style.userSelect = "none";
+			setIsResizingSidebar(true);
 		} else {
 			document.body.style.cursor = "";
 			document.body.style.userSelect = "";
@@ -255,15 +254,7 @@ export const Sidebar: React.FC = () => {
 			document.removeEventListener("mousemove", handleMouseMove);
 			document.removeEventListener("mouseup", handleMouseUp);
 		};
-	}, [isResizing]);
-
-	useEffect(() => {
-		const handleResize = () => {
-			setWidth((prev) => Math.min(prev, window.innerWidth * 0.9));
-		};
-		window.addEventListener("resize", handleResize);
-		return () => window.removeEventListener("resize", handleResize);
-	}, []);
+	}, [isResizing, setIsResizingSidebar]);
 
 	const handleExportSVG = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
