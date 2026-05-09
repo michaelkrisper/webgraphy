@@ -1,4 +1,4 @@
-export type ThemeName = "light" | "dark" | "matrix" | "unicorn";
+export type ThemeName = "light" | "dark" | "matrix" | "unicorn" | "winnie";
 
 export interface Theme {
 	fontFamily: string;
@@ -147,7 +147,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		tooltipSubColor: "#009922",
 		noDataColor: "#003300",
 	},
-	unicorn: {
+	sparkle: {
 		fontFamily: '"Comic Sans MS", cursive',
 		bg: "#fff0f9",
 		bg2: "#fce4f0",
@@ -181,6 +181,40 @@ export const THEMES: Record<ThemeName, Theme> = {
 		tooltipSubColor: "#c026d3",
 		noDataColor: "#f9a8d4",
 	},
+	winnie: {
+		fontFamily: 'serif',
+		bg: "#fdf5e6", // OldLace / Light Cream
+		bg2: "#f5deb3", // Wheat
+		bg3: "#e6ccb2", // Muted Caramel
+		border: "#d2b48c", // Tan
+		border2: "#bc8f8f", // RosyBrown
+		text: "#5d4037", // Dark Brown
+		textMid: "#795548", // Brown
+		textMuted: "#a1887f", // Light Brown
+		textLight: "#d7ccc8",
+		accent: "#8b4513", // SaddleBrown
+		danger: "#b22222",
+		shadow: "rgba(139,69,19,0.15)",
+		selectBg: "#fdf5e6",
+		selectColor: "#5d4037",
+		btnBorder: "#d2b48c",
+		btnColor: "#795548",
+		cardBorder: "#d2b48c",
+		sectionHeaderBg: "#f5deb3",
+		plotBg: "#fffaf0", // FloralWhite
+		axisColor: "#5d4037",
+		zeroLineColor: "#d2b48c",
+		gridColor: "#eedcb3",
+		labelColor: "#795548",
+		secLabelBg: "rgba(253,245,230,0.92)",
+		tooltipBg: "rgba(253,245,230,0.98)",
+		tooltipColor: "#5d4037",
+		tooltipBorder: "#d2b48c",
+		snapLineColor: "#bc8f8f",
+		tooltipDividerColor: "rgba(139,69,19,0.1)",
+		tooltipSubColor: "#a1887f",
+		noDataColor: "#d2b48c",
+	},
 };
 
 export const COLOR_PALETTE = [
@@ -194,4 +228,10 @@ export const COLOR_PALETTE = [
 	"#11a2c6", // Cyan 50
 ];
 
-export const THEME_CYCLE: ThemeName[] = ["light", "dark", "matrix", "unicorn"];
+export const THEME_CYCLE: ThemeName[] = [
+	"light",
+	"dark",
+	"matrix",
+	"sparkle",
+	"winnie",
+];
