@@ -33,3 +33,5 @@ coverage/
 # Claude / tooling
 .claude/
 graphify-out/
+.graphify/
+.gemini/
