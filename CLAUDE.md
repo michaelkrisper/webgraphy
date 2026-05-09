@@ -39,7 +39,7 @@ Single Zustand store:
 - `xAxes` / `yAxes` — up to 9 each, with custom min/max, position (left/right for Y), color, gridlines
 - `views` — saved zoom/pan snapshots
 
-Auto-save: state changes trigger a 1 000 ms debounced `debouncedSaveState()` → IndexedDB + localStorage.
+- Auto-save: state changes trigger a 100 ms debounced `debouncedSaveState()` → IndexedDB + localStorage.
 
 **Auto-cleanup rule:** deleting a series removes any Y-axis that no longer has series referencing it.
 

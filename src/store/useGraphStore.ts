@@ -581,7 +581,7 @@ function debouncedSaveState() {
 		const curState = useGraphStore.getState();
 		if (curState.isLoaded) saveState(curState);
 		saveTimeout = null;
-	}, 1000);
+	}, 100);
 }
 
 function saveState(state: GraphState) {
