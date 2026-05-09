@@ -58,12 +58,7 @@ npm run deploy
 - **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
 - **Persistence Awareness:** Any changes to the `GraphState` that should survive a refresh must be persisted via the `persistence` service.
 
-## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+## Agent Optimization & Efficiency
+- **Caveman Mode:** Adopt extreme token efficiency ("Why use many token when few do trick"). Eliminate all conversational filler, preambles, and postambles. Prioritize direct action, maximum brevity, and high-signal output.
+- **Conductor Orchestration:** Use `conductor` for complex, multi-agent task orchestration when kanban-style management or sub-agent delegation is required.
+- **Ripgrep & System Tools:** Utilize `rg` (Ripgrep), `fd`, and `bat` in shell commands for lightning-fast codebase navigation and exploration instead of standard slow fallbacks.

@@ -1,5 +1,5 @@
 :root {
-	--sidebar-width: 300px;
+	--sidebar-width: 380px;
 	--plot-bg: #ffffff;
 	--sidebar-bg: #f8fafc;
 	--border-color: #e2e8f0;
@@ -44,42 +44,6 @@ html,
 	position: relative;
 	background-color: var(--plot-bg);
 	overflow: hidden;
-}
-
-.sidebar {
-	background-color: var(--sidebar-bg);
-	border-left: 1px solid var(--border-color);
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-	overflow-y: auto;
-	transition:
-		width 0.3s ease-in-out,
-		padding 0.3s ease-in-out;
-}
-
-.sidebar-content {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-}
-
-.sidebar-content.hidden {
-	opacity: 0;
-	pointer-events: none;
-	display: none;
-}
-
-.sidebar-collapsed-content {
-	display: none;
-	flex-direction: column;
-	align-items: center;
-	height: 100%;
-}
-
-.sidebar-collapsed-content.visible {
-	display: flex;
-	opacity: 1;
 }
 
 /* Legacy sidebar styles removed - now managed in components.css */

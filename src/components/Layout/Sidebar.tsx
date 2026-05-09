@@ -24,7 +24,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
@@ -98,7 +98,6 @@ export const Sidebar: React.FC = () => {
 	const setLegendVisible = useGraphStore((s) => s.setLegendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
-	const setIsResizingSidebar = useGraphStore((s) => s.setIsResizingSidebar);
 	const [themeName, cycleTheme] = useTheme();
 	const t = THEMES[themeName];
 
@@ -120,9 +119,7 @@ export const Sidebar: React.FC = () => {
 		fileInputRef.current?.click();
 	};
 
-	const [width, setWidth] = useState(300);
 	const [isCollapsed, setIsCollapsed] = useState(false);
-	const [isResizing, setIsResizing] = useState(false);
 	const [openSections, setOpenSections] = useState({
 		sources: true,
 		series: true,
@@ -204,49 +201,6 @@ export const Sidebar: React.FC = () => {
 		return obj;
 	}, [datasets]);
 
-	useEffect(() => {
-		document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
-	}, [width]);
-
-	useEffect(() => {
-		const handleMouseMove = (e: MouseEvent) => {
-			if (!isResizing) return;
-			const newWidth = Math.max(
-				200,
-				Math.min(800, window.innerWidth - e.clientX),
-			);
-			// Update CSS variable immediately for smooth layout resize
-			document.documentElement.style.setProperty("--sidebar-width", `${newWidth}px`);
-		};
-
-		const handleMouseUp = (e: MouseEvent) => {
-			if (!isResizing) return;
-			const finalWidth = Math.max(
-				200,
-				Math.min(800, window.innerWidth - e.clientX),
-			);
-			setWidth(finalWidth);
-			setIsResizing(false);
-			setIsResizingSidebar(false);
-		};
-
-		if (isResizing) {
-			document.addEventListener("mousemove", handleMouseMove);
-			document.addEventListener("mouseup", handleMouseUp);
-			document.body.style.cursor = "col-resize";
-			document.body.style.userSelect = "none";
-			setIsResizingSidebar(true);
-		} else {
-			document.body.style.cursor = "";
-			document.body.style.userSelect = "";
-		}
-
-		return () => {
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-		};
-	}, [isResizing, setIsResizingSidebar]);
-
 	const handleExportSVG = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
 		if (!plotContainer) return;
@@ -307,35 +261,7 @@ export const Sidebar: React.FC = () => {
 
 	return (
 		<>
-			<aside
-				className="sidebar"
-				style={{
-					width: "var(--sidebar-width)",
-					position: "relative",
-					display: "flex",
-					flexDirection: "column",
-					height: "100%",
-					backgroundColor: "var(--bg2)",
-					borderLeft: "1px solid var(--border-color)",
-					boxShadow: "-2px 0 10px var(--shadow)",
-					flexShrink: 0,
-					zIndex: 1000,
-				}}
-			>
-				{/* Resize Handle */}
-				<div
-					onMouseDown={() => setIsResizing(true)}
-					style={{
-						position: "absolute",
-						left: -4,
-						top: 0,
-						bottom: 0,
-						width: 8,
-						cursor: "col-resize",
-						zIndex: 10,
-					}}
-				/>
-
+			<aside className="sidebar">
 				{/* Header */}
 				<header className="sb-header">
 					<img

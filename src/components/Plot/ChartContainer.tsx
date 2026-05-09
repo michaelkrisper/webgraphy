@@ -92,15 +92,14 @@ const ChartContainer: React.FC = () => {
 	const highlightedSeriesId = useGraphStore((s) => s.highlightedSeriesId);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
-	const isResizingSidebar = useGraphStore((s) => s.isResizingSidebar);
 	const [themeName] = useTheme();
 	const themeColors = THEMES[themeName];
 
-	// Dimension management during sidebar resize
+	// Dimension management
 	useEffect(() => {
 		if (!containerRef.current) return;
 		const observer = new ResizeObserver((entries) => {
-			if (entries.length > 0 && !isResizingSidebar) {
+			if (entries.length > 0) {
 				const e = entries[entries.length - 1];
 				setWidth(e.contentRect.width);
 				setHeight(e.contentRect.height);
@@ -108,15 +107,15 @@ const ChartContainer: React.FC = () => {
 		});
 		observer.observe(containerRef.current);
 		return () => observer.disconnect();
-	}, [isResizingSidebar]);
+	}, []);
 
 	useEffect(() => {
-		if (!isResizingSidebar && containerRef.current) {
+		if (containerRef.current) {
 			const rect = containerRef.current.getBoundingClientRect();
 			setWidth(rect.width);
 			setHeight(rect.height);
 		}
-	}, [isResizingSidebar]);
+	}, []);
 
 	// 3. Layout Memos
 	const activeDsIdsSet = useMemo(() => {
