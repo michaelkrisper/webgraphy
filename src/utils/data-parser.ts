@@ -4,7 +4,7 @@ import type { DataColumn } from "../services/persistence";
 import { processRawColumn } from "./data-processing";
 import { secureJSONParse } from "./json";
 
-export interface ColumnConfigEntry {
+interface ColumnConfigEntry {
 	index: number;
 	name?: string;
 	type?: "numeric" | "date" | "categorical" | "ignore";

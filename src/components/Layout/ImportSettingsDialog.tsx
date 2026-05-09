@@ -1,6 +1,6 @@
 import { Check, Clock, EyeOff, FileType, Hash, Tag } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type {
 	ColumnConfig,
 	ColumnType,
@@ -134,12 +134,17 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		detectDecimalPoint(fileContent, detectDelimiter(fileContent, fileType)),
 	);
 
-	// Re-detect settings when file content or type changes (e.g. sheet change)
-	useEffect(() => {
+	// Reset derived state when file content or type changes
+	const [prevFileContent, setPrevFileContent] = useState(fileContent);
+	const [prevFileType, setPrevFileType] = useState(fileType);
+
+	if (fileContent !== prevFileContent || fileType !== prevFileType) {
+		setPrevFileContent(fileContent);
+		setPrevFileType(fileType);
 		const d = detectDelimiter(fileContent, fileType);
 		setDelimiter(d);
 		setDecimalPoint(detectDecimalPoint(fileContent, d));
-	}, [fileContent, fileType]);
+	}
 	const [startRow, setStartRow] = useState<number>(1);
 	const [commentChar, setCommentChar] = useState<string>("#");
 	// Stores per-column user overrides, keyed by column name

@@ -176,10 +176,6 @@ function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 	}
 }
 
-export function formatPrimaryLabel(ts: number, unit: TimeUnit): string {
-	const d = new Date(ts * 1000);
-	return formatPrimaryLabelFromDate(d, unit);
-}
 
 export interface SecondaryLabel {
 	timestamp: number;

@@ -727,7 +727,7 @@ export const WebGLRenderer = React.memo(
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
 
-		}, [seriesMetadata, isInteracting, highlightedSeriesId]);
+		}, [seriesMetadata, isInteracting, highlightedSeriesId, plotBg]);
 
 		// Redraw when dimensions or padding change
 		useEffect(() => {
