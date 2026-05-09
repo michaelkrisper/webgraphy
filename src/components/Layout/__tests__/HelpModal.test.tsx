@@ -17,7 +17,7 @@ describe("HelpModal", () => {
 		expect(screen.getByText("Keyboard")).toBeInTheDocument();
 		expect(screen.getByText("Sidebar — Data")).toBeInTheDocument();
 		expect(screen.getByText("Sidebar — Series")).toBeInTheDocument();
-		expect(screen.getByText("Session & Export")).toBeInTheDocument();
+		expect(screen.getByText("Export")).toBeInTheDocument();
 		expect(screen.getByText("UI")).toBeInTheDocument();
 
 		// Check specific instructions

@@ -140,14 +140,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				</li>
 			</Section>
 
-			<Section title="Session & Export">
-				<li>
-					<strong>Save Session:</strong> Export full app state (datasets, axes,
-					series, views) as JSON
-				</li>
-				<li>
-					<strong>Load Session:</strong> Restore a saved session file
-				</li>
+			<Section title="Export">
 				<li>
 					<strong>Export Chart:</strong> Save current view as SVG or PNG
 				</li>

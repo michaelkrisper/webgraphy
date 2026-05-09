@@ -63,7 +63,6 @@ Single Zustand store:
 
 - **IndexedDB** (`webgraphy-db` v2): stores `datasets` and `app_state` objects
 - **localStorage**: `legendVisible`, `theme`, `webgraphy-cleared` (first-run flag)
-- `src/services/session.ts` handles full session serialization (export/import as JSON file)
 
 ### Theme System (`src/themes.ts`)
 

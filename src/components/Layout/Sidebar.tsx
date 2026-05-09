@@ -31,7 +31,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
-import { exportSession, importSession } from "../../services/session";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES, type ThemeName } from "../../themes";
 import { buildSeriesConfig } from "../../utils/series";
@@ -119,14 +118,9 @@ export const Sidebar: React.FC = () => {
 		formula: string;
 	} | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const sessionInputRef = useRef<HTMLInputElement>(null);
 
 	const handleImport = () => {
 		fileInputRef.current?.click();
-	};
-
-	const handleLoadSession = () => {
-		sessionInputRef.current?.click();
 	};
 
 	const [width, setWidth] = useState(300);
@@ -290,31 +284,6 @@ export const Sidebar: React.FC = () => {
 		downloadFile(pngData, "webgraphy-export.png", "image/png");
 	};
 
-	const handleExportSession = async () => {
-		const json = await exportSession();
-		downloadFile(json, "webgraphy-session.json", "application/json");
-	};
-
-	const handleImportSession = async (file: File) => {
-		try {
-			const text = await file.text();
-			const { appState, datasets: importedDatasets } =
-				await importSession(text);
-			useGraphStore.setState({
-				...appState,
-				datasets: importedDatasets,
-				isLoaded: true,
-			});
-			// Trigger re-save
-			importedDatasets.forEach(() => { });
-		} catch (err) {
-			alert(
-				"Failed to import session: " +
-				(err instanceof Error ? err.message : String(err)),
-			);
-		}
-	};
-
 	const createSeries = (datasetId: string, columnName: string) => {
 		const dataset = datasets.find((d) => d.id === datasetId);
 		if (!dataset) return;
@@ -398,13 +367,6 @@ export const Sidebar: React.FC = () => {
 						{hdrSep}
 						<HeaderButton onClick={handleExportSVG} icon={<FileImage size={24} />} title="Export SVG" />
 						<HeaderButton onClick={handleExportPNG} icon={<Image size={24} />} title="Export PNG" />
-						{hdrSep}
-						<HeaderButton onClick={handleExportSession} icon={<Save size={24} />} title="Save Session" />
-						<HeaderButton
-							onClick={handleLoadSession}
-							icon={<FolderOpen size={24} />}
-							title="Load Session"
-						/>
 						{hdrSep}
 						<span className="sb-spacer" />
 						<HeaderButton
@@ -900,17 +862,6 @@ export const Sidebar: React.FC = () => {
 						)}
 					</section>
 				</div>
-
-				<input
-					ref={sessionInputRef}
-					type="file"
-					accept=".json"
-					onChange={(e) => {
-						if (e.target.files?.[0]) handleImportSession(e.target.files[0]);
-						e.target.value = "";
-					}}
-					style={{ display: "none" }}
-				/>
 
 				<footer className="sb-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "8px 12px", whiteSpace: "nowrap" }}>
 					<div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--text-muted-color)" }}>
