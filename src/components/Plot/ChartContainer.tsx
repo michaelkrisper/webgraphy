@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
@@ -65,6 +65,7 @@ const ChartContainer: React.FC = () => {
 		useDataImport();
 	const [width, setWidth] = useState(800);
 	const [height, setHeight] = useState(600);
+	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
 	const targetYs = useRef<Record<string, { min: number; max: number }>>({});
@@ -400,8 +401,9 @@ const ChartContainer: React.FC = () => {
 					const uniqueColumns = Array.from(
 						dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 					);
-					const title =
+					const defaultTitle =
 						dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+					const title = axis.name || defaultTitle || "";
 					const color = themeColors.labelColor;
 					if (r <= 0 || chartWidth <= 0)
 						return {
@@ -760,8 +762,9 @@ const ChartContainer: React.FC = () => {
 			const uniqueColumns = Array.from(
 				dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 			);
-			const title =
+			const defaultTitle =
 				dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+			const title = axis.name || defaultTitle || "";
 			const color = themeColors.labelColor;
 			if (r <= 0 || chartWidth <= 0)
 				return {
@@ -970,35 +973,79 @@ const ChartContainer: React.FC = () => {
 				/>
 				{xAxesMetrics.map((m) => {
 					const bY = padding.bottom - m.cumulativeOffset - m.height;
+					const title = xAxesLayout.find((a) => a.id === m.id)?.title || "";
 					return (
-						<div
-							key={`wheel-x-${m.id}`}
-							onWheel={(e) => {
-								e.stopPropagation();
-								handleWheel(e, { xAxisId: m.id });
-							}}
-							onMouseDown={(e) => {
-								e.stopPropagation();
-								handleMouseDown(e, { xAxisId: m.id });
-							}}
-							onTouchStart={(e) => {
-								e.stopPropagation();
-								handleTouchStart(e, { xAxisId: m.id });
-							}}
-							onDoubleClick={(e) => {
-								e.stopPropagation();
-								handleAutoScaleX(m.id);
-							}}
-							style={{
-								position: "absolute",
-								bottom: bY,
-								left: padding.left,
-								right: padding.right,
-								height: m.height,
-								cursor: "ew-resize",
-								zIndex: 20,
-							}}
-						/>
+						<Fragment key={`wheel-x-${m.id}`}>
+							<div
+								onWheel={(e) => {
+									e.stopPropagation();
+									handleWheel(e, { xAxisId: m.id });
+								}}
+								onMouseDown={(e) => {
+									e.stopPropagation();
+									handleMouseDown(e, { xAxisId: m.id });
+								}}
+								onTouchStart={(e) => {
+									e.stopPropagation();
+									handleTouchStart(e, { xAxisId: m.id });
+								}}
+								onDoubleClick={(e) => {
+									e.stopPropagation();
+									const rect = e.currentTarget.getBoundingClientRect();
+									const yInside = e.clientY - rect.top;
+									// Check if double click is in the title area (roughly bottom 30px)
+									if (yInside >= m.titleBottom - 30) {
+										setEditingXAxisId(m.id);
+									} else {
+										handleAutoScaleX(m.id);
+									}
+								}}
+								style={{
+									position: "absolute",
+									bottom: bY,
+									left: padding.left,
+									right: padding.right,
+									height: m.height,
+									cursor: "ew-resize",
+									zIndex: 20,
+								}}
+							/>
+							{editingXAxisId === m.id && (
+								<input
+									autoFocus
+									defaultValue={title}
+									onBlur={(e) => {
+										const newName = e.target.value.trim();
+										useGraphStore.getState().updateXAxis(m.id, { name: newName });
+										setEditingXAxisId(null);
+									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.currentTarget.blur();
+										} else if (e.key === "Escape") {
+											setEditingXAxisId(null);
+										}
+									}}
+									style={{
+										position: "absolute",
+										bottom: bY + m.height - m.titleBottom + 2,
+										left: "50%",
+										transform: "translateX(-50%)",
+										zIndex: 30,
+										textAlign: "center",
+										font: `bold 12px ${themeColors.fontFamily}`,
+										color: themeColors.labelColor,
+										background: themeColors.plotBg,
+										border: `1px solid ${themeColors.gridColor}`,
+										borderRadius: "4px",
+										padding: "2px 4px",
+										outline: "none",
+										width: "80%",
+										maxWidth: "300px"
+									}}
+								/>
+							)}
+						</Fragment>
 					);
 				})}
 				{activeYAxes.map((a) => {

@@ -445,16 +445,15 @@ export const Sidebar: React.FC = () => {
 									{datasets.length === 0 && (
 										<div
 											style={{
-												textAlign: "center",
-												padding: "24px 16px",
-												border: `2px dashed ${t.border}`,
-												borderRadius: "0",
+												padding: "12px 16px",
 												color: t.textLight,
+												fontSize: "0.85rem",
+												lineHeight: "1.4",
+												textAlign: "center",
+												fontStyle: "italic"
 											}}
 										>
-											<p style={{ margin: "0", fontSize: "0.9rem" }}>
-												Drag file here or use the import button
-											</p>
+											Add datasources by importing or drag and drop on the graph surface
 										</div>
 									)}
 

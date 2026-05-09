@@ -65,7 +65,7 @@ interface GraphState {
 const createInitialXAxes = (): XAxisConfig[] => {
 	return Array.from({ length: 9 }, (_, i) => ({
 		id: `axis-${i + 1}`,
-		name: `X-Axis ${i + 1}`,
+		name: "",
 		min: 0,
 		max: 100,
 		showGrid: i === 0,
