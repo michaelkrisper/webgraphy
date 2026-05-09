@@ -46,7 +46,6 @@ const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
 	light: <Sun size={24} />,
 	dark: <Moon size={24} />,
 	matrix: <Terminal size={24} />,
-	unicorn: <Cat size={24} />,
 	winnie: <Cat size={24} />,
 	sparkle: <Sparkles size={24} />,
 };
@@ -55,7 +54,6 @@ const THEME_LABELS: Record<ThemeName, string> = {
 	light: "Light Mode",
 	dark: "Dark Mode",
 	matrix: "Matrix Mode",
-	unicorn: "Unicorn Mode",
 	winnie: "Winnie Mode",
 	sparkle: "Sparkle Mode",
 };

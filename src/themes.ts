@@ -1,4 +1,4 @@
-export type ThemeName = "light" | "dark" | "matrix" | "unicorn" | "winnie" | "sparkle";
+export type ThemeName = "light" | "dark" | "matrix" | "winnie" | "sparkle";
 
 export interface Theme {
 	fontFamily: string;
@@ -147,40 +147,6 @@ export const THEMES: Record<ThemeName, Theme> = {
 		tooltipSubColor: "#009922",
 		noDataColor: "#003300",
 	},
-	unicorn: {
-		fontFamily: 'cursive',
-		bg: "#ffffff",
-		bg2: "#ffffff",
-		bg3: "#ffffff",
-		border: "#ffffff",
-		border2: "#ffffff",
-		text: "#000000",
-		textMid: "#000000",
-		textMuted: "#000000",
-		textLight: "#000000",
-		accent: "#000000",
-		danger: "#000000",
-		shadow: "#000000",
-		selectBg: "#ffffff",
-		selectColor: "#000000",
-		btnBorder: "#000000",
-		btnColor: "#000000",
-		cardBorder: "#000000",
-		sectionHeaderBg: "#ffffff",
-		plotBg: "#ffffff",
-		axisColor: "#000000",
-		zeroLineColor: "#000000",
-		gridColor: "#000000",
-		labelColor: "#000000",
-		secLabelBg: "#ffffff",
-		tooltipBg: "#ffffff",
-		tooltipColor: "#000000",
-		tooltipBorder: "#000000",
-		snapLineColor: "#000000",
-		tooltipDividerColor: "#000000",
-		tooltipSubColor: "#000000",
-		noDataColor: "#000000",
-	},
 	winnie: {
 		fontFamily: 'serif',
 		bg: "#fdf5e6", // OldLace / Light Cream
@@ -266,7 +232,6 @@ export const THEME_CYCLE: ThemeName[] = [
 	"light",
 	"dark",
 	"matrix",
-	"unicorn",
 	"winnie",
 	"sparkle",
 ];
