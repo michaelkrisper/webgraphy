@@ -539,7 +539,7 @@
 	top: 6px;
 	bottom: 6px;
 	background: linear-gradient(
-		to bottom right,
+		to bottom left,
 		transparent calc(50% - 0.75px),
 		#dc3545 calc(50% - 0.75px),
 		#dc3545 calc(50% + 0.75px),
@@ -560,7 +560,7 @@
 	top: 6px;
 	bottom: 6px;
 	background: linear-gradient(
-		to bottom right,
+		to bottom left,
 		transparent calc(50% - 0.75px),
 		#dc3545 calc(50% - 0.75px),
 		#dc3545 calc(50% + 0.75px),
@@ -1050,7 +1050,7 @@
 	top: 4px;
 	bottom: 4px;
 	background: linear-gradient(
-		to bottom right,
+		to bottom left,
 		transparent calc(50% - 1.25px),
 		#dc3545 calc(50% - 1.25px),
 		#dc3545 calc(50% + 1.25px),
