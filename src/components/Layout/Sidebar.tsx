@@ -9,7 +9,6 @@ import {
 	FileImage,
 	FilePlus,
 	FlaskConical,
-	FolderOpen,
 	Hash,
 	Image,
 	List,
@@ -18,9 +17,7 @@ import {
 	MoveHorizontal,
 	Palette,
 	PanelRightClose,
-	RotateCcw,
 	Rows3,
-	Save,
 	Cat,
 	Sun,
 	Terminal,
@@ -350,15 +347,6 @@ export const Sidebar: React.FC = () => {
 					/>
 					<HeaderButton onClick={handleImport} icon={<FilePlus size={24} />} title="Import Data Source" />
 					<div className="sb-hdr-btns">
-						<HeaderButton
-							onClick={() => {
-								if (confirm("Reset all data?"))
-									datasets.forEach((d) => removeDataset(d.id));
-							}}
-							icon={<RotateCcw size={24} />}
-							title="Reset"
-							color="var(--danger)"
-						/>
 						<HeaderButton
 							onClick={loadDemoData}
 							icon={<FlaskConical size={24} />}
