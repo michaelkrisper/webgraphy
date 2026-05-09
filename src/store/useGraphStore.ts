@@ -23,6 +23,10 @@ interface GraphState {
 	setLegendVisible: (visible: boolean) => void;
 	crosshairVisible: boolean;
 	setCrosshairVisible: (visible: boolean) => void;
+	previewColor: { seriesId: string; color: string } | null;
+	setPreviewColor: (preview: { seriesId: string; color: string } | null) => void;
+	needsReset: boolean;
+	setNeedsReset: (needsReset: boolean) => void;
 
 	// Actions
 	addDataset: (dataset: Dataset) => void;
@@ -109,6 +113,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			localStorage.setItem("crosshairVisible", String(visible));
 		set({ crosshairVisible: visible });
 	},
+	previewColor: null,
+	setPreviewColor: (previewColor) => set({ previewColor }),
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
 		const state = get();

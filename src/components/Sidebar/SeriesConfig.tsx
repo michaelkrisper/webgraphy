@@ -30,6 +30,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		updateYAxis,
 		updateSeriesVisibility,
 		series: allSeries,
+		setPreviewColor,
 	} = useGraphStore();
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 
@@ -243,6 +244,10 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				onChange={(newColor) =>
 					handleUpdate({ lineColor: newColor, pointColor: newColor })
 				}
+				onHover={(previewColor) =>
+					setPreviewColor({ seriesId: series.id, color: previewColor })
+				}
+				onHoverEnd={() => setPreviewColor(null)}
 				ariaLabel={`Color for ${series.name || series.yColumn}`}
 			/>
 

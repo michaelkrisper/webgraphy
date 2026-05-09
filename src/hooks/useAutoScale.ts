@@ -199,7 +199,9 @@ export function useAutoScale({
 					nMax = yMax + pad;
 				}
 
-				targetYs.current[axisId] = { min: nMin, max: nMax };
+				// Revert to 5% padding for better fit
+				const professionalPad = (nMax - nMin || 1) * 0.05;
+				targetYs.current[axisId] = { min: nMin - professionalPad, max: nMax + professionalPad };
 				sv();
 			}
 		},
@@ -236,7 +238,8 @@ export function useAutoScale({
 					}
 				});
 				if (xMin !== Infinity) {
-					const pad = (xMax - xMin || 1) * 0.05;
+					const range = xMax - xMin || 1;
+					const pad = range * 0.05; // 5% padding
 					xs[id] = { min: xMin - pad, max: xMax + pad };
 				}
 			});

@@ -5,6 +5,7 @@ import React, {
 	useMemo,
 	useRef,
 } from "react";
+import { useGraphStore } from "../../store/useGraphStore";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -213,6 +214,8 @@ export const WebGLRenderer = React.memo(
 			propsRef.current = props;
 		}, [props]);
 
+		const previewColor = useGraphStore((state) => state.previewColor);
+
 		useImperativeHandle(
 			ref,
 			() => ({
@@ -314,13 +317,17 @@ export const WebGLRenderer = React.memo(
 						return null;
 					}
 
+					const isPreviewed = previewColor?.seriesId === s.id;
+					const effectiveLineColor = isPreviewed ? previewColor.color : s.lineColor;
+					const effectivePointColor = isPreviewed ? previewColor.color : s.pointColor;
+
 					return {
 						series: s,
 						ds,
 						xIdx,
 						yIdx,
-						lineColorRgba: hexToRgba(s.lineColor),
-						pointColorRgba: hexToRgba(s.pointColor),
+						lineColorRgba: hexToRgba(effectiveLineColor),
+						pointColorRgba: hexToRgba(effectivePointColor),
 					};
 				})
 				.filter(Boolean) as {
@@ -331,7 +338,7 @@ export const WebGLRenderer = React.memo(
 				lineColorRgba: number[];
 				pointColorRgba: number[];
 			}[];
-		}, [datasets, series]);
+		}, [datasets, series, previewColor]);
 
 		useEffect(() => {
 			liveXAxesRef.current = xAxes;
