@@ -217,16 +217,27 @@ export const Sidebar: React.FC = () => {
 	}, [datasets]);
 
 	useEffect(() => {
+		document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
+	}, [width]);
+
+	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
 			if (!isResizing) return;
 			const newWidth = Math.max(
 				200,
 				Math.min(800, window.innerWidth - e.clientX),
 			);
-			setWidth(newWidth);
+			// Update CSS variable immediately for smooth layout resize
+			document.documentElement.style.setProperty("--sidebar-width", `${newWidth}px`);
 		};
 
-		const handleMouseUp = () => {
+		const handleMouseUp = (e: MouseEvent) => {
+			if (!isResizing) return;
+			const finalWidth = Math.max(
+				200,
+				Math.min(800, window.innerWidth - e.clientX),
+			);
+			setWidth(finalWidth);
 			setIsResizing(false);
 		};
 
@@ -342,7 +353,7 @@ export const Sidebar: React.FC = () => {
 			<aside
 				className="sidebar"
 				style={{
-					width,
+					width: "var(--sidebar-width)",
 					position: "relative",
 					display: "flex",
 					flexDirection: "column",
