@@ -9,7 +9,6 @@ import {
 	FileImage,
 	FilePlus,
 	FlaskConical,
-	FolderOpen,
 	Hash,
 	Image,
 	List,
@@ -18,9 +17,7 @@ import {
 	MoveHorizontal,
 	Palette,
 	PanelRightClose,
-	RotateCcw,
 	Rows3,
-	Save,
 	Cat,
 	Sun,
 	Terminal,
@@ -31,7 +28,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
-import { exportSession, importSession } from "../../services/session";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES, type ThemeName } from "../../themes";
 import { buildSeriesConfig } from "../../utils/series";
@@ -102,6 +98,7 @@ export const Sidebar: React.FC = () => {
 	const setLegendVisible = useGraphStore((s) => s.setLegendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
+	const setIsResizingSidebar = useGraphStore((s) => s.setIsResizingSidebar);
 	const [themeName, cycleTheme] = useTheme();
 	const t = THEMES[themeName];
 
@@ -118,22 +115,13 @@ export const Sidebar: React.FC = () => {
 		formula: string;
 	} | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const sessionInputRef = useRef<HTMLInputElement>(null);
 
 	const handleImport = () => {
 		fileInputRef.current?.click();
 	};
 
-	const handleLoadSession = () => {
-		sessionInputRef.current?.click();
-	};
-
-	const [width, setWidth] = useState(() =>
-		Math.min(600, window.innerWidth * 0.35),
-	);
-	const [isCollapsed, setIsCollapsed] = useState(
-		() => window.innerWidth < 768 || window.innerHeight < 500,
-	);
+	const [width, setWidth] = useState(300);
+	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isResizing, setIsResizing] = useState(false);
 	const [openSections, setOpenSections] = useState({
 		sources: true,
@@ -217,17 +205,29 @@ export const Sidebar: React.FC = () => {
 	}, [datasets]);
 
 	useEffect(() => {
+		document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
+	}, [width]);
+
+	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
 			if (!isResizing) return;
 			const newWidth = Math.max(
 				200,
 				Math.min(800, window.innerWidth - e.clientX),
 			);
-			setWidth(newWidth);
+			// Update CSS variable immediately for smooth layout resize
+			document.documentElement.style.setProperty("--sidebar-width", `${newWidth}px`);
 		};
 
-		const handleMouseUp = () => {
+		const handleMouseUp = (e: MouseEvent) => {
+			if (!isResizing) return;
+			const finalWidth = Math.max(
+				200,
+				Math.min(800, window.innerWidth - e.clientX),
+			);
+			setWidth(finalWidth);
 			setIsResizing(false);
+			setIsResizingSidebar(false);
 		};
 
 		if (isResizing) {
@@ -235,6 +235,7 @@ export const Sidebar: React.FC = () => {
 			document.addEventListener("mouseup", handleMouseUp);
 			document.body.style.cursor = "col-resize";
 			document.body.style.userSelect = "none";
+			setIsResizingSidebar(true);
 		} else {
 			document.body.style.cursor = "";
 			document.body.style.userSelect = "";
@@ -244,15 +245,7 @@ export const Sidebar: React.FC = () => {
 			document.removeEventListener("mousemove", handleMouseMove);
 			document.removeEventListener("mouseup", handleMouseUp);
 		};
-	}, [isResizing]);
-
-	useEffect(() => {
-		const handleResize = () => {
-			setWidth((prev) => Math.min(prev, window.innerWidth * 0.9));
-		};
-		window.addEventListener("resize", handleResize);
-		return () => window.removeEventListener("resize", handleResize);
-	}, []);
+	}, [isResizing, setIsResizingSidebar]);
 
 	const handleExportSVG = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
@@ -288,31 +281,6 @@ export const Sidebar: React.FC = () => {
 		downloadFile(pngData, "webgraphy-export.png", "image/png");
 	};
 
-	const handleExportSession = async () => {
-		const json = await exportSession();
-		downloadFile(json, "webgraphy-session.json", "application/json");
-	};
-
-	const handleImportSession = async (file: File) => {
-		try {
-			const text = await file.text();
-			const { appState, datasets: importedDatasets } =
-				await importSession(text);
-			useGraphStore.setState({
-				...appState,
-				datasets: importedDatasets,
-				isLoaded: true,
-			});
-			// Trigger re-save
-			importedDatasets.forEach(() => { });
-		} catch (err) {
-			alert(
-				"Failed to import session: " +
-				(err instanceof Error ? err.message : String(err)),
-			);
-		}
-	};
-
 	const createSeries = (datasetId: string, columnName: string) => {
 		const dataset = datasets.find((d) => d.id === datasetId);
 		if (!dataset) return;
@@ -342,7 +310,7 @@ export const Sidebar: React.FC = () => {
 			<aside
 				className="sidebar"
 				style={{
-					width,
+					width: "var(--sidebar-width)",
 					position: "relative",
 					display: "flex",
 					flexDirection: "column",
@@ -380,15 +348,6 @@ export const Sidebar: React.FC = () => {
 					<HeaderButton onClick={handleImport} icon={<FilePlus size={24} />} title="Import Data Source" />
 					<div className="sb-hdr-btns">
 						<HeaderButton
-							onClick={() => {
-								if (confirm("Reset all data?"))
-									datasets.forEach((d) => removeDataset(d.id));
-							}}
-							icon={<RotateCcw size={24} />}
-							title="Reset"
-							color="var(--danger)"
-						/>
-						<HeaderButton
 							onClick={loadDemoData}
 							icon={<FlaskConical size={24} />}
 							title="Load Demo Data"
@@ -396,13 +355,6 @@ export const Sidebar: React.FC = () => {
 						{hdrSep}
 						<HeaderButton onClick={handleExportSVG} icon={<FileImage size={24} />} title="Export SVG" />
 						<HeaderButton onClick={handleExportPNG} icon={<Image size={24} />} title="Export PNG" />
-						{hdrSep}
-						<HeaderButton onClick={handleExportSession} icon={<Save size={24} />} title="Save Session" />
-						<HeaderButton
-							onClick={handleLoadSession}
-							icon={<FolderOpen size={24} />}
-							title="Load Session"
-						/>
 						{hdrSep}
 						<span className="sb-spacer" />
 						<HeaderButton
@@ -493,16 +445,15 @@ export const Sidebar: React.FC = () => {
 									{datasets.length === 0 && (
 										<div
 											style={{
-												textAlign: "center",
-												padding: "24px 16px",
-												border: `2px dashed ${t.border}`,
-												borderRadius: "0",
+												padding: "12px 16px",
 												color: t.textLight,
+												fontSize: "0.85rem",
+												lineHeight: "1.4",
+												textAlign: "center",
+												fontStyle: "italic"
 											}}
 										>
-											<p style={{ margin: "0", fontSize: "0.9rem" }}>
-												Drag file here or use the import button
-											</p>
+											Add datasources by importing or drag and drop on the graph surface
 										</div>
 									)}
 
@@ -898,17 +849,6 @@ export const Sidebar: React.FC = () => {
 						)}
 					</section>
 				</div>
-
-				<input
-					ref={sessionInputRef}
-					type="file"
-					accept=".json"
-					onChange={(e) => {
-						if (e.target.files?.[0]) handleImportSession(e.target.files[0]);
-						e.target.value = "";
-					}}
-					style={{ display: "none" }}
-				/>
 
 				<footer className="sb-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "8px 12px", whiteSpace: "nowrap" }}>
 					<div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--text-muted-color)" }}>

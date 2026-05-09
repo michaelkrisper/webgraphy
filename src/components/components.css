@@ -35,8 +35,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-width: var(--touch-target-size);
-	min-height: var(--touch-target-size);
+	min-width: var(--ui-size);
+	min-height: var(--ui-size);
 	transition: background-color 0.2s;
 }
 .modal-close:hover {
@@ -361,8 +361,8 @@
 /* ── ColorPicker ────────────────────────────────────── */
 .color-picker-wrapper {
 	position: relative;
-	width: var(--touch-target-size);
-	height: var(--touch-target-size);
+	width: var(--ui-size);
+	height: var(--ui-size);
 	flex-shrink: 0;
 }
 .color-picker-btn {
@@ -492,12 +492,12 @@
 .sc-row {
 	border: 1px solid var(--border2);
 
-	font-size: var(--mobile-font-size);
+	font-size: var(--ui-font-size);
 	display: grid;
 	grid-template-columns: 24px repeat(
 			6,
-			var(--touch-target-size)
-		) 120px 1fr var(--touch-target-size);
+			var(--ui-size)
+		) 120px 1fr var(--ui-size);
 	align-items: center;
 	overflow: hidden;
 }
@@ -511,12 +511,12 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: var(--touch-target-size);
-	height: var(--touch-target-size);
+	width: var(--ui-size);
+	height: var(--ui-size);
 	flex-shrink: 0;
 	background: transparent;
 	border-right: 1px solid var(--border2);
-	font-size: var(--mobile-font-size);
+	font-size: var(--ui-font-size);
 	color: var(--text-muted-color);
 	padding: 0;
 	cursor: pointer;
@@ -534,16 +534,16 @@
 .sc-strikethrough::after {
 	content: "";
 	position: absolute;
-	left: 4px;
-	right: 4px;
-	top: 4px;
-	bottom: 4px;
+	left: 6px;
+	right: 6px;
+	top: 6px;
+	bottom: 6px;
 	background: linear-gradient(
-		to top right,
-		transparent calc(50% - 1.25px),
-		#dc3545 calc(50% - 1.25px),
-		#dc3545 calc(50% + 1.25px),
-		transparent calc(50% + 1.25px)
+		to bottom left,
+		transparent calc(50% - 0.75px),
+		#dc3545 calc(50% - 0.75px),
+		#dc3545 calc(50% + 0.75px),
+		transparent calc(50% + 0.75px)
 	);
 	pointer-events: none;
 }
@@ -555,16 +555,16 @@
 .sc-btn--off::after {
 	content: "";
 	position: absolute;
-	left: 2px;
-	right: 2px;
-	top: 2px;
-	bottom: 2px;
+	left: 6px;
+	right: 6px;
+	top: 6px;
+	bottom: 6px;
 	background: linear-gradient(
-		to bottom right,
-		transparent calc(50% - 1.25px),
-		#dc3545 calc(50% - 1.25px),
-		#dc3545 calc(50% + 1.25px),
-		transparent calc(50% + 1.25px)
+		to bottom left,
+		transparent calc(50% - 0.75px),
+		#dc3545 calc(50% - 0.75px),
+		#dc3545 calc(50% + 0.75px),
+		transparent calc(50% + 0.75px)
 	);
 	pointer-events: none;
 }
@@ -573,7 +573,7 @@
 	align-items: center;
 	justify-content: center;
 	width: 24px;
-	height: var(--touch-target-size);
+	height: var(--ui-size);
 	background: var(--bg2);
 	border-right: 1px solid var(--border2);
 	color: var(--text-muted-color);
@@ -585,14 +585,14 @@
 }
 .sc-cell-placeholder {
 	border-right: 1px solid var(--border2);
-	width: var(--touch-target-size);
-	height: var(--touch-target-size);
+	width: var(--ui-size);
+	height: var(--ui-size);
 }
 .sc-select {
 	width: 120px;
-	font-size: var(--mobile-font-size);
+	font-size: var(--ui-font-size);
 	padding: 2px;
-	height: var(--touch-target-size);
+	height: var(--ui-size);
 	min-width: 0;
 	flex-shrink: 1;
 	border: none;
@@ -606,12 +606,12 @@
 	align-items: center;
 	overflow: hidden;
 	border-right: 1px solid var(--border2);
-	height: var(--touch-target-size);
+	height: var(--ui-size);
 	padding-left: 4px;
 }
 .sc-title-input {
 	width: 100%;
-	font-size: var(--mobile-font-size);
+	font-size: var(--ui-font-size);
 	padding: 2px 4px;
 	height: 100%;
 	background: transparent;
@@ -624,7 +624,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	font-weight: bold;
-	font-size: var(--mobile-font-size);
+	font-size: var(--ui-font-size);
 	cursor: text;
 	width: 100%;
 }
@@ -1050,7 +1050,7 @@
 	top: 4px;
 	bottom: 4px;
 	background: linear-gradient(
-		to bottom right,
+		to bottom left,
 		transparent calc(50% - 1.25px),
 		#dc3545 calc(50% - 1.25px),
 		#dc3545 calc(50% + 1.25px),
@@ -1254,8 +1254,8 @@
 	display: grid;
 	grid-template-columns: 24px repeat(
 			6,
-			var(--touch-target-size)
-		) 120px 1fr var(--touch-target-size);
+			var(--ui-size)
+		) 120px 1fr var(--ui-size);
 	padding: 4px 0;
 	color: var(--text-light);
 

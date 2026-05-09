@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
@@ -42,18 +42,16 @@ import { Move } from "lucide-react";
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
-const BASE_PADDING_MOBILE = { top: 10, right: 10, bottom: 40, left: 10 };
 
 const getXAxisMetrics = (
-	isMobile: boolean,
 	xMode: "date" | "numeric" | "categorical",
 ): Omit<XAxisMetrics, "id" | "cumulativeOffset"> => {
 	if (xMode === "date") {
 		return {
-			height: isMobile ? 60 : 70,
-			labelBottom: isMobile ? 20 : 25,
-			secLabelBottom: isMobile ? 30 : 36,
-			titleBottom: isMobile ? 50 : 60,
+			height: 70,
+			labelBottom: 25,
+			secLabelBottom: 36,
+			titleBottom: 60,
 		};
 	}
 	return { height: 50, labelBottom: 26, secLabelBottom: 0, titleBottom: 40 };
@@ -67,6 +65,7 @@ const ChartContainer: React.FC = () => {
 		useDataImport();
 	const [width, setWidth] = useState(800);
 	const [height, setHeight] = useState(600);
+	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
 	const targetYs = useRef<Record<string, { min: number; max: number }>>({});
@@ -93,8 +92,31 @@ const ChartContainer: React.FC = () => {
 	const highlightedSeriesId = useGraphStore((s) => s.highlightedSeriesId);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
+	const isResizingSidebar = useGraphStore((s) => s.isResizingSidebar);
 	const [themeName] = useTheme();
 	const themeColors = THEMES[themeName];
+
+	// Dimension management during sidebar resize
+	useEffect(() => {
+		if (!containerRef.current) return;
+		const observer = new ResizeObserver((entries) => {
+			if (entries.length > 0 && !isResizingSidebar) {
+				const e = entries[entries.length - 1];
+				setWidth(e.contentRect.width);
+				setHeight(e.contentRect.height);
+			}
+		});
+		observer.observe(containerRef.current);
+		return () => observer.disconnect();
+	}, [isResizingSidebar]);
+
+	useEffect(() => {
+		if (!isResizingSidebar && containerRef.current) {
+			const rect = containerRef.current.getBoundingClientRect();
+			setWidth(rect.width);
+			setHeight(rect.height);
+		}
+	}, [isResizingSidebar]);
 
 	// 3. Layout Memos
 	const activeDsIdsSet = useMemo(() => {
@@ -303,20 +325,18 @@ const ChartContainer: React.FC = () => {
 	}, [leftAxes, rightAxes, axisLayout]);
 
 	const xAxesMetrics = useMemo((): XAxisMetrics[] => {
-		const isMobile = width < 768 || height < 500;
 		const result: XAxisMetrics[] = [];
 		let currentOffset = 0;
 		for (const axis of activeXAxesUsed) {
-			const base = getXAxisMetrics(isMobile, axis.xMode);
+			const base = getXAxisMetrics(axis.xMode);
 			result.push({ ...base, id: axis.id, cumulativeOffset: currentOffset });
 			currentOffset += base.height;
 		}
 		return result;
-	}, [activeXAxesUsed, width, height]);
+	}, [activeXAxesUsed]);
 
 	const padding = useMemo(() => {
-		const isMobile = width < 768 || height < 500;
-		const base = isMobile ? BASE_PADDING_MOBILE : BASE_PADDING_DESKTOP;
+		const base = BASE_PADDING_DESKTOP;
 		const leftSum = leftAxes.reduce(
 			(sum, a) => sum + (axisLayout[a.id]?.total || 40),
 			0,
@@ -335,7 +355,7 @@ const ChartContainer: React.FC = () => {
 			right: base.right + rightSum,
 			bottom,
 		};
-	}, [leftAxes, rightAxes, axisLayout, xAxesMetrics, width, height]);
+	}, [leftAxes, rightAxes, axisLayout, xAxesMetrics]);
 
 	const chartWidth = Math.max(0, width - padding.left - padding.right);
 	const chartHeight = Math.max(0, height - padding.top - padding.bottom);
@@ -381,8 +401,9 @@ const ChartContainer: React.FC = () => {
 					const uniqueColumns = Array.from(
 						dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 					);
-					const title =
+					const defaultTitle =
 						dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+					const title = axis.name || defaultTitle || "";
 					const color = themeColors.labelColor;
 					if (r <= 0 || chartWidth <= 0)
 						return {
@@ -741,8 +762,9 @@ const ChartContainer: React.FC = () => {
 			const uniqueColumns = Array.from(
 				dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
 			);
-			const title =
+			const defaultTitle =
 				dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+			const title = axis.name || defaultTitle || "";
 			const color = themeColors.labelColor;
 			if (r <= 0 || chartWidth <= 0)
 				return {
@@ -951,35 +973,79 @@ const ChartContainer: React.FC = () => {
 				/>
 				{xAxesMetrics.map((m) => {
 					const bY = padding.bottom - m.cumulativeOffset - m.height;
+					const title = xAxesLayout.find((a) => a.id === m.id)?.title || "";
 					return (
-						<div
-							key={`wheel-x-${m.id}`}
-							onWheel={(e) => {
-								e.stopPropagation();
-								handleWheel(e, { xAxisId: m.id });
-							}}
-							onMouseDown={(e) => {
-								e.stopPropagation();
-								handleMouseDown(e, { xAxisId: m.id });
-							}}
-							onTouchStart={(e) => {
-								e.stopPropagation();
-								handleTouchStart(e, { xAxisId: m.id });
-							}}
-							onDoubleClick={(e) => {
-								e.stopPropagation();
-								handleAutoScaleX(m.id);
-							}}
-							style={{
-								position: "absolute",
-								bottom: bY,
-								left: padding.left,
-								right: padding.right,
-								height: m.height,
-								cursor: "ew-resize",
-								zIndex: 20,
-							}}
-						/>
+						<Fragment key={`wheel-x-${m.id}`}>
+							<div
+								onWheel={(e) => {
+									e.stopPropagation();
+									handleWheel(e, { xAxisId: m.id });
+								}}
+								onMouseDown={(e) => {
+									e.stopPropagation();
+									handleMouseDown(e, { xAxisId: m.id });
+								}}
+								onTouchStart={(e) => {
+									e.stopPropagation();
+									handleTouchStart(e, { xAxisId: m.id });
+								}}
+								onDoubleClick={(e) => {
+									e.stopPropagation();
+									const rect = e.currentTarget.getBoundingClientRect();
+									const yInside = e.clientY - rect.top;
+									// Check if double click is in the title area (roughly bottom 30px)
+									if (yInside >= m.titleBottom - 30) {
+										setEditingXAxisId(m.id);
+									} else {
+										handleAutoScaleX(m.id);
+									}
+								}}
+								style={{
+									position: "absolute",
+									bottom: bY,
+									left: padding.left,
+									right: padding.right,
+									height: m.height,
+									cursor: "ew-resize",
+									zIndex: 20,
+								}}
+							/>
+							{editingXAxisId === m.id && (
+								<input
+									autoFocus
+									defaultValue={title}
+									onBlur={(e) => {
+										const newName = e.target.value.trim();
+										useGraphStore.getState().updateXAxis(m.id, { name: newName });
+										setEditingXAxisId(null);
+									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.currentTarget.blur();
+										} else if (e.key === "Escape") {
+											setEditingXAxisId(null);
+										}
+									}}
+									style={{
+										position: "absolute",
+										bottom: bY + m.height - m.titleBottom + 2,
+										left: "50%",
+										transform: "translateX(-50%)",
+										zIndex: 30,
+										textAlign: "center",
+										font: `bold 12px ${themeColors.fontFamily}`,
+										color: themeColors.labelColor,
+										background: themeColors.plotBg,
+										border: `1px solid ${themeColors.gridColor}`,
+										borderRadius: "4px",
+										padding: "2px 4px",
+										outline: "none",
+										width: "80%",
+										maxWidth: "300px"
+									}}
+								/>
+							)}
+						</Fragment>
 					);
 				})}
 				{activeYAxes.map((a) => {

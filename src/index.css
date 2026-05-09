@@ -4,15 +4,8 @@
 	--sidebar-bg: #f8fafc;
 	--border-color: #e2e8f0;
 	--text-color: #1e293b;
-	--touch-target-size: 28px;
-	--mobile-font-size: 11px;
-}
-
-@media (max-width: 768px) or (max-height: 500px) {
-	:root {
-		--touch-target-size: 36px;
-		--mobile-font-size: 14px;
-	}
+	--ui-size: 28px;
+	--ui-font-size: 11px;
 }
 
 * {

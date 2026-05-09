@@ -23,6 +23,8 @@ interface GraphState {
 	setLegendVisible: (visible: boolean) => void;
 	crosshairVisible: boolean;
 	setCrosshairVisible: (visible: boolean) => void;
+	isResizingSidebar: boolean;
+	setIsResizingSidebar: (isResizing: boolean) => void;
 
 	// Actions
 	addDataset: (dataset: Dataset) => void;
@@ -63,7 +65,7 @@ interface GraphState {
 const createInitialXAxes = (): XAxisConfig[] => {
 	return Array.from({ length: 9 }, (_, i) => ({
 		id: `axis-${i + 1}`,
-		name: `X-Axis ${i + 1}`,
+		name: "",
 		min: 0,
 		max: 100,
 		showGrid: i === 0,
@@ -109,6 +111,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			localStorage.setItem("crosshairVisible", String(visible));
 		set({ crosshairVisible: visible });
 	},
+	isResizingSidebar: false,
+	setIsResizingSidebar: (isResizing) => set({ isResizingSidebar: isResizing }),
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
 		const state = get();
@@ -581,7 +585,7 @@ function debouncedSaveState() {
 		const curState = useGraphStore.getState();
 		if (curState.isLoaded) saveState(curState);
 		saveTimeout = null;
-	}, 1000);
+	}, 100);
 }
 
 function saveState(state: GraphState) {
