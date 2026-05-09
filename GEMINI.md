@@ -25,7 +25,6 @@
 - `src/components/Plot/`: Core rendering components, including `WebGLRenderer` and `ChartContainer`.
 - `src/store/`: Zustand stores for application state.
 - `src/services/`: Persistence logic and data interfaces.
-- `src/workers/`: Web Workers for non-blocking data processing.
 - `src/utils/`: Helper functions for coordinates and data algorithms.
 
 ## Building and Running
@@ -53,7 +52,7 @@ npm run deploy
 
 ## Development Conventions
 
-- **Performance First:** Heavy processing must stay in Web Workers. WebGL is the primary rendering path for data.
+- **Performance First:** WebGL is the primary rendering path for data.
 - **Precision:** Shaders are designed for ultra-precision, using relative offsets (`refPoint`) to handle large coordinate values without floating-point artifacts.
 - **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
 - **Persistence Awareness:** Any changes to the `GraphState` that should survive a refresh must be persisted via the `persistence` service.
