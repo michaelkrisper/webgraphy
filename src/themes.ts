@@ -148,7 +148,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		noDataColor: "#003300",
 	},
 	winnie: {
-		fontFamily: 'serif',
+		fontFamily: '"Georgia", serif',
 		bg: "#fdf5e6", // OldLace / Light Cream
 		bg2: "#f5deb3", // Wheat
 		bg3: "#e6ccb2", // Muted Caramel
@@ -167,7 +167,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		btnColor: "#795548",
 		cardBorder: "#d2b48c",
 		sectionHeaderBg: "#f5deb3",
-		plotBg: "#fffaf0", // FloralWhite
+		plotBg: "#fdf5e6", // OldLace / Light Cream
 		axisColor: "#5d4037",
 		zeroLineColor: "#d2b48c",
 		gridColor: "#eedcb3",
