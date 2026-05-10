@@ -200,6 +200,8 @@ export const WebGLRenderer = React.memo(
 		const m4OutsRef = useRef<Map<string, { x: Float32Array; y: Float32Array }>>(
 			new Map(),
 		);
+		const scratchXRef = useRef<Float32Array | null>(null);
+		const scratchYRef = useRef<Float32Array | null>(null);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
 		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
@@ -524,8 +526,16 @@ export const WebGLRenderer = React.memo(
 						}
 
 						// Flatten all segments into a single buffer separated by NaN sentinels
-						const flatX = new Float32Array(totalDrawCount + Math.max(0, drawSegments.length - 1));
-						const flatY = new Float32Array(flatX.length);
+						const reqLen = totalDrawCount + Math.max(0, drawSegments.length - 1);
+						let flatX = scratchXRef.current;
+						let flatY = scratchYRef.current;
+						if (!flatX || flatX.length < reqLen) {
+							const newCap = Math.max(reqLen, (flatX?.length || 0) * 2 || 1024);
+							flatX = new Float32Array(newCap);
+							flatY = new Float32Array(newCap);
+							scratchXRef.current = flatX;
+							scratchYRef.current = flatY;
+						}
 						// Track per-segment offsets for multi-draw
 						const drawRanges: { start: number; count: number }[] = [];
 						let offset = 0;
@@ -536,7 +546,7 @@ export const WebGLRenderer = React.memo(
 							offset += seg.x.length + 1; // +1 gap (NaN sentinel, unused in GPU)
 						}
 
-						const drawCount = flatX.length;
+						const drawCount = reqLen;
 
 						const xScaleVal = (chartWidth * dpr) / xRange;
 						const xOffsetVal =
@@ -562,9 +572,9 @@ export const WebGLRenderer = React.memo(
 						}
 
 						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, flatX, gl.STREAM_DRAW);
+						gl.bufferData(gl.ARRAY_BUFFER, flatX.subarray(0, drawCount), gl.STREAM_DRAW);
 						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, flatY, gl.STREAM_DRAW);
+						gl.bufferData(gl.ARRAY_BUFFER, flatY.subarray(0, drawCount), gl.STREAM_DRAW);
 
 						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
 						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
