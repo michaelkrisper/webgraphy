@@ -486,7 +486,8 @@
 
 /* ── SeriesConfig ───────────────────────────────────── */
 .sc-row {
-	border: 1px solid var(--border2);
+	border-top: 1px solid var(--border2);
+	border-bottom: 1px solid var(--border2);
 
 	font-size: var(--ui-font-size);
 	display: grid;

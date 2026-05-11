@@ -2,7 +2,6 @@ import {
 	ArrowUpDown,
 	Calculator,
 	Cat,
-	Check,
 	ChevronDown,
 	ChevronRight,
 	Circle,
@@ -24,7 +23,6 @@ import {
 	Sun,
 	Terminal,
 	Trash2,
-	X,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -429,7 +427,8 @@ export const Sidebar: React.FC = () => {
 											style={{
 												backgroundColor: t.bg,
 												borderRadius: "0",
-												border: `1px solid ${t.cardBorder}`,
+												borderTop: `1px solid ${t.cardBorder}`,
+												borderBottom: `1px solid ${t.cardBorder}`,
 												overflow: "hidden",
 												boxShadow: `0 1px 3px ${t.shadow}`,
 											}}
@@ -594,6 +593,8 @@ export const Sidebar: React.FC = () => {
 													display: "grid",
 													gridTemplateColumns: "repeat(5, 1fr)",
 													gap: "0",
+													borderTop: `1px solid ${t.accent}`,
+													borderLeft: `1px solid ${t.accent}`,
 												}}
 											>
 												{ds.columns.map((col, colIdx) => {
@@ -615,86 +616,55 @@ export const Sidebar: React.FC = () => {
 															key={col}
 															className="col-chip"
 															style={{
-																border: `1px solid ${t.accent}`,
+																borderRight: `1px solid ${t.accent}`,
+																borderBottom: `1px solid ${t.accent}`,
 																backgroundColor: t.bg3,
 																opacity: isUsed ? 0.7 : 1,
 															}}
 														>
 															{isRenaming ? (
-																<>
-																	<input
-																		autoFocus
-																		value={renamingColumn.value}
-																		onChange={(e) =>
-																			setRenamingColumn((prev) =>
-																				prev
-																					? { ...prev, value: e.target.value }
-																					: prev,
-																			)
-																		}
-																		onKeyDown={(e) => {
-																			if (e.key === "Enter") {
-																				renameColumn(
-																					ds.id,
-																					col,
-																					renamingColumn.value,
-																				);
-																				setRenamingColumn(null);
-																			} else if (e.key === "Escape") {
-																				setRenamingColumn(null);
-																			}
-																		}}
-																		style={{
-																			fontSize: "0.7rem",
-																			padding: "3px 6px",
-																			border: "none",
-																			background: "none",
-																			color: t.accent,
-																			fontWeight: "600",
-																			width: `${Math.max(40, renamingColumn.value.length * 7)}px`,
-																			outline: "none",
-																		}}
-																	/>
-																	<button
-																		onClick={() => {
+																<input
+																	autoFocus
+																	value={renamingColumn.value}
+																	onChange={(e) =>
+																		setRenamingColumn((prev) =>
+																			prev
+																				? { ...prev, value: e.target.value }
+																				: prev,
+																		)
+																	}
+																	onBlur={() => {
+																		renameColumn(
+																			ds.id,
+																			col,
+																			renamingColumn.value,
+																		);
+																		setRenamingColumn(null);
+																	}}
+																	onKeyDown={(e) => {
+																		if (e.key === "Enter") {
 																			renameColumn(
 																				ds.id,
 																				col,
 																				renamingColumn.value,
 																			);
 																			setRenamingColumn(null);
-																		}}
-																		style={{
-																			display: "flex",
-																			alignItems: "center",
-																			padding: "2px 4px",
-																			border: "none",
-																			background: "none",
-																			color: t.accent,
-																			cursor: "pointer",
-																			borderLeft: `1px solid ${t.accent}`,
-																		}}
-																		title="Save"
-																	>
-																		<Check size={10} />
-																	</button>
-																	<button
-																		onClick={() => setRenamingColumn(null)}
-																		style={{
-																			display: "flex",
-																			alignItems: "center",
-																			padding: "2px 4px",
-																			border: "none",
-																			background: "none",
-																			color: t.danger,
-																			cursor: "pointer",
-																			borderLeft: `1px solid ${t.accent}`,
-																		}}
-																		title="Cancel"
-																	>
-																		<X size={10} />
-																	</button>
-																</>
+																		} else if (e.key === "Escape") {
+																			setRenamingColumn(null);
+																		}
+																	}}
+																	style={{
+																		fontSize: "0.7rem",
+																		padding: "3px 8px",
+																		border: "none",
+																		background: "none",
+																		color: t.accent,
+																		fontWeight: "600",
+																		width: "100%",
+																		outline: "none",
+																		boxSizing: "border-box",
+																	}}
+																/>
 															) : (
 																<>
 																	<button
@@ -723,7 +693,7 @@ export const Sidebar: React.FC = () => {
 																				setRenamingColumn({
 																					datasetId: ds.id,
 																					col,
-																					value: col,
+																					value: label,
 																				})
 																			}
 																			style={{
