@@ -19,7 +19,6 @@ import {
 	PanelRightClose,
 	Rows3,
 	Cat,
-	Sparkles,
 	Sun,
 	Terminal,
 	Trash2,
@@ -42,12 +41,33 @@ import { ImportSettingsDialog } from "./ImportSettingsDialog";
 import { ImprintModal } from "./ImprintModal";
 import { LicenseModal } from "./LicenseModal";
 
+const UnicornHeadIcon = ({ size = 24 }: { size?: number }) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width={size}
+		height={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="m15.6 4.8 2.7 2.3" />
+		<path d="M15.5 10S19 7 22 2c-6 2-10 5-10 5" />
+		<path d="M11.5 12H11" />
+		<path d="M5 15a4 4 0 0 0 4 4h7.8l.3.3a3 3 0 0 0 4-4.46L12 7c0-3-1-5-1-5S8 3 8 7c-4 1-6 3-6 3" />
+		<path d="M2 4.5C4 3 6 3 6 3l2 4" />
+		<path d="M6.14 17.8S4 19 2 22" />
+	</svg>
+);
+
 const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
 	light: <Sun size={24} />,
 	dark: <Moon size={24} />,
 	matrix: <Terminal size={24} />,
 	winnie: <Cat size={24} />,
-	sparkle: <Sparkles size={24} />,
+	unicorn: <UnicornHeadIcon size={24} />,
 };
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -55,7 +75,7 @@ const THEME_LABELS: Record<ThemeName, string> = {
 	dark: "Dark Mode",
 	matrix: "Matrix Mode",
 	winnie: "Winnie Mode",
-	sparkle: "Sparkle Mode",
+	unicorn: "Unicorn Mode",
 };
 
 const HeaderButton = ({
@@ -474,7 +494,9 @@ export const Sidebar: React.FC = () => {
 																height: "22px",
 																boxSizing: "border-box",
 																background: "none",
-																border: `1px solid ${t.border}`,
+																borderTop: `1px solid ${t.border}`,
+																borderBottom: `1px solid ${t.border}`,
+																borderLeft: `1px solid ${t.border}`,
 																borderRight: "none",
 																cursor:
 																	datasets.length === 1 ? "default" : "pointer",

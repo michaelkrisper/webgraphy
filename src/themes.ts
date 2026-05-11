@@ -1,4 +1,4 @@
-export type ThemeName = "light" | "dark" | "matrix" | "winnie" | "sparkle";
+export type ThemeName = "light" | "dark" | "matrix" | "winnie" | "unicorn";
 
 export interface Theme {
 	fontFamily: string;
@@ -114,7 +114,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		noDataColor: "#21262d",
 	},
 	matrix: {
-		fontFamily: '"Courier New", monospace',
+		fontFamily: '"Share Tech Mono", "Courier New", monospace',
 		bg: "#001400",
 		bg2: "#000a00",
 		bg3: "#001a00",
@@ -148,7 +148,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		noDataColor: "#003300",
 	},
 	winnie: {
-		fontFamily: '"Georgia", serif',
+		fontFamily: '"Lora", "Georgia", serif',
 		bg: "#fdf5e6", // OldLace / Light Cream
 		bg2: "#f5deb3", // Wheat
 		bg3: "#e6ccb2", // Muted Caramel
@@ -181,7 +181,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		tooltipSubColor: "#a1887f",
 		noDataColor: "#d2b48c",
 	},
-	sparkle: {
+	unicorn: {
 		fontFamily: '"Comic Sans MS", cursive',
 		bg: "#fff0f9",
 		bg2: "#fce4f0",
@@ -233,5 +233,5 @@ export const THEME_CYCLE: ThemeName[] = [
 	"dark",
 	"matrix",
 	"winnie",
-	"sparkle",
+	"unicorn",
 ];

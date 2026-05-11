@@ -152,7 +152,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
 			<Section title="UI">
 				<li>
-					<strong>Themes:</strong> Light, Dark, Matrix, Unicorn — cycle via the
+					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle via the
 					theme button
 				</li>
 				<li>
