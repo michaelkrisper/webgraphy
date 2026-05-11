@@ -429,7 +429,6 @@ export const WebGLRenderer = React.memo(
 						// Pass-through threshold is generous: small/medium datasets render raw, avoiding
 						// any decimation-induced extrema flicker when points pan across bucket boundaries.
 						const numBuckets = Math.max(64, Math.round(chartWidth * dpr));
-						const _pixelBudget = numBuckets * pixelBudgetMultRef.current;
 
 						// Binary-search requires globally monotonic X. If column has internal drops
 						// (e.g. concatenated groups), fall back to scanning the full array —

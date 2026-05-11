@@ -577,7 +577,7 @@ const ChartContainer: React.FC = () => {
 		panStateRef,
 		onPanEnd: useCallback(() => {
 			panStateRef.current.active = false;
-			syncViewportRef.current(true);
+			syncViewportRef.current(false);
 		}, []),
 	});
 

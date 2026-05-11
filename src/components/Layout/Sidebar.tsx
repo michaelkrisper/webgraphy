@@ -225,14 +225,6 @@ export const Sidebar: React.FC = () => {
 		return datasets.find((d) => d.id === calculatingDatasetId);
 	}, [datasets, calculatingDatasetId]);
 
-	const datasetsById = useMemo(() => {
-		const obj: Record<string, (typeof datasets)[0]> = {};
-		for (const d of datasets) {
-			obj[d.id] = d;
-		}
-		return obj;
-	}, [datasets]);
-
 	const handleExportSVG = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
 		if (!plotContainer) return;
