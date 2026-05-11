@@ -402,6 +402,8 @@
 	/* 1 row main color, 1 row spacer (4px), 5 rows shades (22px each) */
 	grid-template-rows: 22px 4px repeat(5, 22px);
 	width: fit-content;
+	gap: 0;
+	background: transparent;
 }
 .color-picker-column,
 .color-picker-main-color,
@@ -411,41 +413,33 @@
 .color-picker-grid-spacer {
 	grid-row: 2;
 	height: 4px;
-	background: var(--bg); /* Match popover background to look like a gap */
 }
 
 .color-picker-palette-btn {
 	width: 22px;
 	height: 22px;
 	cursor: pointer;
-	border: none; /* Remove border to rely on grid gap for separation */
+	border: none;
 	flex-shrink: 0;
 	padding: 0;
-	transition: background 0.1s;
+	transition: none;
 	display: block;
 }
 
 .color-picker-palette-btn:hover {
-	outline: 2px solid var(--text);
-	outline-offset: -2px;
+	transform: scale(1.35);
 	z-index: 2;
-}
-
-.color-picker-palette-btn:hover {
-	transform: scale(1.1);
-	z-index: 1;
 }
 .color-picker-inputs {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	padding-top: 8px;
-	border-top: 1px solid var(--border-color);
 }
 .color-picker-input-group {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	flex: 1;
 }
 .color-picker-label {
 	font-size: 9px;
@@ -456,12 +450,21 @@
 .color-picker-input {
 	background: var(--bg2);
 	border: 1px solid var(--border-color);
-
 	color: var(--text);
-	font-size: 10px;
+	font-size: 12px;
 	padding: 2px 4px;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	width: 100%;
+}
+.color-picker-input[type="number"]::-webkit-inner-spin-button,
+.color-picker-input[type="number"]::-webkit-outer-spin-button {
+	opacity: 1;
+	height: auto;
+}
+.color-picker-input[type="number"] {
+	-webkit-appearance: auto;
+	appearance: auto;
+	padding-right: 2px;
 }
 .color-picker-rgb-inputs {
 	display: flex;
@@ -729,12 +732,21 @@
 	flex: 1;
 	min-width: 0;
 	padding: 6px 10px;
-
 	border: 1px solid var(--border-color);
 	background: var(--bg);
 	color: var(--text-color);
 	height: 32px;
 	font-size: 13px;
+}
+.isd-input[type="number"]::-webkit-inner-spin-button,
+.isd-input[type="number"]::-webkit-outer-spin-button {
+	opacity: 1;
+	height: auto;
+}
+.isd-input[type="number"] {
+	-webkit-appearance: auto;
+	appearance: auto;
+	padding-right: 2px;
 }
 .isd-skipped-lines {
 	font-family: monospace;

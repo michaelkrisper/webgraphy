@@ -12,7 +12,7 @@ interface ColorPickerProps {
 	ariaLabel?: string;
 }
 
-const LCH_LIGHTNESS_STEPS = [35, 50, 65, 80, 95];
+const LCH_LIGHTNESS_STEPS = [22, 38, 54, 68, 82];
 
 function ColorPicker({
 	color,
@@ -24,7 +24,9 @@ function ColorPicker({
 	const [isOpen, setIsOpen] = useState(false);
 	const [localHex, setLocalHex] = useState(color);
 	const [prevColor, setPrevColor] = useState(color);
+	const [hoverColor, setHoverColor] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const rgbInputsRef = useRef<HTMLDivElement>(null);
 	const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: 0 });
 
 	if (color !== prevColor) {
@@ -74,14 +76,40 @@ function ColorPicker({
 		if (/^#[0-9A-F]{6}$/i.test(val)) onChange(val.toLowerCase());
 	};
 
-	const { r, g, b } = hexToRgb(color);
+	const displayColor = hoverColor ?? color;
+	const displayHex = hoverColor ?? localHex;
+	const { r, g, b } = hexToRgb(displayColor);
 	const handleRgbChange = (part: "r" | "g" | "b", val: string) => {
 		let n = parseInt(val, 10);
 		if (Number.isNaN(n)) n = 0;
 		const currentRgb = { r, g, b };
-		const newRgb = { ...currentRgb, [part]: Math.min(255, n) };
+		const newRgb = { ...currentRgb, [part]: Math.min(255, Math.max(0, n)) };
 		onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
 	};
+	const rgbRef = useRef({ r, g, b });
+	rgbRef.current = { r, g, b };
+
+	useEffect(() => {
+		const el = rgbInputsRef.current;
+		if (!el) return;
+		const handler = (e: WheelEvent) => {
+			const input = (e.target as HTMLElement).closest("input");
+			if (!input) return;
+			const inputs = Array.from(el.querySelectorAll("input"));
+			const idx = inputs.indexOf(input as HTMLInputElement);
+			const parts = ["r", "g", "b"] as const;
+			if (idx === -1) return;
+			e.preventDefault();
+			const part = parts[idx];
+			const current = rgbRef.current;
+			const delta = e.deltaY < 0 ? 1 : -1;
+			const newVal = Math.min(255, Math.max(0, current[part] + delta));
+			const newRgb = { ...current, [part]: newVal };
+			onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
+		};
+		el.addEventListener("wheel", handler, { passive: false });
+		return () => el.removeEventListener("wheel", handler);
+	}, [onChange]);
 
 	return (
 		<div ref={containerRef} className="color-picker-wrapper">
@@ -112,14 +140,14 @@ function ColorPicker({
 											if (onHoverEnd) onHoverEnd();
 											setIsOpen(false);
 										}}
-										onMouseEnter={() => onHover?.("#000000")}
-										onMouseLeave={() => onHoverEnd?.()}
+										onMouseEnter={() => { onHover?.("#000000"); setHoverColor("#000000"); }}
+										onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
 										className="color-picker-palette-btn"
 										style={{
 											backgroundColor: "#000000",
 											border: color.toLowerCase() === "#000000"
 												? "2px solid var(--text)"
-												: "1px solid var(--border-color)",
+												: "none",
 										}}
 									/>
 								</div>
@@ -137,14 +165,14 @@ function ColorPicker({
 													if (onHoverEnd) onHoverEnd();
 													setIsOpen(false);
 												}}
-												onMouseEnter={() => onHover?.(hexVal)}
-												onMouseLeave={() => onHoverEnd?.()}
+												onMouseEnter={() => { onHover?.(hexVal); setHoverColor(hexVal); }}
+												onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
 												className="color-picker-palette-btn"
 												style={{
 													backgroundColor: hexVal,
 													border: color.toLowerCase() === hexVal.toLowerCase()
 														? "2px solid var(--text)"
-														: "1px solid var(--border-color)",
+														: "none",
 												}}
 											/>
 										);
@@ -166,14 +194,14 @@ function ColorPicker({
 													if (onHoverEnd) onHoverEnd();
 													setIsOpen(false);
 												}}
-												onMouseEnter={() => onHover?.(themeColor)}
-												onMouseLeave={() => onHoverEnd?.()}
+												onMouseEnter={() => { onHover?.(themeColor); setHoverColor(themeColor); }}
+												onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
 												className="color-picker-palette-btn"
 												style={{
 													backgroundColor: themeColor,
 													border: color.toLowerCase() === themeColor.toLowerCase()
 														? "2px solid var(--text)"
-														: "1px solid var(--border-color)",
+														: "none",
 												}}
 											/>
 										</div>
@@ -191,14 +219,14 @@ function ColorPicker({
 															if (onHoverEnd) onHoverEnd();
 															setIsOpen(false);
 														}}
-														onMouseEnter={() => onHover?.(hexVal)}
-														onMouseLeave={() => onHoverEnd?.()}
+														onMouseEnter={() => { onHover?.(hexVal); setHoverColor(hexVal); }}
+														onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
 														className="color-picker-palette-btn"
 														style={{
 															backgroundColor: hexVal,
 															border: color.toLowerCase() === hexVal.toLowerCase()
 																? "2px solid var(--text)"
-																: "1px solid var(--border-color)",
+																: "none",
 														}}
 													/>
 												);
@@ -214,7 +242,7 @@ function ColorPicker({
 								<span className="color-picker-label">Hex</span>
 								<input
 									type="text"
-									value={localHex}
+									value={displayHex}
 									onChange={handleHexChange}
 									className="color-picker-input"
 									spellCheck={false}
@@ -222,15 +250,16 @@ function ColorPicker({
 							</div>
 							<div className="color-picker-input-group">
 								<span className="color-picker-label">RGB</span>
-								<div className="color-picker-rgb-inputs">
+								<div className="color-picker-rgb-inputs" ref={rgbInputsRef}>
 									{(["r", "g", "b"] as const).map((p) => (
 										<input
 											key={p}
-											type="text"
+											type="number"
+											min={0}
+											max={255}
 											value={p === "r" ? r : p === "g" ? g : b}
 											onChange={(e) => handleRgbChange(p, e.target.value)}
 											className="color-picker-input"
-											maxLength={3}
 										/>
 									))}
 								</div>

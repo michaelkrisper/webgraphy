@@ -131,7 +131,7 @@ function createDemoYAxes(): YAxisConfig[] {
 			min: -5,
 			max: 100,
 			position: "left",
-			color: "#f97316",
+			color: "#4589ff",
 			showGrid: true,
 		},
 		{
@@ -140,7 +140,7 @@ function createDemoYAxes(): YAxisConfig[] {
 			min: 0,
 			max: 1200,
 			position: "left",
-			color: "#eab308",
+			color: "#3dbf6e",
 			showGrid: false,
 		},
 		{
@@ -149,7 +149,7 @@ function createDemoYAxes(): YAxisConfig[] {
 			min: 0,
 			max: 20,
 			position: "right",
-			color: "#14b8a6",
+			color: "#00a69c",
 			showGrid: false,
 		},
 	];
@@ -164,9 +164,9 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 			yColumn: dataset.columns[1],
 			yAxisId: "axis-1",
 			pointStyle: "none",
-			pointColor: "#f97316",
+			pointColor: "#4589ff",
 			lineStyle: "solid",
-			lineColor: "#ea580c",
+			lineColor: "#4589ff",
 		},
 		{
 			id: crypto.randomUUID(),
@@ -175,9 +175,9 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 			yColumn: dataset.columns[2],
 			yAxisId: "axis-1",
 			pointStyle: "none",
-			pointColor: "#3b82f6",
+			pointColor: "#f0a830",
 			lineStyle: "dashed",
-			lineColor: "#2563eb",
+			lineColor: "#f0a830",
 		},
 		{
 			id: crypto.randomUUID(),
@@ -186,9 +186,9 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 			yColumn: dataset.columns[3],
 			yAxisId: "axis-2",
 			pointStyle: "square",
-			pointColor: "#ca8a04",
+			pointColor: "#3dbf6e",
 			lineStyle: "none",
-			lineColor: "#eab308",
+			lineColor: "#3dbf6e",
 		},
 		{
 			id: crypto.randomUUID(),
@@ -197,9 +197,9 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 			yColumn: dataset.columns[4],
 			yAxisId: "axis-3",
 			pointStyle: "circle",
-			pointColor: "#0d9488",
+			pointColor: "#00a69c",
 			lineStyle: "solid",
-			lineColor: "#14b8a6",
+			lineColor: "#00a69c",
 		},
 	];
 }
