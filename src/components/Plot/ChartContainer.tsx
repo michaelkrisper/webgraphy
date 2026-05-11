@@ -37,7 +37,7 @@ import { Crosshair } from "./Crosshair";
 import { EmptyState } from "./EmptyState";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
-import { AlignVerticalDistributeCenter, Move } from "lucide-react";
+import { ChartGantt, Move } from "lucide-react";
 
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
@@ -1114,7 +1114,7 @@ const ChartContainer: React.FC = () => {
 								(e.currentTarget.style.opacity = "0.6")
 							}
 						>
-							<AlignVerticalDistributeCenter size={18} />
+							<ChartGantt size={18} />
 						</button>
 						<button
 							onClick={handleFitAll}
