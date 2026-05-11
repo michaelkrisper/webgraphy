@@ -23,6 +23,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 			onClose={onClose}
 			title="Help & Interactions"
 			maxWidth="900px"
+			height="99vh"
+			maxHeight="99vh"
 			padding="16px"
 			ariaLabel="Close Help"
 		>

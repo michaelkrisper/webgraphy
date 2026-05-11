@@ -10,7 +10,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
 		<Modal
 			onClose={onClose}
 			title="License"
-			maxWidth="600px"
+			maxWidth="900px"
 			ariaLabel="Close License"
 		>
 			<div className="license-text">

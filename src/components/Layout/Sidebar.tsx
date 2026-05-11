@@ -951,7 +951,7 @@ export const Sidebar: React.FC = () => {
 							textAlign: "right",
 						}}
 					>
-						MIT License, Michael Krisper
+						© Michael Krisper
 					</div>
 				</footer>
 			</aside>
