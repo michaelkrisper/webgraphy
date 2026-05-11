@@ -37,6 +37,7 @@ interface GraphState {
 	) => Promise<{ success: boolean; error?: string }>;
 	removeCalculatedColumn: (datasetId: string, columnName: string) => void;
 	updateDataset: (id: string, updates: Partial<Dataset>) => void;
+	renameColumn: (datasetId: string, oldName: string, newName: string) => void;
 	removeDataset: (id: string) => void;
 	moveDataset: (id: string, delta: -1 | 1) => void;
 
@@ -299,6 +300,32 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			return {
 				datasets: [...state.datasets, dataset],
 				xAxes: nextXAxes,
+			};
+		});
+		if (get().isLoaded) debouncedSaveState();
+	},
+
+	renameColumn: (datasetId, oldName, newName) => {
+		const trimmed = newName.trim();
+		if (!trimmed || trimmed === oldName) return;
+		set((state) => {
+			const dataset = state.datasets.find((d) => d.id === datasetId);
+			if (!dataset) return state;
+			if (dataset.columns.includes(trimmed) && trimmed !== oldName) return state;
+			const updatedDataset = {
+				...dataset,
+				columns: dataset.columns.map((c) => (c === oldName ? trimmed : c)),
+				xAxisColumn: dataset.xAxisColumn === oldName ? trimmed : dataset.xAxisColumn,
+			};
+			persistence.saveDataset(updatedDataset);
+			const updatedSeries = state.series.map((s) =>
+				s.sourceId === datasetId && s.yColumn === oldName
+					? { ...s, yColumn: trimmed, label: s.label === oldName ? trimmed : s.label }
+					: s,
+			);
+			return {
+				datasets: state.datasets.map((d) => (d.id === datasetId ? updatedDataset : d)),
+				series: updatedSeries,
 			};
 		});
 		if (get().isLoaded) debouncedSaveState();

@@ -12,16 +12,19 @@ import {
 	Hash,
 	Image,
 	List,
+	Check,
 	Minus,
 	Moon,
 	MoveHorizontal,
 	Palette,
 	PanelRightClose,
+	Pencil,
 	Rows3,
 	Cat,
 	Sun,
 	Terminal,
 	Trash2,
+	X,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -128,6 +131,7 @@ export const Sidebar: React.FC = () => {
 	const [showHelp, setShowHelp] = useState(false);
 	const [showLicense, setShowLicense] = useState(false);
 	const removeCalculatedColumn = useGraphStore((s) => s.removeCalculatedColumn);
+	const renameColumn = useGraphStore((s) => s.renameColumn);
 	const [calculatingDatasetId, setCalculatingDatasetId] = useState<
 		string | null
 	>(null);
@@ -135,6 +139,11 @@ export const Sidebar: React.FC = () => {
 		datasetId: string;
 		name: string;
 		formula: string;
+	} | null>(null);
+	const [renamingColumn, setRenamingColumn] = useState<{
+		datasetId: string;
+		col: string;
+		value: string;
 	} | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -585,46 +594,56 @@ export const Sidebar: React.FC = () => {
 														const label = col.includes(": ")
 															? col.split(": ")[1]
 															: col;
+														const isRenaming =
+															renamingColumn?.datasetId === ds.id &&
+															renamingColumn?.col === col;
 														return (
 															<div
 																key={col}
+																className="col-chip"
 																style={{
-																	display: "flex",
 																	border: `1px solid ${t.accent}`,
 																	backgroundColor: t.bg3,
 																	opacity: isUsed ? 0.7 : 1,
 																}}
 															>
-																<button
-																	onClick={() => createSeries(ds.id, col)}
-																	style={{
-																		fontSize: "0.7rem",
-																		padding: "3px 8px",
-																		borderRadius: "0",
-																		border: "none",
-																		background: "none",
-																		color: t.accent,
-																		cursor: "pointer",
-																		fontWeight: "600",
-																	}}
-																	title={
-																		isCalc ? `Formula: ${colData.formula}` : col
-																	}
-																>
-																	{isCalc ? `ƒ ${label}` : label}
-																</button>
-																{isCalc && (
+																{isRenaming ? (
 																	<>
-																		<button
-																			onClick={() =>
-																				setEditingColumn({
-																					datasetId: ds.id,
-																					name: col,
-																					formula: colData.formula!,
-																				})
+																		<input
+																			autoFocus
+																			value={renamingColumn.value}
+																			onChange={(e) =>
+																				setRenamingColumn((prev) =>
+																					prev ? { ...prev, value: e.target.value } : prev,
+																				)
 																			}
+																			onKeyDown={(e) => {
+																				if (e.key === "Enter") {
+																					renameColumn(ds.id, col, renamingColumn.value);
+																					setRenamingColumn(null);
+																				} else if (e.key === "Escape") {
+																					setRenamingColumn(null);
+																				}
+																			}}
 																			style={{
-																				fontSize: "0.65rem",
+																				fontSize: "0.7rem",
+																				padding: "3px 6px",
+																				border: "none",
+																				background: "none",
+																				color: t.accent,
+																				fontWeight: "600",
+																				width: `${Math.max(40, renamingColumn.value.length * 7)}px`,
+																				outline: "none",
+																			}}
+																		/>
+																		<button
+																			onClick={() => {
+																				renameColumn(ds.id, col, renamingColumn.value);
+																				setRenamingColumn(null);
+																			}}
+																			style={{
+																				display: "flex",
+																				alignItems: "center",
 																				padding: "2px 4px",
 																				border: "none",
 																				background: "none",
@@ -632,14 +651,12 @@ export const Sidebar: React.FC = () => {
 																				cursor: "pointer",
 																				borderLeft: `1px solid ${t.accent}`,
 																			}}
-																			title="Edit formula"
+																			title="Save"
 																		>
-																			✎
+																			<Check size={10} />
 																		</button>
 																		<button
-																			onClick={() =>
-																				removeCalculatedColumn(ds.id, col)
-																			}
+																			onClick={() => setRenamingColumn(null)}
 																			style={{
 																				display: "flex",
 																				alignItems: "center",
@@ -650,10 +667,96 @@ export const Sidebar: React.FC = () => {
 																				cursor: "pointer",
 																				borderLeft: `1px solid ${t.accent}`,
 																			}}
-																			title="Delete calculated column"
+																			title="Cancel"
 																		>
-																			<Trash2 size={10} />
+																			<X size={10} />
 																		</button>
+																	</>
+																) : (
+																	<>
+																		<button
+																			onClick={() => createSeries(ds.id, col)}
+																			style={{
+																				fontSize: "0.7rem",
+																				padding: "3px 8px",
+																				borderRadius: "0",
+																				border: "none",
+																				background: "none",
+																				color: t.accent,
+																				cursor: "pointer",
+																				fontWeight: "600",
+																			}}
+																			title={isCalc ? `Formula: ${colData.formula}` : col}
+																		>
+																			{isCalc ? `ƒ ${label}` : label}
+																		</button>
+																		<div className="col-chip-actions">
+																			<button
+																				onClick={() =>
+																					setRenamingColumn({
+																						datasetId: ds.id,
+																						col,
+																						value: col,
+																					})
+																				}
+																				style={{
+																					display: "flex",
+																					alignItems: "center",
+																					padding: "2px 4px",
+																					border: "none",
+																					background: "none",
+																					color: t.textMuted,
+																					cursor: "pointer",
+																					borderLeft: `1px solid ${t.accent}`,
+																				}}
+																				title="Rename column"
+																			>
+																				<Pencil size={10} />
+																			</button>
+																			{isCalc && (
+																				<>
+																					<button
+																						onClick={() =>
+																							setEditingColumn({
+																								datasetId: ds.id,
+																								name: col,
+																								formula: colData.formula!,
+																							})
+																						}
+																						style={{
+																							fontSize: "0.65rem",
+																							padding: "2px 4px",
+																							border: "none",
+																							background: "none",
+																							color: t.accent,
+																							cursor: "pointer",
+																							borderLeft: `1px solid ${t.accent}`,
+																						}}
+																						title="Edit formula"
+																					>
+																						✎
+																					</button>
+																					<button
+																						onClick={() =>
+																							removeCalculatedColumn(ds.id, col)
+																						}
+																						style={{
+																							display: "flex",
+																							alignItems: "center",
+																							padding: "2px 4px",
+																							border: "none",
+																							background: "none",
+																							color: t.danger,
+																							cursor: "pointer",
+																							borderLeft: `1px solid ${t.accent}`,
+																						}}
+																						title="Delete calculated column"
+																					>
+																						<Trash2 size={10} />
+																					</button>
+																				</>
+																			)}
+																		</div>
 																	</>
 																)}
 															</div>
@@ -738,12 +841,6 @@ export const Sidebar: React.FC = () => {
 												className="sb-series-header-cell--text"
 											>
 												Column
-											</div>
-											<div
-												title="Series Name"
-												className="sb-series-header-cell--text"
-											>
-												Title
 											</div>
 											<div />
 										</div>

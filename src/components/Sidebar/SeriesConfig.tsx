@@ -7,7 +7,6 @@ import {
 	X,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import ColorPicker from "./ColorPicker";
@@ -32,8 +31,6 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		series: allSeries,
 		setPreviewColor,
 	} = useGraphStore();
-	const [isEditingTitle, setIsEditingTitle] = useState(false);
-
 	const handleUpdate = (updates: Partial<SeriesConfig>) => {
 		updateSeries(series.id, updates);
 	};
@@ -258,42 +255,6 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					</option>
 				))}
 			</select>
-
-			{/* Editable Title */}
-			<div className="sc-title-cell">
-				{isEditingTitle ? (
-					<input
-						name={`series-title-${series.id}`}
-						aria-label="Rename series"
-						autoComplete="off"
-						maxLength={100}
-						defaultValue={series.name || series.yColumn}
-						onBlur={(e) => {
-							handleUpdate({ name: e.target.value });
-							setIsEditingTitle(false);
-						}}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								handleUpdate({ name: e.currentTarget.value });
-								setIsEditingTitle(false);
-							}
-							if (e.key === "Escape") {
-								setIsEditingTitle(false);
-							}
-						}}
-						className="sc-title-input"
-					/>
-				) : (
-					<span
-						onClick={() => setIsEditingTitle(true)}
-						className="sc-title-span"
-						style={{ color: series.lineColor }}
-						title="Click to rename"
-					>
-						{series.name || series.yColumn}
-					</span>
-				)}
-			</div>
 
 			{/* Delete Button */}
 			<button
