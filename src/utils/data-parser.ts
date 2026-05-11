@@ -68,7 +68,9 @@ export async function parseData(
 	if (doSplit) {
 		const valueToNames = splitColIdxs.map((idx) => {
 			const m = new Map<number, string>();
-			categoricalMaps[idx].forEach((id, key) => m.set(id, key));
+			categoricalMaps[idx].forEach((id, key) => {
+				m.set(id, key);
+			});
 			return m;
 		});
 		const groupByKey = new Map<string, { name: string; rowIdxs: number[] }>();
@@ -92,7 +94,9 @@ export async function parseData(
 			}
 			g.rowIdxs.push(r);
 		}
-		groupByKey.forEach((g) => groups.push(g));
+		groupByKey.forEach((g) => {
+			groups.push(g);
+		});
 		groups.sort((a, b) => a.name.localeCompare(b.name));
 	} else {
 		groups.push({

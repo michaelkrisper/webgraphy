@@ -78,7 +78,9 @@ function applyTheme(t: ThemeName) {
 	s.setProperty("--tooltip-divider-color", theme.tooltipDividerColor);
 	s.setProperty("--tooltip-sub-color", theme.tooltipSubColor);
 	s.setProperty("--no-data-color", theme.noDataColor);
-	listeners.forEach((cb) => cb());
+	listeners.forEach((cb) => {
+		cb();
+	});
 }
 
 export function useTheme(): [ThemeName, () => void] {

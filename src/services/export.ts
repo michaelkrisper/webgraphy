@@ -119,7 +119,9 @@ export const exportToSVG = (
 	};
 
 	const axisWidthMap: Record<string, number> = {};
-	activeYAxes.forEach((a) => (axisWidthMap[a.id] = getAxisWidth(a)));
+	activeYAxes.forEach((a) => {
+		axisWidthMap[a.id] = getAxisWidth(a);
+	});
 
 	// ⚡ Bolt Optimization: Pre-calculate Y-axis cumulative offsets to replace O(N^2) inline loop lookups with O(1) property access
 	const yAxesOffsets: Record<string, number> = {};

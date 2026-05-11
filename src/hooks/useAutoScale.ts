@@ -51,19 +51,25 @@ export function useAutoScale({
 
 	const datasetsById = useMemo(() => {
 		const map = new Map<string, Dataset>();
-		datasets.forEach((d) => map.set(d.id, d));
+		datasets.forEach((d) => {
+			map.set(d.id, d);
+		});
 		return map;
 	}, [datasets]);
 
 	const xAxesById = useMemo(() => {
 		const map = new Map<string, XAxisConfig>();
-		xAxes.forEach((a) => map.set(a.id, a));
+		xAxes.forEach((a) => {
+			map.set(a.id, a);
+		});
 		return map;
 	}, [xAxes]);
 
 	const activeDatasetIdsSet = useMemo(() => {
 		const set = new Set<string>();
-		series.forEach((s) => set.add(s.sourceId));
+		series.forEach((s) => {
+			set.add(s.sourceId);
+		});
 		return set;
 	}, [series]);
 

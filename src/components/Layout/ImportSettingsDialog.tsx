@@ -381,6 +381,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 						</div>
 					)}
 					<button
+						type="button"
 						onClick={() =>
 							onConfirm({
 								delimiter,
@@ -461,6 +462,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 													{ type: "ignore", icon: EyeOff, label: "Ignore" },
 												].map((opt) => (
 													<button
+														type="button"
 														key={opt.type}
 														title={`Type: ${opt.label}`}
 														onClick={() =>

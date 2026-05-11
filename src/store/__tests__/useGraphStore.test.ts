@@ -176,7 +176,9 @@ describe("useGraphStore", () => {
 			xAxisId: "",
 		}));
 
-		datasets.forEach((ds) => store.addDataset(ds));
+		datasets.forEach((ds) => {
+			store.addDataset(ds);
+		});
 
 		const ds10: Dataset = {
 			id: "ds-10",

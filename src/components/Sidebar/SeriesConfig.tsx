@@ -161,6 +161,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					cursor: yAxisCycleDisabled ? "default" : "pointer",
 				}}
 				title="Cycle Y-Axis (1-9)"
+				type="button"
 				aria-label="Cycle Y-Axis"
 			>
 				{currentYAxisIndex}
@@ -176,6 +177,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					}
 					className="sc-btn"
 					title={currentYAxis.position === "left" ? "Left Axis" : "Right Axis"}
+					type="button"
 					aria-label="Toggle Left/Right Axis"
 				>
 					{currentYAxis.position === "left" ? (
@@ -214,6 +216,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					}
 					className={`sc-btn sc-btn--plain${!currentYAxis.showGrid ? " sc-btn--off" : ""}`}
 					title="Toggle Grid"
+					type="button"
 					aria-label="Toggle Grid"
 				>
 					<Rows3 size={16} />
@@ -232,6 +235,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				}}
 				className={`sc-btn${series.lineStyle === "none" ? " sc-btn--off" : ""}`}
 				title={`Line Style: ${series.lineStyle}`}
+				type="button"
 				aria-label="Cycle Line Style"
 			>
 				{renderLineStyleIcon()}
@@ -247,6 +251,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				}}
 				className={`sc-btn${series.pointStyle === "none" ? " sc-btn--off" : ""}`}
 				title="Point Style"
+				type="button"
 				aria-label="Cycle Point Style"
 			>
 				{renderPointStyleIcon()}
@@ -300,6 +305,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				className="sc-btn sc-btn--plain"
 				style={{ borderRight: "none", color: "var(--danger)" }}
 				title="Delete"
+				type="button"
 				aria-label="Delete Series"
 			>
 				<Trash2 size={16} />

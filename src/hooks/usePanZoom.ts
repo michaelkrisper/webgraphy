@@ -403,7 +403,9 @@ export function usePanZoom({
 				if (isDouble) {
 					if (target === "all") {
 						handleAutoScaleX();
-						activeYAxes.forEach((a) => handleAutoScaleY(a.id));
+						activeYAxes.forEach((a) => {
+							handleAutoScaleY(a.id);
+						});
 					} else if (typeof target === "object") {
 						if ("xAxisId" in target) handleAutoScaleX(target.xAxisId);
 						else if ("yAxisId" in target)

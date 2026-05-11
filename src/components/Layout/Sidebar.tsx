@@ -93,6 +93,7 @@ const HeaderButton = ({
 	off?: boolean;
 }) => (
 	<button
+		type="button"
 		onClick={onClick}
 		title={title}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
@@ -509,6 +510,7 @@ export const Sidebar: React.FC = () => {
 																	xAxisId: `axis-${nextNum}`,
 																});
 															}}
+															type="button"
 															title="Cycle X-Axis (1-9)"
 															disabled={datasets.length === 1}
 															style={{
@@ -568,11 +570,13 @@ export const Sidebar: React.FC = () => {
 															cursor: "pointer",
 															color: t.textMuted,
 														}}
+														type="button"
 														title="Add Calculated Column"
 													>
 														<Calculator size={16} />
 													</button>
 													<button
+														type="button"
 														onClick={() => removeDataset(ds.id)}
 														style={{
 															padding: "4px",
@@ -668,6 +672,7 @@ export const Sidebar: React.FC = () => {
 															) : (
 																<>
 																	<button
+																		type="button"
 																		onClick={() => createSeries(ds.id, col)}
 																		style={{
 																			fontSize: "0.7rem",
@@ -706,6 +711,7 @@ export const Sidebar: React.FC = () => {
 																				cursor: "pointer",
 																				borderLeft: `1px solid ${t.accent}`,
 																			}}
+																			type="button"
 																			title="Rename column"
 																		>
 																			<Pencil size={10} />
@@ -729,6 +735,7 @@ export const Sidebar: React.FC = () => {
 																						cursor: "pointer",
 																						borderLeft: `1px solid ${t.accent}`,
 																					}}
+																					type="button"
 																					title="Edit formula"
 																				>
 																					✎
@@ -747,6 +754,7 @@ export const Sidebar: React.FC = () => {
 																						cursor: "pointer",
 																						borderLeft: `1px solid ${t.accent}`,
 																					}}
+																					type="button"
 																					title="Delete calculated column"
 																				>
 																					<Trash2 size={10} />
@@ -919,6 +927,7 @@ export const Sidebar: React.FC = () => {
 						<button
 							onClick={() => setShowHelp(true)}
 							className="sb-footer-btn"
+							type="button"
 							title="Help"
 							style={{ fontSize: "0.7rem", padding: 0 }}
 						>
@@ -928,6 +937,7 @@ export const Sidebar: React.FC = () => {
 						<button
 							onClick={() => setShowLicense(true)}
 							className="sb-footer-btn"
+							type="button"
 							title="License"
 							style={{ fontSize: "0.7rem", padding: 0 }}
 						>
@@ -937,6 +947,7 @@ export const Sidebar: React.FC = () => {
 						<button
 							onClick={() => setShowImprint(true)}
 							className="sb-footer-btn"
+							type="button"
 							title="Imprint"
 							style={{ fontSize: "0.7rem", padding: 0 }}
 						>

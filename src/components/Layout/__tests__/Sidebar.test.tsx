@@ -26,7 +26,7 @@ vi.mock("../LicenseModal", () => ({
 }));
 vi.mock("../CollapsedMenuButton", () => ({
 	CollapsedMenuButton: ({ onClick }: { onClick: () => void }) => (
-		<button onClick={onClick} data-testid="collapsed-menu-button">
+		<button type="button" onClick={onClick} data-testid="collapsed-menu-button">
 			Menu
 		</button>
 	),

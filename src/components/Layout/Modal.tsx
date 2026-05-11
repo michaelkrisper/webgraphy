@@ -47,6 +47,7 @@ export const Modal: React.FC<ModalProps> = ({
 					)}
 					{headerActions}
 					<button
+						type="button"
 						onClick={onClose}
 						aria-label={ariaLabel || "Close dialog"}
 						className="modal-close"

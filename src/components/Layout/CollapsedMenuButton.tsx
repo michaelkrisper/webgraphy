@@ -14,6 +14,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 }) => (
 	<div className="collapsed-menu-btns">
 		<button
+			type="button"
 			onClick={onClick}
 			className="collapsed-menu-btn"
 			title="Open Menu"
@@ -22,6 +23,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 			<img src="./favicon.svg" alt="webgraphy logo" />
 		</button>
 		<button
+			type="button"
 			onClick={onExportSVG}
 			className="collapsed-menu-btn"
 			title="Export SVG"

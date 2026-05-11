@@ -128,24 +128,32 @@ const ChartContainer: React.FC = () => {
 	// 3. Layout Memos
 	const activeDsIdsSet = useMemo(() => {
 		const set = new Set<string>();
-		series.forEach((s) => set.add(s.sourceId));
+		series.forEach((s) => {
+			set.add(s.sourceId);
+		});
 		return set;
 	}, [series]);
 
 	const usedYAxisIdsSet = useMemo(() => {
 		const set = new Set<string>();
-		series.forEach((s) => set.add(s.yAxisId));
+		series.forEach((s) => {
+			set.add(s.yAxisId);
+		});
 		return set;
 	}, [series]);
 
 	const xAxesById = useMemo(() => {
 		const m = new Map<string, XAxisConfig>();
-		xAxes.forEach((a) => m.set(a.id, a));
+		xAxes.forEach((a) => {
+			m.set(a.id, a);
+		});
 		return m;
 	}, [xAxes]);
 	const yAxesById = useMemo(() => {
 		const m = new Map<string, YAxisConfig>();
-		yAxes.forEach((a) => m.set(a.id, a));
+		yAxes.forEach((a) => {
+			m.set(a.id, a);
+		});
 		return m;
 	}, [yAxes]);
 
@@ -157,7 +165,9 @@ const ChartContainer: React.FC = () => {
 	// that has categoryLabels, and they all share the same label set.
 	const yAxisCategoryLabels = useMemo(() => {
 		const dsById = new Map<string, Dataset>();
-		datasets.forEach((d) => dsById.set(d.id, d));
+		datasets.forEach((d) => {
+			dsById.set(d.id, d);
+		});
 		const out = new Map<string, string[] | undefined>();
 		const seriesByAxis = new Map<string, typeof series>();
 		series.forEach((s) => {
@@ -564,7 +574,9 @@ const ChartContainer: React.FC = () => {
 
 	const handleFitAll = useCallback(() => {
 		handleAutoScaleX();
-		activeYAxes.forEach((ax) => handleAutoScaleY(ax.id));
+		activeYAxes.forEach((ax) => {
+			handleAutoScaleY(ax.id);
+		});
 	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
 
 	const {
@@ -906,7 +918,9 @@ const ChartContainer: React.FC = () => {
 					if (datasets.length > 0 && typeof handleAutoScaleX === "function") {
 						handleAutoScaleX();
 						if (Array.isArray(activeYAxes)) {
-							activeYAxes.forEach((a) => handleAutoScaleY(a.id));
+							activeYAxes.forEach((a) => {
+								handleAutoScaleY(a.id);
+							});
 						}
 					}
 				}}
@@ -1124,6 +1138,7 @@ const ChartContainer: React.FC = () => {
 					<>
 						<button
 							onClick={handleStackedFit}
+							type="button"
 							title="Stacked Fit — each Y-axis fitted to its own slice"
 							style={{
 								position: "absolute",
@@ -1149,6 +1164,7 @@ const ChartContainer: React.FC = () => {
 						</button>
 						<button
 							onClick={handleFitAll}
+							type="button"
 							title="Fit All"
 							style={{
 								position: "absolute",

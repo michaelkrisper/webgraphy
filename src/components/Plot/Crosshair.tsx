@@ -118,19 +118,25 @@ const Crosshair = React.memo(
 
 		const datasetsById = useMemo(() => {
 			const map = new Map<string, Dataset>();
-			datasets.forEach((d) => map.set(d.id, d));
+			datasets.forEach((d) => {
+				map.set(d.id, d);
+			});
 			return map;
 		}, [datasets]);
 
 		const yAxesById = useMemo(() => {
 			const map = new Map<string, YAxisConfig>();
-			yAxes.forEach((a) => map.set(a.id, a));
+			yAxes.forEach((a) => {
+				map.set(a.id, a);
+			});
 			return map;
 		}, [yAxes]);
 
 		const xAxesById = useMemo(() => {
 			const map = new Map<string, XAxisConfig>();
-			xAxes.forEach((a) => map.set(a.id, a));
+			xAxes.forEach((a) => {
+				map.set(a.id, a);
+			});
 			return map;
 		}, [xAxes]);
 

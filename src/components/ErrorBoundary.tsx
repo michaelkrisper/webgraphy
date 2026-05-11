@@ -54,7 +54,11 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 						<h1>Application Error</h1>
 						<p>{this.state.error?.message || "An unexpected error occurred"}</p>
 						<pre>{this.state.errorInfo?.componentStack}</pre>
-						<button onClick={this.handleReset} className="error-page-reset">
+						<button
+							type="button"
+							onClick={this.handleReset}
+							className="error-page-reset"
+						>
 							Reset App
 						</button>
 					</div>
@@ -65,6 +69,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 						<h3>Rendering failed</h3>
 						<p>{this.state.error?.message || "An unexpected error occurred"}</p>
 						<button
+							type="button"
 							onClick={this.handleReset}
 							className="error-component-reset"
 						>

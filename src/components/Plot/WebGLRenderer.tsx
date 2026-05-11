@@ -302,14 +302,18 @@ export const WebGLRenderer = React.memo(
 		useEffect(() => {
 			const gl = glRef.current;
 			if (!gl) return;
-			buffersRef.current.forEach((buf) => gl.deleteBuffer(buf));
+			buffersRef.current.forEach((buf) => {
+				gl.deleteBuffer(buf);
+			});
 			buffersRef.current.clear();
 			segParamsRef.current.clear();
 		}, []);
 
 		const seriesMetadata = useMemo(() => {
 			const datasetsById = new Map<string, Dataset>();
-			datasets.forEach((d) => datasetsById.set(d.id, d));
+			datasets.forEach((d) => {
+				datasetsById.set(d.id, d);
+			});
 
 			return series
 				.map((s) => {
@@ -371,9 +375,13 @@ export const WebGLRenderer = React.memo(
 				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
 				const xAxesById = new Map<string, XAxisConfig>();
-				currentXAxes.forEach((a) => xAxesById.set(a.id, a));
+				currentXAxes.forEach((a) => {
+					xAxesById.set(a.id, a);
+				});
 				const yAxesById = new Map<string, YAxisConfig>();
-				currentYAxes.forEach((a) => yAxesById.set(a.id, a));
+				currentYAxes.forEach((a) => {
+					yAxesById.set(a.id, a);
+				});
 
 				const chartWidth = width - padding.left - padding.right;
 				const chartHeight = height - padding.top - padding.bottom;
