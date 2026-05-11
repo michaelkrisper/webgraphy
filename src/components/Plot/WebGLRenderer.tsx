@@ -529,7 +529,7 @@ export const WebGLRenderer = React.memo(
 						const reqLen = totalDrawCount + Math.max(0, drawSegments.length - 1);
 						let flatX = scratchXRef.current;
 						let flatY = scratchYRef.current;
-						if (!flatX || flatX.length < reqLen) {
+						if (!flatX || !flatY || flatX.length < reqLen) {
 							const newCap = Math.max(reqLen, (flatX?.length || 0) * 2 || 1024);
 							flatX = new Float32Array(newCap);
 							flatY = new Float32Array(newCap);
