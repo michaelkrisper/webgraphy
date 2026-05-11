@@ -1,6 +1,6 @@
 import { Check, Clock, EyeOff, FileType, Hash, Tag } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import type {
 	ColumnConfig,
 	ColumnType,
@@ -158,6 +158,10 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	// null = no split; otherwise the column name to split by
 	const [splitByColumns, setSplitByColumns] = useState<string[]>([]);
 
+	const deferredDelimiter = useDeferredValue(delimiter);
+	const deferredStartRow = useDeferredValue(startRow);
+	const deferredCommentChar = useDeferredValue(commentChar);
+
 	const previewData = useMemo(() => {
 		if (fileType === "json") {
 			try {
@@ -181,7 +185,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		const allLines = fileContent.split(/\r?\n/).filter((l) => l.trim());
 		const lines = allLines.filter((l) => {
 			const trimmed = l.trim();
-			return commentChar ? !trimmed.startsWith(commentChar) : true;
+			return deferredCommentChar ? !trimmed.startsWith(deferredCommentChar) : true;
 		});
 		if (lines.length === 0)
 			return {
@@ -190,19 +194,19 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 				skippedLines: [] as string[],
 			};
 
-		const headerRowIndex = Math.max(0, startRow - 1);
+		const headerRowIndex = Math.max(0, deferredStartRow - 1);
 		const skippedLines = lines.slice(0, headerRowIndex);
 		const headerLine = lines[headerRowIndex] || "";
 		const headers = headerLine
-			.split(delimiter)
+			.split(deferredDelimiter)
 			.map((h) => h.trim().replace(/^"|"$/g, ""));
 		const rows = lines
 			.slice(headerRowIndex + 1, headerRowIndex + 51)
 			.map((line) =>
-				line.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, "")),
+				line.split(deferredDelimiter).map((v) => v.trim().replace(/^"|"$/g, "")),
 			);
 		return { headers, rows, skippedLines };
-	}, [fileContent, fileType, delimiter, startRow, commentChar]);
+	}, [fileContent, fileType, deferredDelimiter, deferredStartRow, deferredCommentChar]);
 
 	// Derived column configs: auto-detected type + user overrides (keyed by column name)
 	const columnConfigs = useMemo<ColumnConfig[]>(() => {

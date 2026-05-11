@@ -28,6 +28,7 @@ export const useDataImport = () => {
 	const [pendingFile, setPendingFile] = useState<{
 		file: File;
 		preview: string;
+		fullCsv?: string; // full CSV for Excel import (preview is truncated)
 		type: "csv" | "json" | "excel";
 		sheets?: string[];
 		selectedSheet?: string;
@@ -47,11 +48,13 @@ export const useDataImport = () => {
 					const workbook = XLSX.read(data, { type: "array" });
 					const sheets = workbook.SheetNames;
 					const selectedSheet = sheets[0];
-					const preview = XLSX.utils.sheet_to_csv(workbook.Sheets[selectedSheet]);
-					
+					const fullCsv = XLSX.utils.sheet_to_csv(workbook.Sheets[selectedSheet]);
+					const preview = fullCsv.split("\n").slice(0, 500).join("\n");
+
 					setPendingFile({
 						file,
 						preview,
+						fullCsv,
 						type: "excel",
 						sheets,
 						selectedSheet,
@@ -81,8 +84,9 @@ export const useDataImport = () => {
 		const XLSX = await import("xlsx");
 		setPendingFile((prev) => {
 			if (!prev || prev.type !== "excel" || !prev.workbook) return prev;
-			const preview = XLSX.utils.sheet_to_csv(prev.workbook.Sheets[sheetName]);
-			return { ...prev, selectedSheet: sheetName, preview };
+			const fullCsv = XLSX.utils.sheet_to_csv(prev.workbook.Sheets[sheetName]);
+			const preview = fullCsv.split("\n").slice(0, 500).join("\n");
+			return { ...prev, selectedSheet: sheetName, preview, fullCsv };
 		});
 	}, []);
 
@@ -92,12 +96,12 @@ export const useDataImport = () => {
 			setIsImporting(true);
 			setError(null);
 
-			const { file, type, preview } = pendingFile;
+			const { file, type, preview, fullCsv } = pendingFile;
 			let workerFile = file;
 			let workerType = type;
 
 			if (type === "excel") {
-				workerFile = new File([preview], file.name + ".csv", { type: "text/csv" });
+				workerFile = new File([fullCsv ?? preview], file.name + ".csv", { type: "text/csv" });
 				workerType = "csv";
 			}
 
