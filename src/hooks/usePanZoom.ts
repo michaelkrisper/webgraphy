@@ -176,6 +176,8 @@ export function usePanZoom({
 	}, [
 		activeXAxes,
 		activeYAxes,
+		leftAxes,
+		rightAxes,
 		chartWidth,
 		chartHeight,
 		targetXAxes,
@@ -326,6 +328,8 @@ export function usePanZoom({
 			padding,
 			chartWidth,
 			chartHeight,
+			leftAxes,
+			rightAxes,
 			targetXAxes,
 			targetYs,
 			syncViewport,

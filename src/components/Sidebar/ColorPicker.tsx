@@ -87,6 +87,7 @@ function ColorPicker({
 		onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
 	};
 	const rgbRef = useRef({ r, g, b });
+	// eslint-disable-next-line react-hooks/refs
 	rgbRef.current = { r, g, b };
 
 	useEffect(() => {

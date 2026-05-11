@@ -14,7 +14,6 @@ import type {
 import { useGraphStore } from "../../store/useGraphStore";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
-import { m4ByXFloat32 as _m4ByXFloat32 } from "../../utils/decimation";
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -430,10 +429,6 @@ export const WebGLRenderer = React.memo(
 
 						// Pixel-anchored M4: 1 bucket per device pixel, tied to world-X (xAxis.min..max).
 						// Bucket boundaries don't shift with slice length, so extrema stay stable under zoom.
-						// Pass-through threshold is generous: small/medium datasets render raw, avoiding
-						// any decimation-induced extrema flicker when points pan across bucket boundaries.
-						const numBuckets = Math.max(64, Math.round(chartWidth * dpr));
-
 						// Binary-search requires globally monotonic X. If column has internal drops
 						// (e.g. concatenated groups), fall back to scanning the full array —
 						// the per-segment loop below splits at xDrop and handles each correctly.
