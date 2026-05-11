@@ -320,7 +320,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			persistence.saveDataset(updatedDataset);
 			const updatedSeries = state.series.map((s) =>
 				s.sourceId === datasetId && s.yColumn === oldName
-					? { ...s, yColumn: trimmed, label: s.label === oldName ? trimmed : s.label }
+					? { ...s, yColumn: trimmed, name: s.name === oldName ? trimmed : s.name }
 					: s,
 			);
 			return {

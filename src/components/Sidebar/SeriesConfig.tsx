@@ -13,13 +13,13 @@ import ColorPicker from "./ColorPicker";
 
 interface Props {
 	series: SeriesConfig;
-	dataset: Dataset | undefined;
+	datasets: Dataset[];
 	onHandleMouseDown?: (e: React.MouseEvent) => void;
 }
 
 export const SeriesConfigUI: React.FC<Props> = ({
 	series,
-	dataset,
+	datasets,
 	onHandleMouseDown,
 }) => {
 	const {
@@ -31,6 +31,8 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		series: allSeries,
 		setPreviewColor,
 	} = useGraphStore();
+
+	const multiDs = datasets.length > 1;
 	const handleUpdate = (updates: Partial<SeriesConfig>) => {
 		updateSeries(series.id, updates);
 	};
@@ -244,16 +246,27 @@ export const SeriesConfigUI: React.FC<Props> = ({
 			<select
 				name={`series-y-column-${series.id}`}
 				aria-label={`Y Column for ${series.name || series.yColumn}`}
-				value={series.yColumn}
-				onChange={(e) => handleUpdate({ yColumn: e.target.value })}
+				value={`${series.sourceId}::${series.yColumn}`}
+				onChange={(e) => {
+					const [dsId, col] = e.target.value.split("::");
+					handleUpdate({ sourceId: dsId, yColumn: col });
+				}}
 				className="sc-select"
 				title="Y Column"
 			>
-				{dataset?.columns.map((c) => (
-					<option key={c} value={c}>
-						{c}
-					</option>
-				))}
+				{datasets.map((ds, dsIdx) => {
+					const letter = String.fromCharCode(65 + dsIdx);
+					return ds.columns.map((c) => {
+						const label = multiDs
+							? `${letter}: ${c.includes(": ") ? c.split(": ")[1] : c}`
+							: (c.includes(": ") ? c.split(": ")[1] : c);
+						return (
+							<option key={`${ds.id}::${c}`} value={`${ds.id}::${c}`}>
+								{label}
+							</option>
+						);
+					});
+				})}
 			</select>
 
 			{/* Delete Button */}

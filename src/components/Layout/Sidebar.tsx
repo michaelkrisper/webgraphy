@@ -575,14 +575,13 @@ export const Sidebar: React.FC = () => {
 												</div>
 											</div>
 
-											<div style={{ padding: "6px 10px" }}>
-												<div
-													style={{
-														display: "flex",
-														flexWrap: "wrap",
-														gap: "0",
-													}}
-												>
+											<div
+												style={{
+													display: "grid",
+													gridTemplateColumns: "repeat(5, 1fr)",
+													gap: "0",
+												}}
+											>
 													{ds.columns.map((col, colIdx) => {
 														const isUsed = series.some(
 															(s) => s.sourceId === ds.id && s.yColumn === col,
@@ -762,7 +761,6 @@ export const Sidebar: React.FC = () => {
 															</div>
 														);
 													})}
-												</div>
 											</div>
 										</div>
 									))}
@@ -879,7 +877,7 @@ export const Sidebar: React.FC = () => {
 												>
 													<SeriesConfigUI
 														series={s}
-														dataset={datasetsById[s.sourceId]}
+														datasets={datasets}
 														onHandleMouseDown={
 															!isGhost
 																? (e) => {

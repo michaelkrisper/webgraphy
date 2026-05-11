@@ -1357,6 +1357,16 @@
 .col-chip {
 	display: flex;
 	position: relative;
+	width: 100%;
+	margin: 0;
+	box-sizing: border-box;
+}
+.col-chip > button:first-child {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .col-chip-actions {
 	display: flex;

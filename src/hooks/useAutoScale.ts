@@ -31,6 +31,7 @@ interface UseAutoScaleOptions {
 interface UseAutoScaleResult {
 	handleAutoScaleY: (axisId: string, mouseY?: number) => void;
 	handleAutoScaleX: (xAxisId?: string) => void;
+	handleStackedFit: () => void;
 }
 
 export function useAutoScale({

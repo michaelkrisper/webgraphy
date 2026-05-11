@@ -137,13 +137,18 @@ export function usePanZoom({
 
 		// Y-Axis Panning
 		if (ps.target === "all" || (ps.target as { yAxisId?: string }).yAxisId) {
+			const targetYId = (ps.target as { yAxisId?: string }).yAxisId;
+			const syncSideAxes = shiftDownRef.current && !!targetYId
+				? (leftAxes.some((a) => a.id === targetYId) ? leftAxes : rightAxes)
+				: null;
 			activeYAxes.forEach((axis) => {
-				if (
-					ps.target !== "all" &&
-					!shiftDownRef.current &&
-					(ps.target as { yAxisId?: string }).yAxisId !== axis.id
-				)
-					return;
+				if (ps.target !== "all") {
+					if (syncSideAxes) {
+						if (!syncSideAxes.some((a) => a.id === axis.id)) return;
+					} else if (targetYId !== axis.id) {
+						return;
+					}
+				}
 				const startConf = ps.startTargetY[axis.id];
 				if (!startConf) return;
 				const pxPerWorld = chartHeight / (startConf.max - startConf.min);
@@ -273,8 +278,14 @@ export function usePanZoom({
 				(target === "all" && !shiftKey) ||
 				(typeof target === "object" && "yAxisId" in target)
 			) {
-				const axesToZoom =
-					target === "all" ? activeYAxes : [yAxesById.get(target.yAxisId)!];
+				const axesToZoom = (() => {
+					if (target === "all") return activeYAxes;
+					const yId = (target as { yAxisId: string }).yAxisId;
+					if (shiftKey) {
+						return leftAxes.some((a) => a.id === yId) ? leftAxes : rightAxes;
+					}
+					return [yAxesById.get(yId)!];
+				})();
 				axesToZoom.forEach((axis) => {
 					if (!axis) return;
 					const axisVp = {
