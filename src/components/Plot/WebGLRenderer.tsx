@@ -204,6 +204,11 @@ export const WebGLRenderer = React.memo(
 		const scratchYRef = useRef<Float32Array | null>(null);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
 		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
+		// Adaptive decimation: tracks last frame time and adjusts pixel budget multiplier.
+		// Budget scales down when rendering is slow, up when there is headroom.
+		const pixelBudgetMultRef = useRef<number>(64);
+		const frameTimeRef = useRef<number>(0);
+		const lastBudgetUpdateRef = useRef<number>(0);
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
 		const drawFrameRef = useRef<
@@ -400,6 +405,7 @@ export const WebGLRenderer = React.memo(
 					chartHeight * dpr,
 				);
 
+				const t0 = performance.now();
 				seriesMetadata.forEach(
 					({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
 						const xAxis = xAxesById.get(ds.xAxisId || "axis-1");
@@ -423,7 +429,7 @@ export const WebGLRenderer = React.memo(
 						// Pass-through threshold is generous: small/medium datasets render raw, avoiding
 						// any decimation-induced extrema flicker when points pan across bucket boundaries.
 						const numBuckets = Math.max(64, Math.round(chartWidth * dpr));
-						const pixelBudget = numBuckets * 16;
+						const pixelBudget = numBuckets * pixelBudgetMultRef.current;
 
 						// Binary-search requires globally monotonic X. If column has internal drops
 						// (e.g. concatenated groups), fall back to scanning the full array —
@@ -507,22 +513,8 @@ export const WebGLRenderer = React.memo(
 							const segLen = end - start + 1;
 							const segX = sliceX.subarray(start, end + 1);
 							const segY = sliceY.subarray(start, end + 1);
-							if (segLen > pixelBudget) {
-								const dec = m4ByXFloat32(
-									segX,
-									segY,
-									xRef,
-									xAxis.min,
-									xAxis.max,
-									numBuckets,
-									m4Out,
-								);
-								drawSegments.push({ x: dec.x.slice(), y: dec.y.slice() });
-								totalDrawCount += dec.x.length;
-							} else {
-								drawSegments.push({ x: segX, y: segY });
-								totalDrawCount += segLen;
-							}
+							drawSegments.push({ x: segX, y: segY });
+							totalDrawCount += segLen;
 						}
 
 						// Flatten all segments into a single buffer separated by NaN sentinels
@@ -730,6 +722,22 @@ export const WebGLRenderer = React.memo(
 					},
 				);
 				gl.disable(gl.SCISSOR_TEST);
+
+				// Adaptive pixel budget: scale down when slow, scale up when there is headroom.
+				// TARGET_MS = 20 (~50 fps) — only throttle on visible stutter. Clamp multiplier to [8, 64].
+				// Budget update throttled to ~30 Hz (every 33 ms) to avoid rapid oscillation.
+				const TARGET_MS = 20;
+				const BUDGET_UPDATE_INTERVAL = 33;
+				const now = performance.now();
+				frameTimeRef.current = now - t0;
+				if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
+					lastBudgetUpdateRef.current = now;
+					if (frameTimeRef.current > TARGET_MS) {
+						pixelBudgetMultRef.current = Math.max(32, pixelBudgetMultRef.current * 0.8);
+					} else if (frameTimeRef.current < TARGET_MS * 0.5) {
+						pixelBudgetMultRef.current = Math.min(64, pixelBudgetMultRef.current * 1.2);
+					}
+				}
 			};
 
 			drawFrameRef.current = drawFrame;
@@ -745,6 +753,16 @@ export const WebGLRenderer = React.memo(
 				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
 			}
 		}, [width, height, padding, isInteracting]);
+
+		// After interaction ends: debounce-redraw at full quality (max pixel budget).
+		useEffect(() => {
+			if (isInteracting) return;
+			const id = setTimeout(() => {
+				pixelBudgetMultRef.current = 64;
+				drawFrameRef.current?.(liveXAxesRef.current, liveYAxesRef.current);
+			}, 0);
+			return () => clearTimeout(id);
+		}, [isInteracting]);
 
 		const dpr = window.devicePixelRatio || 1;
 		return (
