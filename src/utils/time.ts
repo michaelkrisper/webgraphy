@@ -176,7 +176,6 @@ function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 	}
 }
 
-
 export interface SecondaryLabel {
 	timestamp: number;
 	label: string;

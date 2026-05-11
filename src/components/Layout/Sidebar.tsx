@@ -1,6 +1,8 @@
 import {
 	ArrowUpDown,
 	Calculator,
+	Cat,
+	Check,
 	ChevronDown,
 	ChevronRight,
 	Circle,
@@ -12,7 +14,6 @@ import {
 	Hash,
 	Image,
 	List,
-	Check,
 	Minus,
 	Moon,
 	MoveHorizontal,
@@ -20,7 +21,6 @@ import {
 	PanelRightClose,
 	Pencil,
 	Rows3,
-	Cat,
 	Sun,
 	Terminal,
 	Trash2,
@@ -28,13 +28,13 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import packageJson from "../../../package.json";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES, type ThemeName } from "../../themes";
 import { buildSeriesConfig } from "../../utils/series";
-import packageJson from "../../../package.json";
 import ErrorBoundary from "../ErrorBoundary";
 import { SeriesConfigUI } from "../Sidebar/SeriesConfig";
 import { CalculatedColumnModal } from "./CalculatedColumnModal";
@@ -179,7 +179,9 @@ export const Sidebar: React.FC = () => {
 				if (!hasMoved && Math.abs(e.clientY - startY) > 5) {
 					hasMoved = true;
 					setDragId(seriesId);
-					const origIdx = rowRectsRef.current.findIndex((r) => r.id === seriesId);
+					const origIdx = rowRectsRef.current.findIndex(
+						(r) => r.id === seriesId,
+					);
 					setDropIndex(origIdx);
 				}
 
@@ -264,8 +266,7 @@ export const Sidebar: React.FC = () => {
 		if (!dataset) return;
 
 		const colIdx = dataset.columns.indexOf(columnName);
-		const isCategorical =
-			colIdx >= 0 && !!dataset.data[colIdx]?.categoryLabels;
+		const isCategorical = colIdx >= 0 && !!dataset.data[colIdx]?.categoryLabels;
 		addSeries(
 			buildSeriesConfig(columnName, datasetId, series.length, isCategorical),
 		);
@@ -295,7 +296,11 @@ export const Sidebar: React.FC = () => {
 						style={{ cursor: "pointer" }}
 						onClick={() => setIsCollapsed(true)}
 					/>
-					<HeaderButton onClick={handleImport} icon={<FilePlus size={24} />} title="Import Data Source" />
+					<HeaderButton
+						onClick={handleImport}
+						icon={<FilePlus size={24} />}
+						title="Import Data Source"
+					/>
 					<div className="sb-hdr-btns">
 						<HeaderButton
 							onClick={loadDemoData}
@@ -303,8 +308,16 @@ export const Sidebar: React.FC = () => {
 							title="Load Demo Data"
 						/>
 						{hdrSep}
-						<HeaderButton onClick={handleExportSVG} icon={<FileImage size={24} />} title="Export SVG" />
-						<HeaderButton onClick={handleExportPNG} icon={<Image size={24} />} title="Export PNG" />
+						<HeaderButton
+							onClick={handleExportSVG}
+							icon={<FileImage size={24} />}
+							title="Export SVG"
+						/>
+						<HeaderButton
+							onClick={handleExportPNG}
+							icon={<Image size={24} />}
+							title="Export PNG"
+						/>
 						{hdrSep}
 						<span className="sb-spacer" />
 						<HeaderButton
@@ -313,7 +326,9 @@ export const Sidebar: React.FC = () => {
 								if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
 							}}
 							icon={<Columns3 size={24} />}
-							title={xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
+							title={
+								xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"
+							}
 							off={!xAxes[0]?.showGrid}
 						/>
 						<HeaderButton
@@ -400,10 +415,11 @@ export const Sidebar: React.FC = () => {
 												fontSize: "0.85rem",
 												lineHeight: "1.4",
 												textAlign: "center",
-												fontStyle: "italic"
+												fontStyle: "italic",
 											}}
 										>
-											Add datasources by importing or drag and drop on the graph surface
+											Add datasources by importing or drag and drop on the graph
+											surface
 										</div>
 									)}
 
@@ -445,7 +461,13 @@ export const Sidebar: React.FC = () => {
 														? ds.name.split(": ")[1]
 														: ds.name}
 												</span>
-												<span style={{ fontSize: "0.7rem", color: t.textMuted, opacity: 0.8 }}>
+												<span
+													style={{
+														fontSize: "0.7rem",
+														color: t.textMuted,
+														opacity: 0.8,
+													}}
+												>
 													{ds.rowCount.toLocaleString()} lines
 												</span>
 												<div
@@ -574,185 +596,199 @@ export const Sidebar: React.FC = () => {
 													gap: "0",
 												}}
 											>
-													{ds.columns.map((col, colIdx) => {
-														const isUsed = series.some(
-															(s) => s.sourceId === ds.id && s.yColumn === col,
-														);
-														const isX = ds.xAxisColumn === col;
-														if (isX) return null;
-														const colData = ds.data[colIdx];
-														const isCalc = !!colData?.formula;
-														const label = col.includes(": ")
-															? col.split(": ")[1]
-															: col;
-														const isRenaming =
-															renamingColumn?.datasetId === ds.id &&
-															renamingColumn?.col === col;
-														return (
-															<div
-																key={col}
-																className="col-chip"
-																style={{
-																	border: `1px solid ${t.accent}`,
-																	backgroundColor: t.bg3,
-																	opacity: isUsed ? 0.7 : 1,
-																}}
-															>
-																{isRenaming ? (
-																	<>
-																		<input
-																			autoFocus
-																			value={renamingColumn.value}
-																			onChange={(e) =>
-																				setRenamingColumn((prev) =>
-																					prev ? { ...prev, value: e.target.value } : prev,
-																				)
-																			}
-																			onKeyDown={(e) => {
-																				if (e.key === "Enter") {
-																					renameColumn(ds.id, col, renamingColumn.value);
-																					setRenamingColumn(null);
-																				} else if (e.key === "Escape") {
-																					setRenamingColumn(null);
-																				}
-																			}}
-																			style={{
-																				fontSize: "0.7rem",
-																				padding: "3px 6px",
-																				border: "none",
-																				background: "none",
-																				color: t.accent,
-																				fontWeight: "600",
-																				width: `${Math.max(40, renamingColumn.value.length * 7)}px`,
-																				outline: "none",
-																			}}
-																		/>
-																		<button
-																			onClick={() => {
-																				renameColumn(ds.id, col, renamingColumn.value);
+												{ds.columns.map((col, colIdx) => {
+													const isUsed = series.some(
+														(s) => s.sourceId === ds.id && s.yColumn === col,
+													);
+													const isX = ds.xAxisColumn === col;
+													if (isX) return null;
+													const colData = ds.data[colIdx];
+													const isCalc = !!colData?.formula;
+													const label = col.includes(": ")
+														? col.split(": ")[1]
+														: col;
+													const isRenaming =
+														renamingColumn?.datasetId === ds.id &&
+														renamingColumn?.col === col;
+													return (
+														<div
+															key={col}
+															className="col-chip"
+															style={{
+																border: `1px solid ${t.accent}`,
+																backgroundColor: t.bg3,
+																opacity: isUsed ? 0.7 : 1,
+															}}
+														>
+															{isRenaming ? (
+																<>
+																	<input
+																		autoFocus
+																		value={renamingColumn.value}
+																		onChange={(e) =>
+																			setRenamingColumn((prev) =>
+																				prev
+																					? { ...prev, value: e.target.value }
+																					: prev,
+																			)
+																		}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter") {
+																				renameColumn(
+																					ds.id,
+																					col,
+																					renamingColumn.value,
+																				);
 																				setRenamingColumn(null);
-																			}}
+																			} else if (e.key === "Escape") {
+																				setRenamingColumn(null);
+																			}
+																		}}
+																		style={{
+																			fontSize: "0.7rem",
+																			padding: "3px 6px",
+																			border: "none",
+																			background: "none",
+																			color: t.accent,
+																			fontWeight: "600",
+																			width: `${Math.max(40, renamingColumn.value.length * 7)}px`,
+																			outline: "none",
+																		}}
+																	/>
+																	<button
+																		onClick={() => {
+																			renameColumn(
+																				ds.id,
+																				col,
+																				renamingColumn.value,
+																			);
+																			setRenamingColumn(null);
+																		}}
+																		style={{
+																			display: "flex",
+																			alignItems: "center",
+																			padding: "2px 4px",
+																			border: "none",
+																			background: "none",
+																			color: t.accent,
+																			cursor: "pointer",
+																			borderLeft: `1px solid ${t.accent}`,
+																		}}
+																		title="Save"
+																	>
+																		<Check size={10} />
+																	</button>
+																	<button
+																		onClick={() => setRenamingColumn(null)}
+																		style={{
+																			display: "flex",
+																			alignItems: "center",
+																			padding: "2px 4px",
+																			border: "none",
+																			background: "none",
+																			color: t.danger,
+																			cursor: "pointer",
+																			borderLeft: `1px solid ${t.accent}`,
+																		}}
+																		title="Cancel"
+																	>
+																		<X size={10} />
+																	</button>
+																</>
+															) : (
+																<>
+																	<button
+																		onClick={() => createSeries(ds.id, col)}
+																		style={{
+																			fontSize: "0.7rem",
+																			padding: "3px 8px",
+																			borderRadius: "0",
+																			border: "none",
+																			background: "none",
+																			color: t.accent,
+																			cursor: "pointer",
+																			fontWeight: "600",
+																		}}
+																		title={
+																			isCalc
+																				? `Formula: ${colData.formula}`
+																				: col
+																		}
+																	>
+																		{isCalc ? `ƒ ${label}` : label}
+																	</button>
+																	<div className="col-chip-actions">
+																		<button
+																			onClick={() =>
+																				setRenamingColumn({
+																					datasetId: ds.id,
+																					col,
+																					value: col,
+																				})
+																			}
 																			style={{
 																				display: "flex",
 																				alignItems: "center",
 																				padding: "2px 4px",
 																				border: "none",
 																				background: "none",
-																				color: t.accent,
+																				color: t.textMuted,
 																				cursor: "pointer",
 																				borderLeft: `1px solid ${t.accent}`,
 																			}}
-																			title="Save"
+																			title="Rename column"
 																		>
-																			<Check size={10} />
+																			<Pencil size={10} />
 																		</button>
-																		<button
-																			onClick={() => setRenamingColumn(null)}
-																			style={{
-																				display: "flex",
-																				alignItems: "center",
-																				padding: "2px 4px",
-																				border: "none",
-																				background: "none",
-																				color: t.danger,
-																				cursor: "pointer",
-																				borderLeft: `1px solid ${t.accent}`,
-																			}}
-																			title="Cancel"
-																		>
-																			<X size={10} />
-																		</button>
-																	</>
-																) : (
-																	<>
-																		<button
-																			onClick={() => createSeries(ds.id, col)}
-																			style={{
-																				fontSize: "0.7rem",
-																				padding: "3px 8px",
-																				borderRadius: "0",
-																				border: "none",
-																				background: "none",
-																				color: t.accent,
-																				cursor: "pointer",
-																				fontWeight: "600",
-																			}}
-																			title={isCalc ? `Formula: ${colData.formula}` : col}
-																		>
-																			{isCalc ? `ƒ ${label}` : label}
-																		</button>
-																		<div className="col-chip-actions">
-																			<button
-																				onClick={() =>
-																					setRenamingColumn({
-																						datasetId: ds.id,
-																						col,
-																						value: col,
-																					})
-																				}
-																				style={{
-																					display: "flex",
-																					alignItems: "center",
-																					padding: "2px 4px",
-																					border: "none",
-																					background: "none",
-																					color: t.textMuted,
-																					cursor: "pointer",
-																					borderLeft: `1px solid ${t.accent}`,
-																				}}
-																				title="Rename column"
-																			>
-																				<Pencil size={10} />
-																			</button>
-																			{isCalc && (
-																				<>
-																					<button
-																						onClick={() =>
-																							setEditingColumn({
-																								datasetId: ds.id,
-																								name: col,
-																								formula: colData.formula!,
-																							})
-																						}
-																						style={{
-																							fontSize: "0.65rem",
-																							padding: "2px 4px",
-																							border: "none",
-																							background: "none",
-																							color: t.accent,
-																							cursor: "pointer",
-																							borderLeft: `1px solid ${t.accent}`,
-																						}}
-																						title="Edit formula"
-																					>
-																						✎
-																					</button>
-																					<button
-																						onClick={() =>
-																							removeCalculatedColumn(ds.id, col)
-																						}
-																						style={{
-																							display: "flex",
-																							alignItems: "center",
-																							padding: "2px 4px",
-																							border: "none",
-																							background: "none",
-																							color: t.danger,
-																							cursor: "pointer",
-																							borderLeft: `1px solid ${t.accent}`,
-																						}}
-																						title="Delete calculated column"
-																					>
-																						<Trash2 size={10} />
-																					</button>
-																				</>
-																			)}
-																		</div>
-																	</>
-																)}
-															</div>
-														);
-													})}
+																		{isCalc && (
+																			<>
+																				<button
+																					onClick={() =>
+																						setEditingColumn({
+																							datasetId: ds.id,
+																							name: col,
+																							formula: colData.formula!,
+																						})
+																					}
+																					style={{
+																						fontSize: "0.65rem",
+																						padding: "2px 4px",
+																						border: "none",
+																						background: "none",
+																						color: t.accent,
+																						cursor: "pointer",
+																						borderLeft: `1px solid ${t.accent}`,
+																					}}
+																					title="Edit formula"
+																				>
+																					✎
+																				</button>
+																				<button
+																					onClick={() =>
+																						removeCalculatedColumn(ds.id, col)
+																					}
+																					style={{
+																						display: "flex",
+																						alignItems: "center",
+																						padding: "2px 4px",
+																						border: "none",
+																						background: "none",
+																						color: t.danger,
+																						cursor: "pointer",
+																						borderLeft: `1px solid ${t.accent}`,
+																					}}
+																					title="Delete calculated column"
+																				>
+																					<Trash2 size={10} />
+																				</button>
+																			</>
+																		)}
+																	</div>
+																</>
+															)}
+														</div>
+													);
+												})}
 											</div>
 										</div>
 									))}
@@ -873,8 +909,8 @@ export const Sidebar: React.FC = () => {
 														onHandleMouseDown={
 															!isGhost
 																? (e) => {
-																	startDrag(s.id, e);
-																}
+																		startDrag(s.id, e);
+																	}
 																: undefined
 														}
 													/>
@@ -888,17 +924,63 @@ export const Sidebar: React.FC = () => {
 					</section>
 				</div>
 
-				<footer className="sb-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "8px 12px", whiteSpace: "nowrap" }}>
-					<div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--text-muted-color)" }}>
+				<footer
+					className="sb-footer"
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						gap: "12px",
+						padding: "8px 12px",
+						whiteSpace: "nowrap",
+					}}
+				>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: "8px",
+							fontSize: "0.7rem",
+							color: "var(--text-muted-color)",
+						}}
+					>
 						<span style={{ opacity: 0.8 }}>v{packageJson.version}</span>
 						<span style={{ opacity: 0.5 }}>|</span>
-						<button onClick={() => setShowHelp(true)} className="sb-footer-btn" title="Help" style={{ fontSize: "0.7rem", padding: 0 }}>Help</button>
+						<button
+							onClick={() => setShowHelp(true)}
+							className="sb-footer-btn"
+							title="Help"
+							style={{ fontSize: "0.7rem", padding: 0 }}
+						>
+							Help
+						</button>
 						<span style={{ opacity: 0.5 }}>|</span>
-						<button onClick={() => setShowLicense(true)} className="sb-footer-btn" title="License" style={{ fontSize: "0.7rem", padding: 0 }}>License</button>
+						<button
+							onClick={() => setShowLicense(true)}
+							className="sb-footer-btn"
+							title="License"
+							style={{ fontSize: "0.7rem", padding: 0 }}
+						>
+							License
+						</button>
 						<span style={{ opacity: 0.5 }}>|</span>
-						<button onClick={() => setShowImprint(true)} className="sb-footer-btn" title="Imprint" style={{ fontSize: "0.7rem", padding: 0 }}>Imprint</button>
+						<button
+							onClick={() => setShowImprint(true)}
+							className="sb-footer-btn"
+							title="Imprint"
+							style={{ fontSize: "0.7rem", padding: 0 }}
+						>
+							Imprint
+						</button>
 					</div>
-					<div style={{ fontSize: "0.7rem", color: "var(--text-muted-color)", opacity: 0.8, textAlign: "right" }}>
+					<div
+						style={{
+							fontSize: "0.7rem",
+							color: "var(--text-muted-color)",
+							opacity: 0.8,
+							textAlign: "right",
+						}}
+					>
 						MIT License, Michael Krisper
 					</div>
 				</footer>

@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import type React from "react";
+import { useMemo } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { THEMES } from "../../themes";
 
@@ -8,7 +9,11 @@ interface EmptyStateProps {
 	padding: { top: number; right: number; bottom: number; left: number };
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ width, height, padding }) => {
+export const EmptyState: React.FC<EmptyStateProps> = ({
+	width,
+	height,
+	padding,
+}) => {
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];
 
@@ -39,8 +44,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ width, height, padding }
 
 			for (let x = 0; x <= chartWidth; x++) {
 				const noise = Math.sin(x * 0.005 + noiseSeed) * 10;
-				const y = chartHeight / 2 + offsets[i] +
-					Math.sin(x * 0.005 + i * 2) * (80 + i * 20) + noise;
+				const y =
+					chartHeight / 2 +
+					offsets[i] +
+					Math.sin(x * 0.005 + i * 2) * (80 + i * 20) +
+					noise;
 				wavePath += `${x === 0 ? "M" : "L"} ${x} ${y} `;
 			}
 			wavePaths += `<path d="${wavePath}" stroke="${waveColors[i]}" stroke-width="2" fill="none"/>`;
@@ -57,30 +65,75 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ width, height, padding }
 	}, [t, chartWidth, chartHeight]);
 
 	return (
-		<div style={{
-			position: "absolute",
-			left: padding.left,
-			top: padding.top,
-			width: chartWidth,
-			height: chartHeight,
-			overflow: "hidden",
-			zIndex: 2,
-			backgroundColor: t.bg2,
-			backgroundImage: `url("${backgroundSvg}")`,
-			backgroundRepeat: "no-repeat",
-			backgroundSize: "100% 100%"
-		}}>
-			<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-				<div style={{
-					textAlign: "center", background: "rgba(0,0,0,0.03)", padding: "20px 40px", borderRadius: "12px",
-					backdropFilter: "blur(10px)", border: "1px solid rgba(255, 255, 255, 0.2)",
-					display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", pointerEvents: "auto"
-				}}>
+		<div
+			style={{
+				position: "absolute",
+				left: padding.left,
+				top: padding.top,
+				width: chartWidth,
+				height: chartHeight,
+				overflow: "hidden",
+				zIndex: 2,
+				backgroundColor: t.bg2,
+				backgroundImage: `url("${backgroundSvg}")`,
+				backgroundRepeat: "no-repeat",
+				backgroundSize: "100% 100%",
+			}}
+		>
+			<div
+				style={{
+					position: "absolute",
+					inset: 0,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					pointerEvents: "none",
+				}}
+			>
+				<div
+					style={{
+						textAlign: "center",
+						background: "rgba(0,0,0,0.03)",
+						padding: "20px 40px",
+						borderRadius: "12px",
+						backdropFilter: "blur(10px)",
+						border: "1px solid rgba(255, 255, 255, 0.2)",
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						gap: "10px",
+						pointerEvents: "auto",
+					}}
+				>
 					<div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-						<img src="favicon.svg" alt="logo" style={{ width: "48px", height: "48px" }} />
-						<h2 style={{ margin: 0, color: t.text, fontSize: "2.5rem", fontWeight: 300, letterSpacing: "0.15em" }}>WEBGRAPHY</h2>
+						<img
+							src="favicon.svg"
+							alt="logo"
+							style={{ width: "48px", height: "48px" }}
+						/>
+						<h2
+							style={{
+								margin: 0,
+								color: t.text,
+								fontSize: "2.5rem",
+								fontWeight: 300,
+								letterSpacing: "0.15em",
+							}}
+						>
+							WEBGRAPHY
+						</h2>
 					</div>
-					<p style={{ margin: 0, color: t.textMuted, fontSize: "0.95rem", opacity: 0.7, letterSpacing: "0.05em" }}>Visualize and explore your data</p>
+					<p
+						style={{
+							margin: 0,
+							color: t.textMuted,
+							fontSize: "0.95rem",
+							opacity: 0.7,
+							letterSpacing: "0.05em",
+						}}
+					>
+						Visualize and explore your data
+					</p>
 				</div>
 			</div>
 		</div>

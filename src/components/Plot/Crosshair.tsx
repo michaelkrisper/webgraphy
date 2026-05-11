@@ -10,7 +10,6 @@ import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
 import { formatFullDate } from "../../utils/time";
 
-
 interface SeriesMetadata {
 	series: SeriesConfig;
 	ds: Dataset;
@@ -222,8 +221,7 @@ const Crosshair = React.memo(
 				}
 			});
 
-			if (bestXWorld === null || !bestSeriesXConf)
-				return null;
+			if (bestXWorld === null || !bestSeriesXConf) return null;
 			const finalBestXWorld = bestXWorld as number;
 			const finalXConf = bestSeriesXConf as XAxisConfig;
 			const entriesMap = new Map<
@@ -252,8 +250,7 @@ const Crosshair = React.memo(
 				const yVal = yData[bestI] + refY;
 				const xVal = xData[bestI] + refX;
 				const label = s.name || s.yColumn;
-				const xCatLabel =
-					xCol.categoryLabels?.[Math.round(xVal)];
+				const xCatLabel = xCol.categoryLabels?.[Math.round(xVal)];
 				const xLab =
 					xCatLabel !== undefined
 						? xCatLabel
@@ -271,7 +268,10 @@ const Crosshair = React.memo(
 				});
 				const dss = dsByX[xAxis.id] || [];
 				const uniqueColumns = Array.from(
-					dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
+					dss.reduce(
+						(acc, d: Dataset) => acc.add(d.xAxisColumn),
+						new Set<string>(),
+					),
 				);
 				const xAxisName =
 					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
@@ -375,7 +375,7 @@ const Crosshair = React.memo(
 				for (const group of snap.entries) {
 					for (const item of group.items) {
 						const { xScreen: xs, yScreen: ys, pointStyle: style, color } = item;
-						
+
 						if (style === "square") {
 							// Square marker
 							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
@@ -390,15 +390,19 @@ const Crosshair = React.memo(
 							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
 							ctx.lineWidth = 5.0;
 							ctx.beginPath();
-							ctx.moveTo(xs - 5.5, ys - 5.5); ctx.lineTo(xs + 5.5, ys + 5.5);
-							ctx.moveTo(xs + 5.5, ys - 5.5); ctx.lineTo(xs - 5.5, ys + 5.5);
+							ctx.moveTo(xs - 5.5, ys - 5.5);
+							ctx.lineTo(xs + 5.5, ys + 5.5);
+							ctx.moveTo(xs + 5.5, ys - 5.5);
+							ctx.lineTo(xs - 5.5, ys + 5.5);
 							ctx.stroke();
-							
+
 							ctx.strokeStyle = color;
 							ctx.lineWidth = 2.5;
 							ctx.beginPath();
-							ctx.moveTo(xs - 5.5, ys - 5.5); ctx.lineTo(xs + 5.5, ys + 5.5);
-							ctx.moveTo(xs + 5.5, ys - 5.5); ctx.lineTo(xs - 5.5, ys + 5.5);
+							ctx.moveTo(xs - 5.5, ys - 5.5);
+							ctx.lineTo(xs + 5.5, ys + 5.5);
+							ctx.moveTo(xs + 5.5, ys - 5.5);
+							ctx.lineTo(xs - 5.5, ys + 5.5);
 							ctx.stroke();
 						} else {
 							// Circle marker (default or "circle" or "none")

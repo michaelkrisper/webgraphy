@@ -11,9 +11,9 @@ function createMockFile(content: string, name: string, type: string) {
 					if (done) return { done: true, value: undefined };
 					done = true;
 					return { done: false, value: new TextEncoder().encode(content) };
-				}
+				},
 			};
-		}
+		},
 	});
 	file.text = async () => content;
 	return file as File;
@@ -21,7 +21,9 @@ function createMockFile(content: string, name: string, type: string) {
 
 describe("data-parser", () => {
 	it("should throw an error for unsupported file types", async () => {
-		await expect(parseData(null as unknown as File, "unsupported")).rejects.toThrow("Unsupported file type");
+		await expect(
+			parseData(null as unknown as File, "unsupported"),
+		).rejects.toThrow("Unsupported file type");
 	});
 
 	it("should handle native Error instances in catch block", async () => {
@@ -31,7 +33,9 @@ describe("data-parser", () => {
 				throw new Error("File stream error");
 			},
 		};
-		await expect(parseData(mockFile as unknown as File, "csv", {})).rejects.toThrow("File stream error");
+		await expect(
+			parseData(mockFile as unknown as File, "csv", {}),
+		).rejects.toThrow("File stream error");
 	});
 
 	it("should handle non-Error instances in catch block", async () => {
@@ -41,19 +45,24 @@ describe("data-parser", () => {
 				throw "String error thrown";
 			},
 		};
-		await expect(parseData(mockFile as unknown as File, "csv", {})).rejects.toThrow("String error thrown");
+		await expect(
+			parseData(mockFile as unknown as File, "csv", {}),
+		).rejects.toThrow("String error thrown");
 	});
 
 	describe("CSV parsing", () => {
 		it("should parse simple CSV data", async () => {
 			const content = "Col1,Col2\n1.1,2.2\n3.3,4.4";
 			const file = createMockFile(content, "test.csv", "text/csv");
-			const datasets = await parseData(file, "csv", { delimiter: ",", decimalPoint: "." });
-			
+			const datasets = await parseData(file, "csv", {
+				delimiter: ",",
+				decimalPoint: ".",
+			});
+
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].columns).toEqual(["Col1", "Col2"]);
 			expect(datasets[0].rowCount).toBe(2);
-			
+
 			// data is relative to first point
 			expect(datasets[0].data[0].refPoint).toBe(1.1);
 			expect(datasets[0].data[0].data[0]).toBeCloseTo(0);
@@ -67,8 +76,11 @@ describe("data-parser", () => {
 		it("should parse CSV with comma decimal point and semicolon delimiter", async () => {
 			const content = "Col1;Col2\n1,1;2,2\n3,3;4,4";
 			const file = createMockFile(content, "test.csv", "text/csv");
-			const datasets = await parseData(file, "csv", { delimiter: ";", decimalPoint: "," });
-			
+			const datasets = await parseData(file, "csv", {
+				delimiter: ";",
+				decimalPoint: ",",
+			});
+
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].rowCount).toBe(2);
 			expect(datasets[0].data[0].refPoint).toBe(1.1);
@@ -77,23 +89,27 @@ describe("data-parser", () => {
 		it("should handle multi-character delimiters and quotes", async () => {
 			const content = 'Col1||Col2\n"1.1"||"2.2"\n3.3||4.4';
 			const file = createMockFile(content, "test.csv", "text/csv");
-			const datasets = await parseData(file, "csv", { delimiter: "||", decimalPoint: "." });
-			
+			const datasets = await parseData(file, "csv", {
+				delimiter: "||",
+				decimalPoint: ".",
+			});
+
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].rowCount).toBe(2);
 			expect(datasets[0].data[0].refPoint).toBe(1.1);
 		});
 
 		it("should ignore lines with comment chars and skip start rows", async () => {
-			const content = "# This is a comment\nSkip me\nCol1,Col2\n# Skip\n1.1,2.2\n3.3,4.4";
+			const content =
+				"# This is a comment\nSkip me\nCol1,Col2\n# Skip\n1.1,2.2\n3.3,4.4";
 			const file = createMockFile(content, "test.csv", "text/csv");
-			const datasets = await parseData(file, "csv", { 
-				delimiter: ",", 
+			const datasets = await parseData(file, "csv", {
+				delimiter: ",",
 				decimalPoint: ".",
 				commentChar: "#",
-				startRow: 2
+				startRow: 2,
 			});
-			
+
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].columns).toEqual(["Col1", "Col2"]);
 			expect(datasets[0].rowCount).toBe(2);
@@ -101,7 +117,9 @@ describe("data-parser", () => {
 
 		it("should handle empty CSV files", async () => {
 			const file = createMockFile("", "empty.csv", "text/csv");
-			await expect(parseData(file, "csv", {})).rejects.toThrow("Empty CSV file");
+			await expect(parseData(file, "csv", {})).rejects.toThrow(
+				"Empty CSV file",
+			);
 		});
 
 		it("should parse date formats", async () => {
@@ -111,12 +129,14 @@ describe("data-parser", () => {
 				delimiter: ",",
 				columnConfigs: [
 					{ index: 0, name: "Date", type: "date", dateFormat: "YYYY-MM-DD" },
-					{ index: 1, name: "Val", type: "numeric" }
-				]
+					{ index: 1, name: "Val", type: "numeric" },
+				],
 			});
 
 			expect(datasets).toHaveLength(1);
-			expect(datasets[0].data[0].refPoint).toBe(new Date(2025, 11, 24).getTime() / 1000);
+			expect(datasets[0].data[0].refPoint).toBe(
+				new Date(2025, 11, 24).getTime() / 1000,
+			);
 			expect(datasets[0].data[0].isFloat64).toBe(true);
 		});
 
@@ -127,8 +147,8 @@ describe("data-parser", () => {
 				delimiter: ",",
 				columnConfigs: [
 					{ index: 0, name: "Category", type: "categorical" },
-					{ index: 1, name: "Val", type: "numeric" }
-				]
+					{ index: 1, name: "Val", type: "numeric" },
+				],
 			});
 
 			expect(datasets).toHaveLength(1);
@@ -141,7 +161,8 @@ describe("data-parser", () => {
 		});
 
 		it("should split by categorical columns", async () => {
-			const content = "Device,Status,Val\nSensorA,OK,10\nSensorA,FAIL,20\nSensorB,OK,30\nSensorB,FAIL,40";
+			const content =
+				"Device,Status,Val\nSensorA,OK,10\nSensorA,FAIL,20\nSensorB,OK,30\nSensorB,FAIL,40";
 			const file = createMockFile(content, "test.csv", "text/csv");
 			const datasets = await parseData(file, "csv", {
 				delimiter: ",",
@@ -149,8 +170,8 @@ describe("data-parser", () => {
 				columnConfigs: [
 					{ index: 0, name: "Device", type: "categorical" },
 					{ index: 1, name: "Status", type: "categorical" },
-					{ index: 2, name: "Val", type: "numeric" }
-				]
+					{ index: 2, name: "Val", type: "numeric" },
+				],
 			});
 
 			expect(datasets).toHaveLength(4);
@@ -172,8 +193,8 @@ describe("data-parser", () => {
 				columnConfigs: [
 					{ index: 0, type: "numeric" },
 					{ index: 1, type: "ignore" },
-					{ index: 2, type: "numeric" }
-				]
+					{ index: 2, type: "numeric" },
+				],
 			});
 
 			expect(datasets).toHaveLength(1);
@@ -185,11 +206,15 @@ describe("data-parser", () => {
 		it("should parse simple JSON data", async () => {
 			const data = [
 				{ Time: 10, Temp: 1.1 },
-				{ Time: 20, Temp: 2.2 }
+				{ Time: 20, Temp: 2.2 },
 			];
-			const file = createMockFile(JSON.stringify(data), "test.json", "application/json");
+			const file = createMockFile(
+				JSON.stringify(data),
+				"test.json",
+				"application/json",
+			);
 			const datasets = await parseData(file, "json", {});
-			
+
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].columns).toEqual(["Time", "Temp"]);
 			expect(datasets[0].rowCount).toBe(2);
@@ -197,30 +222,48 @@ describe("data-parser", () => {
 		});
 
 		it("should throw error for invalid JSON format", async () => {
-			const file = createMockFile('{"not_an_array": true}', "test.json", "application/json");
-			await expect(parseData(file, "json", {})).rejects.toThrow("Invalid JSON format");
-			
-			const file2 = createMockFile('[not json]', "test2.json", "application/json");
-			await expect(parseData(file2, "json", {})).rejects.toThrow("Invalid JSON format");
+			const file = createMockFile(
+				'{"not_an_array": true}',
+				"test.json",
+				"application/json",
+			);
+			await expect(parseData(file, "json", {})).rejects.toThrow(
+				"Invalid JSON format",
+			);
+
+			const file2 = createMockFile(
+				"[not json]",
+				"test2.json",
+				"application/json",
+			);
+			await expect(parseData(file2, "json", {})).rejects.toThrow(
+				"Invalid JSON format",
+			);
 		});
 
 		it("should handle parsing configurations in JSON", async () => {
 			const data = [
 				{ Date: "2025-12-24", Category: "A", Value: "1,1" },
-				{ Date: "2025-12-25", Category: "B", Value: "2,2" }
+				{ Date: "2025-12-25", Category: "B", Value: "2,2" },
 			];
-			const file = createMockFile(JSON.stringify(data), "test.json", "application/json");
+			const file = createMockFile(
+				JSON.stringify(data),
+				"test.json",
+				"application/json",
+			);
 			const datasets = await parseData(file, "json", {
 				decimalPoint: ",",
 				columnConfigs: [
 					{ index: 0, name: "Date", type: "date", dateFormat: "YYYY-MM-DD" },
 					{ index: 1, name: "Category", type: "categorical" },
-					{ index: 2, name: "Value", type: "numeric" }
-				]
+					{ index: 2, name: "Value", type: "numeric" },
+				],
 			});
 
 			expect(datasets).toHaveLength(1);
-			expect(datasets[0].data[0].refPoint).toBe(new Date(2025, 11, 24).getTime() / 1000);
+			expect(datasets[0].data[0].refPoint).toBe(
+				new Date(2025, 11, 24).getTime() / 1000,
+			);
 			expect(datasets[0].data[1].categoryLabels).toEqual(["A", "B"]);
 			expect(datasets[0].data[2].refPoint).toBe(1.1);
 		});

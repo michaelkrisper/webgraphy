@@ -68,7 +68,7 @@ describe("syncAxesWithTargets", () => {
 		};
 		const targetXAxes = { x1: { min: 0 + 1e-11, max: 100 - 1e-11 } };
 		const targetYs = { y1: { min: 0, max: 100 } };
-		
+
 		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
 		expect(updates.xUpdates).toEqual({});
 		expect(updates.yUpdates).toEqual({});
@@ -81,7 +81,7 @@ describe("syncAxesWithTargets", () => {
 		};
 		const targetXAxes = { x1: { min: -10, max: 110 } };
 		const targetYs = { y1: { min: 10, max: 90 } };
-		
+
 		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
 		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
 		expect(updates.yUpdates).toEqual({ y1: { min: 10, max: 90 } });
@@ -89,12 +89,15 @@ describe("syncAxesWithTargets", () => {
 
 	it("ignores axes without targets", () => {
 		const state = {
-			xAxes: [{ id: "x1", min: 0, max: 100 }, { id: "x2", min: 0, max: 50 }],
+			xAxes: [
+				{ id: "x1", min: 0, max: 100 },
+				{ id: "x2", min: 0, max: 50 },
+			],
 			yAxes: [{ id: "y1", min: 0, max: 100 }],
 		};
 		const targetXAxes = { x1: { min: -10, max: 110 } };
 		const targetYs: Record<string, { min: number; max: number }> = {};
-		
+
 		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
 		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
 		expect(updates.yUpdates).toEqual({});

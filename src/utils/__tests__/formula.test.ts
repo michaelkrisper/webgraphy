@@ -286,7 +286,7 @@ describe("compileFormula", () => {
 
 		// Test evaluation without ctx for functions that expect one
 		expect(resAvg1d.evaluate([10, 1000])).toBe(10);
-		
+
 		const resSumDay = compileFormula("sumday([Temp])", columns);
 		expect(resSumDay.evaluate([20, 1000])).toBe(20);
 

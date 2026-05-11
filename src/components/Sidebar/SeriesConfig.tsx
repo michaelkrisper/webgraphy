@@ -1,11 +1,4 @@
-import {
-	Circle,
-	EyeOff,
-	GripVertical,
-	Rows3,
-	Trash2,
-	X,
-} from "lucide-react";
+import { Circle, EyeOff, GripVertical, Rows3, Trash2, X } from "lucide-react";
 import type React from "react";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
@@ -58,7 +51,14 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		const size = 12;
 		switch (series.pointStyle) {
 			case "circle":
-				return <Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />;
+				return (
+					<Circle
+						size={size}
+						fill="currentColor"
+						stroke="white"
+						strokeWidth={1}
+					/>
+				);
 			case "square":
 				return (
 					<svg width={size} height={size} viewBox="0 0 24 24">
@@ -81,29 +81,48 @@ export const SeriesConfigUI: React.FC<Props> = ({
 			case "none":
 				return (
 					<svg width={size} height={size} viewBox="0 0 16 16">
-						<circle cx="8" cy="8" r="6" fill="currentColor" stroke="white" strokeWidth="1" />
+						<circle
+							cx="8"
+							cy="8"
+							r="6"
+							fill="currentColor"
+							stroke="white"
+							strokeWidth="1"
+						/>
 					</svg>
 				);
 			default:
 				return null;
-			}
-			};
+		}
+	};
 
-			const renderLineStyleIcon = () => {
-			const color = "currentColor";
-			return (
+	const renderLineStyleIcon = () => {
+		const color = "currentColor";
+		return (
 			<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
 				{series.lineStyle === "solid" && (
 					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
 				)}
 				{series.lineStyle === "dashed" && (
 					<line
-						x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="4,3"
+						x1="1"
+						y1="8"
+						x2="15"
+						y2="8"
+						stroke={color}
+						strokeWidth="2.5"
+						strokeDasharray="4,3"
 					/>
 				)}
 				{series.lineStyle === "dotted" && (
 					<line
-						x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" strokeDasharray="1,3"
+						x1="1"
+						y1="8"
+						x2="15"
+						y2="8"
+						stroke={color}
+						strokeWidth="2.5"
+						strokeDasharray="1,3"
 						strokeLinecap="round"
 					/>
 				)}
@@ -111,8 +130,8 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
 				)}
 			</svg>
-			);
-			};
+		);
+	};
 
 	return (
 		<div className={`sc-row${series.hidden ? " sc-row--hidden" : ""}`}>
@@ -121,7 +140,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				className="sc-drag-handle"
 				onMouseDown={onHandleMouseDown}
 				onClick={toggleVisibility}
-				title={series.hidden ? "Show Series (Drag to reorder)" : "Hide Series (Drag to reorder)"}
+				title={
+					series.hidden
+						? "Show Series (Drag to reorder)"
+						: "Hide Series (Drag to reorder)"
+				}
 				aria-label={series.hidden ? "Show Series" : "Hide Series"}
 			>
 				{series.hidden ? <EyeOff size={14} /> : <GripVertical size={14} />}
@@ -259,7 +282,9 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					return ds.columns.map((c) => {
 						const label = multiDs
 							? `${letter}: ${c.includes(": ") ? c.split(": ")[1] : c}`
-							: (c.includes(": ") ? c.split(": ")[1] : c);
+							: c.includes(": ")
+								? c.split(": ")[1]
+								: c;
 						return (
 							<option key={`${ds.id}::${c}`} value={`${ds.id}::${c}`}>
 								{label}

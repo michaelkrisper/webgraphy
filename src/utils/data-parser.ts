@@ -26,7 +26,11 @@ interface ParseConfig {
 	dateFormat?: string;
 }
 
-export async function parseData(file: File, type: string, settings?: ParseSettings) {
+export async function parseData(
+	file: File,
+	type: string,
+	settings?: ParseSettings,
+) {
 	let result;
 	if (type === "csv") result = await parseCSV(file, settings);
 	else if (type === "json") result = await parseJSON(file, settings);

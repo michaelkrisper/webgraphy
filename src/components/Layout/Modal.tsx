@@ -54,7 +54,9 @@ export const Modal: React.FC<ModalProps> = ({
 						<X size={24} />
 					</button>
 				</div>
-				<div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>{children}</div>
+				<div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
+					{children}
+				</div>
 				{footer && <div className="modal-footer">{footer}</div>}
 			</div>
 		</div>

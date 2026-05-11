@@ -138,9 +138,12 @@ export function usePanZoom({
 		// Y-Axis Panning
 		if (ps.target === "all" || (ps.target as { yAxisId?: string }).yAxisId) {
 			const targetYId = (ps.target as { yAxisId?: string }).yAxisId;
-			const syncSideAxes = shiftDownRef.current && !!targetYId
-				? (leftAxes.some((a) => a.id === targetYId) ? leftAxes : rightAxes)
-				: null;
+			const syncSideAxes =
+				shiftDownRef.current && targetYId
+					? leftAxes.some((a) => a.id === targetYId)
+						? leftAxes
+						: rightAxes
+					: null;
 			activeYAxes.forEach((axis) => {
 				if (ps.target !== "all") {
 					if (syncSideAxes) {

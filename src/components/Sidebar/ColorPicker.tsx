@@ -55,7 +55,7 @@ function ColorPicker({
 			const rect = containerRef.current.getBoundingClientRect();
 			const popoverWidth = 220;
 			const padding = 10;
-			
+
 			let left = rect.left + window.scrollX;
 			if (left + popoverWidth > window.innerWidth - padding) {
 				left = rect.right + window.scrollX - popoverWidth;
@@ -140,14 +140,21 @@ function ColorPicker({
 											if (onHoverEnd) onHoverEnd();
 											setIsOpen(false);
 										}}
-										onMouseEnter={() => { onHover?.("#000000"); setHoverColor("#000000"); }}
-										onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
+										onMouseEnter={() => {
+											onHover?.("#000000");
+											setHoverColor("#000000");
+										}}
+										onMouseLeave={() => {
+											onHoverEnd?.();
+											setHoverColor(null);
+										}}
 										className="color-picker-palette-btn"
 										style={{
 											backgroundColor: "#000000",
-											border: color.toLowerCase() === "#000000"
-												? "2px solid var(--text)"
-												: "none",
+											border:
+												color.toLowerCase() === "#000000"
+													? "2px solid var(--text)"
+													: "none",
 										}}
 									/>
 								</div>
@@ -165,14 +172,21 @@ function ColorPicker({
 													if (onHoverEnd) onHoverEnd();
 													setIsOpen(false);
 												}}
-												onMouseEnter={() => { onHover?.(hexVal); setHoverColor(hexVal); }}
-												onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
+												onMouseEnter={() => {
+													onHover?.(hexVal);
+													setHoverColor(hexVal);
+												}}
+												onMouseLeave={() => {
+													onHoverEnd?.();
+													setHoverColor(null);
+												}}
 												className="color-picker-palette-btn"
 												style={{
 													backgroundColor: hexVal,
-													border: color.toLowerCase() === hexVal.toLowerCase()
-														? "2px solid var(--text)"
-														: "none",
+													border:
+														color.toLowerCase() === hexVal.toLowerCase()
+															? "2px solid var(--text)"
+															: "none",
 												}}
 											/>
 										);
@@ -194,14 +208,21 @@ function ColorPicker({
 													if (onHoverEnd) onHoverEnd();
 													setIsOpen(false);
 												}}
-												onMouseEnter={() => { onHover?.(themeColor); setHoverColor(themeColor); }}
-												onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
+												onMouseEnter={() => {
+													onHover?.(themeColor);
+													setHoverColor(themeColor);
+												}}
+												onMouseLeave={() => {
+													onHoverEnd?.();
+													setHoverColor(null);
+												}}
 												className="color-picker-palette-btn"
 												style={{
 													backgroundColor: themeColor,
-													border: color.toLowerCase() === themeColor.toLowerCase()
-														? "2px solid var(--text)"
-														: "none",
+													border:
+														color.toLowerCase() === themeColor.toLowerCase()
+															? "2px solid var(--text)"
+															: "none",
 												}}
 											/>
 										</div>
@@ -219,14 +240,21 @@ function ColorPicker({
 															if (onHoverEnd) onHoverEnd();
 															setIsOpen(false);
 														}}
-														onMouseEnter={() => { onHover?.(hexVal); setHoverColor(hexVal); }}
-														onMouseLeave={() => { onHoverEnd?.(); setHoverColor(null); }}
+														onMouseEnter={() => {
+															onHover?.(hexVal);
+															setHoverColor(hexVal);
+														}}
+														onMouseLeave={() => {
+															onHoverEnd?.();
+															setHoverColor(null);
+														}}
 														className="color-picker-palette-btn"
 														style={{
 															backgroundColor: hexVal,
-															border: color.toLowerCase() === hexVal.toLowerCase()
-																? "2px solid var(--text)"
-																: "none",
+															border:
+																color.toLowerCase() === hexVal.toLowerCase()
+																	? "2px solid var(--text)"
+																	: "none",
 														}}
 													/>
 												);

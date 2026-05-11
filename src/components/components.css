@@ -490,10 +490,7 @@
 
 	font-size: var(--ui-font-size);
 	display: grid;
-	grid-template-columns: 24px repeat(
-			6,
-			var(--ui-size)
-		) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
 	align-items: center;
 	overflow: hidden;
 }
@@ -1244,10 +1241,7 @@
 }
 .sb-series-header {
 	display: grid;
-	grid-template-columns: 24px repeat(
-			6,
-			var(--ui-size)
-		) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
 	padding: 4px 0;
 	color: var(--text-light);
 

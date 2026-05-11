@@ -42,7 +42,9 @@ function generateRawWeatherData(
 
 		// --- Wind Speed (Random Walk with peaks) ---
 		const windBase = 3 + Math.sin(minutesElapsed / 500) * 2;
-		let wind = windBase + (secureRandom() > 0.98 ? secureRandom() * 10 : secureRandom() * 2);
+		let wind =
+			windBase +
+			(secureRandom() > 0.98 ? secureRandom() * 10 : secureRandom() * 2);
 		wind = Math.max(0, wind);
 
 		rawData.push([ts, temp, humidity, solar, wind]);

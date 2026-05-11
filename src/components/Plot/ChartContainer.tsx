@@ -1,7 +1,16 @@
 /* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
+
+import { ChartGantt, Move } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
+import {
+	Fragment,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
@@ -34,10 +43,9 @@ import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
 import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
-import { EmptyState } from "./EmptyState";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
+import { EmptyState } from "./EmptyState";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
-import { ChartGantt, Move } from "lucide-react";
 
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
@@ -174,7 +182,10 @@ const ChartContainer: React.FC = () => {
 					break;
 				}
 				if (!labels) labels = cl;
-				else if (labels.length !== cl.length || labels.some((v, i) => v !== cl[i])) {
+				else if (
+					labels.length !== cl.length ||
+					labels.some((v, i) => v !== cl[i])
+				) {
 					mismatch = true;
 					break;
 				}
@@ -398,7 +409,10 @@ const ChartContainer: React.FC = () => {
 					const categoryTicks = catInfo?.ticks;
 					const dss = dsByX[axis.id] || [];
 					const uniqueColumns = Array.from(
-						dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
+						dss.reduce(
+							(acc, d: Dataset) => acc.add(d.xAxisColumn),
+							new Set<string>(),
+						),
 					);
 					const defaultTitle =
 						dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
@@ -499,7 +513,14 @@ const ChartContainer: React.FC = () => {
 					}
 				});
 		},
-		[activeDsIdsSet, datasets, themeColors.labelColor, chartWidth, activeXAxesUsed, xAxisCategoryLabels],
+		[
+			activeDsIdsSet,
+			datasets,
+			themeColors.labelColor,
+			chartWidth,
+			activeXAxesUsed,
+			xAxisCategoryLabels,
+		],
 	);
 
 	const computeYAxesLayout = useCallback(
@@ -525,19 +546,21 @@ const ChartContainer: React.FC = () => {
 	const rafId = useRef<number | null>(null);
 
 	// 5. Hooks
-	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale({
-		isLoaded,
-		series,
-		datasets,
-		xAxes,
-		activeYAxes,
-		activeXAxesUsed,
-		padding,
-		chartHeight,
-		targetXAxes,
-		targetYs,
-		syncViewport: (force) => syncViewportRef.current(force),
-	});
+	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale(
+		{
+			isLoaded,
+			series,
+			datasets,
+			xAxes,
+			activeYAxes,
+			activeXAxesUsed,
+			padding,
+			chartHeight,
+			targetXAxes,
+			targetYs,
+			syncViewport: (force) => syncViewportRef.current(force),
+		},
+	);
 
 	const handleFitAll = useCallback(() => {
 		handleAutoScaleX();
@@ -759,7 +782,10 @@ const ChartContainer: React.FC = () => {
 			const categoryTicks = catInfo?.ticks;
 			const dss = dsByX[axis.id] || [];
 			const uniqueColumns = Array.from(
-				dss.reduce((acc, d: Dataset) => acc.add(d.xAxisColumn), new Set<string>()),
+				dss.reduce(
+					(acc, d: Dataset) => acc.add(d.xAxisColumn),
+					new Set<string>(),
+				),
 			);
 			const defaultTitle =
 				dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
@@ -852,7 +878,14 @@ const ChartContainer: React.FC = () => {
 				};
 			}
 		});
-	}, [activeXAxesUsed, chartWidth, activeDsIdsSet, datasets, themeColors.labelColor, xAxisCategoryLabels]);
+	}, [
+		activeXAxesUsed,
+		chartWidth,
+		activeDsIdsSet,
+		datasets,
+		themeColors.labelColor,
+		xAxisCategoryLabels,
+	]);
 
 	// 8. Render
 	return (
@@ -870,7 +903,7 @@ const ChartContainer: React.FC = () => {
 					if (datasets.length > 0) handleWheel(e, "all");
 				}}
 				onDoubleClick={() => {
-					if (datasets.length > 0 && typeof handleAutoScaleX === 'function') {
+					if (datasets.length > 0 && typeof handleAutoScaleX === "function") {
 						handleAutoScaleX();
 						if (Array.isArray(activeYAxes)) {
 							activeYAxes.forEach((a) => handleAutoScaleY(a.id));
@@ -1015,7 +1048,9 @@ const ChartContainer: React.FC = () => {
 									defaultValue={title}
 									onBlur={(e) => {
 										const newName = e.target.value.trim();
-										useGraphStore.getState().updateXAxis(m.id, { name: newName });
+										useGraphStore
+											.getState()
+											.updateXAxis(m.id, { name: newName });
 										setEditingXAxisId(null);
 									}}
 									onKeyDown={(e) => {
@@ -1040,7 +1075,7 @@ const ChartContainer: React.FC = () => {
 										padding: "2px 4px",
 										outline: "none",
 										width: "80%",
-										maxWidth: "300px"
+										maxWidth: "300px",
 									}}
 								/>
 							)}
@@ -1107,12 +1142,8 @@ const ChartContainer: React.FC = () => {
 								opacity: 0.6,
 								transition: "opacity 0.2s",
 							}}
-							onMouseEnter={(e) =>
-								(e.currentTarget.style.opacity = "1")
-							}
-							onMouseLeave={(e) =>
-								(e.currentTarget.style.opacity = "0.6")
-							}
+							onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+							onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
 						>
 							<ChartGantt size={18} />
 						</button>
@@ -1136,12 +1167,8 @@ const ChartContainer: React.FC = () => {
 								opacity: 0.6,
 								transition: "opacity 0.2s",
 							}}
-							onMouseEnter={(e) =>
-								(e.currentTarget.style.opacity = "1")
-							}
-							onMouseLeave={(e) =>
-								(e.currentTarget.style.opacity = "0.6")
-							}
+							onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+							onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
 						>
 							<Move size={18} />
 						</button>

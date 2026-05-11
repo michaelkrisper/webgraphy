@@ -183,9 +183,9 @@ describe("generateTimeTicks", () => {
 		expect(ticks.map((t) => t.timestamp)).toEqual([
 			-2678400, 0, 2678400, 5097600, 7776000,
 		]);
-		
-		const expectedLabels = [-2678400, 0, 2678400, 5097600, 7776000].map(ts => 
-			new Date(ts * 1000).toLocaleDateString("de-DE", { month: "short" })
+
+		const expectedLabels = [-2678400, 0, 2678400, 5097600, 7776000].map((ts) =>
+			new Date(ts * 1000).toLocaleDateString("de-DE", { month: "short" }),
 		);
 		expect(ticks.map((t) => t.label)).toEqual(expectedLabels);
 	});

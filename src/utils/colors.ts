@@ -12,7 +12,7 @@ export const hexToRgba = (hex: string): number[] => {
 	const r = parseInt(hex.slice(1, 3), 16) / 255;
 	const g = parseInt(hex.slice(3, 5), 16) / 255;
 	const b = parseInt(hex.slice(5, 7), 16) / 255;
-	
+
 	return [
 		Number.isNaN(r) ? 0 : r,
 		Number.isNaN(g) ? 0 : g,
@@ -48,11 +48,13 @@ export function rgbToLch(r: number, g: number, b: number) {
 	let g_ = g / 255;
 	let b_ = b / 255;
 
-	r_ = r_ > 0.04045 ? Math.pow((r_ + 0.055) / 1.055, 2.4) : r_ / 12.92;
-	g_ = g_ > 0.04045 ? Math.pow((g_ + 0.055) / 1.055, 2.4) : g_ / 12.92;
-	b_ = b_ > 0.04045 ? Math.pow((b_ + 0.055) / 1.055, 2.4) : b_ / 12.92;
+	r_ = r_ > 0.04045 ? ((r_ + 0.055) / 1.055) ** 2.4 : r_ / 12.92;
+	g_ = g_ > 0.04045 ? ((g_ + 0.055) / 1.055) ** 2.4 : g_ / 12.92;
+	b_ = b_ > 0.04045 ? ((b_ + 0.055) / 1.055) ** 2.4 : b_ / 12.92;
 
-	r_ *= 100; g_ *= 100; b_ *= 100;
+	r_ *= 100;
+	g_ *= 100;
+	b_ *= 100;
 
 	const x = r_ * 0.4124 + g_ * 0.3576 + b_ * 0.1805;
 	const y = r_ * 0.2126 + g_ * 0.7152 + b_ * 0.0722;
@@ -63,7 +65,7 @@ export function rgbToLch(r: number, g: number, b: number) {
 	const y_ = y / 100.0;
 	const z_ = z / 108.883;
 
-	const f = (t: number) => (t > 0.008856 ? Math.pow(t, 1 / 3) : 7.787 * t + 16 / 116);
+	const f = (t: number) => (t > 0.008856 ? t ** (1 / 3) : 7.787 * t + 16 / 116);
 
 	const L = 116 * f(y_) - 16;
 	const a = 500 * (f(x_) - f(y_));
@@ -87,20 +89,24 @@ export function lchToRgb(L: number, C: number, h: number) {
 	let x = a / 500 + y;
 	let z = y - b_ / 200;
 
-	const fInv = (t: number) => (Math.pow(t, 3) > 0.008856 ? Math.pow(t, 3) : (t - 16 / 116) / 7.787);
+	const fInv = (t: number) =>
+		t ** 3 > 0.008856 ? t ** 3 : (t - 16 / 116) / 7.787;
 
 	x = 95.047 * fInv(x);
 	y = 100.0 * fInv(y);
 	z = 108.883 * fInv(z);
 
 	// 3. XYZ to RGB
-	x /= 100; y /= 100; z /= 100;
+	x /= 100;
+	y /= 100;
+	z /= 100;
 
 	let r = x * 3.2406 + y * -1.5372 + z * -0.4986;
 	let g = x * -0.9689 + y * 1.8758 + z * 0.0415;
-	let b = x * 0.0557 + y * -0.2040 + z * 1.0570;
+	let b = x * 0.0557 + y * -0.204 + z * 1.057;
 
-	const gamma = (t: number) => (t > 0.0031308 ? 1.055 * Math.pow(t, 1 / 2.4) - 0.055 : 12.92 * t);
+	const gamma = (t: number) =>
+		t > 0.0031308 ? 1.055 * t ** (1 / 2.4) - 0.055 : 12.92 * t;
 
 	r = Math.max(0, Math.min(255, Math.round(gamma(r) * 255)));
 	g = Math.max(0, Math.min(255, Math.round(gamma(g) * 255)));

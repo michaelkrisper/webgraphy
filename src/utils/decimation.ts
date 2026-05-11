@@ -76,7 +76,8 @@ export function m4ByXFloat32(
 
 		if (minIdx === -1) continue;
 
-		const start = firstIdx < n && !Number.isNaN(yData[firstIdx]) ? firstIdx : minIdx;
+		const start =
+			firstIdx < n && !Number.isNaN(yData[firstIdx]) ? firstIdx : minIdx;
 		const end = lastIdx;
 
 		let len = 0;

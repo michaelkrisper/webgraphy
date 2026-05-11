@@ -1,4 +1,5 @@
 import type { Theme } from "../themes";
+import { formatAxisLabel } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
@@ -8,7 +9,6 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "./persistence";
-import { formatAxisLabel } from "../utils/axisCalculations";
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
 
@@ -56,7 +56,10 @@ export const exportToSVG = (
 ): string => {
 	// 1. Determine active axes and layout
 	const axisToMinDsIdx = new Map<string, number>();
-	const activeDatasetIds = series.reduce((acc, s) => acc.add(s.sourceId), new Set<string>());
+	const activeDatasetIds = series.reduce(
+		(acc, s) => acc.add(s.sourceId),
+		new Set<string>(),
+	);
 	datasets.forEach((d, dsIdx) => {
 		if (!activeDatasetIds.has(d.id)) return;
 		const xId = d.xAxisId || "axis-1";
@@ -361,13 +364,18 @@ export const exportToSVG = (
 			if (x < padding.left || x > width - padding.right) continue;
 			svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${theme.axisColor}" stroke-width="1" />`;
 			const label =
-				axis.xMode === "date" ? formatDate(t, xStep) : formatAxisLabel(t, xPrecision);
+				axis.xMode === "date"
+					? formatDate(t, xStep)
+					: formatAxisLabel(t, xPrecision);
 			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${theme.labelColor}">${label}</text>`;
 		}
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
 		const title = Array.from(
-			datasetsForThisAxis.reduce((acc, d) => acc.add(d.xAxisColumn), new Set<string>()),
+			datasetsForThisAxis.reduce(
+				(acc, d) => acc.add(d.xAxisColumn),
+				new Set<string>(),
+			),
 		).join(" / ");
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});

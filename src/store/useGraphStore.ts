@@ -24,7 +24,9 @@ interface GraphState {
 	crosshairVisible: boolean;
 	setCrosshairVisible: (visible: boolean) => void;
 	previewColor: { seriesId: string; color: string } | null;
-	setPreviewColor: (preview: { seriesId: string; color: string } | null) => void;
+	setPreviewColor: (
+		preview: { seriesId: string; color: string } | null,
+	) => void;
 	needsReset: boolean;
 	setNeedsReset: (needsReset: boolean) => void;
 
@@ -276,7 +278,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
 			const col = dataset.data[xColIdx];
 			const bounds = col?.bounds || { min: 0, max: 100 };
-			
+
 			let xMode: "date" | "numeric" | "categorical" = "numeric";
 			if (col?.categoryLabels) {
 				xMode = "categorical";
@@ -311,20 +313,28 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			if (dataset.columns.includes(trimmed) && trimmed !== oldName) return state;
+			if (dataset.columns.includes(trimmed) && trimmed !== oldName)
+				return state;
 			const updatedDataset = {
 				...dataset,
 				columns: dataset.columns.map((c) => (c === oldName ? trimmed : c)),
-				xAxisColumn: dataset.xAxisColumn === oldName ? trimmed : dataset.xAxisColumn,
+				xAxisColumn:
+					dataset.xAxisColumn === oldName ? trimmed : dataset.xAxisColumn,
 			};
 			persistence.saveDataset(updatedDataset);
 			const updatedSeries = state.series.map((s) =>
 				s.sourceId === datasetId && s.yColumn === oldName
-					? { ...s, yColumn: trimmed, name: s.name === oldName ? trimmed : s.name }
+					? {
+							...s,
+							yColumn: trimmed,
+							name: s.name === oldName ? trimmed : s.name,
+						}
 					: s,
 			);
 			return {
-				datasets: state.datasets.map((d) => (d.id === datasetId ? updatedDataset : d)),
+				datasets: state.datasets.map((d) =>
+					d.id === datasetId ? updatedDataset : d,
+				),
 				series: updatedSeries,
 			};
 		});
@@ -350,7 +360,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
 					const bounds = col.bounds || { min: 0, max: 100 };
-					
+
 					let xMode: "date" | "numeric" | "categorical" = "numeric";
 					if (col.categoryLabels) {
 						xMode = "categorical";
@@ -583,21 +593,25 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const demoState = getDemoAppState(demoDataset);
 
 		await persistence.saveDataset(demoDataset);
-		
+
 		set((state) => {
 			const xColIdx = getColumnIndex(demoDataset, demoDataset.xAxisColumn);
 			const col = demoDataset.data[xColIdx];
 			const bounds = col?.bounds || { min: 0, max: 100 };
 			const xId = demoDataset.xAxisId || "axis-1";
-			
+
 			return {
 				datasets: [...state.datasets, demoDataset],
-				xAxes: state.xAxes.map(a => a.id === xId ? {
-					...a,
-					min: bounds.min,
-					max: bounds.max,
-					xMode: col?.isFloat64 ? "date" : "numeric"
-				} : a),
+				xAxes: state.xAxes.map((a) =>
+					a.id === xId
+						? {
+								...a,
+								min: bounds.min,
+								max: bounds.max,
+								xMode: col?.isFloat64 ? "date" : "numeric",
+							}
+						: a,
+				),
 				yAxes: demoState.yAxes,
 				series: demoState.series,
 				axisTitles: demoState.axisTitles,

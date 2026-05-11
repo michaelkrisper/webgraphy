@@ -204,7 +204,10 @@ export function useAutoScale({
 
 				// Revert to 5% padding for better fit
 				const professionalPad = (nMax - nMin || 1) * 0.05;
-				targetYs.current[axisId] = { min: nMin - professionalPad, max: nMax + professionalPad };
+				targetYs.current[axisId] = {
+					min: nMin - professionalPad,
+					max: nMax + professionalPad,
+				};
 				sv();
 			}
 		},
@@ -433,7 +436,8 @@ export function useAutoScale({
 			const axisSeries = sByY.get(axisId);
 			if (!axisSeries || axisSeries.length === 0) return;
 
-			let yMin = Infinity, yMax = -Infinity;
+			let yMin = Infinity,
+				yMax = -Infinity;
 			axisSeries.forEach((s) => {
 				const ds = dsById.get(s.sourceId);
 				if (!ds) return;
@@ -447,19 +451,29 @@ export function useAutoScale({
 				if (xIdx === -1) return;
 				const colX = ds.data[xIdx];
 				if (!colX?.data) return;
-				const xData = colX.data, yData = colY.data;
-				const refX = colX.refPoint, refY = colY.refPoint;
-				let startIdx = -1, endIdx = -1, low = 0, high = xData.length - 1;
+				const xData = colX.data,
+					yData = colY.data;
+				const refX = colX.refPoint,
+					refY = colY.refPoint;
+				let startIdx = -1,
+					endIdx = -1,
+					low = 0,
+					high = xData.length - 1;
 				while (low <= high) {
 					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX >= xAxis.min) { startIdx = mid; high = mid - 1; }
-					else low = mid + 1;
+					if (xData[mid] + refX >= xAxis.min) {
+						startIdx = mid;
+						high = mid - 1;
+					} else low = mid + 1;
 				}
-				low = 0; high = xData.length - 1;
+				low = 0;
+				high = xData.length - 1;
 				while (low <= high) {
 					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX <= xAxis.max) { endIdx = mid; low = mid + 1; }
-					else high = mid - 1;
+					if (xData[mid] + refX <= xAxis.max) {
+						endIdx = mid;
+						low = mid + 1;
+					} else high = mid - 1;
 				}
 				if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
 					for (let j = startIdx; j <= endIdx; j++) {
@@ -480,8 +494,8 @@ export function useAutoScale({
 
 			// Slice i=0 → top of chart, i=n-1 → bottom
 			const sliceBot = (i + 1) * sliceH;
-			const totalRange = paddedRange * ch / sliceH;
-			const targetMin = dMin - totalRange * (ch - sliceBot) / ch;
+			const totalRange = (paddedRange * ch) / sliceH;
+			const targetMin = dMin - (totalRange * (ch - sliceBot)) / ch;
 			const targetMax = targetMin + totalRange;
 
 			targetYs.current[axisId] = { min: targetMin, max: targetMax };

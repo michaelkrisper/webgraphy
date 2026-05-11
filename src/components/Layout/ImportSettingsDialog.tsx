@@ -185,7 +185,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		const allLines = fileContent.split(/\r?\n/).filter((l) => l.trim());
 		const lines = allLines.filter((l) => {
 			const trimmed = l.trim();
-			return deferredCommentChar ? !trimmed.startsWith(deferredCommentChar) : true;
+			return deferredCommentChar
+				? !trimmed.startsWith(deferredCommentChar)
+				: true;
 		});
 		if (lines.length === 0)
 			return {
@@ -203,10 +205,18 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		const rows = lines
 			.slice(headerRowIndex + 1, headerRowIndex + 51)
 			.map((line) =>
-				line.split(deferredDelimiter).map((v) => v.trim().replace(/^"|"$/g, "")),
+				line
+					.split(deferredDelimiter)
+					.map((v) => v.trim().replace(/^"|"$/g, "")),
 			);
 		return { headers, rows, skippedLines };
-	}, [fileContent, fileType, deferredDelimiter, deferredStartRow, deferredCommentChar]);
+	}, [
+		fileContent,
+		fileType,
+		deferredDelimiter,
+		deferredStartRow,
+		deferredCommentChar,
+	]);
 
 	// Derived column configs: auto-detected type + user overrides (keyed by column name)
 	const columnConfigs = useMemo<ColumnConfig[]>(() => {
@@ -294,7 +304,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								className="isd-select"
 							>
 								{sheets.map((s) => (
-									<option key={s} value={s}>{s}</option>
+									<option key={s} value={s}>
+										{s}
+									</option>
 								))}
 							</select>
 						</div>
@@ -347,19 +359,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								type="number"
 								min="1"
 								value={startRow}
-								onChange={(e) =>
-									setStartRow(parseInt(e.target.value, 10) || 1)
-								}
+								onChange={(e) => setStartRow(parseInt(e.target.value, 10) || 1)}
 								className="isd-input"
 							/>
 						</div>
 					)}
 					{fileType === "csv" && (
 						<div className="isd-field-group-sm">
-							<label
-								htmlFor="import-comment-char"
-								className="isd-field-label"
-							>
+							<label htmlFor="import-comment-char" className="isd-field-label">
 								Comment:
 							</label>
 							<input

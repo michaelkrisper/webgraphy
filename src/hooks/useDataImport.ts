@@ -3,8 +3,8 @@ import type { WorkBook } from "xlsx";
 import { type Dataset, persistence } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
-import { buildSeriesConfig } from "../utils/series";
 import { parseData } from "../utils/data-parser";
+import { buildSeriesConfig } from "../utils/series";
 
 const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
@@ -38,7 +38,7 @@ export const useDataImport = () => {
 
 	const initiateImport = useCallback(async (file: File) => {
 		setError(null);
-		
+
 		if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
 			const XLSX = await import("xlsx");
 			const reader = new FileReader();
@@ -48,7 +48,9 @@ export const useDataImport = () => {
 					const workbook = XLSX.read(data, { type: "array" });
 					const sheets = workbook.SheetNames;
 					const selectedSheet = sheets[0];
-					const fullCsv = XLSX.utils.sheet_to_csv(workbook.Sheets[selectedSheet]);
+					const fullCsv = XLSX.utils.sheet_to_csv(
+						workbook.Sheets[selectedSheet],
+					);
 					const preview = fullCsv.split("\n").slice(0, 500).join("\n");
 
 					setPendingFile({
@@ -101,25 +103,24 @@ export const useDataImport = () => {
 			let workerType = type;
 
 			if (type === "excel") {
-				workerFile = new File([fullCsv ?? preview], file.name + ".csv", { type: "text/csv" });
+				workerFile = new File([fullCsv ?? preview], file.name + ".csv", {
+					type: "text/csv",
+				});
 				workerType = "csv";
 			}
 
 			try {
 				// To keep UI responsive during parsing of large files, we use a small timeout to allow
 				// the "isImporting" state to render before blocking the main thread.
-				await new Promise(resolve => setTimeout(resolve, 10));
-				
+				await new Promise((resolve) => setTimeout(resolve, 10));
+
 				const datasets = await parseData(workerFile, workerType, settings);
 				const incoming = (datasets as Dataset[]) || [];
 				const isSplitImport = incoming.length > 1;
-				
+
 				for (const raw of incoming) {
 					const currentState = useGraphStore.getState();
-					const ds = processImportedDataset(
-						raw,
-						currentState.datasets.length,
-					);
+					const ds = processImportedDataset(raw, currentState.datasets.length);
 
 					await persistence.saveDataset(ds);
 					addDataset(ds);

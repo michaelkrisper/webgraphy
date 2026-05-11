@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset } from "../../services/persistence";
-import { useGraphStore } from "../useGraphStore";
 import { evaluateFormulaSync } from "../../utils/formula";
+import { useGraphStore } from "../useGraphStore";
 
 vi.mock("../../utils/formula", async () => {
-	const actual = (await vi.importActual("../../utils/formula")) as typeof import("../../utils/formula");
+	const actual = (await vi.importActual(
+		"../../utils/formula",
+	)) as typeof import("../../utils/formula");
 	return {
 		...actual,
 		evaluateFormulaSync: vi.fn(actual.evaluateFormulaSync),
@@ -19,22 +21,27 @@ class MockWorker {
 			if (data.formula === "[Val] * 3") {
 				if (this.onerror) this.onerror(new Error("Worker error"));
 			} else if (data.formula === "[Val] * 4") {
-				if (this.onmessage) this.onmessage({ data: { type: "error", error: "Calculation failed" } } as MessageEvent);
+				if (this.onmessage)
+					this.onmessage({
+						data: { type: "error", error: "Calculation failed" },
+					} as MessageEvent);
 			} else if (data.formula === "avgday([Val])") {
-				if (this.onmessage) this.onmessage({
-					data: {
-						type: "success",
-						newColumn: { data: new Float32Array([1, 2]) },
-						sparseXColumn: { data: new Float32Array([1, 2]), refPoint: 0 },
-					}
-				} as MessageEvent);
+				if (this.onmessage)
+					this.onmessage({
+						data: {
+							type: "success",
+							newColumn: { data: new Float32Array([1, 2]) },
+							sparseXColumn: { data: new Float32Array([1, 2]), refPoint: 0 },
+						},
+					} as MessageEvent);
 			} else {
-				if (this.onmessage) this.onmessage({
-					data: {
-						type: "success",
-						newColumn: { data: new Float32Array([1, 2]) },
-					}
-				} as MessageEvent);
+				if (this.onmessage)
+					this.onmessage({
+						data: {
+							type: "success",
+							newColumn: { data: new Float32Array([1, 2]) },
+						},
+					} as MessageEvent);
 			}
 		}, 0);
 	}
@@ -199,7 +206,14 @@ describe("useGraphStore", () => {
 			id: "ds-1",
 			name: "Dataset 1",
 			columns: ["Time"],
-			data: [{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 100]) }],
+			data: [
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 100]),
+				},
+			],
 			rowCount: 2,
 			xAxisColumn: "Time",
 			xAxisId: "axis-1",
@@ -217,7 +231,14 @@ describe("useGraphStore", () => {
 			id: "ds-1",
 			name: "Dataset 1",
 			columns: ["Time"],
-			data: [{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 100]) }],
+			data: [
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 100]),
+				},
+			],
 			rowCount: 2,
 			xAxisColumn: "Time",
 			xAxisId: "axis-1",
@@ -231,8 +252,24 @@ describe("useGraphStore", () => {
 
 	it("should move dataset correctly", () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time"], data: [], rowCount: 0, xAxisColumn: "Time", xAxisId: "axis-1" };
-		const ds2: Dataset = { id: "ds-2", name: "D2", columns: ["Time"], data: [], rowCount: 0, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time"],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
+		const ds2: Dataset = {
+			id: "ds-2",
+			name: "D2",
+			columns: ["Time"],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 		store.addDataset(ds2);
 
@@ -244,7 +281,14 @@ describe("useGraphStore", () => {
 
 	it("should manage series correctly", () => {
 		const store = useGraphStore.getState();
-		const series1 = { id: "s-1", name: "S1", sourceId: "ds-1", yColumn: "val", yAxisId: "axis-1", color: "#000" };
+		const series1 = {
+			id: "s-1",
+			name: "S1",
+			sourceId: "ds-1",
+			yColumn: "val",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
 		store.addSeries(series1);
 		expect(useGraphStore.getState().series).toHaveLength(1);
 
@@ -260,16 +304,30 @@ describe("useGraphStore", () => {
 
 	it("should manage bulk series visibility", () => {
 		const store = useGraphStore.getState();
-		const series1 = { id: "s-1", name: "S1", sourceId: "ds-1", yColumn: "val", yAxisId: "axis-1", color: "#000" };
-		const series2 = { id: "s-2", name: "S2", sourceId: "ds-1", yColumn: "val2", yAxisId: "axis-1", color: "#000" };
+		const series1 = {
+			id: "s-1",
+			name: "S1",
+			sourceId: "ds-1",
+			yColumn: "val",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
+		const series2 = {
+			id: "s-2",
+			name: "S2",
+			sourceId: "ds-1",
+			yColumn: "val2",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
 		store.addSeries(series1);
 		store.addSeries(series2);
 
 		store.bulkHideAllSeries();
-		expect(useGraphStore.getState().series.every(s => s.hidden)).toBe(true);
+		expect(useGraphStore.getState().series.every((s) => s.hidden)).toBe(true);
 
 		store.bulkShowAllSeries();
-		expect(useGraphStore.getState().series.every(s => !s.hidden)).toBe(true);
+		expect(useGraphStore.getState().series.every((s) => !s.hidden)).toBe(true);
 	});
 
 	it("should manage highlighted series", () => {
@@ -287,17 +345,37 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().yAxes[0].name).toBe("New Y Name");
 
 		store.setAxisTitles("Global X", "Global Y");
-		expect(useGraphStore.getState().axisTitles).toEqual({ x: "Global X", y: "Global Y" });
+		expect(useGraphStore.getState().axisTitles).toEqual({
+			x: "Global X",
+			y: "Global Y",
+		});
 
-		store.batchUpdateAxes({ "axis-1": { min: 10, max: 20 } }, { "axis-1": { min: 30, max: 40 } });
+		store.batchUpdateAxes(
+			{ "axis-1": { min: 10, max: 20 } },
+			{ "axis-1": { min: 30, max: 40 } },
+		);
 		expect(useGraphStore.getState().xAxes[0].min).toBe(10);
 		expect(useGraphStore.getState().yAxes[0].min).toBe(30);
 	});
 
 	it("should move and reorder series", () => {
 		const store = useGraphStore.getState();
-		const series1 = { id: "s-1", name: "S1", sourceId: "ds-1", yColumn: "val", yAxisId: "axis-1", color: "#000" };
-		const series2 = { id: "s-2", name: "S2", sourceId: "ds-1", yColumn: "val2", yAxisId: "axis-1", color: "#000" };
+		const series1 = {
+			id: "s-1",
+			name: "S1",
+			sourceId: "ds-1",
+			yColumn: "val",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
+		const series2 = {
+			id: "s-2",
+			name: "S2",
+			sourceId: "ds-1",
+			yColumn: "val2",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
 		store.addSeries(series1);
 		store.addSeries(series2);
 
@@ -324,8 +402,18 @@ describe("useGraphStore", () => {
 			name: "Dataset 1",
 			columns: ["Time", "Calc"],
 			data: [
-				{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 100]) },
-				{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 100]) }
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 100]),
+				},
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 100]),
+				},
 			],
 			rowCount: 2,
 			xAxisColumn: "Time",
@@ -333,19 +421,27 @@ describe("useGraphStore", () => {
 		};
 		store.addDataset(ds1);
 		store.removeCalculatedColumn("ds-1", "Calc");
-		
+
 		const state = useGraphStore.getState();
 		expect(state.datasets[0].columns).not.toContain("Calc");
 	});
 
 	it("should handle removeCalculatedColumn when dataset or column not found", () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time"], data: [], rowCount: 0, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time"],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
-		
+
 		store.removeCalculatedColumn("ds-not-found", "Time");
 		store.removeCalculatedColumn("ds-1", "NotFound");
-		
+
 		expect(useGraphStore.getState().datasets[0].columns).toEqual(["Time"]);
 	});
 
@@ -356,8 +452,19 @@ describe("useGraphStore", () => {
 			name: "Dataset 1",
 			columns: ["Cat", "Value"],
 			data: [
-				{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 2 }, data: new Float32Array([0, 1, 2]), categoryLabels: ["A", "B", "C"] },
-				{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 10, 100]) }
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 2 },
+					data: new Float32Array([0, 1, 2]),
+					categoryLabels: ["A", "B", "C"],
+				},
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 10, 100]),
+				},
 			],
 			rowCount: 3,
 			xAxisColumn: "Cat",
@@ -377,8 +484,18 @@ describe("useGraphStore", () => {
 			name: "Dataset 1",
 			columns: ["Time", "Value"],
 			data: [
-				{ isFloat64: true, refPoint: 0, bounds: { min: 0, max: 100 }, data: new Float32Array([0, 100]) },
-				{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 50 }, data: new Float32Array([0, 50]) }
+				{
+					isFloat64: true,
+					refPoint: 0,
+					bounds: { min: 0, max: 100 },
+					data: new Float32Array([0, 100]),
+				},
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 50 },
+					data: new Float32Array([0, 50]),
+				},
 			],
 			rowCount: 2,
 			xAxisColumn: "Time",
@@ -392,7 +509,15 @@ describe("useGraphStore", () => {
 
 	it("should handle out-of-bounds indices in move methods", () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time"], data: [], rowCount: 0, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time"],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 
 		store.moveDataset("ds-not-found", 1);
@@ -400,7 +525,14 @@ describe("useGraphStore", () => {
 		store.moveDataset("ds-1", 10);
 		expect(useGraphStore.getState().datasets[0].id).toBe("ds-1");
 
-		const series1 = { id: "s-1", name: "S1", sourceId: "ds-1", yColumn: "val", yAxisId: "axis-1", color: "#000" };
+		const series1 = {
+			id: "s-1",
+			name: "S1",
+			sourceId: "ds-1",
+			yColumn: "val",
+			yAxisId: "axis-1",
+			color: "#000",
+		};
 		store.addSeries(series1);
 
 		store.moveSeries("s-not-found", 1);
@@ -415,19 +547,27 @@ describe("useGraphStore", () => {
 	it("should handle batchUpdateAxes with no changes", () => {
 		const store = useGraphStore.getState();
 		store.batchUpdateAxes({}, {});
-		store.batchUpdateAxes({ "axis-1": { min: 0, max: 100 } }, { "axis-1": { min: 0, max: 100 } });
+		store.batchUpdateAxes(
+			{ "axis-1": { min: 0, max: 100 } },
+			{ "axis-1": { min: 0, max: 100 } },
+		);
 		expect(useGraphStore.getState().xAxes[0].min).toBe(0);
 	});
 
 	it("should load persisted state correctly", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
-		
+
 		vi.mocked(persistence.loadAppState).mockResolvedValueOnce({
-			xAxes: [], yAxes: [], series: [{ id: "s1", hidden: false }], axisTitles: { x: "A", y: "B" }
+			xAxes: [],
+			yAxes: [],
+			series: [{ id: "s1", hidden: false }],
+			axisTitles: { x: "A", y: "B" },
 		} as unknown as Awaited<ReturnType<typeof persistence.loadAppState>>);
-		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([{ id: "ds1" } as unknown as Dataset]);
-		
+		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([
+			{ id: "ds1" } as unknown as Dataset,
+		]);
+
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
@@ -438,10 +578,12 @@ describe("useGraphStore", () => {
 	it("should load datasets if no app state but datasets exist", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
-		
+
 		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
-		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([{ id: "ds2" } as unknown as Dataset]);
-		
+		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([
+			{ id: "ds2" } as unknown as Dataset,
+		]);
+
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
@@ -451,11 +593,11 @@ describe("useGraphStore", () => {
 	it("should handle webgraphy-cleared flag", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
-		
+
 		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
 		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([]);
 		localStorage.setItem("webgraphy-cleared", "true");
-		
+
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
@@ -465,14 +607,18 @@ describe("useGraphStore", () => {
 	it("should load demo data if no state and no flag", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
-		
+
 		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
 		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([]);
-		
+
 		let loadDemoDataCalled = false;
 		const originalLoadDemoData = store.loadDemoData;
-		useGraphStore.setState({ loadDemoData: async () => { loadDemoDataCalled = true; } });
-		
+		useGraphStore.setState({
+			loadDemoData: async () => {
+				loadDemoDataCalled = true;
+			},
+		});
+
 		await useGraphStore.getState().loadPersistedState();
 		expect(loadDemoDataCalled).toBe(true);
 
@@ -489,10 +635,35 @@ describe("useGraphStore", () => {
 
 	it("should handle addCalculatedColumn errors and validation", async () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time", "Val"], data: [{ isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }, { isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }], rowCount: 1, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 
-		let result = await store.addCalculatedColumn("ds-not-found", "NewVal", "Time * 2");
+		let result = await store.addCalculatedColumn(
+			"ds-not-found",
+			"NewVal",
+			"Time * 2",
+		);
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Dataset not found");
 
@@ -502,21 +673,50 @@ describe("useGraphStore", () => {
 
 		result = await store.addCalculatedColumn("ds-1", "Time", "Time * 2");
 		expect(result.success).toBe(false);
-		expect(result.error).toBe("Column \"Time\" already exists");
+		expect(result.error).toBe('Column "Time" already exists');
 
-		result = await store.addCalculatedColumn("ds-1", "NewVal", "InvalidSyntax(");
+		result = await store.addCalculatedColumn(
+			"ds-1",
+			"NewVal",
+			"InvalidSyntax(",
+		);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Unknown function or constant");
 
 		// Regression missing column
-		result = await store.addCalculatedColumn("ds-1", "Reg", "linreg([MissingVal])");
+		result = await store.addCalculatedColumn(
+			"ds-1",
+			"Reg",
+			"linreg([MissingVal])",
+		);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Column not found");
 	});
 
 	it("should calculate column via worker", async () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time", "Val"], data: [{ isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }, { isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }], rowCount: 1, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 
 		let result = await store.addCalculatedColumn("ds-1", "NewCol", "[Val] * 2");
@@ -534,12 +734,37 @@ describe("useGraphStore", () => {
 
 	it("should create sparse dataset for sparse results", async () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time", "Val"], data: [{ isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }, { isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }], rowCount: 1, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 
-		const result = await store.addCalculatedColumn("ds-1", "SparseCol", "avgday([Val])");
+		const result = await store.addCalculatedColumn(
+			"ds-1",
+			"SparseCol",
+			"avgday([Val])",
+		);
 		expect(result.success).toBe(true);
-		
+
 		const state = useGraphStore.getState();
 		expect(state.datasets.length).toBe(2);
 		expect(state.datasets[1].id).toContain("sparse-SparseCol");
@@ -548,10 +773,35 @@ describe("useGraphStore", () => {
 
 	it("should handle linreg correctly", async () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = { id: "ds-1", name: "D1", columns: ["Time", "Val"], data: [{ isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }, { isFloat64: true, refPoint: 0, data: new Float32Array([1]), bounds: { min: 0, max: 1 } }], rowCount: 1, xAxisColumn: "Time", xAxisId: "axis-1" };
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
 		store.addDataset(ds1);
 
-		const result = await store.addCalculatedColumn("ds-1", "RegCol", "linreg([Val])");
+		const result = await store.addCalculatedColumn(
+			"ds-1",
+			"RegCol",
+			"linreg([Val])",
+		);
 		expect(result.success).toBe(true);
 	});
 
@@ -561,10 +811,17 @@ describe("useGraphStore", () => {
 			id: "ds-test",
 			name: "Test",
 			columns: ["Time"],
-			data: [{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 10 }, data: new Float32Array([0, 10]) }],
+			data: [
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 10 },
+					data: new Float32Array([0, 10]),
+				},
+			],
 			rowCount: 2,
 			xAxisColumn: "Time",
-			xAxisId: "axis-1"
+			xAxisId: "axis-1",
 		};
 		store.addDataset(ds);
 		expect(useGraphStore.getState().xAxes[0].xMode).toBe("numeric");
@@ -576,10 +833,17 @@ describe("useGraphStore", () => {
 			id: "ds-test",
 			name: "Test",
 			columns: ["Time"],
-			data: [{ isFloat64: false, refPoint: 0, bounds: { min: 0, max: 10 }, data: new Float32Array([0, 10]) }],
+			data: [
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 10 },
+					data: new Float32Array([0, 10]),
+				},
+			],
 			rowCount: 2,
 			xAxisColumn: "Time",
-			xAxisId: "axis-1"
+			xAxisId: "axis-1",
 		};
 		store.addDataset(ds);
 		store.updateDataset("ds-test", { xAxisColumn: "MissingCol" });
@@ -588,7 +852,10 @@ describe("useGraphStore", () => {
 
 	it("should return unchanged state when batchUpdateAxes is provided identical values", () => {
 		const store = useGraphStore.getState();
-		store.batchUpdateAxes({ "axis-1": { min: 0, max: 100 } }, { "axis-1": { min: 0, max: 100 } });
+		store.batchUpdateAxes(
+			{ "axis-1": { min: 0, max: 100 } },
+			{ "axis-1": { min: 0, max: 100 } },
+		);
 		// Just to hit the !changed return path exactly
 		expect(useGraphStore.getState().xAxes[0].min).toBe(0);
 	});

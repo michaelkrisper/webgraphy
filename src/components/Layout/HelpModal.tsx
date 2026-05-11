@@ -152,8 +152,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
 			<Section title="UI">
 				<li>
-					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle via the
-					theme button
+					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle
+					via the theme button
 				</li>
 				<li>
 					<strong>Sidebar Collapse:</strong> Click the logo to collapse/expand
