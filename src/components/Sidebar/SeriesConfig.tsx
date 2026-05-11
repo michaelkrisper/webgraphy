@@ -47,19 +47,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const yAxisCycleDisabled = allSeries.length <= 1;
 
 	const cycleYAxis = () => {
-		const maxOthers = allSeries
-			.filter((s) => s.id !== series.id)
-			.reduce(
-				(m, s) => Math.max(m, parseInt(s.yAxisId.split("-")[1], 10) || 1),
-				1,
-			);
-		const cap = Math.min(maxOthers + 1, 9);
-		const nextIndex = currentYAxisIndex >= cap ? 1 : currentYAxisIndex + 1;
+		const nextIndex = currentYAxisIndex >= 9 ? 1 : currentYAxisIndex + 1;
 		const nextAxisId = `axis-${nextIndex}`;
-		const isUnused = !allSeries.some(
-			(s) => s.id !== series.id && s.yAxisId === nextAxisId,
-		);
-		if (isUnused) updateYAxis(nextAxisId, { position: "left" });
+		if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
+			updateYAxis(nextAxisId, { position: "left" });
+		}
 		handleUpdate({ yAxisId: nextAxisId });
 	};
 
