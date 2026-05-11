@@ -1017,6 +1017,7 @@
 	border-left: 1px solid var(--border-color);
 	box-shadow: -2px 0 10px var(--shadow);
 	flex-shrink: 0;
+	user-select: none;
 	z-index: 1000;
 }
 .sb-header {
