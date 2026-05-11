@@ -147,9 +147,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	}
 	const [startRow, setStartRow] = useState<number>(1);
 	const [commentChar, setCommentChar] = useState<string>("#");
-	// Stores per-column user overrides, keyed by column name
+	// Stores per-column user overrides, keyed by column index
 	const [columnOverrides, setColumnOverrides] = useState<
-		Record<string, Partial<ColumnConfig>>
+		Record<number, Partial<ColumnConfig>>
 	>({});
 	// null = auto-select best X axis column
 	const [xAxisColumnOverride, setXAxisColumnOverride] = useState<string | null>(
@@ -207,7 +207,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	// Derived column configs: auto-detected type + user overrides (keyed by column name)
 	const columnConfigs = useMemo<ColumnConfig[]>(() => {
 		return previewData.headers.map((name, index) => {
-			const override = columnOverrides[name];
+			const override = columnOverrides[index];
 
 			const firstVal =
 				fileType === "json"
@@ -253,10 +253,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		index: number,
 		updates: Partial<ColumnConfig>,
 	) => {
-		const name = columnConfigs[index].name;
 		setColumnOverrides((prev) => ({
 			...prev,
-			[name]: { ...prev[name], ...updates },
+			[index]: { ...prev[index], ...updates },
 		}));
 	};
 
