@@ -84,6 +84,7 @@ export function useAutoScale({
 		syncViewport,
 		datasets,
 		xAxes,
+		series,
 		datasetsById,
 		xAxesById,
 		activeDatasetIdsSet,
@@ -99,6 +100,7 @@ export function useAutoScale({
 			syncViewport,
 			datasets,
 			xAxes,
+			series,
 			datasetsById,
 			xAxesById,
 			activeDatasetIdsSet,
@@ -408,14 +410,16 @@ export function useAutoScale({
 			xAxesById: xaById,
 			seriesByYAxisId: sByY,
 			activeYAxes: ayAxes,
+			series: allSeries,
 		} = depsRef.current;
 
+		// Axis order = first appearance in series array
 		const orderedAxisIds: string[] = [];
 		const seenAxes = new Set<string>();
-		for (const ax of ayAxes) {
-			if (!seenAxes.has(ax.id)) {
-				seenAxes.add(ax.id);
-				orderedAxisIds.push(ax.id);
+		for (const s of allSeries) {
+			if (!seenAxes.has(s.yAxisId) && ayAxes.some((a) => a.id === s.yAxisId)) {
+				seenAxes.add(s.yAxisId);
+				orderedAxisIds.push(s.yAxisId);
 			}
 		}
 
