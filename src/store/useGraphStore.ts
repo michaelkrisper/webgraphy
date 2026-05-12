@@ -583,28 +583,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const demoDataset = generateDemoDataset();
 		const demoState = getDemoAppState(demoDataset);
 
-		await persistence.saveDataset(demoDataset);
+		// Import demo via normal flow: addDataset (sets xAxis from bounds),
+		// then upsert configured yAxes, add series, set titles.
+		get().addDataset(demoDataset);
 
 		set((state) => {
-			const xColIdx = getColumnIndex(demoDataset, demoDataset.xAxisColumn);
-			const col = demoDataset.data[xColIdx];
-			const bounds = col?.bounds || { min: 0, max: 100 };
-			const xId = demoDataset.xAxisId || "axis-1";
-
+			const nextY = state.yAxes.map((a) => {
+				const override = demoState.yAxes.find((c) => c.id === a.id);
+				return override ? { ...a, ...override } : a;
+			});
 			return {
-				datasets: [...state.datasets, demoDataset],
-				xAxes: state.xAxes.map((a) =>
-					a.id === xId
-						? {
-								...a,
-								min: bounds.min,
-								max: bounds.max,
-								xMode: col?.isFloat64 ? "date" : "numeric",
-							}
-						: a,
-				),
-				yAxes: demoState.yAxes,
-				series: demoState.series,
+				yAxes: nextY,
+				series: [...state.series, ...demoState.series],
 				axisTitles: demoState.axisTitles,
 				isLoaded: true,
 			};
