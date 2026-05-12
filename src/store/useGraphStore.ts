@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { generateDemoDataset, getDemoAppState } from "../services/demoData";
 import {
-	type AppState,
 	type Dataset,
 	persistence,
 	type SeriesConfig,
@@ -100,23 +99,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	highlightedSeriesId: null,
 	needsReset: false,
 	setNeedsReset: (needsReset) => set({ needsReset }),
-	legendVisible:
-		typeof localStorage !== "undefined"
-			? localStorage.getItem("legendVisible") !== "false"
-			: true,
+	legendVisible: true,
 	setLegendVisible: (visible) => {
-		if (typeof localStorage !== "undefined")
-			localStorage.setItem("legendVisible", String(visible));
 		set({ legendVisible: visible });
+		if (useGraphStore.getState().isLoaded) debouncedSaveConfig();
 	},
-	crosshairVisible:
-		typeof localStorage !== "undefined"
-			? localStorage.getItem("crosshairVisible") !== "false"
-			: true,
+	crosshairVisible: true,
 	setCrosshairVisible: (visible) => {
-		if (typeof localStorage !== "undefined")
-			localStorage.setItem("crosshairVisible", String(visible));
 		set({ crosshairVisible: visible });
+		if (useGraphStore.getState().isLoaded) debouncedSaveConfig();
 	},
 	previewColor: null,
 	setPreviewColor: (previewColor) => set({ previewColor }),
@@ -429,21 +420,21 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	addSeries: (series) => {
 		set((state) => ({ series: [...state.series, series] }));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateSeries: (id, updates) => {
 		set((state) => ({
 			series: state.series.map((s) => (s.id === id ? { ...s, ...updates } : s)),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateSeriesVisibility: (id, hidden) => {
 		set((state) => ({
 			series: state.series.map((s) => (s.id === id ? { ...s, hidden } : s)),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	removeSeries: (id) => {
@@ -462,7 +453,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			}
 			return { series: newSeries };
 		});
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	setHighlightedSeries: (id) => {
@@ -473,28 +464,28 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((state) => ({
 			series: state.series.map((s) => ({ ...s, hidden: true })),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	bulkShowAllSeries: () => {
 		set((state) => ({
 			series: state.series.map((s) => ({ ...s, hidden: false })),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateXAxis: (id, updates) => {
 		set((state) => ({
 			xAxes: state.xAxes.map((a) => (a.id === id ? { ...a, ...updates } : a)),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveViewport();
 	},
 
 	updateYAxis: (id, updates) => {
 		set((state) => ({
 			yAxes: state.yAxes.map((a) => (a.id === id ? { ...a, ...updates } : a)),
 		}));
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveViewport();
 	},
 
 	batchUpdateAxes: (xUpdates, yUpdates) => {
@@ -529,12 +520,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			if (!changed) return state;
 			return { xAxes: nextX, yAxes: nextY };
 		});
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveViewport();
 	},
 
 	setAxisTitles: (x, y) => {
 		set({ axisTitles: { x, y } });
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	moveSeries: (id, delta) => {
@@ -549,7 +540,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			newSeries[targetIdx] = temp;
 			return { series: newSeries };
 		});
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	reorderSeries: (fromId, toIndex) => {
@@ -561,7 +552,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			newSeries.splice(toIndex, 0, item);
 			return { series: newSeries };
 		});
-		if (get().isLoaded) debouncedSaveState();
+		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	loadPersistedState: async () => {
@@ -623,22 +614,35 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 }));
 
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-function debouncedSaveState() {
-	if (saveTimeout) clearTimeout(saveTimeout);
-	saveTimeout = setTimeout(() => {
-		const curState = useGraphStore.getState();
-		if (curState.isLoaded) saveState(curState);
-		saveTimeout = null;
-	}, 100);
+let viewportTimer: ReturnType<typeof setTimeout> | null = null;
+let configTimer: ReturnType<typeof setTimeout> | null = null;
+
+function debouncedSaveViewport() {
+	if (viewportTimer) clearTimeout(viewportTimer);
+	viewportTimer = setTimeout(() => {
+		viewportTimer = null;
+		const s = useGraphStore.getState();
+		if (!s.isLoaded) return;
+		persistence.saveViewport({ xAxes: s.xAxes, yAxes: s.yAxes });
+	}, 250);
 }
 
-function saveState(state: GraphState) {
-	const appState: AppState = {
-		xAxes: state.xAxes,
-		yAxes: state.yAxes,
-		series: state.series,
-		axisTitles: state.axisTitles,
-	};
-	persistence.saveAppState(appState);
+function debouncedSaveConfig() {
+	if (configTimer) clearTimeout(configTimer);
+	configTimer = setTimeout(() => {
+		configTimer = null;
+		const s = useGraphStore.getState();
+		if (!s.isLoaded) return;
+		persistence.saveConfig({
+			series: s.series,
+			axisTitles: s.axisTitles,
+			legendVisible: s.legendVisible,
+			crosshairVisible: s.crosshairVisible,
+		});
+	}, 150);
+}
+
+function debouncedSaveState() {
+	debouncedSaveViewport();
+	debouncedSaveConfig();
 }
