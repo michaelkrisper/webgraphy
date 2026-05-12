@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { WorkBook } from "xlsx";
-import { type Dataset, persistence } from "../services/persistence";
+import type { Dataset } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
 import { parseData } from "../utils/data-parser";
@@ -122,7 +122,6 @@ export const useDataImport = () => {
 					const currentState = useGraphStore.getState();
 					const ds = processImportedDataset(raw, currentState.datasets.length);
 
-					await persistence.saveDataset(ds);
 					addDataset(ds);
 
 					if (

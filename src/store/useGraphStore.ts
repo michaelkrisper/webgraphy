@@ -583,17 +583,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const demoDataset = generateDemoDataset();
 		const demoState = getDemoAppState(demoDataset);
 
-		// Import demo via normal flow: addDataset (sets xAxis from bounds),
-		// then upsert configured yAxes, add series, set titles.
 		get().addDataset(demoDataset);
 
 		set((state) => {
-			const nextY = state.yAxes.map((a) => {
-				const override = demoState.yAxes.find((c) => c.id === a.id);
-				return override ? { ...a, ...override } : a;
-			});
+			const overrides = new Map(demoState.yAxes.map((c) => [c.id, c]));
 			return {
-				yAxes: nextY,
+				yAxes: state.yAxes.map((a) => {
+					const o = overrides.get(a.id);
+					return o ? { ...a, ...o } : a;
+				}),
 				series: [...state.series, ...demoState.series],
 				axisTitles: demoState.axisTitles,
 				isLoaded: true,

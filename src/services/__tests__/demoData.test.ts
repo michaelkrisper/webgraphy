@@ -189,12 +189,8 @@ describe("demoData", () => {
 
 			const appState = getDemoAppState(mockDataset);
 
-			expect(appState.xAxes).toHaveLength(1);
 			expect(appState.yAxes).toHaveLength(3);
 			expect(appState.series).toHaveLength(4);
-
-			expect(appState.xAxes[0].min).toBe(mockDataset.data[0].bounds.min);
-			expect(appState.xAxes[0].max).toBe(mockDataset.data[0].bounds.max);
 
 			// Check Y-axis overrides
 			expect(appState.yAxes[0].name).toBe("Temp & Hum");

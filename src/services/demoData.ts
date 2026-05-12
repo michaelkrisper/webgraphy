@@ -1,10 +1,8 @@
 import { secureRandom } from "../utils/random";
 import type {
-	AppState,
 	DataColumn,
 	Dataset,
 	SeriesConfig,
-	XAxisConfig,
 	YAxisConfig,
 } from "./persistence";
 
@@ -109,22 +107,6 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	};
 }
 
-function createDemoXAxes(tsBounds: {
-	min: number;
-	max: number;
-}): XAxisConfig[] {
-	return [
-		{
-			id: "axis-1",
-			name: "Time",
-			min: tsBounds.min,
-			max: tsBounds.max,
-			showGrid: true,
-			xMode: "date",
-		},
-	];
-}
-
 function createDemoYAxes(): YAxisConfig[] {
 	return [
 		{
@@ -206,13 +188,8 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 	];
 }
 
-export const getDemoAppState = (dataset: Dataset): AppState => {
-	const tsBounds = dataset.data[0].bounds;
-
-	return {
-		xAxes: createDemoXAxes(tsBounds),
-		yAxes: createDemoYAxes(),
-		series: createDemoSeries(dataset),
-		axisTitles: { x: "Time", y: "Value" },
-	};
-};
+export const getDemoAppState = (dataset: Dataset) => ({
+	yAxes: createDemoYAxes(),
+	series: createDemoSeries(dataset),
+	axisTitles: { x: "Time", y: "Value" },
+});

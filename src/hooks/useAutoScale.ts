@@ -10,6 +10,40 @@ import type {
 import { useGraphStore } from "../store/useGraphStore";
 import { getColumnIndex } from "../utils/columns";
 
+/**
+ * Find inclusive index range of xData (offset by refX) within [xMin, xMax]
+ * via binary search. Returns null if no points fall in range.
+ */
+function visibleIndexRange(
+	xData: ArrayLike<number>,
+	refX: number,
+	xMin: number,
+	xMax: number,
+): { startIdx: number; endIdx: number } | null {
+	let startIdx = -1,
+		endIdx = -1,
+		low = 0,
+		high = xData.length - 1;
+	while (low <= high) {
+		const mid = (low + high) >>> 1;
+		if (xData[mid] + refX >= xMin) {
+			startIdx = mid;
+			high = mid - 1;
+		} else low = mid + 1;
+	}
+	low = 0;
+	high = xData.length - 1;
+	while (low <= high) {
+		const mid = (low + high) >>> 1;
+		if (xData[mid] + refX <= xMax) {
+			endIdx = mid;
+			low = mid + 1;
+		} else high = mid - 1;
+	}
+	if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return null;
+	return { startIdx, endIdx };
+}
+
 interface UseAutoScaleOptions {
 	isLoaded: boolean;
 	series: SeriesConfig[];
@@ -158,28 +192,9 @@ export function useAutoScale({
 						yData = colY.data,
 						refX = colX.refPoint,
 						refY = colY.refPoint;
-					let startIdx = -1,
-						endIdx = -1,
-						low = 0,
-						high = xData.length - 1;
-					while (low <= high) {
-						const mid = (low + high) >>> 1;
-						if (xData[mid] + refX >= xAxis.min) {
-							startIdx = mid;
-							high = mid - 1;
-						} else low = mid + 1;
-					}
-					low = 0;
-					high = xData.length - 1;
-					while (low <= high) {
-						const mid = (low + high) >>> 1;
-						if (xData[mid] + refX <= xAxis.max) {
-							endIdx = mid;
-							low = mid + 1;
-						} else high = mid - 1;
-					}
-					if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
-						for (let i = startIdx; i <= endIdx; i++) {
+					const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
+					if (range) {
+						for (let i = range.startIdx; i <= range.endIdx; i++) {
 							const v = yData[i] + refY;
 							if (v < yMin) yMin = v;
 							if (v > yMax) yMax = v;
@@ -466,28 +481,9 @@ export function useAutoScale({
 					yData = colY.data;
 				const refX = colX.refPoint,
 					refY = colY.refPoint;
-				let startIdx = -1,
-					endIdx = -1,
-					low = 0,
-					high = xData.length - 1;
-				while (low <= high) {
-					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX >= xMin) {
-						startIdx = mid;
-						high = mid - 1;
-					} else low = mid + 1;
-				}
-				low = 0;
-				high = xData.length - 1;
-				while (low <= high) {
-					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX <= xMax) {
-						endIdx = mid;
-						low = mid + 1;
-					} else high = mid - 1;
-				}
-				if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
-					for (let j = startIdx; j <= endIdx; j++) {
+				const range = visibleIndexRange(xData, refX, xMin, xMax);
+				if (range) {
+					for (let j = range.startIdx; j <= range.endIdx; j++) {
 						const v = yData[j] + refY;
 						if (v < yMin) yMin = v;
 						if (v > yMax) yMax = v;

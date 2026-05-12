@@ -222,7 +222,6 @@ describe("useDataImport hook", () => {
 		});
 
 		expect(parseData).toHaveBeenCalledWith(file, "csv", settings);
-		expect(persistence.saveDataset).toHaveBeenCalled();
 		expect(mockAddDataset).toHaveBeenCalled();
 		expect(mockAddDataset.mock.calls[0][0].name).toBe("A - test.csv");
 		expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe("A: Col1");
