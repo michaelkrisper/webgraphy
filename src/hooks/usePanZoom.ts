@@ -257,9 +257,13 @@ export function usePanZoom({
 						: [xAxesById.get(target.xAxisId)!];
 				axesToZoom.forEach((axis) => {
 					if (!axis) return;
+					const currentX = targetXAxes.current[axis.id] || {
+						min: axis.min,
+						max: axis.max,
+					};
 					const vp = {
-						xMin: axis.min,
-						xMax: axis.max,
+						xMin: currentX.min,
+						xMax: currentX.max,
 						yMin: 0,
 						yMax: 100,
 						width,
@@ -267,10 +271,6 @@ export function usePanZoom({
 						padding,
 					};
 					const worldMouse = screenToWorld(mouseX, 0, vp);
-					const currentX = targetXAxes.current[axis.id] || {
-						min: axis.min,
-						max: axis.max,
-					};
 					const newXRange = (currentX.max - currentX.min) * zoomFactor;
 					const weight = (mouseX - padding.left) / chartWidth;
 					targetXAxes.current[axis.id] = {
@@ -293,20 +293,20 @@ export function usePanZoom({
 				})();
 				axesToZoom.forEach((axis) => {
 					if (!axis) return;
+					const currentTarget = targetYs.current[axis.id] || {
+						min: axis.min,
+						max: axis.max,
+					};
 					const axisVp = {
 						xMin: 0,
 						xMax: 100,
-						yMin: axis.min,
-						yMax: axis.max,
+						yMin: currentTarget.min,
+						yMax: currentTarget.max,
 						width,
 						height,
 						padding,
 					};
 					const worldMouse = screenToWorld(0, mouseY, axisVp);
-					const currentTarget = targetYs.current[axis.id] || {
-						min: axis.min,
-						max: axis.max,
-					};
 					const newYRange =
 						(currentTarget.max - currentTarget.min) * zoomFactor;
 					const weight = (height - padding.bottom - mouseY) / chartHeight;
