@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 
-import { ChartGantt, Move } from "lucide-react";
+import { ChartGantt, Expand } from "lucide-react";
 import type React from "react";
 import {
 	Fragment,
@@ -1186,7 +1186,7 @@ const ChartContainer: React.FC = () => {
 							onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
 							onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
 						>
-							<Move size={18} />
+							<Expand size={18} />
 						</button>
 					</>
 				)}

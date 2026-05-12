@@ -422,6 +422,7 @@ export function useAutoScale({
 			activeYAxes: ayAxes,
 			series: allSeries,
 		} = depsRef.current;
+		const liveX = targetXAxes.current;
 
 		// Axis order = first appearance in series array
 		const orderedAxisIds: string[] = [];
@@ -451,8 +452,12 @@ export function useAutoScale({
 				if (yIdx === -1) return;
 				const colY = ds.data[yIdx];
 				if (!colY?.data) return;
-				const xAxis = xaById.get(ds.xAxisId || "axis-1");
-				if (!xAxis) return;
+				const xAxisId = ds.xAxisId || "axis-1";
+				const storeXAxis = xaById.get(xAxisId);
+				const liveRange = liveX[xAxisId];
+				const xMin = liveRange?.min ?? storeXAxis?.min;
+				const xMax = liveRange?.max ?? storeXAxis?.max;
+				if (xMin === undefined || xMax === undefined) return;
 				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 				if (xIdx === -1) return;
 				const colX = ds.data[xIdx];
@@ -467,7 +472,7 @@ export function useAutoScale({
 					high = xData.length - 1;
 				while (low <= high) {
 					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX >= xAxis.min) {
+					if (xData[mid] + refX >= xMin) {
 						startIdx = mid;
 						high = mid - 1;
 					} else low = mid + 1;
@@ -476,7 +481,7 @@ export function useAutoScale({
 				high = xData.length - 1;
 				while (low <= high) {
 					const mid = (low + high) >>> 1;
-					if (xData[mid] + refX <= xAxis.max) {
+					if (xData[mid] + refX <= xMax) {
 						endIdx = mid;
 						low = mid + 1;
 					} else high = mid - 1;
@@ -508,7 +513,7 @@ export function useAutoScale({
 		});
 
 		sv();
-	}, [targetYs]);
+	}, [targetYs, targetXAxes]);
 
 	return { handleAutoScaleY, handleAutoScaleX, handleStackedFit };
 }
