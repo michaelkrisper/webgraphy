@@ -221,22 +221,24 @@ describe("data-parser", () => {
 			expect(datasets[0].data[1].refPoint).toBe(1.1);
 		});
 
-		it("should throw error for invalid JSON format", async () => {
+		it("should throw error for valid JSON that is not an array", async () => {
 			const file = createMockFile(
 				'{"not_an_array": true}',
 				"test.json",
 				"application/json",
 			);
 			await expect(parseData(file, "json", {})).rejects.toThrow(
-				"Invalid JSON format",
+				"Invalid JSON format: Expected a non-empty array of objects",
 			);
+		});
 
-			const file2 = createMockFile(
+		it("should throw error for invalid JSON format", async () => {
+			const file = createMockFile(
 				"[not json]",
-				"test2.json",
+				"test.json",
 				"application/json",
 			);
-			await expect(parseData(file2, "json", {})).rejects.toThrow(
+			await expect(parseData(file, "json", {})).rejects.toThrow(
 				"Invalid JSON format",
 			);
 		});
