@@ -1012,6 +1012,7 @@ const ChartContainer: React.FC = () => {
 					height={height}
 					padding={padding}
 					series={series}
+					datasets={datasets}
 					axisLayout={axisLayout}
 					xAxesMetrics={xAxesMetrics}
 					axisColor={themeColors.axisColor}
