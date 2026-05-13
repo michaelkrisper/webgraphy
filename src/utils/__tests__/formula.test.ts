@@ -194,6 +194,11 @@ describe("compileFormula", () => {
 		expect(res6.error).toContain("Unexpected character: $");
 		expect(res6.evaluate([])).toBeNaN();
 		expect(res6.usedColumnIndices).toEqual([]);
+
+		const res7 = compileFormula("10 @ 20", columns);
+		expect(res7.error).toContain("Unexpected character: @");
+		expect(res7.evaluate([])).toBeNaN();
+		expect(res7.usedColumnIndices).toEqual([]);
 	});
 
 	it("should handle missing functions coverage", () => {
