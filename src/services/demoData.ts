@@ -6,11 +6,26 @@ import type {
 	YAxisConfig,
 } from "./persistence";
 
-function generateRawWeatherData(
-	rowCount: number,
-	startTime: number,
-): number[][] {
-	const rawData: number[][] = [];
+export function generateDemoDataset(rowCount = 10000): Dataset {
+	const columns = [
+		"Timestamp",
+		"Temperature (°C)",
+		"Humidity (%)",
+		"Solar Irradiance (W/m²)",
+		"Wind Speed (m/s)",
+	];
+	const datasetId = "demo-dataset";
+
+	const currentYear = new Date().getFullYear();
+	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+
+	const data: DataColumn[] = columns.map((colName) => ({
+		isFloat64: colName === "Timestamp",
+		refPoint: 0,
+		bounds: { min: Infinity, max: -Infinity },
+		data: new Float32Array(rowCount),
+	}));
+
 	for (let i = 0; i < rowCount; i++) {
 		const ts = startTime + i * 60; // 1 minute resolution
 		const minutesElapsed = i;
@@ -45,45 +60,18 @@ function generateRawWeatherData(
 			(secureRandom() > 0.98 ? secureRandom() * 10 : secureRandom() * 2);
 		wind = Math.max(0, wind);
 
-		rawData.push([ts, temp, humidity, solar, wind]);
-	}
-	return rawData;
-}
+		const vals = [ts, temp, humidity, solar, wind];
 
-export function generateDemoDataset(rowCount = 10000): Dataset {
-	const columns = [
-		"Timestamp",
-		"Temperature (°C)",
-		"Humidity (%)",
-		"Solar Irradiance (W/m²)",
-		"Wind Speed (m/s)",
-	];
-	const datasetId = "demo-dataset";
+		for (let colIdx = 0; colIdx < 5; colIdx++) {
+			const val = vals[colIdx];
+			const col = data[colIdx];
+			if (i === 0) col.refPoint = val;
 
-	const currentYear = new Date().getFullYear();
-	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
-
-	const rawData = generateRawWeatherData(rowCount, startTime);
-	const data = columns.map((colName, colIdx) => {
-		const refPoint = rawData[0][colIdx];
-		const float32Data = new Float32Array(rowCount);
-		let min = Infinity;
-		let max = -Infinity;
-
-		for (let i = 0; i < rowCount; i++) {
-			const val = rawData[i][colIdx];
-			if (val < min) min = val;
-			if (val > max) max = val;
-			float32Data[i] = val - refPoint;
+			if (val < col.bounds.min) col.bounds.min = val;
+			if (val > col.bounds.max) col.bounds.max = val;
+			col.data[i] = val - col.refPoint;
 		}
-
-		return {
-			isFloat64: colName === "Timestamp",
-			refPoint,
-			bounds: { min, max },
-			data: float32Data,
-		} as DataColumn;
-	});
+	}
 
 	const prefix = "Demo: ";
 	return {
