@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import type { SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
+import { escapeHTML } from "../../utils/dom";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 
@@ -463,9 +464,10 @@ const AxesLayer = React.memo(
 							.map((s, i) => {
 								const sep =
 									i > 0 && axisSeries.length > 1
-										? `<span style="color:${labelColor}"> / </span>`
+										? `<span style="color:${escapeHTML(labelColor)}"> / </span>`
 										: "";
-								return `${sep}<span style="color:${s.lineColor}">${s.name || s.yColumn}</span>`;
+								const name = escapeHTML(s.name || s.yColumn);
+								return `${sep}<span style="color:${escapeHTML(s.lineColor)}">${name}</span>`;
 							})
 							.join("");
 						titleDiv.innerHTML = html;
