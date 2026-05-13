@@ -6,9 +6,8 @@ import React, {
 	useMemo,
 	useRef,
 } from "react";
-import type { SeriesConfig } from "../../services/persistence";
+import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
-import { escapeHTML } from "../../utils/dom";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 
@@ -23,6 +22,7 @@ interface AxesLayerProps {
 	height: number;
 	padding: { top: number; right: number; bottom: number; left: number };
 	series: SeriesConfig[];
+	datasets: Dataset[];
 	axisLayout: Record<string, { total: number; label: number }>;
 	xAxesMetrics: XAxisMetrics[];
 	axisColor: string;
@@ -47,6 +47,7 @@ const AxesLayer = React.memo(
 				height,
 				padding,
 				series,
+				datasets,
 				axisLayout,
 				xAxesMetrics,
 				axisColor,
@@ -66,7 +67,6 @@ const AxesLayer = React.memo(
 			const gridCanvasRef = useRef<HTMLCanvasElement>(null);
 			const labelsContainerRef = useRef<HTMLDivElement>(null);
 			const labelPoolRef = useRef<HTMLDivElement[]>([]);
-			const lastLabelUpdateRef = useRef<number>(0);
 
 			const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
 			const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
@@ -82,6 +82,25 @@ const AxesLayer = React.memo(
 				}
 				return grouped;
 			}, [series]);
+
+			const seriesByXAxisId = useMemo(() => {
+				const dsXAxis = new Map(datasets.map((d) => [d.id, d.xAxisId]));
+				const grouped: Record<string, SeriesConfig[]> = {};
+				const seen: Record<string, Set<string>> = {};
+				for (const s of series) {
+					const xId = dsXAxis.get(s.sourceId);
+					if (!xId) continue;
+					if (!grouped[xId]) {
+						grouped[xId] = [];
+						seen[xId] = new Set();
+					}
+					const key = s.name || s.yColumn;
+					if (seen[xId].has(key)) continue;
+					seen[xId].add(key);
+					grouped[xId].push(s);
+				}
+				return grouped;
+			}, [series, datasets]);
 
 			const drawGrid = useCallback(
 				(xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
@@ -290,15 +309,6 @@ const AxesLayer = React.memo(
 
 					ctx.restore();
 
-					// --- DOM Labels with Throttling ---
-					const now = performance.now();
-					const isInteracting = isInteractingRef.current;
-					const shouldUpdateLabels =
-						!isInteracting || now - lastLabelUpdateRef.current > 100;
-
-					if (!shouldUpdateLabels) return;
-					lastLabelUpdateRef.current = now;
-
 					let labelIdx = 0;
 					const getLabelDiv = () => {
 						let div = labelPoolRef.current[labelIdx];
@@ -402,10 +412,17 @@ const AxesLayer = React.memo(
 
 						// Axis Title
 						const titleDiv = getLabelDiv();
-						titleDiv.textContent = axis.title;
 						titleDiv.style.font = `bold 12px ${fontFamily}`;
 						titleDiv.style.color = axis.color || labelColor;
 						titleDiv.style.transform = `translate(${padding.left + chartWidth / 2}px, ${baseY + metrics.titleBottom - 12}px) translate(-50%, -100%)`;
+
+						const axisSeries = seriesByXAxisId[axis.id] || [];
+						const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
+						titleDiv.textContent = axis.title;
+						titleDiv.style.color =
+							uniqueColors.size === 1
+								? (axisSeries[0].lineColor ?? labelColor)
+								: axis.color || labelColor;
 					});
 
 					// Y Axes Labels
@@ -451,17 +468,19 @@ const AxesLayer = React.memo(
 						const rotate = isLeft ? "rotate(-90deg)" : "rotate(90deg)";
 						titleDiv.style.transform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
 
-						const html = axisSeries
-							.map((s, i) => {
-								const sep =
-									i > 0 && axisSeries.length > 1
-										? `<span style="color:${escapeHTML(labelColor)}"> / </span>`
-										: "";
-								const name = escapeHTML(s.name || s.yColumn);
-								return `${sep}<span style="color:${escapeHTML(s.lineColor)}">${name}</span>`;
-							})
-							.join("");
-						titleDiv.innerHTML = html;
+						titleDiv.textContent = "";
+						axisSeries.forEach((s, i) => {
+							if (i > 0 && axisSeries.length > 1) {
+								const sepSpan = document.createElement("span");
+								sepSpan.style.color = labelColor;
+								sepSpan.textContent = " / ";
+								titleDiv.appendChild(sepSpan);
+							}
+							const nameSpan = document.createElement("span");
+							nameSpan.style.color = s.lineColor;
+							nameSpan.textContent = s.name || s.yColumn;
+							titleDiv.appendChild(nameSpan);
+						});
 					});
 
 					// Hide remaining unused label divs
@@ -482,6 +501,7 @@ const AxesLayer = React.memo(
 					fontFamily,
 					axisLayout,
 					seriesByYAxisId,
+					seriesByXAxisId,
 					leftOffsets,
 					rightOffsets,
 				],
@@ -514,7 +534,7 @@ const AxesLayer = React.memo(
 					lastYAxes.current = initialYAxes;
 					drawRef.current(initialXAxes, initialYAxes);
 				}
-			}, [initialXAxes, initialYAxes, width, height]);
+			}, [initialXAxes, initialYAxes]);
 
 			const dpr = window.devicePixelRatio || 1;
 

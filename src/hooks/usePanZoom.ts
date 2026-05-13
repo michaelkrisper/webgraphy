@@ -254,7 +254,10 @@ export function usePanZoom({
 				const axesToZoom =
 					target === "all" || shiftKey
 						? activeXAxes
-						: [xAxesById.get(target.xAxisId)!];
+						: (() => {
+								const a = xAxesById.get(target.xAxisId);
+								return a ? [a] : [];
+							})();
 				axesToZoom.forEach((axis) => {
 					if (!axis) return;
 					const currentX = targetXAxes.current[axis.id] || {
@@ -289,7 +292,8 @@ export function usePanZoom({
 					if (shiftKey) {
 						return leftAxes.some((a) => a.id === yId) ? leftAxes : rightAxes;
 					}
-					return [yAxesById.get(yId)!];
+					const a = yAxesById.get(yId);
+					return a ? [a] : [];
 				})();
 				axesToZoom.forEach((axis) => {
 					if (!axis) return;

@@ -31,7 +31,7 @@ export async function parseData(
 	type: string,
 	settings?: ParseSettings,
 ) {
-	let result;
+	let result: Awaited<ReturnType<typeof parseCSV>>;
 	if (type === "csv") result = await parseCSV(file, settings);
 	else if (type === "json") result = await parseJSON(file, settings);
 	else throw new Error(`Unsupported file type: ${type}`);
@@ -150,10 +150,11 @@ export async function parseData(
 				if (config?.type === "categorical") {
 					const srcIdx = outputColIdxs[colIdx];
 					const map = categoricalMaps[srcIdx];
-					categoryLabels = new Array(map.size);
+					const labels = new Array(map.size);
 					map.forEach((id, key) => {
-						categoryLabels![id] = key;
+						labels[id] = key;
 					});
+					categoryLabels = labels;
 				}
 				return {
 					isFloat64: isDate,
@@ -470,7 +471,7 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 	const { decimalPoint = ".", columnConfigs = [] } = settings || {};
 
 	const text = await file.text();
-	let raw;
+	let raw: unknown;
 	try {
 		// 🔒 Security Note: Using secureJSONParse instead of native JSON.parse to prevent Prototype Pollution vulnerabilities.
 		raw = secureJSONParse(text);
@@ -562,9 +563,8 @@ function parseValue(
 		if (!categoricalMap.has(val)) {
 			categoricalMap.set(val, categoricalMap.size);
 		}
-		return categoricalMap.get(val)!;
+		return categoricalMap.get(val) ?? 0;
 	}
-
 	// Default: numeric
 	// ⚡ Bolt Optimization: Fast path for parseValue
 	const p = parseFloat(isComma ? val.replace(",", ".") : val);

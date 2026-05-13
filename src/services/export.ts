@@ -45,7 +45,8 @@ export const exportToSVG = (
 	datasets.forEach((d, dsIdx) => {
 		if (!activeDatasetIds.has(d.id)) return;
 		const xId = d.xAxisId || "axis-1";
-		if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
+		const currentMin = axisToMinDsIdx.get(xId);
+		if (currentMin === undefined || dsIdx < currentMin) {
 			axisToMinDsIdx.set(xId, dsIdx);
 		}
 	});
@@ -364,6 +365,15 @@ export const exportToSVG = (
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
 
+	const seriesByYAxisId: Record<string, SeriesConfig[]> = {};
+	for (let i = 0; i < series.length; i++) {
+		const s = series[i];
+		if (!seriesByYAxisId[s.yAxisId]) {
+			seriesByYAxisId[s.yAxisId] = [];
+		}
+		seriesByYAxisId[s.yAxisId].push(s);
+	}
+
 	activeYAxes.forEach((axis) => {
 		const isLeft = axis.position === "left";
 		const axisWidth = axisWidthMap[axis.id];
@@ -397,7 +407,7 @@ export const exportToSVG = (
 			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
 		}
 
-		const axisSeries = series.filter((s) => s.yAxisId === axis.id);
+		const axisSeries = seriesByYAxisId[axis.id] || [];
 		const fullTitle = axisSeries.map((s) => s.name || s.yColumn).join(" / ");
 		const titleX = isLeft ? xPos + 5 : xPos + axisWidth - 5;
 		const titleY = padding.top + chartHeight / 2,
@@ -473,7 +483,11 @@ export const exportToPNG = async (
 			dpr = window.devicePixelRatio || 1;
 		canvas.width = width * dpr;
 		canvas.height = height * dpr;
-		const ctx = canvas.getContext("2d")!;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) {
+			reject(new Error("Could not get 2D context"));
+			return;
+		}
 		ctx.scale(dpr, dpr);
 		const img = new Image(),
 			svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" }),

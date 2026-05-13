@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
+import type { SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { SeriesConfigUI } from "./SeriesConfig";
 
@@ -41,9 +42,12 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 			);
 			rowRectsRef.current = rows.map((r) => {
 				const rect = r.getBoundingClientRect();
-				return { top: rect.top, height: rect.height, id: r.dataset.seriesId! };
+				return {
+					top: rect.top,
+					height: rect.height,
+					id: r.dataset.seriesId ?? "",
+				};
 			});
-
 			const startY = startEvent.clientY;
 			let hasMoved = false;
 
@@ -94,14 +98,14 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 	return (
 		<section className="sb-section">
 			<div className="sb-section-header">
-				<div onClick={onToggle} className="sb-section-toggle">
+				<button type="button" onClick={onToggle} className="sb-section-toggle">
 					<h2 className="sb-section-title">Data Series</h2>
 					{open ? (
 						<ChevronDown size={16} color="var(--text-muted-color)" />
 					) : (
 						<ChevronRight size={16} color="var(--text-muted-color)" />
 					)}
-				</div>
+				</button>
 			</div>
 
 			{open && (
@@ -158,46 +162,51 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								</div>
 								<div />
 							</div>
-							{(() => {
-								const dragSeries = dragId
-									? series.find((s) => s.id === dragId)
-									: null;
-								// Build preview order: remove dragged item, insert ghost at dropIndex
-								const withoutDrag = series.filter((s) => s.id !== dragId);
-								const previewList: Array<{
-									s: (typeof series)[0];
-									isGhost: boolean;
-								}> = withoutDrag.map((s) => ({ s, isGhost: false }));
-								if (dragSeries && dropIndex !== null) {
-									const clampedDrop = Math.min(dropIndex, withoutDrag.length);
-									previewList.splice(clampedDrop, 0, {
-										s: dragSeries,
-										isGhost: true,
-									});
-								}
+							<ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+								{(() => {
+									const dragSeries = dragId
+										? series.find((s) => s.id === dragId)
+										: null;
+									const withoutDrag = series.filter((s) => s.id !== dragId);
+									const previewList: Array<{
+										s: SeriesConfig;
+										isGhost: boolean;
+									}> = withoutDrag.map((s) => ({ s, isGhost: false }));
+									if (dragSeries && dropIndex !== null) {
+										const clampedDrop = Math.min(dropIndex, withoutDrag.length);
+										previewList.splice(clampedDrop, 0, {
+											s: dragSeries,
+											isGhost: true,
+										});
+									}
 
-								return previewList.map(({ s, isGhost }) => (
-									<div
-										key={isGhost ? `ghost-${s.id}` : s.id}
-										{...(!isGhost ? { "data-series-id": s.id } : {})}
-										onMouseEnter={() => !isGhost && setHighlightedSeries(s.id)}
-										onMouseLeave={() => !isGhost && setHighlightedSeries(null)}
-										className={`sb-series-row${!isGhost && dragId === s.id ? " sb-series-row--dragging" : ""}${isGhost ? " sb-series-row--ghost" : ""}`}
-									>
-										<SeriesConfigUI
-											series={s}
-											datasets={datasets}
-											onHandleMouseDown={
-												!isGhost
-													? (e) => {
-															startDrag(s.id, e);
-														}
-													: undefined
+									return previewList.map(({ s, isGhost }) => (
+										<li
+											key={isGhost ? `ghost-${s.id}` : s.id}
+											{...(!isGhost ? { "data-series-id": s.id } : {})}
+											onMouseEnter={() =>
+												!isGhost && setHighlightedSeries(s.id)
 											}
-										/>
-									</div>
-								));
-							})()}
+											onMouseLeave={() =>
+												!isGhost && setHighlightedSeries(null)
+											}
+											className={`sb-series-row${
+												!isGhost && dragId === s.id
+													? " sb-series-row--dragging"
+													: ""
+											}${isGhost ? " sb-series-row--ghost" : ""}`}
+										>
+											<SeriesConfigUI
+												series={s}
+												datasets={datasets}
+												onHandleMouseDown={
+													!isGhost ? (e) => startDrag(s.id, e) : undefined
+												}
+											/>
+										</li>
+									));
+								})()}
+							</ul>
 						</div>
 					)}
 				</div>
