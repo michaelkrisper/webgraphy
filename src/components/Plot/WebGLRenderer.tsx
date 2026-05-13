@@ -185,12 +185,9 @@ export const WebGLRenderer = React.memo(
 			yAxes,
 			width,
 			height,
-			padding,
 			isInteracting = false,
-			highlightedSeriesId,
 			plotBg,
 		} = props;
-
 		const canvasRef = useRef<HTMLCanvasElement>(null);
 		const glRef = useRef<WebGLRenderingContext | null>(null);
 		const programRef = useRef<WebGLProgram | null>(null);
@@ -246,7 +243,8 @@ export const WebGLRenderer = React.memo(
 			gl.enable(gl.BLEND);
 			gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-			const vs = gl.createShader(gl.VERTEX_SHADER)!;
+			const vs = gl.createShader(gl.VERTEX_SHADER);
+			if (!vs) return;
 			gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
 			gl.compileShader(vs);
 			if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
@@ -254,7 +252,8 @@ export const WebGLRenderer = React.memo(
 				return;
 			}
 
-			const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
+			const fs = gl.createShader(gl.FRAGMENT_SHADER);
+			if (!fs) return;
 			gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
 			gl.compileShader(fs);
 			if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
@@ -262,32 +261,32 @@ export const WebGLRenderer = React.memo(
 				return;
 			}
 
-			const pg = gl.createProgram()!;
-			gl.attachShader(pg, vs);
-			gl.attachShader(pg, fs);
-			gl.linkProgram(pg);
-			if (!gl.getProgramParameter(pg, gl.LINK_STATUS)) {
-				console.error("Link Error:", gl.getProgramInfoLog(pg));
+			const program = gl.createProgram();
+			if (!program) return;
+			gl.attachShader(program, vs);
+			gl.attachShader(program, fs);
+			gl.linkProgram(program);
+			if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				console.error("Link Error:", gl.getProgramInfoLog(program));
 				return;
 			}
-			programRef.current = pg;
-
+			programRef.current = program;
 			locationsRef.current = {
-				xScaleOffLoc: gl.getUniformLocation(pg, "u_x_scale_offset"),
-				yScaleOffLoc: gl.getUniformLocation(pg, "u_y_scale_offset"),
-				padLoc: gl.getUniformLocation(pg, "u_padding"),
-				resLoc: gl.getUniformLocation(pg, "u_resolution"),
-				colorLoc: gl.getUniformLocation(pg, "u_color"),
-				styleLoc: gl.getUniformLocation(pg, "u_style"),
-				lineStyleLoc: gl.getUniformLocation(pg, "u_line_style"),
-				dprLoc: gl.getUniformLocation(pg, "u_dpr"),
-				sizeLoc: gl.getUniformLocation(pg, "u_point_size"),
-				screenSpaceLoc: gl.getUniformLocation(pg, "u_is_screen_space"),
-				xLoc: gl.getAttribLocation(pg, "a_x"),
-				yLoc: gl.getAttribLocation(pg, "a_y"),
-				otherLoc: gl.getAttribLocation(pg, "a_other"),
-				tLoc: gl.getAttribLocation(pg, "a_t"),
-				distStartLoc: gl.getAttribLocation(pg, "a_dist_start"),
+				xScaleOffLoc: gl.getUniformLocation(program, "u_x_scale_offset"),
+				yScaleOffLoc: gl.getUniformLocation(program, "u_y_scale_offset"),
+				padLoc: gl.getUniformLocation(program, "u_padding"),
+				resLoc: gl.getUniformLocation(program, "u_resolution"),
+				colorLoc: gl.getUniformLocation(program, "u_color"),
+				styleLoc: gl.getUniformLocation(program, "u_style"),
+				lineStyleLoc: gl.getUniformLocation(program, "u_line_style"),
+				dprLoc: gl.getUniformLocation(program, "u_dpr"),
+				sizeLoc: gl.getUniformLocation(program, "u_point_size"),
+				screenSpaceLoc: gl.getUniformLocation(program, "u_is_screen_space"),
+				xLoc: gl.getAttribLocation(program, "a_x"),
+				yLoc: gl.getAttribLocation(program, "a_y"),
+				otherLoc: gl.getAttribLocation(program, "a_other"),
+				tLoc: gl.getAttribLocation(program, "a_t"),
+				distStartLoc: gl.getAttribLocation(program, "a_dist_start"),
 			};
 
 			if (drawFrameRef.current) {
@@ -306,48 +305,51 @@ export const WebGLRenderer = React.memo(
 		}, []);
 
 		const seriesMetadata = useMemo(() => {
-			const datasetsById = new Map<string, Dataset>();
-			datasets.forEach((d) => {
-				datasetsById.set(d.id, d);
-			});
+			const datasetsById: Record<string, Dataset> = {};
+			for (let i = 0; i < datasets.length; i++) {
+				datasetsById[datasets[i].id] = datasets[i];
+			}
 
-			return series
-				.map((s) => {
-					const ds = datasetsById.get(s.sourceId);
-					if (!ds) return null;
-
-					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
-					const yIdx = getColumnIndex(ds, s.yColumn);
-
-					if (xIdx === -1 || yIdx === -1) {
-						return null;
-					}
-
-					const isPreviewed = previewColor?.seriesId === s.id;
-					const effectiveLineColor = isPreviewed
-						? previewColor.color
-						: s.lineColor;
-					const effectivePointColor = isPreviewed
-						? previewColor.color
-						: s.pointColor;
-
-					return {
-						series: s,
-						ds,
-						xIdx,
-						yIdx,
-						lineColorRgba: hexToRgba(effectiveLineColor),
-						pointColorRgba: hexToRgba(effectivePointColor),
-					};
-				})
-				.filter(Boolean) as {
+			const result: {
 				series: SeriesConfig;
 				ds: Dataset;
 				xIdx: number;
 				yIdx: number;
 				lineColorRgba: number[];
 				pointColorRgba: number[];
-			}[];
+			}[] = [];
+
+			for (let i = 0; i < series.length; i++) {
+				const s = series[i];
+				const ds = datasetsById[s.sourceId];
+				if (!ds) continue;
+
+				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+				const yIdx = getColumnIndex(ds, s.yColumn);
+
+				if (xIdx === -1 || yIdx === -1) {
+					continue;
+				}
+
+				const isPreviewed = previewColor?.seriesId === s.id;
+				const effectiveLineColor = isPreviewed
+					? previewColor.color
+					: s.lineColor;
+				const effectivePointColor = isPreviewed
+					? previewColor.color
+					: s.pointColor;
+
+				result.push({
+					series: s,
+					ds,
+					xIdx,
+					yIdx,
+					lineColorRgba: hexToRgba(effectiveLineColor),
+					pointColorRgba: hexToRgba(effectivePointColor),
+				});
+			}
+
+			return result;
 		}, [datasets, series, previewColor]);
 
 		useEffect(() => {
@@ -363,20 +365,12 @@ export const WebGLRenderer = React.memo(
 				currentXAxes: XAxisConfig[],
 				currentYAxes: YAxisConfig[],
 			) => {
-				const pg = programRef.current;
+				const program = programRef.current;
 				const locs = locationsRef.current;
-				if (!pg || !locs) return;
+				if (!program || !locs) return;
 
 				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
-				const xAxesById = new Map<string, XAxisConfig>();
-				currentXAxes.forEach((a) => {
-					xAxesById.set(a.id, a);
-				});
-				const yAxesById = new Map<string, YAxisConfig>();
-				currentYAxes.forEach((a) => {
-					yAxesById.set(a.id, a);
-				});
 
 				const chartWidth = width - padding.left - padding.right;
 				const chartHeight = height - padding.top - padding.bottom;
@@ -390,7 +384,7 @@ export const WebGLRenderer = React.memo(
 				gl.clearColor(0, 0, 0, 0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
-				gl.useProgram(pg);
+				gl["useProgram"](program);
 				gl.uniform4f(
 					locs.padLoc,
 					padding.top * dpr,
@@ -411,16 +405,32 @@ export const WebGLRenderer = React.memo(
 				);
 
 				const t0 = performance.now();
-				seriesMetadata.forEach(
-					({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
-						const xAxis = xAxesById.get(ds.xAxisId || "axis-1");
-						const yAxis = yAxesById.get(s.yAxisId);
-						if (!xAxis || !yAxis) return;
+				for (let idx = 0; idx < seriesMetadata.length; idx++) {
+					const { series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba } = seriesMetadata[idx];
 
-						if (s.hidden) return;
-						const colX = ds.data[xIdx];
-						const colY = ds.data[yIdx];
-						if (!colX || !colY) return;
+					let xAxis: XAxisConfig | undefined;
+					const targetXId = ds.xAxisId || "axis-1";
+					for (let i = 0; i < currentXAxes.length; i++) {
+						if (currentXAxes[i].id === targetXId) {
+							xAxis = currentXAxes[i];
+							break;
+						}
+					}
+
+					let yAxis: YAxisConfig | undefined;
+					for (let i = 0; i < currentYAxes.length; i++) {
+						if (currentYAxes[i].id === s.yAxisId) {
+							yAxis = currentYAxes[i];
+							break;
+						}
+					}
+
+					if (!xAxis || !yAxis) continue;
+
+					if (s.hidden) continue;
+					const colX = ds.data[xIdx];
+					const colY = ds.data[yIdx];
+					if (!colX || !colY) continue;
 
 						const xData = colX.data;
 						const yData = colY.data;
@@ -563,17 +573,19 @@ export const WebGLRenderer = React.memo(
 
 						const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
 						const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
+
 						let xBuffer = buffersRef.current.get(dynXKey);
 						if (!xBuffer) {
-							xBuffer = gl.createBuffer()!;
+							xBuffer = gl.createBuffer();
+							if (!xBuffer) return;
 							buffersRef.current.set(dynXKey, xBuffer);
 						}
 						let yBuffer = buffersRef.current.get(dynYKey);
 						if (!yBuffer) {
-							yBuffer = gl.createBuffer()!;
+							yBuffer = gl.createBuffer();
+							if (!yBuffer) return;
 							buffersRef.current.set(dynYKey, yBuffer);
 						}
-
 						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
 						gl.bufferData(
 							gl.ARRAY_BUFFER,
@@ -628,10 +640,10 @@ export const WebGLRenderer = React.memo(
 								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
-									segBuffer = gl.createBuffer()!;
+									segBuffer = gl.createBuffer();
+									if (!segBuffer) return;
 									buffersRef.current.set(segBufferKey, segBuffer);
 								}
-
 								let totalLineSegs = 0;
 								for (const seg of drawSegments)
 									totalLineSegs += Math.max(0, seg.x.length - 1);
@@ -749,8 +761,7 @@ export const WebGLRenderer = React.memo(
 									gl.drawArrays(gl.POINTS, seg.start, seg.count);
 							}
 						}
-					},
-				);
+				}
 				gl.disable(gl.SCISSOR_TEST);
 
 				const TARGET_MS = 20;
@@ -777,13 +788,13 @@ export const WebGLRenderer = React.memo(
 			if (!isInteracting) {
 				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
 			}
-		}, [seriesMetadata, isInteracting, highlightedSeriesId, plotBg]);
+		}, [seriesMetadata, isInteracting, plotBg]);
 
 		useEffect(() => {
 			if (!isInteracting && drawFrameRef.current) {
 				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
 			}
-		}, [width, height, padding, isInteracting]);
+		}, [isInteracting]);
 
 		useEffect(() => {
 			if (isInteracting) return;
