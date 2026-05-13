@@ -293,7 +293,8 @@ const AxesLayer = React.memo(
 					// --- DOM Labels with Throttling ---
 					const now = performance.now();
 					const isInteracting = isInteractingRef.current;
-					const shouldUpdateLabels = !isInteracting || (now - lastLabelUpdateRef.current > 100);
+					const shouldUpdateLabels =
+						!isInteracting || now - lastLabelUpdateRef.current > 100;
 
 					if (!shouldUpdateLabels) return;
 					lastLabelUpdateRef.current = now;

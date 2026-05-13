@@ -1,5 +1,12 @@
-import { Calculator, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import {
+	Calculator,
+	ChevronDown,
+	ChevronRight,
+	Pencil,
+	Trash2,
+} from "lucide-react";
+import type React from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
@@ -159,9 +166,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 										}}
 										title={ds.name}
 									>
-										{ds.name.includes(": ")
-											? ds.name.split(": ")[1]
-											: ds.name}
+										{ds.name.includes(": ") ? ds.name.split(": ")[1] : ds.name}
 									</span>
 									<span
 										style={{
@@ -224,8 +229,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 													borderBottom: `1px solid ${t.border}`,
 													borderLeft: `1px solid ${t.border}`,
 													borderRight: "none",
-													cursor:
-														datasets.length === 1 ? "default" : "pointer",
+													cursor: datasets.length === 1 ? "default" : "pointer",
 													color: t.accent,
 													display: "flex",
 													alignItems: "center",
@@ -311,9 +315,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 										if (isX) return null;
 										const colData = ds.data[colIdx];
 										const isCalc = !!colData?.formula;
-										const label = col.includes(": ")
-											? col.split(": ")[1]
-											: col;
+										const label = col.includes(": ") ? col.split(": ")[1] : col;
 										const isRenaming =
 											renamingColumn?.datasetId === ds.id &&
 											renamingColumn?.col === col;
@@ -340,20 +342,12 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 															)
 														}
 														onBlur={() => {
-															renameColumn(
-																ds.id,
-																col,
-																renamingColumn.value,
-															);
+															renameColumn(ds.id, col, renamingColumn.value);
 															setRenamingColumn(null);
 														}}
 														onKeyDown={(e) => {
 															if (e.key === "Enter") {
-																renameColumn(
-																	ds.id,
-																	col,
-																	renamingColumn.value,
-																);
+																renameColumn(ds.id, col, renamingColumn.value);
 																setRenamingColumn(null);
 															} else if (e.key === "Escape") {
 																setRenamingColumn(null);
@@ -387,9 +381,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 																fontWeight: "600",
 															}}
 															title={
-																isCalc
-																	? `Formula: ${colData.formula}`
-																	: col
+																isCalc ? `Formula: ${colData.formula}` : col
 															}
 														>
 															{isCalc ? `ƒ ${label}` : label}

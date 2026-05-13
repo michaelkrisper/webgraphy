@@ -199,9 +199,11 @@ export const WebGLRenderer = React.memo(
 		const scratchXRef = useRef<Float32Array | null>(null);
 		const scratchYRef = useRef<Float32Array | null>(null);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
-		const segmentCacheRef = useRef<WeakMap<Float32Array, { start: number; end: number }[]>>(new WeakMap());
+		const segmentCacheRef = useRef<
+			WeakMap<Float32Array, { start: number; end: number }[]>
+		>(new WeakMap());
 		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
-		
+
 		const pixelBudgetMultRef = useRef<number>(64);
 		const frameTimeRef = useRef<number>(0);
 		const lastBudgetUpdateRef = useRef<number>(0);
@@ -445,7 +447,8 @@ export const WebGLRenderer = React.memo(
 							let segStart = -1;
 							for (let i = 0; i <= yData.length; i++) {
 								const nan = i === yData.length || Number.isNaN(yData[i]);
-								const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
+								const xDrop =
+									!nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
 								const break_ = nan || xDrop;
 								if (!break_ && segStart === -1) segStart = i;
 								else if (break_ && segStart !== -1) {
@@ -485,16 +488,17 @@ export const WebGLRenderer = React.memo(
 							? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
 							: 0;
 						const sliceEnd = isMonotonic
-							? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
+							? Math.min(
+									xDataLen - 1,
+									rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd,
+								)
 							: xDataLen - 1;
-
-						const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
-						const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
 
 						const drawSegments: { x: Float32Array; y: Float32Array }[] = [];
 						let totalDrawCount = 0;
 						if (isMonotonic) {
-							let segLo = 0, segHi = cachedSegments.length - 1;
+							let segLo = 0,
+								segHi = cachedSegments.length - 1;
 							let startSegIdx = 0;
 							while (segLo <= segHi) {
 								const m = (segLo + segHi) >>> 1;
@@ -525,7 +529,8 @@ export const WebGLRenderer = React.memo(
 							}
 						}
 
-						const reqLen = totalDrawCount + Math.max(0, drawSegments.length - 1);
+						const reqLen =
+							totalDrawCount + Math.max(0, drawSegments.length - 1);
 						let flatX = scratchXRef.current;
 						let flatY = scratchYRef.current;
 						if (!flatX || !flatY || flatX.length < reqLen) {
@@ -556,8 +561,8 @@ export const WebGLRenderer = React.memo(
 							(height - padding.bottom) * dpr -
 							(yAxis.min - colY.refPoint) * yScaleVal;
 
-						const dynXKey = \`dyn-x-\${ds.id}-\${xIdx}-\${yIdx}\`;
-						const dynYKey = \`dyn-y-\${ds.id}-\${xIdx}-\${yIdx}\`;
+						const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
+						const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
 						let xBuffer = buffersRef.current.get(dynXKey);
 						if (!xBuffer) {
 							xBuffer = gl.createBuffer()!;
@@ -570,9 +575,17 @@ export const WebGLRenderer = React.memo(
 						}
 
 						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, flatX.subarray(0, drawCount), gl.STREAM_DRAW);
+						gl.bufferData(
+							gl.ARRAY_BUFFER,
+							flatX.subarray(0, drawCount),
+							gl.STREAM_DRAW,
+						);
 						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, flatY.subarray(0, drawCount), gl.STREAM_DRAW);
+						gl.bufferData(
+							gl.ARRAY_BUFFER,
+							flatY.subarray(0, drawCount),
+							gl.STREAM_DRAW,
+						);
 
 						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
 						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
@@ -584,7 +597,8 @@ export const WebGLRenderer = React.memo(
 							const c = lineColorRgba;
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
 							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 2.5 : 1.5) * dpr);
-							const lStyle = s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
+							const lStyle =
+								s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
 							gl.uniform1i(locs.lineStyleLoc, lStyle);
 							gl.uniform1i(locs.styleLoc, -1);
 
@@ -606,11 +620,12 @@ export const WebGLRenderer = React.memo(
 
 								gl.lineWidth(baseLineWidth);
 								for (const seg of drawRanges) {
-									if (seg.count >= 2) gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
+									if (seg.count >= 2)
+										gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
 								}
 							} else {
-								const segBufferKey = \`seg-\${ds.id}-\${xIdx}-\${yIdx}-dyn\`;
-								const paramKey = \`\${xRange}-\${yRange}-\${chartWidth}-\${chartHeight}-\${dpr}-\${drawCount}\`;
+								const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
+								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
 									segBuffer = gl.createBuffer()!;
@@ -618,7 +633,8 @@ export const WebGLRenderer = React.memo(
 								}
 
 								let totalLineSegs = 0;
-								for (const seg of drawSegments) totalLineSegs += Math.max(0, seg.x.length - 1);
+								for (const seg of drawSegments)
+									totalLineSegs += Math.max(0, seg.x.length - 1);
 
 								if (segParamsRef.current.get(segBufferKey) !== paramKey) {
 									const sharedArr = new Float32Array(totalLineSegs * 12);
@@ -630,14 +646,26 @@ export const WebGLRenderer = React.memo(
 										let cumDist = 0;
 										const n = seg.x.length - 1;
 										for (let i = 0; i < n; i++) {
-											const ax = seg.x[i], ay = seg.y[i];
-											const bx = seg.x[i+1], by = seg.y[i+1];
-											const sLen = Math.sqrt(((bx-ax)*scaleX)**2 + ((by-ay)*scaleY)**2);
+											const ax = seg.x[i],
+												ay = seg.y[i];
+											const bx = seg.x[i + 1],
+												by = seg.y[i + 1];
+											const sLen = Math.sqrt(
+												((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
+											);
 											const off = outIdx * 12;
-											sharedArr[off] = ax; sharedArr[off+1] = ay; sharedArr[off+2] = bx; sharedArr[off+3] = by;
-											sharedArr[off+4] = 0; sharedArr[off+5] = cumDist;
-											sharedArr[off+6] = bx; sharedArr[off+7] = by; sharedArr[off+8] = ax; sharedArr[off+9] = ay;
-											sharedArr[off+10] = 1; sharedArr[off+11] = cumDist;
+											sharedArr[off] = ax;
+											sharedArr[off + 1] = ay;
+											sharedArr[off + 2] = bx;
+											sharedArr[off + 3] = by;
+											sharedArr[off + 4] = 0;
+											sharedArr[off + 5] = cumDist;
+											sharedArr[off + 6] = bx;
+											sharedArr[off + 7] = by;
+											sharedArr[off + 8] = ax;
+											sharedArr[off + 9] = ay;
+											sharedArr[off + 10] = 1;
+											sharedArr[off + 11] = cumDist;
 											cumDist += sLen;
 											outIdx++;
 										}
@@ -653,11 +681,25 @@ export const WebGLRenderer = React.memo(
 								gl.enableVertexAttribArray(locs.yLoc);
 								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
 								gl.enableVertexAttribArray(locs.otherLoc);
-								gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
+								gl.vertexAttribPointer(
+									locs.otherLoc,
+									2,
+									gl.FLOAT,
+									false,
+									24,
+									8,
+								);
 								gl.enableVertexAttribArray(locs.tLoc);
 								gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
 								gl.enableVertexAttribArray(locs.distStartLoc);
-								gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
+								gl.vertexAttribPointer(
+									locs.distStartLoc,
+									1,
+									gl.FLOAT,
+									false,
+									24,
+									20,
+								);
 								gl.lineWidth(baseLineWidth);
 								gl.drawArrays(gl.LINES, 0, totalLineSegs * 2);
 							}

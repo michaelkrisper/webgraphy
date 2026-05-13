@@ -9,7 +9,8 @@ import {
 	Palette,
 	Rows3,
 } from "lucide-react";
-import React, { useCallback, useRef, useState } from "react";
+import type React from "react";
+import { useCallback, useRef, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
 import { SeriesConfigUI } from "./SeriesConfig";
 
