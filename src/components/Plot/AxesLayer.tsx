@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import type { SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
-import { escapeHTML } from "../../utils/dom";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 
@@ -461,17 +460,19 @@ const AxesLayer = React.memo(
 						titleDiv.style.left = `${titleX}px`;
 						titleDiv.style.top = `${padding.top + chartHeight / 2}px`;
 
-						const html = axisSeries
-							.map((s, i) => {
-								const sep =
-									i > 0 && axisSeries.length > 1
-										? `<span style="color:${escapeHTML(labelColor)}"> / </span>`
-										: "";
-								const name = escapeHTML(s.name || s.yColumn);
-								return `${sep}<span style="color:${escapeHTML(s.lineColor)}">${name}</span>`;
-							})
-							.join("");
-						titleDiv.innerHTML = html;
+						titleDiv.textContent = "";
+						axisSeries.forEach((s, i) => {
+							if (i > 0 && axisSeries.length > 1) {
+								const sepSpan = document.createElement("span");
+								sepSpan.style.color = labelColor;
+								sepSpan.textContent = " / ";
+								titleDiv.appendChild(sepSpan);
+							}
+							const nameSpan = document.createElement("span");
+							nameSpan.style.color = s.lineColor;
+							nameSpan.textContent = s.name || s.yColumn;
+							titleDiv.appendChild(nameSpan);
+						});
 					});
 
 					// Hide remaining unused label divs
