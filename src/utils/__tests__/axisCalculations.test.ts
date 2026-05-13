@@ -7,6 +7,7 @@ import {
 	calcNumericTicks,
 	calcYAxisTicks,
 	syncAxesWithTargets,
+	formatAxisLabel,
 } from "../axisCalculations";
 
 describe("calcNumericStep", () => {
@@ -17,6 +18,30 @@ describe("calcNumericStep", () => {
 	});
 	it("returns 1 for zero range", () => {
 		expect(calcNumericStep(0, 5)).toBe(1);
+	});
+});
+
+describe("formatAxisLabel", () => {
+	it("returns '0' for values close to zero", () => {
+		expect(formatAxisLabel(0, 2)).toBe("0");
+		expect(formatAxisLabel(1e-13, 2)).toBe("0");
+		expect(formatAxisLabel(-1e-13, 2)).toBe("0");
+	});
+
+	it("formats normal numbers according to precision", () => {
+		expect(formatAxisLabel(1.2345, 2)).toBe("1.23");
+		expect(formatAxisLabel(100, 0)).toBe("100");
+		expect(formatAxisLabel(100.5, 1)).toBe("100.5");
+	});
+
+	it("uses exponential notation for strings longer than 12 characters", () => {
+		expect(formatAxisLabel(1234567890123, 0)).toBe("1e+12");
+		expect(formatAxisLabel(0.000000000001, 12)).toBe("1.0000e-12");
+	});
+
+	it("caps exponential precision at 4 decimal places or given precision", () => {
+		expect(formatAxisLabel(1234567890123, 2)).toBe("1.23e+12");
+		expect(formatAxisLabel(1234567890123, 5)).toBe("1.2346e+12");
 	});
 });
 
