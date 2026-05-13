@@ -263,6 +263,9 @@ describe("compileFormula", () => {
 		const resMismatched3 = compileFormula(")", columns);
 		expect(resMismatched3.error).toContain("Mismatched parentheses");
 
+		const resMismatchedLeft = compileFormula("(1+1", columns);
+		expect(resMismatchedLeft.error).toContain("Mismatched parentheses");
+
 		// Test for 'avg1' without unit
 		const resAvg1 = compileFormula("avg1([Temp])", columns);
 		const ctxAvg1 = resAvg1.createContext?.();
