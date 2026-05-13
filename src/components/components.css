@@ -1001,6 +1001,16 @@
 	overflow: hidden;
 	flex-shrink: 0;
 }
+.sb-logo-btn {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
 .sb-logo {
 	width: 24px;
 	height: 24px;
@@ -1375,7 +1385,7 @@
 	background: inherit;
 }
 .col-chip-actions button {
-	border-left: none !important;
+	border-left: none;
 }
 .col-chip:hover .col-chip-actions {
 	opacity: 1;

@@ -192,7 +192,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 						</div>
 					)}
 					{suggestions.length > 0 && (
-						<div className="calc-suggestions">
+						<div className="calc-suggestions" role="listbox">
 							{suggestions.map((s, i) => (
 								<div
 									key={s}
@@ -210,6 +210,9 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 										background:
 											i === selectedSuggestion ? "#e0f2fe" : "var(--bg)",
 									}}
+									role="option"
+									aria-selected={i === selectedSuggestion}
+									tabIndex={-1}
 								>
 									{s}
 								</div>

@@ -543,7 +543,7 @@ const AxesLayer = React.memo(
 					lastYAxes.current = initialYAxes;
 					drawRef.current(initialXAxes, initialYAxes);
 				}
-			}, [initialXAxes, initialYAxes, width, height]);
+			}, [initialXAxes, initialYAxes]);
 
 			const dpr = window.devicePixelRatio || 1;
 

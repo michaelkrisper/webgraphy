@@ -45,7 +45,8 @@ export const exportToSVG = (
 	datasets.forEach((d, dsIdx) => {
 		if (!activeDatasetIds.has(d.id)) return;
 		const xId = d.xAxisId || "axis-1";
-		if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!) {
+		const currentMin = axisToMinDsIdx.get(xId);
+		if (currentMin === undefined || dsIdx < currentMin) {
 			axisToMinDsIdx.set(xId, dsIdx);
 		}
 	});
@@ -473,7 +474,11 @@ export const exportToPNG = async (
 			dpr = window.devicePixelRatio || 1;
 		canvas.width = width * dpr;
 		canvas.height = height * dpr;
-		const ctx = canvas.getContext("2d")!;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) {
+			reject(new Error("Could not get 2D context"));
+			return;
+		}
 		ctx.scale(dpr, dpr);
 		const img = new Image(),
 			svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" }),

@@ -72,7 +72,8 @@ const Crosshair = React.memo(
 				}
 
 				const rect = el.getBoundingClientRect();
-				let clientX, clientY;
+				let clientX: number;
+				let clientY: number;
 				if ("touches" in e) {
 					if (e.touches.length !== 1) {
 						setPos(null);
