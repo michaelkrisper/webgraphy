@@ -90,7 +90,6 @@ const ChartContainer: React.FC = () => {
 		startTargetX: {},
 		startTargetY: {},
 	});
-	const lastLayoutUpdateRef = useRef<number>(0);
 
 	// 2. Store Data
 	const series = useGraphStore((s) => s.series);
@@ -281,8 +280,10 @@ const ChartContainer: React.FC = () => {
 		datasets.forEach((d, dsIdx) => {
 			if (activeDsIdsSet.has(d.id)) {
 				const xId = d.xAxisId || "axis-1";
-				if (!axisToMinDsIdx.has(xId) || dsIdx < axisToMinDsIdx.get(xId)!)
+				const currentMin = axisToMinDsIdx.get(xId);
+				if (currentMin === undefined || dsIdx < currentMin) {
 					axisToMinDsIdx.set(xId, dsIdx);
+				}
 			}
 		});
 		return xAxes
@@ -649,19 +650,10 @@ const ChartContainer: React.FC = () => {
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 					webglRef.current?.redraw(liveX, liveY);
 
-					const now = performance.now();
 					const isInteractingNow = panStateRef.current.active || isInteracting;
-					const shouldUpdateLayout =
-						forceStoreUpdate ||
-						!isInteractingNow ||
-						now - lastLayoutUpdateRef.current > 100;
-
-					if (shouldUpdateLayout) {
-						lastLayoutUpdateRef.current = now;
-						const xLayout = computeXAxesLayout(liveX);
-						const yLayout = computeYAxesLayout(liveY);
-						axesLayerRef.current?.redraw(xLayout, yLayout);
-					}
+					const xLayout = computeXAxesLayout(liveX);
+					const yLayout = computeYAxesLayout(liveY);
+					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
 					if (forceStoreUpdate || !isInteractingNow) {
@@ -1012,6 +1004,7 @@ const ChartContainer: React.FC = () => {
 					height={height}
 					padding={padding}
 					series={series}
+					datasets={datasets}
 					axisLayout={axisLayout}
 					xAxesMetrics={xAxesMetrics}
 					axisColor={themeColors.axisColor}
@@ -1031,6 +1024,8 @@ const ChartContainer: React.FC = () => {
 					return (
 						<Fragment key={`wheel-x-${m.id}`}>
 							<div
+								role="region"
+								aria-label={`X-Axis ${m.id} interaction area`}
 								onWheel={(e) => {
 									e.stopPropagation();
 									handleWheel(e, { xAxisId: m.id });
@@ -1066,7 +1061,6 @@ const ChartContainer: React.FC = () => {
 							/>
 							{editingXAxisId === m.id && (
 								<input
-									autoFocus
 									defaultValue={title}
 									onBlur={(e) => {
 										const newName = e.target.value.trim();
@@ -1112,6 +1106,8 @@ const ChartContainer: React.FC = () => {
 						: width - padding.right + (rightOffsets[a.id] ?? 0);
 					return (
 						<div
+							role="region"
+							aria-label={`Y-Axis ${a.id} interaction area`}
 							key={`wheel-${a.id}`}
 							onWheel={(e) => {
 								e.stopPropagation();
@@ -1223,6 +1219,7 @@ const ChartContainer: React.FC = () => {
 						className="chart-abs-fill"
 						style={{ zIndex: 30 }}
 					>
+						<title>Zoom Selection Box</title>
 						<rect
 							x={Math.min(zoomBoxState.startX, zoomBoxState.endX)}
 							y={Math.min(zoomBoxState.startY, zoomBoxState.endY)}

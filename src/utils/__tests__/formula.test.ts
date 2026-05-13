@@ -174,11 +174,31 @@ describe("compileFormula", () => {
 		expect(res5.error).toContain("Mismatched parentheses");
 		expect(res5.evaluate([])).toBeNaN();
 
+		// Mismatched parentheses - extra closing parenthesis
+		const resExtraClose = compileFormula("1+1)", columns);
+		expect(resExtraClose.error).toContain("Mismatched parentheses");
+		expect(resExtraClose.evaluate([])).toBeNaN();
+
+		// Mismatched parentheses - missing closing on simple expression
+		const resMissingClose = compileFormula("(1+1", columns);
+		expect(resMissingClose.error).toContain("Mismatched parentheses");
+		expect(resMissingClose.evaluate([])).toBeNaN();
+
+		// Mismatched parentheses - extra closing parenthesis on function
+		const resExtraCloseFunc = compileFormula("min(1,2))", columns);
+		expect(resExtraCloseFunc.error).toContain("Mismatched parentheses");
+		expect(resExtraCloseFunc.evaluate([])).toBeNaN();
+
 		// Unexpected character during lexing
 		const res6 = compileFormula("10 $ 20", columns);
 		expect(res6.error).toContain("Unexpected character: $");
 		expect(res6.evaluate([])).toBeNaN();
 		expect(res6.usedColumnIndices).toEqual([]);
+
+		const res7 = compileFormula("10 @ 20", columns);
+		expect(res7.error).toContain("Unexpected character: @");
+		expect(res7.evaluate([])).toBeNaN();
+		expect(res7.usedColumnIndices).toEqual([]);
 	});
 
 	it("should handle missing functions coverage", () => {
@@ -256,12 +276,19 @@ describe("compileFormula", () => {
 		const resComma = compileFormula("1 , 2", columns);
 		expect(resComma.error).toBe("Unexpected comma");
 
+		// Testing "Unexpected comma" error when parsing comma within parentheses but outside of a function
+		const resCommaParen = compileFormula("(1, 2)", columns);
+		expect(resCommaParen.error).toBe("Unexpected comma");
+
 		// Extra edge cases requested by reviewer
 		const resMismatched1 = compileFormula("((1+2)", columns);
 		expect(resMismatched1.error).toContain("Mismatched parentheses");
 
 		const resMismatched3 = compileFormula(")", columns);
 		expect(resMismatched3.error).toContain("Mismatched parentheses");
+
+		const resMismatchedLeft = compileFormula("(1+1", columns);
+		expect(resMismatchedLeft.error).toContain("Mismatched parentheses");
 
 		// Test for 'avg1' without unit
 		const resAvg1 = compileFormula("avg1([Temp])", columns);

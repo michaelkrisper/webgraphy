@@ -17,7 +17,7 @@ import { CalculatedColumnModal } from "../Layout/CalculatedColumnModal";
 interface DataSourcesSectionProps {
 	open: boolean;
 	onToggle: () => void;
-	fileInputRef: React.RefObject<HTMLInputElement>;
+	fileInputRef: React.RefObject<HTMLInputElement | null>;
 	importFile: (file: File) => void;
 }
 
@@ -77,7 +77,8 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 						justifyContent: "space-between",
 					}}
 				>
-					<div
+					<button
+						type="button"
 						onClick={onToggle}
 						style={{
 							display: "flex",
@@ -85,6 +86,9 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 							gap: "6px",
 							cursor: "pointer",
 							flex: 1,
+							background: "none",
+							border: "none",
+							padding: 0,
 						}}
 					>
 						<h2 className="sb-section-title">Data Sources</h2>
@@ -93,7 +97,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 						) : (
 							<ChevronRight size={16} color={t.textMuted} />
 						)}
-					</div>
+					</button>{" "}
 				</div>
 				<input
 					ref={fileInputRef}
@@ -332,7 +336,6 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 											>
 												{isRenaming ? (
 													<input
-														autoFocus
 														value={renamingColumn.value}
 														onChange={(e) =>
 															setRenamingColumn((prev) =>
@@ -417,7 +420,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 																			setEditingColumn({
 																				datasetId: ds.id,
 																				name: col,
-																				formula: colData.formula!,
+																				formula: colData.formula ?? "",
 																			})
 																		}
 																		style={{
