@@ -562,6 +562,7 @@ export const WebGLRenderer = React.memo(
 
 						const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
 						const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
+
 						let xBuffer = buffersRef.current.get(dynXKey);
 						if (!xBuffer) {
 							xBuffer = gl.createBuffer();
