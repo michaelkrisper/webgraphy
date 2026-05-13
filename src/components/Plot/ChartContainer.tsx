@@ -90,7 +90,6 @@ const ChartContainer: React.FC = () => {
 		startTargetX: {},
 		startTargetY: {},
 	});
-	const lastLayoutUpdateRef = useRef<number>(0);
 
 	// 2. Store Data
 	const series = useGraphStore((s) => s.series);
@@ -649,19 +648,10 @@ const ChartContainer: React.FC = () => {
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 					webglRef.current?.redraw(liveX, liveY);
 
-					const now = performance.now();
 					const isInteractingNow = panStateRef.current.active || isInteracting;
-					const shouldUpdateLayout =
-						forceStoreUpdate ||
-						!isInteractingNow ||
-						now - lastLayoutUpdateRef.current > 100;
-
-					if (shouldUpdateLayout) {
-						lastLayoutUpdateRef.current = now;
-						const xLayout = computeXAxesLayout(liveX);
-						const yLayout = computeYAxesLayout(liveY);
-						axesLayerRef.current?.redraw(xLayout, yLayout);
-					}
+					const xLayout = computeXAxesLayout(liveX);
+					const yLayout = computeYAxesLayout(liveY);
+					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
 					if (forceStoreUpdate || !isInteractingNow) {
