@@ -1,6 +1,7 @@
 // src/utils/__tests__/axisCalculations.test.ts
 import { describe, expect, it } from "vitest";
 import {
+	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
 	calcNumericTicks,
@@ -27,6 +28,30 @@ describe("calcNumericPrecision", () => {
 	it("returns positive precision for fractional steps", () => {
 		expect(calcNumericPrecision(0.1)).toBe(1);
 		expect(calcNumericPrecision(0.01)).toBe(2);
+	});
+});
+
+describe("calcCategoricalTicks", () => {
+	it("generates integer ticks within bounds", () => {
+		expect(calcCategoricalTicks(0, 5, 10)).toEqual([0, 1, 2, 3, 4, 5]);
+	});
+
+	it("bounds minimum at 0", () => {
+		expect(calcCategoricalTicks(-5, 5, 10)).toEqual([0, 1, 2, 3, 4, 5]);
+	});
+
+	it("bounds maximum at categoryCount - 1", () => {
+		expect(calcCategoricalTicks(0, 10, 5)).toEqual([0, 1, 2, 3, 4]);
+	});
+
+	it("handles decimal bounds by clamping inward", () => {
+		expect(calcCategoricalTicks(1.5, 4.5, 10)).toEqual([2, 3, 4]);
+	});
+
+	it("returns empty array if min > max after rounding/bounding", () => {
+		expect(calcCategoricalTicks(5, 0, 10)).toEqual([]);
+		expect(calcCategoricalTicks(4.5, 4.2, 10)).toEqual([]);
+		expect(calcCategoricalTicks(10, 15, 5)).toEqual([]); // max bounded to 4, min is 10, min > max
 	});
 });
 
