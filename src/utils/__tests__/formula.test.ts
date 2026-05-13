@@ -174,6 +174,21 @@ describe("compileFormula", () => {
 		expect(res5.error).toContain("Mismatched parentheses");
 		expect(res5.evaluate([])).toBeNaN();
 
+		// Mismatched parentheses - extra closing parenthesis
+		const resExtraClose = compileFormula("1+1)", columns);
+		expect(resExtraClose.error).toContain("Mismatched parentheses");
+		expect(resExtraClose.evaluate([])).toBeNaN();
+
+		// Mismatched parentheses - missing closing on simple expression
+		const resMissingClose = compileFormula("(1+1", columns);
+		expect(resMissingClose.error).toContain("Mismatched parentheses");
+		expect(resMissingClose.evaluate([])).toBeNaN();
+
+		// Mismatched parentheses - extra closing parenthesis on function
+		const resExtraCloseFunc = compileFormula("min(1,2))", columns);
+		expect(resExtraCloseFunc.error).toContain("Mismatched parentheses");
+		expect(resExtraCloseFunc.evaluate([])).toBeNaN();
+
 		// Unexpected character during lexing
 		const res6 = compileFormula("10 $ 20", columns);
 		expect(res6.error).toContain("Unexpected character: $");
