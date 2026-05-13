@@ -21,9 +21,10 @@ function createMockFile(content: string, name: string, type: string) {
 
 describe("data-parser", () => {
 	it("should throw an error for unsupported file types", async () => {
+		const file = createMockFile("content", "test.xml", "application/xml");
 		await expect(
-			parseData(null as unknown as File, "unsupported"),
-		).rejects.toThrow("Unsupported file type");
+			parseData(file, "unsupported"),
+		).rejects.toThrow("Unsupported file type: unsupported");
 	});
 
 	it("should handle native Error instances in catch block", async () => {
