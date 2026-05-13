@@ -3,6 +3,27 @@ import { screenToWorld, type Viewport, worldToScreen } from "./coords";
 
 describe("Coordinate Conversions", () => {
 	describe("worldToScreen", () => {
+		it("defaults to zero padding if not provided", () => {
+			const viewWithoutPadding: Viewport = {
+				xMin: 0,
+				xMax: 100,
+				yMin: 0,
+				yMax: 100,
+				width: 1000,
+				height: 500,
+			};
+
+			const viewWithZeroPadding: Viewport = {
+				...viewWithoutPadding,
+				padding: { top: 0, right: 0, bottom: 0, left: 0 },
+			};
+
+			// Both should yield the identical result because of fallback p = view.padding || { top: 0, right: 0, bottom: 0, left: 0 }
+			expect(worldToScreen(50, 50, viewWithoutPadding)).toEqual(
+				worldToScreen(50, 50, viewWithZeroPadding)
+			);
+		});
+
 		it("converts correctly without padding", () => {
 			const view: Viewport = {
 				xMin: 0,
@@ -425,6 +446,38 @@ describe("Coordinate Conversions", () => {
 	});
 
 	describe("degenerate dimensions", () => {
+		it("worldToScreen handles zero chart width safely", () => {
+			const view: Viewport = {
+				xMin: 0,
+				xMax: 100,
+				yMin: 0,
+				yMax: 100,
+				width: 10,
+				height: 500,
+				padding: { top: 0, right: 5, bottom: 0, left: 5 },
+			};
+
+			const result = worldToScreen(50, 50, view);
+			expect(result.x).toBe(5); // chartWidth is 0, so sx is p.left
+			expect(result.y).toBe(250);
+		});
+
+		it("worldToScreen handles zero chart height safely", () => {
+			const view: Viewport = {
+				xMin: 0,
+				xMax: 100,
+				yMin: 0,
+				yMax: 100,
+				width: 1000,
+				height: 20,
+				padding: { top: 10, right: 0, bottom: 10, left: 0 },
+			};
+
+			const result = worldToScreen(50, 50, view);
+			expect(result.x).toBe(500);
+			expect(result.y).toBe(10); // view.height - p.bottom - 0
+		});
+
 		it("handles zero chart width safely", () => {
 			const view: Viewport = {
 				xMin: 0,
