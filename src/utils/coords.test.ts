@@ -91,6 +91,52 @@ describe("Coordinate Conversions", () => {
 			expect(worldToScreen(50, 50, view)).toEqual({ x: 490, y: 260 });
 		});
 
+		it("handles negative screen coordinates correctly", () => {
+			const view: Viewport = {
+				xMin: -100,
+				xMax: 100,
+				yMin: -100,
+				yMax: 100,
+				width: 1000,
+				height: 500,
+			};
+
+			// sx: -250 -> x: -100 + (-250 / 1000) * 200 = -150
+			// sy: -125 -> y: -100 + ((500 - (-125)) / 500) * 200 = 150
+			expect(screenToWorld(-250, -125, view)).toEqual({ x: -150, y: 150 });
+		});
+
+		it("handles negative padding values correctly", () => {
+			const view: Viewport = {
+				xMin: 0,
+				xMax: 100,
+				yMin: 0,
+				yMax: 100,
+				width: 1000,
+				height: 500,
+				padding: { top: -10, right: -20, bottom: -30, left: -40 },
+			};
+
+			// From worldToScreen test: world (50, 50) maps to screen (490, 260)
+			expect(screenToWorld(490, 260, view)).toEqual({ x: 50, y: 50 });
+		});
+
+		it("handles zero width and height views correctly", () => {
+			const view: Viewport = {
+				xMin: 0,
+				xMax: 100,
+				yMin: 0,
+				yMax: 100,
+				width: 0,
+				height: 0,
+				padding: { top: 0, right: 0, bottom: 0, left: 0 },
+			};
+
+			const result = screenToWorld(50, 50, view);
+			expect(result.x).toBe(Infinity); // (50 / 0) * 100
+			expect(result.y).toBe(-Infinity); // (-50 / 0) * 100
+		});
+
 		it("converts correctly with padding", () => {
 			const view: Viewport = {
 				xMin: 0,
