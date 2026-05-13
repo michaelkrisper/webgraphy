@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
+import type { SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import type { ChartSeries } from "../../types/chart";
 import { SeriesConfigUI } from "./SeriesConfig";
 
 interface DataSeriesSectionProps {
@@ -169,7 +169,7 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 										: null;
 									const withoutDrag = series.filter((s) => s.id !== dragId);
 									const previewList: Array<{
-										s: ChartSeries;
+										s: SeriesConfig;
 										isGhost: boolean;
 									}> = withoutDrag.map((s) => ({ s, isGhost: false }));
 									if (dragSeries && dropIndex !== null) {
