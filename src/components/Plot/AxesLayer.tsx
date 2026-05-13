@@ -65,6 +65,7 @@ const AxesLayer = React.memo(
 			const gridCanvasRef = useRef<HTMLCanvasElement>(null);
 			const labelsContainerRef = useRef<HTMLDivElement>(null);
 			const labelPoolRef = useRef<HTMLDivElement[]>([]);
+			const lastLabelUpdateRef = useRef<number>(0);
 
 			const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
 			const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
@@ -286,6 +287,16 @@ const AxesLayer = React.memo(
 						ctx.stroke();
 					});
 
+					ctx.restore();
+
+					// --- DOM Labels with Throttling ---
+					const now = performance.now();
+					const isInteracting = isInteractingRef.current;
+					const shouldUpdateLabels = !isInteracting || (now - lastLabelUpdateRef.current > 100);
+
+					if (!shouldUpdateLabels) return;
+					lastLabelUpdateRef.current = now;
+
 					let labelIdx = 0;
 					const getLabelDiv = () => {
 						let div = labelPoolRef.current[labelIdx];
@@ -305,7 +316,7 @@ const AxesLayer = React.memo(
 						return div;
 					};
 
-					// X Axes
+					// X Axes Labels
 					xAxes.forEach((axis, axisIdx) => {
 						const metrics = xAxesMetrics[axisIdx];
 						if (!metrics) return;
@@ -360,8 +371,8 @@ const AxesLayer = React.memo(
 
 									const x = Math.max(currentX + 5, padding.left + 5);
 
-									// We keep the background and border in Canvas2D because it's easy and fast,
-									// but text goes to DOM.
+									ctx.save();
+									ctx.scale(dpr, dpr);
 									ctx.font = `bold 10px ${fontFamily}`;
 									const textWidth = ctx.measureText(sl.label).width;
 									const rectY = baseY + metrics.secLabelBottom - 14;
@@ -376,12 +387,13 @@ const AxesLayer = React.memo(
 										ctx.lineTo(currentX, rectY + 14);
 										ctx.stroke();
 									}
+									ctx.restore();
 
 									const div = getLabelDiv();
 									div.textContent = sl.label;
 									div.style.font = `bold 10px ${fontFamily}`;
 									div.style.color = axis.color || labelColor;
-									div.style.transform = "translate(0, 0)"; // textAlign left, textBaseline bottom mapped to top
+									div.style.transform = "translate(0, 0)";
 									div.style.left = `${x}px`;
 									div.style.top = `${baseY + metrics.secLabelBottom - 10}px`;
 								},
@@ -398,7 +410,7 @@ const AxesLayer = React.memo(
 						titleDiv.style.top = `${baseY + metrics.titleBottom - 12}px`;
 					});
 
-					// Y Axes
+					// Y Axes Labels
 					yAxes.forEach((axis) => {
 						const isLeft = axis.position === "left";
 						const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
@@ -463,8 +475,6 @@ const AxesLayer = React.memo(
 					for (let i = labelIdx; i < labelPoolRef.current.length; i++) {
 						labelPoolRef.current[i].style.display = "none";
 					}
-
-					ctx.restore();
 				},
 				[
 					drawGrid,

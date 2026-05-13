@@ -174,7 +174,7 @@ export interface WebGLRendererHandle {
 }
 
 /**
- * WebGLRenderer Component (v0.5.2 - Optimized Lifecycle & Stable Initialization)
+ * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
  */
 export const WebGLRenderer = React.memo(
 	forwardRef<WebGLRendererHandle, Props>((props, ref) => {
@@ -196,15 +196,12 @@ export const WebGLRenderer = React.memo(
 		const programRef = useRef<WebGLProgram | null>(null);
 		const locationsRef = useRef<WebGLLocations | null>(null);
 		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
-		const m4OutsRef = useRef<Map<string, { x: Float32Array; y: Float32Array }>>(
-			new Map(),
-		);
 		const scratchXRef = useRef<Float32Array | null>(null);
 		const scratchYRef = useRef<Float32Array | null>(null);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
+		const segmentCacheRef = useRef<WeakMap<Float32Array, { start: number; end: number }[]>>(new WeakMap());
 		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
-		// Adaptive decimation: tracks last frame time and adjusts pixel budget multiplier.
-		// Budget scales down when rendering is slow, up when there is headroom.
+		
 		const pixelBudgetMultRef = useRef<number>(64);
 		const frameTimeRef = useRef<number>(0);
 		const lastBudgetUpdateRef = useRef<number>(0);
@@ -214,7 +211,6 @@ export const WebGLRenderer = React.memo(
 			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
 		>(null);
 
-		// Sync props to ref for use in drawFrame without closure issues
 		const propsRef = useRef(props);
 		useEffect(() => {
 			propsRef.current = props;
@@ -234,7 +230,6 @@ export const WebGLRenderer = React.memo(
 			[],
 		);
 
-		// Synchronous Initialization
 		useEffect(() => {
 			const canvas = canvasRef.current;
 			if (!canvas) return;
@@ -293,7 +288,6 @@ export const WebGLRenderer = React.memo(
 				distStartLoc: gl.getAttribLocation(pg, "a_dist_start"),
 			};
 
-			// Trigger initial draw
 			if (drawFrameRef.current) {
 				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
 			}
@@ -371,7 +365,6 @@ export const WebGLRenderer = React.memo(
 				const locs = locationsRef.current;
 				if (!pg || !locs) return;
 
-				// Use latest props from ref to avoid stale closures
 				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
 				const xAxesById = new Map<string, XAxisConfig>();
@@ -406,7 +399,6 @@ export const WebGLRenderer = React.memo(
 				gl.uniform2f(locs.resLoc, pw, ph);
 				gl.uniform1f(locs.dprLoc, dpr);
 
-				// Data Rendering (with scissor)
 				gl.uniform1i(locs.screenSpaceLoc, 0);
 				gl.enable(gl.SCISSOR_TEST);
 				gl.scissor(
@@ -435,16 +427,10 @@ export const WebGLRenderer = React.memo(
 						const xRange = xAxis.max - xAxis.min || 1;
 						const yRange = yAxis.max - yAxis.min || 1;
 
-						// Pixel-anchored M4: 1 bucket per device pixel, tied to world-X (xAxis.min..max).
-						// Bucket boundaries don't shift with slice length, so extrema stay stable under zoom.
-						// Binary-search requires globally monotonic X. If column has internal drops
-						// (e.g. concatenated groups), fall back to scanning the full array —
-						// the per-segment loop below splits at xDrop and handles each correctly.
-						const xDataLen = xData.length;
 						let isMonotonic = monoCacheRef.current.get(xData);
 						if (isMonotonic === undefined) {
 							isMonotonic = true;
-							for (let i = 1; i < xDataLen; i++) {
+							for (let i = 1; i < xData.length; i++) {
 								if (xData[i] < xData[i - 1]) {
 									isMonotonic = false;
 									break;
@@ -452,11 +438,31 @@ export const WebGLRenderer = React.memo(
 							}
 							monoCacheRef.current.set(xData, isMonotonic);
 						}
+
+						let cachedSegments = segmentCacheRef.current.get(yData);
+						if (!cachedSegments) {
+							cachedSegments = [];
+							let segStart = -1;
+							for (let i = 0; i <= yData.length; i++) {
+								const nan = i === yData.length || Number.isNaN(yData[i]);
+								const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
+								const break_ = nan || xDrop;
+								if (!break_ && segStart === -1) segStart = i;
+								else if (break_ && segStart !== -1) {
+									cachedSegments.push({ start: segStart, end: i - 1 });
+									segStart = -1;
+									if (xDrop && !nan) segStart = i;
+								}
+							}
+							segmentCacheRef.current.set(yData, cachedSegments);
+						}
+
+						const xDataLen = xData.length;
 						let rawStart = 0,
-							rawEnd = xData.length - 1;
-						{
+							rawEnd = xDataLen - 1;
+						if (isMonotonic) {
 							let lo = 0,
-								hi = xData.length - 1;
+								hi = xDataLen - 1;
 							while (lo <= hi) {
 								const m = (lo + hi) >>> 1;
 								if (xData[m] + xRef <= xAxis.min) {
@@ -464,10 +470,8 @@ export const WebGLRenderer = React.memo(
 									lo = m + 1;
 								} else hi = m - 1;
 							}
-						}
-						{
-							let lo = 0,
-								hi = xData.length - 1;
+							lo = 0;
+							hi = xDataLen - 1;
 							while (lo <= hi) {
 								const m = (lo + hi) >>> 1;
 								if (xData[m] + xRef >= xAxis.max) {
@@ -476,60 +480,52 @@ export const WebGLRenderer = React.memo(
 								} else lo = m + 1;
 							}
 						}
+
 						const sliceStart = isMonotonic
 							? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
 							: 0;
 						const sliceEnd = isMonotonic
-							? Math.min(
-									xDataLen - 1,
-									rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd,
-								)
+							? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
 							: xDataLen - 1;
 
-						// M4-decimate the visible slice; m4Float32 passes through when sliceLen <= pixelBudget
 						const sliceX = xData.subarray(sliceStart, sliceEnd + 1);
 						const sliceY = yData.subarray(sliceStart, sliceEnd + 1);
-						const sliceLen2 = sliceX.length;
 
-						// Find contiguous non-NaN, monotonically-increasing-X segments
-						const rawSegments: { start: number; end: number }[] = [];
-						{
-							let segStart = -1;
-							for (let i = 0; i <= sliceLen2; i++) {
-								const nan = i === sliceLen2 || Number.isNaN(sliceY[i]);
-								const xDrop =
-									!nan && i > 0 && segStart !== -1 && sliceX[i] < sliceX[i - 1];
-								const break_ = nan || xDrop;
-								if (!break_ && segStart === -1) segStart = i;
-								else if (break_ && segStart !== -1) {
-									rawSegments.push({ start: segStart, end: i - 1 });
-									segStart = -1;
-									if (xDrop && !nan) segStart = i; // start new segment at current point
+						const drawSegments: { x: Float32Array; y: Float32Array }[] = [];
+						let totalDrawCount = 0;
+						if (isMonotonic) {
+							let segLo = 0, segHi = cachedSegments.length - 1;
+							let startSegIdx = 0;
+							while (segLo <= segHi) {
+								const m = (segLo + segHi) >>> 1;
+								if (cachedSegments[m].end >= sliceStart) {
+									startSegIdx = m;
+									segHi = m - 1;
+								} else segLo = m + 1;
+							}
+
+							for (let i = startSegIdx; i < cachedSegments.length; i++) {
+								const seg = cachedSegments[i];
+								if (seg.start > sliceEnd) break;
+								const s = Math.max(seg.start, sliceStart);
+								const e = Math.min(seg.end, sliceEnd);
+								if (e >= s) {
+									const segX = xData.subarray(s, e + 1);
+									const segY = yData.subarray(s, e + 1);
+									drawSegments.push({ x: segX, y: segY });
+									totalDrawCount += segX.length;
 								}
+							}
+						} else {
+							for (const seg of cachedSegments) {
+								const segX = xData.subarray(seg.start, seg.end + 1);
+								const segY = yData.subarray(seg.start, seg.end + 1);
+								drawSegments.push({ x: segX, y: segY });
+								totalDrawCount += segX.length;
 							}
 						}
 
-						// Decimate each segment independently so NaN gaps are preserved
-						let m4Out = m4OutsRef.current.get(s.id);
-						if (!m4Out) {
-							m4Out = { x: new Float32Array(0), y: new Float32Array(0) };
-							m4OutsRef.current.set(s.id, m4Out);
-						}
-
-						// Build final draw data: array of {x, y} per segment (decimated or raw)
-						const drawSegments: { x: Float32Array; y: Float32Array }[] = [];
-						let totalDrawCount = 0;
-						for (const { start, end } of rawSegments) {
-							const segLen = end - start + 1;
-							const segX = sliceX.subarray(start, end + 1);
-							const segY = sliceY.subarray(start, end + 1);
-							drawSegments.push({ x: segX, y: segY });
-							totalDrawCount += segLen;
-						}
-
-						// Flatten all segments into a single buffer separated by NaN sentinels
-						const reqLen =
-							totalDrawCount + Math.max(0, drawSegments.length - 1);
+						const reqLen = totalDrawCount + Math.max(0, drawSegments.length - 1);
 						let flatX = scratchXRef.current;
 						let flatY = scratchYRef.current;
 						if (!flatX || !flatY || flatX.length < reqLen) {
@@ -539,14 +535,14 @@ export const WebGLRenderer = React.memo(
 							scratchXRef.current = flatX;
 							scratchYRef.current = flatY;
 						}
-						// Track per-segment offsets for multi-draw
+
 						const drawRanges: { start: number; count: number }[] = [];
 						let offset = 0;
 						for (const seg of drawSegments) {
 							drawRanges.push({ start: offset, count: seg.x.length });
 							flatX.set(seg.x, offset);
 							flatY.set(seg.y, offset);
-							offset += seg.x.length + 1; // +1 gap (NaN sentinel, unused in GPU)
+							offset += seg.x.length + 1;
 						}
 
 						const drawCount = reqLen;
@@ -560,9 +556,8 @@ export const WebGLRenderer = React.memo(
 							(height - padding.bottom) * dpr -
 							(yAxis.min - colY.refPoint) * yScaleVal;
 
-						// Upload to a per-series dynamic buffer (STREAM_DRAW — changes every frame when zooming)
-						const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
-						const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
+						const dynXKey = \`dyn-x-\${ds.id}-\${xIdx}-\${yIdx}\`;
+						const dynYKey = \`dyn-y-\${ds.id}-\${xIdx}-\${yIdx}\`;
 						let xBuffer = buffersRef.current.get(dynXKey);
 						if (!xBuffer) {
 							xBuffer = gl.createBuffer()!;
@@ -575,17 +570,9 @@ export const WebGLRenderer = React.memo(
 						}
 
 						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							flatX.subarray(0, drawCount),
-							gl.STREAM_DRAW,
-						);
+						gl.bufferData(gl.ARRAY_BUFFER, flatX.subarray(0, drawCount), gl.STREAM_DRAW);
 						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							flatY.subarray(0, drawCount),
-							gl.STREAM_DRAW,
-						);
+						gl.bufferData(gl.ARRAY_BUFFER, flatY.subarray(0, drawCount), gl.STREAM_DRAW);
 
 						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
 						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
@@ -597,8 +584,7 @@ export const WebGLRenderer = React.memo(
 							const c = lineColorRgba;
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
 							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 2.5 : 1.5) * dpr);
-							const lStyle =
-								s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
+							const lStyle = s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
 							gl.uniform1i(locs.lineStyleLoc, lStyle);
 							gl.uniform1i(locs.styleLoc, -1);
 
@@ -620,64 +606,39 @@ export const WebGLRenderer = React.memo(
 
 								gl.lineWidth(baseLineWidth);
 								for (const seg of drawRanges) {
-									if (seg.count >= 2)
-										gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
+									if (seg.count >= 2) gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
 								}
 							} else {
-								const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-								const paramKey = `${xAxis.min}-${xAxis.max}-${yAxis.min}-${yAxis.max}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
+								const segBufferKey = \`seg-\${ds.id}-\${xIdx}-\${yIdx}-dyn\`;
+								const paramKey = \`\${xRange}-\${yRange}-\${chartWidth}-\${chartHeight}-\${dpr}-\${drawCount}\`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
 									segBuffer = gl.createBuffer()!;
 									buffersRef.current.set(segBufferKey, segBuffer);
 								}
 
-								// Count total line segments across all draw segments (skip gaps)
 								let totalLineSegs = 0;
-								for (const seg of drawSegments)
-									totalLineSegs += Math.max(0, seg.x.length - 1);
+								for (const seg of drawSegments) totalLineSegs += Math.max(0, seg.x.length - 1);
 
 								if (segParamsRef.current.get(segBufferKey) !== paramKey) {
 									const sharedArr = new Float32Array(totalLineSegs * 12);
-									const pChartWidth = chartWidth * dpr;
-									const pChartHeight = chartHeight * dpr;
-									const dashLen = (lStyle === 1 ? 8.0 : 2.0) * dpr;
-									const gapLen = (lStyle === 1 ? 6.0 : 4.0) * dpr;
-									const period = dashLen + gapLen;
-									const scaleX = pChartWidth / xRange;
-									const scaleY = pChartHeight / yRange;
+									const scaleX = (chartWidth * dpr) / xRange;
+									const scaleY = (chartHeight * dpr) / yRange;
 
 									let outIdx = 0;
 									for (const seg of drawSegments) {
 										let cumDist = 0;
-										let ax = seg.x[0];
-										let ay = seg.y[0];
 										const n = seg.x.length - 1;
 										for (let i = 0; i < n; i++) {
-											const bx = seg.x[i + 1];
-											const by = seg.y[i + 1];
-											const screenDx = (bx - ax) * scaleX;
-											const screenDy = (by - ay) * scaleY;
-											const segScreenLen = Math.sqrt(
-												screenDx * screenDx + screenDy * screenDy,
-											);
+											const ax = seg.x[i], ay = seg.y[i];
+											const bx = seg.x[i+1], by = seg.y[i+1];
+											const sLen = Math.sqrt(((bx-ax)*scaleX)**2 + ((by-ay)*scaleY)**2);
 											const off = outIdx * 12;
-											sharedArr[off] = ax;
-											sharedArr[off + 1] = ay;
-											sharedArr[off + 2] = bx;
-											sharedArr[off + 3] = by;
-											sharedArr[off + 4] = 0;
-											sharedArr[off + 5] = cumDist;
-											sharedArr[off + 6] = bx;
-											sharedArr[off + 7] = by;
-											sharedArr[off + 8] = ax;
-											sharedArr[off + 9] = ay;
-											sharedArr[off + 10] = 1;
-											sharedArr[off + 11] = cumDist;
-											cumDist += segScreenLen;
-											if (cumDist >= period) cumDist %= period;
-											ax = bx;
-											ay = by;
+											sharedArr[off] = ax; sharedArr[off+1] = ay; sharedArr[off+2] = bx; sharedArr[off+3] = by;
+											sharedArr[off+4] = 0; sharedArr[off+5] = cumDist;
+											sharedArr[off+6] = bx; sharedArr[off+7] = by; sharedArr[off+8] = ax; sharedArr[off+9] = ay;
+											sharedArr[off+10] = 1; sharedArr[off+11] = cumDist;
+											cumDist += sLen;
 											outIdx++;
 										}
 									}
@@ -687,32 +648,16 @@ export const WebGLRenderer = React.memo(
 								} else {
 									gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 								}
-
 								gl.enableVertexAttribArray(locs.xLoc);
 								gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
 								gl.enableVertexAttribArray(locs.yLoc);
 								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
 								gl.enableVertexAttribArray(locs.otherLoc);
-								gl.vertexAttribPointer(
-									locs.otherLoc,
-									2,
-									gl.FLOAT,
-									false,
-									24,
-									8,
-								);
+								gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
 								gl.enableVertexAttribArray(locs.tLoc);
 								gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
 								gl.enableVertexAttribArray(locs.distStartLoc);
-								gl.vertexAttribPointer(
-									locs.distStartLoc,
-									1,
-									gl.FLOAT,
-									false,
-									24,
-									20,
-								);
-
+								gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
 								gl.lineWidth(baseLineWidth);
 								gl.drawArrays(gl.LINES, 0, totalLineSegs * 2);
 							}
@@ -744,10 +689,8 @@ export const WebGLRenderer = React.memo(
 							gl.enableVertexAttribArray(locs.yLoc);
 							gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
-							// Pass 1: Borders — use plot background color like crosshair dots
 							const bg = hexToRgba(plotBg ?? "#ffffff");
 							gl.uniform4f(locs.colorLoc, bg[0], bg[1], bg[2], 1.0);
-							// Slightly larger size for border pass
 							gl.uniform1f(
 								locs.sizeLoc,
 								baseSize + (pStyle === 2 ? 3.0 : 2.0) * dpr,
@@ -757,7 +700,6 @@ export const WebGLRenderer = React.memo(
 									gl.drawArrays(gl.POINTS, seg.start, seg.count);
 							}
 
-							// Pass 2: Centers
 							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
 							gl.uniform1f(locs.sizeLoc, baseSize);
 							for (const seg of drawRanges) {
@@ -769,9 +711,6 @@ export const WebGLRenderer = React.memo(
 				);
 				gl.disable(gl.SCISSOR_TEST);
 
-				// Adaptive pixel budget: scale down when slow, scale up when there is headroom.
-				// TARGET_MS = 20 (~50 fps) — only throttle on visible stutter. Clamp multiplier to [8, 64].
-				// Budget update throttled to ~30 Hz (every 33 ms) to avoid rapid oscillation.
 				const TARGET_MS = 20;
 				const BUDGET_UPDATE_INTERVAL = 33;
 				const now = performance.now();
@@ -798,14 +737,12 @@ export const WebGLRenderer = React.memo(
 			}
 		}, [seriesMetadata, isInteracting, highlightedSeriesId, plotBg]);
 
-		// Redraw when dimensions or padding change
 		useEffect(() => {
 			if (!isInteracting && drawFrameRef.current) {
 				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
 			}
 		}, [width, height, padding, isInteracting]);
 
-		// After interaction ends: debounce-redraw at full quality (max pixel budget).
 		useEffect(() => {
 			if (isInteracting) return;
 			const id = setTimeout(() => {
