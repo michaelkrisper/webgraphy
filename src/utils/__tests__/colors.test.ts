@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgba } from "../colors";
+import { hexToRgba, hexToRgb } from "../colors";
 
 describe("colors", () => {
+	describe("hexToRgb", () => {
+		it("should correctly convert valid hex strings", () => {
+			expect(hexToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("#ffffff")).toEqual({ r: 255, g: 255, b: 255 });
+			expect(hexToRgb("#ff0000")).toEqual({ r: 255, g: 0, b: 0 });
+			expect(hexToRgb("#00ff00")).toEqual({ r: 0, g: 255, b: 0 });
+			expect(hexToRgb("#0000ff")).toEqual({ r: 0, g: 0, b: 255 });
+
+			// Test an arbitrary color
+			expect(hexToRgb("#804020")).toEqual({ r: 128, g: 64, b: 32 });
+		});
+	});
+
 	describe("hexToRgba", () => {
 		it("should correctly convert valid hex strings", () => {
 			expect(hexToRgba("#000000")).toEqual([0, 0, 0]);
