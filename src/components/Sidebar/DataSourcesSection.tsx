@@ -17,7 +17,7 @@ import { CalculatedColumnModal } from "../Layout/CalculatedColumnModal";
 interface DataSourcesSectionProps {
 	open: boolean;
 	onToggle: () => void;
-	fileInputRef: React.RefObject<HTMLInputElement>;
+	fileInputRef: React.RefObject<HTMLInputElement | null>;
 	importFile: (file: File) => void;
 }
 
