@@ -22,8 +22,8 @@ describe("applyKeyboardPan", () => {
 		const result = applyKeyboardPan(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(-5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(95);
+		expect(targetXAxes.x1.min).toBeCloseTo(-5);
+		expect(targetXAxes.x1.max).toBeCloseTo(95);
 	});
 
 	it("should pan xAxes right and return true", () => {
@@ -35,8 +35,8 @@ describe("applyKeyboardPan", () => {
 		const result = applyKeyboardPan(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(105);
+		expect(targetXAxes.x1.min).toBeCloseTo(5);
+		expect(targetXAxes.x1.max).toBeCloseTo(105);
 	});
 
 	it("should pan yAxes up and return true", () => {
@@ -48,8 +48,8 @@ describe("applyKeyboardPan", () => {
 		const result = applyKeyboardPan(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetYs["y1"].min).toBeCloseTo(5);
-		expect(targetYs["y1"].max).toBeCloseTo(105);
+		expect(targetYs.y1.min).toBeCloseTo(5);
+		expect(targetYs.y1.max).toBeCloseTo(105);
 	});
 
 	it("should pan yAxes down and return true", () => {
@@ -61,8 +61,8 @@ describe("applyKeyboardPan", () => {
 		const result = applyKeyboardPan(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetYs["y1"].min).toBeCloseTo(-5);
-		expect(targetYs["y1"].max).toBeCloseTo(95);
+		expect(targetYs.y1.min).toBeCloseTo(-5);
+		expect(targetYs.y1.max).toBeCloseTo(95);
 	});
 
 	it("should use existing targetXAxes/targetYs if available", () => {
@@ -81,10 +81,10 @@ describe("applyKeyboardPan", () => {
 		const result = applyKeyboardPan(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(15);
-		expect(targetXAxes["x1"].max).toBeCloseTo(115);
-		expect(targetYs["y1"].min).toBeCloseTo(15);
-		expect(targetYs["y1"].max).toBeCloseTo(115);
+		expect(targetXAxes.x1.min).toBeCloseTo(15);
+		expect(targetXAxes.x1.max).toBeCloseTo(115);
+		expect(targetYs.y1.min).toBeCloseTo(15);
+		expect(targetYs.y1.max).toBeCloseTo(115);
 	});
 });
 
@@ -112,10 +112,10 @@ describe("applyKeyboardZoom", () => {
 		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(7.5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(92.5);
-		expect(targetYs["y1"].min).toBeCloseTo(7.5);
-		expect(targetYs["y1"].max).toBeCloseTo(92.5);
+		expect(targetXAxes.x1.min).toBeCloseTo(7.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(92.5);
+		expect(targetYs.y1.min).toBeCloseTo(7.5);
+		expect(targetYs.y1.max).toBeCloseTo(92.5);
 	});
 
 	it("should zoom out (-/_) for both axes and return true", () => {
@@ -130,10 +130,10 @@ describe("applyKeyboardZoom", () => {
 		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(-7.5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(107.5);
-		expect(targetYs["y1"].min).toBeCloseTo(-7.5);
-		expect(targetYs["y1"].max).toBeCloseTo(107.5);
+		expect(targetXAxes.x1.min).toBeCloseTo(-7.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(107.5);
+		expect(targetYs.y1.min).toBeCloseTo(-7.5);
+		expect(targetYs.y1.max).toBeCloseTo(107.5);
 	});
 
 	it("should zoom only xAxes when Control is pressed", () => {
@@ -148,9 +148,9 @@ describe("applyKeyboardZoom", () => {
 		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(7.5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(92.5);
-		expect(targetYs["y1"]).toBeUndefined();
+		expect(targetXAxes.x1.min).toBeCloseTo(7.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(92.5);
+		expect(targetYs.y1).toBeUndefined();
 	});
 
 	it("should zoom in using = for both axes", () => {
@@ -165,10 +165,10 @@ describe("applyKeyboardZoom", () => {
 		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(7.5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(92.5);
-		expect(targetYs["y1"].min).toBeCloseTo(7.5);
-		expect(targetYs["y1"].max).toBeCloseTo(92.5);
+		expect(targetXAxes.x1.min).toBeCloseTo(7.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(92.5);
+		expect(targetYs.y1.min).toBeCloseTo(7.5);
+		expect(targetYs.y1.max).toBeCloseTo(92.5);
 	});
 
 	it("should zoom out using _ for both axes", () => {
@@ -183,9 +183,9 @@ describe("applyKeyboardZoom", () => {
 		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
 
 		expect(result).toBe(true);
-		expect(targetXAxes["x1"].min).toBeCloseTo(-7.5);
-		expect(targetXAxes["x1"].max).toBeCloseTo(107.5);
-		expect(targetYs["y1"].min).toBeCloseTo(-7.5);
-		expect(targetYs["y1"].max).toBeCloseTo(107.5);
+		expect(targetXAxes.x1.min).toBeCloseTo(-7.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(107.5);
+		expect(targetYs.y1.min).toBeCloseTo(-7.5);
+		expect(targetYs.y1.max).toBeCloseTo(107.5);
 	});
 });

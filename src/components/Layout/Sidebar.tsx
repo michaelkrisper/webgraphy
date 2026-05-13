@@ -37,6 +37,7 @@ const UnicornHeadIcon = ({ size = 24 }: { size?: number }) => (
 		strokeLinecap="round"
 		strokeLinejoin="round"
 	>
+		<title>Unicorn Head Icon</title>
 		<path d="m15.6 4.8 2.7 2.3" />
 		<path d="M15.5 10S19 7 22 2c-6 2-10 5-10 5" />
 		<path d="M11.5 12H11" />
@@ -173,13 +174,14 @@ export const Sidebar: React.FC = () => {
 			<aside className="sidebar">
 				{/* Header */}
 				<header className="sb-header">
-					<img
-						src="./favicon.svg"
-						className="sb-logo"
-						alt="webgraphy logo"
-						style={{ cursor: "pointer" }}
+					<button
+						type="button"
+						className="sb-logo-btn"
 						onClick={() => setIsCollapsed(true)}
-					/>
+						aria-label="Collapse Sidebar"
+					>
+						<img src="./favicon.svg" className="sb-logo" alt="webgraphy logo" />
+					</button>
 					<HeaderButton
 						onClick={handleImport}
 						icon={<FilePlus size={24} />}

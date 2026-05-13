@@ -1,7 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgba, hexToRgb } from "../colors";
+import { hexToRgb, hexToRgba, rgbToHex, rgbToLch } from "../colors";
 
 describe("colors", () => {
+	describe("rgbToHex", () => {
+		it("should correctly convert standard rgb colors", () => {
+			expect(rgbToHex(0, 0, 0)).toBe("#000000");
+			expect(rgbToHex(255, 255, 255)).toBe("#ffffff");
+			expect(rgbToHex(255, 0, 0)).toBe("#ff0000");
+			expect(rgbToHex(0, 255, 0)).toBe("#00ff00");
+			expect(rgbToHex(0, 0, 255)).toBe("#0000ff");
+		});
+
+		it("should pad single-character hex values with a leading zero", () => {
+			expect(rgbToHex(15, 10, 5)).toBe("#0f0a05");
+			expect(rgbToHex(0, 1, 2)).toBe("#000102");
+		});
+
+		it("should round floating-point numbers", () => {
+			expect(rgbToHex(254.5, 128.2, 63.8)).toBe("#ff8040");
+		});
+
+		it("should clamp out-of-bounds numbers to 0-255", () => {
+			expect(rgbToHex(-10, -100, -1)).toBe("#000000");
+			expect(rgbToHex(256, 1000, 300)).toBe("#ffffff");
+		});
+	});
+
 	describe("hexToRgb", () => {
 		it("should correctly convert valid hex strings", () => {
 			expect(hexToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 });
@@ -54,6 +78,42 @@ describe("colors", () => {
 
 			// @ts-expect-error testing runtime invalid type
 			expect(hexToRgba({})).toEqual([0, 0, 0]);
+		});
+	});
+
+	describe("rgbToLch", () => {
+		it("should correctly convert black", () => {
+			const { L, C, h } = rgbToLch(0, 0, 0);
+			expect(L).toBeCloseTo(0, 1);
+			expect(C).toBeCloseTo(0, 1);
+			expect(h).toBeCloseTo(0, 1);
+		});
+
+		it("should correctly convert white", () => {
+			const { L, C, h } = rgbToLch(255, 255, 255);
+			expect(L).toBeCloseTo(100, 1);
+			expect(C).toBeCloseTo(0, 1);
+		});
+
+		it("should correctly convert red", () => {
+			const { L, C, h } = rgbToLch(255, 0, 0);
+			expect(L).toBeCloseTo(53.2, 1);
+			expect(C).toBeCloseTo(104.6, 1);
+			expect(h).toBeCloseTo(40.0, 1);
+		});
+
+		it("should correctly convert green", () => {
+			const { L, C, h } = rgbToLch(0, 255, 0);
+			expect(L).toBeCloseTo(87.7, 1);
+			expect(C).toBeCloseTo(119.8, 1);
+			expect(h).toBeCloseTo(136.0, 1);
+		});
+
+		it("should correctly convert blue", () => {
+			const { L, C, h } = rgbToLch(0, 0, 255);
+			expect(L).toBeCloseTo(32.3, 1);
+			expect(C).toBeCloseTo(133.8, 1);
+			expect(h).toBeCloseTo(306.3, 1);
 		});
 	});
 });

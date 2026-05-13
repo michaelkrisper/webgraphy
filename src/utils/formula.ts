@@ -127,7 +127,7 @@ function evaluateFuncToken(
 			return args.reduce((s, v) => s + v, 0) / argCount;
 		}
 		case "filter":
-			return ctx ? ctx.filter(token.id!, a) : a;
+			return ctx && token.id ? ctx.filter(token.id, a) : a;
 		case "avgday":
 		case "sumday":
 		case "avghour":
@@ -150,8 +150,10 @@ function evaluateFuncToken(
 				} else {
 					key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
 				}
-				if (v.startsWith("avg")) return ctx.avgGroup(token.id!, a, key);
-				return ctx.sumGroup(token.id!, a, key);
+				if (token.id) {
+					if (v.startsWith("avg")) return ctx.avgGroup(token.id, a, key);
+					return ctx.sumGroup(token.id, a, key);
+				}
 			}
 			return a;
 		}
@@ -161,14 +163,16 @@ function evaluateFuncToken(
 				if (m) {
 					const num = parseInt(m[1], 10);
 					const unit = m[2];
-					if (unit) {
-						let w = num;
-						if (unit === "m") w = num * 60;
-						else if (unit === "h") w = num * 3600;
-						else if (unit === "d") w = num * 86400;
-						return ctx.avgTime(token.id!, a, rowValues[timeVarIdx], w);
+					if (token.id) {
+						if (unit) {
+							let w = num;
+							if (unit === "m") w = num * 60;
+							else if (unit === "h") w = num * 3600;
+							else if (unit === "d") w = num * 86400;
+							return ctx.avgTime(token.id, a, rowValues[timeVarIdx], w);
+						}
+						return ctx.avgN(token.id, a, num);
 					}
-					return ctx.avgN(token.id!, a, num);
 				}
 			}
 			return a; // Fallback
@@ -180,26 +184,25 @@ function evaluateOpToken(
 	stack: number[],
 ): number {
 	if (token.unary) {
-		const a = stack.pop()!;
+		const a = stack.pop() ?? 0;
 		if (token.value === "u-") return -a;
 		return a;
-	} else {
-		const b = stack.pop()!;
-		const a = stack.pop()!;
-		switch (token.value) {
-			case "+":
-				return a + b;
-			case "-":
-				return a - b;
-			case "*":
-				return a * b;
-			case "/":
-				return a / b;
-			case "^":
-				return a ** b;
-			default:
-				return a;
-		}
+	}
+	const b = stack.pop() ?? 0;
+	const a = stack.pop() ?? 0;
+	switch (token.value) {
+		case "+":
+			return a + b;
+		case "-":
+			return a - b;
+		case "*":
+			return a * b;
+		case "/":
+			return a / b;
+		case "^":
+			return a ** b;
+		default:
+			return a;
 	}
 }
 
@@ -882,7 +885,8 @@ export function evaluateFormulaSync(
 					lastYr = yr;
 					lastMo = mo;
 					lastDa = da;
-					return (lastRes = `${yr}-${mo}-${da}`);
+					lastRes = `${yr}-${mo}-${da}`;
+					return lastRes;
 				}
 				if (granularity === "hour") {
 					const yr = d.getFullYear(),
@@ -895,7 +899,8 @@ export function evaluateFormulaSync(
 					lastMo = mo;
 					lastDa = da;
 					lastHr = hr;
-					return (lastRes = `${yr}-${mo}-${da}-${hr}`);
+					lastRes = `${yr}-${mo}-${da}-${hr}`;
+					return lastRes;
 				}
 				if (granularity === "minute") {
 					const yr = d.getFullYear(),
@@ -916,7 +921,8 @@ export function evaluateFormulaSync(
 					lastDa = da;
 					lastHr = hr;
 					lastMin = min;
-					return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}`);
+					lastRes = `${yr}-${mo}-${da}-${hr}-${min}`;
+					return lastRes;
 				}
 
 				const yr = d.getFullYear(),
@@ -940,7 +946,8 @@ export function evaluateFormulaSync(
 				lastHr = hr;
 				lastMin = min;
 				lastSec = sec;
-				return (lastRes = `${yr}-${mo}-${da}-${hr}-${min}-${sec}`);
+				lastRes = `${yr}-${mo}-${da}-${hr}-${min}-${sec}`;
+				return lastRes;
 			};
 
 			// Pass 1: aggregate per group, track representative row index per alignment

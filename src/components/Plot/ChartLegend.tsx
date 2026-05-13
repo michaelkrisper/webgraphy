@@ -81,10 +81,11 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 	};
 
 	return (
-		<div
+		<section
 			ref={containerRef}
 			onMouseDown={handleMouseDown}
 			className="legend-container"
+			aria-label="Chart Legend"
 			style={
 				position
 					? { left: position.x, top: position.y }
@@ -95,7 +96,8 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			}
 		>
 			{visibleSeries.map((s) => (
-				<div
+				<button
+					type="button"
 					key={s.id}
 					data-legend-item
 					onClick={(e) => {
@@ -106,8 +108,10 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 					onMouseLeave={() => onHighlight(null)}
 					className="legend-item"
 					style={{ opacity: s.hidden ? 0.35 : 1, transition: "opacity 0.15s" }}
+					aria-label={`Toggle visibility for ${s.name}`}
 				>
 					<svg width="20" height="10" className="legend-line-icon">
+						<title>{s.name} line icon</title>
 						{s.lineStyle !== "none" && (
 							<line
 								x1="0"
@@ -153,10 +157,10 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 					<span
 						className={`legend-label${s.hidden ? " legend-label--hidden" : ""}`}
 					>
-						{s.name || s.yColumn}
+						{s.name}
 					</span>
-				</div>
+				</button>
 			))}
-		</div>
+		</section>
 	);
 };
