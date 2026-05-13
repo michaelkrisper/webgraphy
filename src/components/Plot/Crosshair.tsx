@@ -231,6 +231,25 @@ const Crosshair = React.memo(
 			if (bestXWorld === null || !bestSeriesXConf) return null;
 			const finalBestXWorld = bestXWorld as number;
 			const finalXConf = bestSeriesXConf as XAxisConfig;
+			const dsByX: Record<string, Dataset[]> = {};
+			datasets.forEach((d) => {
+				const xId = d.xAxisId || "axis-1";
+				if (!dsByX[xId]) dsByX[xId] = [];
+				dsByX[xId].push(d);
+			});
+
+			const xAxisNameById: Record<string, string> = {};
+			for (const xId in dsByX) {
+				const dss = dsByX[xId];
+				const uniqueColumns = Array.from(
+					dss.reduce(
+						(acc, d: Dataset) => acc.add(d.xAxisColumn),
+						new Set<string>(),
+					),
+				);
+				xAxisNameById[xId] = dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+			}
+
 			const entriesMap = new Map<
 				string,
 				{
@@ -267,21 +286,8 @@ const Crosshair = React.memo(
 									minimumFractionDigits: 0,
 									maximumFractionDigits: 10,
 								});
-				const dsByX: Record<string, Dataset[]> = {};
-				datasets.forEach((d) => {
-					const xId = d.xAxisId || "axis-1";
-					if (!dsByX[xId]) dsByX[xId] = [];
-					dsByX[xId].push(d);
-				});
-				const dss = dsByX[xAxis.id] || [];
-				const uniqueColumns = Array.from(
-					dss.reduce(
-						(acc, d: Dataset) => acc.add(d.xAxisColumn),
-						new Set<string>(),
-					),
-				);
-				const xAxisName =
-					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+
+				const xAxisName = xAxisNameById[xAxis.id] || "Unknown Axis";
 				const groupKey = `${xLab}|${xAxisName}`;
 
 				const yScreen = worldToScreen(0, yVal, {
