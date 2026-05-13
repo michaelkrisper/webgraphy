@@ -317,6 +317,8 @@ const AxesLayer = React.memo(
 							div.style.position = "absolute";
 							div.style.pointerEvents = "none";
 							div.style.whiteSpace = "nowrap";
+							div.style.left = "0px";
+							div.style.top = "0px";
 							labelsContainerRef.current?.appendChild(div);
 							labelPoolRef.current.push(div);
 						}
@@ -359,9 +361,7 @@ const AxesLayer = React.memo(
 							div.textContent = label;
 							div.style.font = `9px ${fontFamily}`;
 							div.style.color = axis.color || labelColor;
-							div.style.transform = "translate(-50%, -100%)";
-							div.style.left = `${x}px`;
-							div.style.top = `${baseY + metrics.labelBottom - 9}px`;
+							div.style.transform = `translate(${x}px, ${baseY + metrics.labelBottom - 9}px) translate(-50%, -100%)`;
 						});
 
 						// Secondary Labels
@@ -405,9 +405,7 @@ const AxesLayer = React.memo(
 									div.textContent = sl.label;
 									div.style.font = `bold 10px ${fontFamily}`;
 									div.style.color = axis.color || labelColor;
-									div.style.transform = "translate(0, 0)";
-									div.style.left = `${x}px`;
-									div.style.top = `${baseY + metrics.secLabelBottom - 10}px`;
+										div.style.transform = `translate(${x}px, ${baseY + metrics.secLabelBottom - 10}px)`;
 								},
 							);
 						}
@@ -416,9 +414,7 @@ const AxesLayer = React.memo(
 						const titleDiv = getLabelDiv();
 						titleDiv.style.font = `bold 12px ${fontFamily}`;
 						titleDiv.style.color = axis.color || labelColor;
-						titleDiv.style.transform = "translate(-50%, -100%)";
-						titleDiv.style.left = `${padding.left + chartWidth / 2}px`;
-						titleDiv.style.top = `${baseY + metrics.titleBottom - 12}px`;
+						titleDiv.style.transform = `translate(${padding.left + chartWidth / 2}px, ${baseY + metrics.titleBottom - 12}px) translate(-50%, -100%)`;
 
 						const axisSeries = seriesByXAxisId[axis.id] || [];
 						const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
@@ -462,21 +458,15 @@ const AxesLayer = React.memo(
 							div.textContent = label;
 							div.style.font = `9px ${fontFamily}`;
 							div.style.color = labelColor;
-							div.style.transform = isLeft
-								? "translate(-100%, -50%)"
-								: "translate(0, -50%)";
-							div.style.left = `${labelX}px`;
-							div.style.top = `${y}px`;
+							const offsetTransform = isLeft ? "translate(-100%, -50%)" : "translate(0, -50%)";
+							div.style.transform = `translate(${labelX}px, ${y}px) ${offsetTransform}`;
 						});
 
 						// Y Axis Title
 						const titleDiv = getLabelDiv();
 						titleDiv.style.font = `bold 12px ${fontFamily}`;
-						titleDiv.style.transform = isLeft
-							? "translate(-50%, -50%) rotate(-90deg)"
-							: "translate(-50%, -50%) rotate(90deg)";
-						titleDiv.style.left = `${titleX}px`;
-						titleDiv.style.top = `${padding.top + chartHeight / 2}px`;
+						const rotate = isLeft ? "rotate(-90deg)" : "rotate(90deg)";
+						titleDiv.style.transform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
 
 						titleDiv.textContent = "";
 						axisSeries.forEach((s, i) => {
