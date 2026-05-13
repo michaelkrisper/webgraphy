@@ -64,34 +64,24 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
 
 	const rawData = generateRawWeatherData(rowCount, startTime);
-	const colBounds = columns.map((_, colIdx) => {
-		let min = Infinity,
-			max = -Infinity;
+	const data = columns.map((colName, colIdx) => {
+		const refPoint = rawData[0][colIdx];
+		const float32Data = new Float32Array(rowCount);
+		let min = Infinity;
+		let max = -Infinity;
+
 		for (let i = 0; i < rowCount; i++) {
 			const val = rawData[i][colIdx];
 			if (val < min) min = val;
 			if (val > max) max = val;
-		}
-		return { min, max };
-	});
-
-	const relativeData = columns.map((_, colIdx) => {
-		const refPoint = rawData[0][colIdx];
-		const data = new Float32Array(rowCount);
-		for (let i = 0; i < rowCount; i++) {
-			data[i] = rawData[i][colIdx] - refPoint;
+			float32Data[i] = val - refPoint;
 		}
 
-		return { data, refPoint };
-	});
-
-	const data = columns.map((colName, colIdx) => {
-		const col = relativeData[colIdx];
 		return {
 			isFloat64: colName === "Timestamp",
-			refPoint: col.refPoint,
-			bounds: colBounds[colIdx],
-			data: col.data,
+			refPoint,
+			bounds: { min, max },
+			data: float32Data,
 		} as DataColumn;
 	});
 
