@@ -364,6 +364,15 @@ export const exportToSVG = (
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
 
+	const seriesByYAxisId: Record<string, SeriesConfig[]> = {};
+	for (let i = 0; i < series.length; i++) {
+		const s = series[i];
+		if (!seriesByYAxisId[s.yAxisId]) {
+			seriesByYAxisId[s.yAxisId] = [];
+		}
+		seriesByYAxisId[s.yAxisId].push(s);
+	}
+
 	activeYAxes.forEach((axis) => {
 		const isLeft = axis.position === "left";
 		const axisWidth = axisWidthMap[axis.id];
@@ -397,7 +406,7 @@ export const exportToSVG = (
 			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
 		}
 
-		const axisSeries = series.filter((s) => s.yAxisId === axis.id);
+		const axisSeries = seriesByYAxisId[axis.id] || [];
 		const fullTitle = axisSeries.map((s) => s.name || s.yColumn).join(" / ");
 		const titleX = isLeft ? xPos + 5 : xPos + axisWidth - 5;
 		const titleY = padding.top + chartHeight / 2,
