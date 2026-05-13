@@ -3,6 +3,7 @@ import { formatAxisLabel } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
+import { escapeHTML } from "../utils/dom";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -11,25 +12,6 @@ import type {
 } from "./persistence";
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
-
-const HTML_ESCAPE_MAP: Record<string, string> = {
-	"&": "&amp;",
-	"<": "&lt;",
-	">": "&gt;",
-	'"': "&quot;",
-	"'": "&#039;",
-	"=": "&#061;",
-};
-
-/**
- * Escapes HTML special characters to prevent XSS in SVG/HTML output.
- * @param {string | undefined | null} str - Input string to escape
- * @returns {string} HTML-safe string with entities replaced (e.g., & → &amp;)
- */
-const escapeHTML = (str: string | undefined | null): string => {
-	if (!str) return "";
-	return String(str).replace(/[&<>"'=]/g, (s) => HTML_ESCAPE_MAP[s] || s);
-};
 
 /**
  * Generates a production-quality SVG that exactly matches the WebGL plot visuals.
