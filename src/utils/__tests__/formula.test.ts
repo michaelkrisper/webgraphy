@@ -256,6 +256,10 @@ describe("compileFormula", () => {
 		const resComma = compileFormula("1 , 2", columns);
 		expect(resComma.error).toBe("Unexpected comma");
 
+		// Testing "Unexpected comma" error when parsing comma within parentheses but outside of a function
+		const resCommaParen = compileFormula("(1, 2)", columns);
+		expect(resCommaParen.error).toBe("Unexpected comma");
+
 		// Extra edge cases requested by reviewer
 		const resMismatched1 = compileFormula("((1+2)", columns);
 		expect(resMismatched1.error).toContain("Mismatched parentheses");
