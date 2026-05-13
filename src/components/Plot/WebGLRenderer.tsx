@@ -306,48 +306,51 @@ export const WebGLRenderer = React.memo(
 		}, []);
 
 		const seriesMetadata = useMemo(() => {
-			const datasetsById = new Map<string, Dataset>();
-			datasets.forEach((d) => {
-				datasetsById.set(d.id, d);
-			});
+			const datasetsById: Record<string, Dataset> = {};
+			for (let i = 0; i < datasets.length; i++) {
+				datasetsById[datasets[i].id] = datasets[i];
+			}
 
-			return series
-				.map((s) => {
-					const ds = datasetsById.get(s.sourceId);
-					if (!ds) return null;
-
-					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
-					const yIdx = getColumnIndex(ds, s.yColumn);
-
-					if (xIdx === -1 || yIdx === -1) {
-						return null;
-					}
-
-					const isPreviewed = previewColor?.seriesId === s.id;
-					const effectiveLineColor = isPreviewed
-						? previewColor.color
-						: s.lineColor;
-					const effectivePointColor = isPreviewed
-						? previewColor.color
-						: s.pointColor;
-
-					return {
-						series: s,
-						ds,
-						xIdx,
-						yIdx,
-						lineColorRgba: hexToRgba(effectiveLineColor),
-						pointColorRgba: hexToRgba(effectivePointColor),
-					};
-				})
-				.filter(Boolean) as {
+			const result: {
 				series: SeriesConfig;
 				ds: Dataset;
 				xIdx: number;
 				yIdx: number;
 				lineColorRgba: number[];
 				pointColorRgba: number[];
-			}[];
+			}[] = [];
+
+			for (let i = 0; i < series.length; i++) {
+				const s = series[i];
+				const ds = datasetsById[s.sourceId];
+				if (!ds) continue;
+
+				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+				const yIdx = getColumnIndex(ds, s.yColumn);
+
+				if (xIdx === -1 || yIdx === -1) {
+					continue;
+				}
+
+				const isPreviewed = previewColor?.seriesId === s.id;
+				const effectiveLineColor = isPreviewed
+					? previewColor.color
+					: s.lineColor;
+				const effectivePointColor = isPreviewed
+					? previewColor.color
+					: s.pointColor;
+
+				result.push({
+					series: s,
+					ds,
+					xIdx,
+					yIdx,
+					lineColorRgba: hexToRgba(effectiveLineColor),
+					pointColorRgba: hexToRgba(effectivePointColor),
+				});
+			}
+
+			return result;
 		}, [datasets, series, previewColor]);
 
 		useEffect(() => {
@@ -369,14 +372,6 @@ export const WebGLRenderer = React.memo(
 
 				const { width, height, padding, highlightedSeriesId } =
 					propsRef.current;
-				const xAxesById = new Map<string, XAxisConfig>();
-				currentXAxes.forEach((a) => {
-					xAxesById.set(a.id, a);
-				});
-				const yAxesById = new Map<string, YAxisConfig>();
-				currentYAxes.forEach((a) => {
-					yAxesById.set(a.id, a);
-				});
 
 				const chartWidth = width - padding.left - padding.right;
 				const chartHeight = height - padding.top - padding.bottom;
@@ -411,16 +406,32 @@ export const WebGLRenderer = React.memo(
 				);
 
 				const t0 = performance.now();
-				seriesMetadata.forEach(
-					({ series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba }) => {
-						const xAxis = xAxesById.get(ds.xAxisId || "axis-1");
-						const yAxis = yAxesById.get(s.yAxisId);
-						if (!xAxis || !yAxis) return;
+				for (let idx = 0; idx < seriesMetadata.length; idx++) {
+					const { series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba } = seriesMetadata[idx];
 
-						if (s.hidden) return;
-						const colX = ds.data[xIdx];
-						const colY = ds.data[yIdx];
-						if (!colX || !colY) return;
+					let xAxis: XAxisConfig | undefined;
+					const targetXId = ds.xAxisId || "axis-1";
+					for (let i = 0; i < currentXAxes.length; i++) {
+						if (currentXAxes[i].id === targetXId) {
+							xAxis = currentXAxes[i];
+							break;
+						}
+					}
+
+					let yAxis: YAxisConfig | undefined;
+					for (let i = 0; i < currentYAxes.length; i++) {
+						if (currentYAxes[i].id === s.yAxisId) {
+							yAxis = currentYAxes[i];
+							break;
+						}
+					}
+
+					if (!xAxis || !yAxis) continue;
+
+					if (s.hidden) continue;
+					const colX = ds.data[xIdx];
+					const colY = ds.data[yIdx];
+					if (!colX || !colY) continue;
 
 						const xData = colX.data;
 						const yData = colY.data;
@@ -749,8 +760,7 @@ export const WebGLRenderer = React.memo(
 									gl.drawArrays(gl.POINTS, seg.start, seg.count);
 							}
 						}
-					},
-				);
+				}
 				gl.disable(gl.SCISSOR_TEST);
 
 				const TARGET_MS = 20;
