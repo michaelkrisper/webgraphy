@@ -62,6 +62,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 			case "square":
 				return (
 					<svg width={size} height={size} viewBox="0 0 24 24">
+						<title>Square Symbol</title>
 						<rect
 							x="3"
 							y="3"
@@ -81,6 +82,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 			case "none":
 				return (
 					<svg width={size} height={size} viewBox="0 0 16 16">
+						<title>Circle Symbol</title>
 						<circle
 							cx="8"
 							cy="8"
@@ -100,6 +102,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		const color = "currentColor";
 		return (
 			<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
+				<title>Line Style Icon</title>
 				{series.lineStyle === "solid" && (
 					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
 				)}
@@ -136,7 +139,8 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	return (
 		<div className={`sc-row${series.hidden ? " sc-row--hidden" : ""}`}>
 			{/* Combined Drag Handle & Visibility Toggle */}
-			<div
+			<button
+				type="button"
 				className="sc-drag-handle"
 				onMouseDown={onHandleMouseDown}
 				onClick={toggleVisibility}
@@ -148,7 +152,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				aria-label={series.hidden ? "Show Series" : "Hide Series"}
 			>
 				{series.hidden ? <EyeOff size={14} /> : <GripVertical size={14} />}
-			</div>
+			</button>
 
 			{/* Y Axis Cycle Button (1-9) */}
 			<button
@@ -189,6 +193,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 							stroke="currentColor"
 							strokeWidth="2"
 						>
+							<title>Left Axis Position</title>
 							<path d="M3 13V2m-2 3l2-3 2 3M3 13h11m-3-2l3 2-3 2" />
 						</svg>
 					) : (
@@ -200,6 +205,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 							stroke="currentColor"
 							strokeWidth="2"
 						>
+							<title>Right Axis Position</title>
 							<path d="M13 13V2m-2 3l2-3 2 3M13 13H2m3-2l-3 2 3 2" />
 						</svg>
 					)}

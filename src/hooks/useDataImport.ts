@@ -103,7 +103,7 @@ export const useDataImport = () => {
 			let workerType = type;
 
 			if (type === "excel") {
-				workerFile = new File([fullCsv ?? preview], file.name + ".csv", {
+				workerFile = new File([fullCsv ?? preview], `${file.name}.csv`, {
 					type: "text/csv",
 				});
 				workerType = "csv";

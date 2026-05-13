@@ -53,7 +53,7 @@ describe("secureRandom", () => {
 
 		// Exhaust buffer to trigger refill
 		const callsBefore = spy.mock.calls.length;
-		let firstVal;
+		let firstVal: number | undefined;
 		while (spy.mock.calls.length === callsBefore) {
 			firstVal = secureRandom();
 		}
