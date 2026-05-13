@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgba, rgbToHex } from "../colors";
+import { hexToRgba, rgbToHex, rgbToLch } from "../colors";
 
 describe("colors", () => {
 	describe("rgbToHex", () => {
@@ -65,6 +65,42 @@ describe("colors", () => {
 
 			// @ts-expect-error testing runtime invalid type
 			expect(hexToRgba({})).toEqual([0, 0, 0]);
+		});
+	});
+
+	describe("rgbToLch", () => {
+		it("should correctly convert black", () => {
+			const { L, C, h } = rgbToLch(0, 0, 0);
+			expect(L).toBeCloseTo(0, 1);
+			expect(C).toBeCloseTo(0, 1);
+			expect(h).toBeCloseTo(0, 1);
+		});
+
+		it("should correctly convert white", () => {
+			const { L, C, h } = rgbToLch(255, 255, 255);
+			expect(L).toBeCloseTo(100, 1);
+			expect(C).toBeCloseTo(0, 1);
+		});
+
+		it("should correctly convert red", () => {
+			const { L, C, h } = rgbToLch(255, 0, 0);
+			expect(L).toBeCloseTo(53.2, 1);
+			expect(C).toBeCloseTo(104.6, 1);
+			expect(h).toBeCloseTo(40.0, 1);
+		});
+
+		it("should correctly convert green", () => {
+			const { L, C, h } = rgbToLch(0, 255, 0);
+			expect(L).toBeCloseTo(87.7, 1);
+			expect(C).toBeCloseTo(119.8, 1);
+			expect(h).toBeCloseTo(136.0, 1);
+		});
+
+		it("should correctly convert blue", () => {
+			const { L, C, h } = rgbToLch(0, 0, 255);
+			expect(L).toBeCloseTo(32.3, 1);
+			expect(C).toBeCloseTo(133.8, 1);
+			expect(h).toBeCloseTo(306.3, 1);
 		});
 	});
 });
