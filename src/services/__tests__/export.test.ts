@@ -518,18 +518,18 @@ describe("downloadFile", () => {
 
 	beforeEach(() => {
 		const mockAnchor = { href: "", download: "", click: mockClick };
+		const mockCanvas = {
+			getContext: vi.fn(() => ({
+				scale: vi.fn(),
+				fillRect: vi.fn(),
+				drawImage: vi.fn(),
+			})),
+			toDataURL: vi.fn(() => "data:image/png;base64,mock"),
+		};
 		const documentMock = {
 			createElement: vi.fn((tag: string) => {
 				if (tag === "a") return mockAnchor;
-				if (tag === "canvas")
-					return {
-						getContext: vi.fn(() => ({
-							scale: vi.fn(),
-							fillRect: vi.fn(),
-							drawImage: vi.fn(),
-						})),
-						toDataURL: vi.fn(() => "data:image/png;base64,mock"),
-					};
+				if (tag === "canvas") return mockCanvas;
 				return {};
 			}),
 		};
