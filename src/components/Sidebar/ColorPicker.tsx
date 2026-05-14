@@ -14,6 +14,39 @@ interface ColorPickerProps {
 
 const LCH_LIGHTNESS_STEPS = [22, 38, 54, 68, 82];
 
+interface ColorPaletteButtonProps {
+	targetColor: string;
+	currentColor: string;
+	onSelect: (color: string) => void;
+	onHoverColor: (color: string) => void;
+	onHoverLeave: () => void;
+}
+
+function ColorPaletteButton({
+	targetColor,
+	currentColor,
+	onSelect,
+	onHoverColor,
+	onHoverLeave,
+}: ColorPaletteButtonProps) {
+	return (
+		<button
+			type="button"
+			onClick={() => onSelect(targetColor)}
+			onMouseEnter={() => onHoverColor(targetColor)}
+			onMouseLeave={onHoverLeave}
+			className="color-picker-palette-btn"
+			style={{
+				backgroundColor: targetColor,
+				border:
+					currentColor.toLowerCase() === targetColor.toLowerCase()
+						? "2px solid var(--text)"
+						: "none",
+			}}
+		/>
+	);
+}
+
 function ColorPicker({
 	color,
 	onChange,
@@ -68,6 +101,22 @@ function ColorPicker({
 		}
 		if (isOpen && onHoverEnd) onHoverEnd();
 		setIsOpen(!isOpen);
+	};
+
+	const handleColorSelect = (selectedColor: string) => {
+		onChange(selectedColor);
+		if (onHoverEnd) onHoverEnd();
+		setIsOpen(false);
+	};
+
+	const handleColorHover = (hoveredColor: string) => {
+		onHover?.(hoveredColor);
+		setHoverColor(hoveredColor);
+	};
+
+	const handleColorHoverLeave = () => {
+		onHoverEnd?.();
+		setHoverColor(null);
 	};
 
 	const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,29 +183,12 @@ function ColorPicker({
 							{/* Grayscale Column */}
 							<div className="color-picker-column">
 								<div className="color-picker-main-color">
-									<button
-										type="button"
-										onClick={() => {
-											onChange("#000000");
-											if (onHoverEnd) onHoverEnd();
-											setIsOpen(false);
-										}}
-										onMouseEnter={() => {
-											onHover?.("#000000");
-											setHoverColor("#000000");
-										}}
-										onMouseLeave={() => {
-											onHoverEnd?.();
-											setHoverColor(null);
-										}}
-										className="color-picker-palette-btn"
-										style={{
-											backgroundColor: "#000000",
-											border:
-												color.toLowerCase() === "#000000"
-													? "2px solid var(--text)"
-													: "none",
-										}}
+									<ColorPaletteButton
+										targetColor="#000000"
+										currentColor={color}
+										onSelect={handleColorSelect}
+										onHoverColor={handleColorHover}
+										onHoverLeave={handleColorHoverLeave}
 									/>
 								</div>
 								<div className="color-picker-grid-spacer" />
@@ -165,30 +197,13 @@ function ColorPicker({
 										const rgbVal = lchToRgb(l, 0, 0);
 										const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
 										return (
-											<button
+											<ColorPaletteButton
 												key={hexVal}
-												type="button"
-												onClick={() => {
-													onChange(hexVal);
-													if (onHoverEnd) onHoverEnd();
-													setIsOpen(false);
-												}}
-												onMouseEnter={() => {
-													onHover?.(hexVal);
-													setHoverColor(hexVal);
-												}}
-												onMouseLeave={() => {
-													onHoverEnd?.();
-													setHoverColor(null);
-												}}
-												className="color-picker-palette-btn"
-												style={{
-													backgroundColor: hexVal,
-													border:
-														color.toLowerCase() === hexVal.toLowerCase()
-															? "2px solid var(--text)"
-															: "none",
-												}}
+												targetColor={hexVal}
+												currentColor={color}
+												onSelect={handleColorSelect}
+												onHoverColor={handleColorHover}
+												onHoverLeave={handleColorHoverLeave}
 											/>
 										);
 									})}
@@ -202,29 +217,12 @@ function ColorPicker({
 								return (
 									<div key={themeColor} className="color-picker-column">
 										<div className="color-picker-main-color">
-											<button
-												type="button"
-												onClick={() => {
-													onChange(themeColor);
-													if (onHoverEnd) onHoverEnd();
-													setIsOpen(false);
-												}}
-												onMouseEnter={() => {
-													onHover?.(themeColor);
-													setHoverColor(themeColor);
-												}}
-												onMouseLeave={() => {
-													onHoverEnd?.();
-													setHoverColor(null);
-												}}
-												className="color-picker-palette-btn"
-												style={{
-													backgroundColor: themeColor,
-													border:
-														color.toLowerCase() === themeColor.toLowerCase()
-															? "2px solid var(--text)"
-															: "none",
-												}}
+											<ColorPaletteButton
+												targetColor={themeColor}
+												currentColor={color}
+												onSelect={handleColorSelect}
+												onHoverColor={handleColorHover}
+												onHoverLeave={handleColorHoverLeave}
 											/>
 										</div>
 										<div className="color-picker-grid-spacer" />
@@ -233,30 +231,13 @@ function ColorPicker({
 												const rgbVal = lchToRgb(l, lchTheme.C, lchTheme.h);
 												const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
 												return (
-													<button
+													<ColorPaletteButton
 														key={hexVal}
-														type="button"
-														onClick={() => {
-															onChange(hexVal);
-															if (onHoverEnd) onHoverEnd();
-															setIsOpen(false);
-														}}
-														onMouseEnter={() => {
-															onHover?.(hexVal);
-															setHoverColor(hexVal);
-														}}
-														onMouseLeave={() => {
-															onHoverEnd?.();
-															setHoverColor(null);
-														}}
-														className="color-picker-palette-btn"
-														style={{
-															backgroundColor: hexVal,
-															border:
-																color.toLowerCase() === hexVal.toLowerCase()
-																	? "2px solid var(--text)"
-																	: "none",
-														}}
+														targetColor={hexVal}
+														currentColor={color}
+														onSelect={handleColorSelect}
+														onHoverColor={handleColorHover}
+														onHoverLeave={handleColorHoverLeave}
 													/>
 												);
 											})}
