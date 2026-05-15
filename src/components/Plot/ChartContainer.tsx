@@ -80,6 +80,47 @@ const ChartContainer: React.FC = () => {
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
 	const axesLayerRef = useRef<AxesLayerHandle | null>(null);
 	const pressedKeysRef = useRef<Set<string>>(new Set());
+
+	type OverlayXEntry = {
+		id: string;
+		min: number;
+		max: number;
+		showGrid: boolean;
+		ticks: number[];
+		categoryLabels?: string[];
+	};
+	type OverlayYEntry = {
+		id: string;
+		min: number;
+		max: number;
+		showGrid: boolean;
+		ticks: number[];
+		position: "left" | "right";
+		categoryLabels?: string[];
+	};
+	const overlayScratchRef = useRef<{
+		xAxes: OverlayXEntry[];
+		yAxes: OverlayYEntry[];
+		xAxesMetrics: XAxisMetrics[];
+		axisLayout: Record<string, { total: number; label: number }>;
+		leftOffsets: Record<string, number>;
+		rightOffsets: Record<string, number>;
+		axisColor: string;
+		zeroLineColor: string;
+		gridColor: string;
+		plotBg: string;
+	}>({
+		xAxes: [],
+		yAxes: [],
+		xAxesMetrics: [],
+		axisLayout: {},
+		leftOffsets: {},
+		rightOffsets: {},
+		axisColor: "",
+		zeroLineColor: "",
+		gridColor: "",
+		plotBg: "",
+	});
 	const panStateRef = useRef({
 		active: false,
 		startX: 0,
@@ -655,35 +696,72 @@ const ChartContainer: React.FC = () => {
 					const xLayout = computeXAxesLayout(liveX);
 					const yLayout = computeYAxesLayout(liveY);
 
-					webglRef.current?.setOverlay({
-						xAxes: xLayout.map((a) => ({
-							id: a.id,
-							min: a.min,
-							max: a.max,
-							showGrid: a.showGrid,
-							ticks: a.ticks.result.map((t) =>
-								typeof t === "number" ? t : t.timestamp,
-							),
-							categoryLabels: a.categoryLabels,
-						})),
-						yAxes: yLayout.map((a) => ({
-							id: a.id,
-							min: a.min,
-							max: a.max,
-							showGrid: a.showGrid,
-							ticks: a.ticks,
-							position: a.position,
-							categoryLabels: a.categoryLabels,
-						})),
-						xAxesMetrics: xAxesMetrics,
-						axisLayout,
-						leftOffsets,
-						rightOffsets,
-						axisColor: themeColors.axisColor,
-						zeroLineColor: themeColors.zeroLineColor,
-						gridColor: themeColors.gridColor,
-						plotBg: themeColors.plotBg,
-					});
+					const scratch = overlayScratchRef.current;
+					const sx = scratch.xAxes;
+					sx.length = xLayout.length;
+					for (let i = 0; i < xLayout.length; i++) {
+						const a = xLayout[i];
+						let entry = sx[i];
+						if (!entry) {
+							entry = {
+								id: a.id,
+								min: a.min,
+								max: a.max,
+								showGrid: a.showGrid,
+								ticks: [],
+								categoryLabels: a.categoryLabels,
+							};
+							sx[i] = entry;
+						} else {
+							entry.id = a.id;
+							entry.min = a.min;
+							entry.max = a.max;
+							entry.showGrid = a.showGrid;
+							entry.categoryLabels = a.categoryLabels;
+						}
+						const src = a.ticks.result;
+						const dst = entry.ticks;
+						dst.length = src.length;
+						for (let j = 0; j < src.length; j++) {
+							const t = src[j];
+							dst[j] = typeof t === "number" ? t : t.timestamp;
+						}
+					}
+					const sy = scratch.yAxes;
+					sy.length = yLayout.length;
+					for (let i = 0; i < yLayout.length; i++) {
+						const a = yLayout[i];
+						let entry = sy[i];
+						if (!entry) {
+							entry = {
+								id: a.id,
+								min: a.min,
+								max: a.max,
+								showGrid: a.showGrid,
+								ticks: a.ticks,
+								position: a.position,
+								categoryLabels: a.categoryLabels,
+							};
+							sy[i] = entry;
+						} else {
+							entry.id = a.id;
+							entry.min = a.min;
+							entry.max = a.max;
+							entry.showGrid = a.showGrid;
+							entry.ticks = a.ticks;
+							entry.position = a.position;
+							entry.categoryLabels = a.categoryLabels;
+						}
+					}
+					scratch.xAxesMetrics = xAxesMetrics;
+					scratch.axisLayout = axisLayout;
+					scratch.leftOffsets = leftOffsets;
+					scratch.rightOffsets = rightOffsets;
+					scratch.axisColor = themeColors.axisColor;
+					scratch.zeroLineColor = themeColors.zeroLineColor;
+					scratch.gridColor = themeColors.gridColor;
+					scratch.plotBg = themeColors.plotBg;
+					webglRef.current?.setOverlay(scratch);
 					webglRef.current?.redraw(liveX, liveY);
 					axesLayerRef.current?.redraw(xLayout, yLayout);
 
