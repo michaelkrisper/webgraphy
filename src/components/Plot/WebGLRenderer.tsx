@@ -958,8 +958,13 @@ export const WebGLRenderer = React.memo(
 							} else {
 								const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
 								let totalLineSegs = 0;
-								for (const r of drawRanges)
-									totalLineSegs += Math.max(0, r.count - 1);
+								const STEPS: number[] = [];
+								for (const r of drawRanges) {
+									const n = Math.max(0, r.count - 1);
+									const step = Math.max(1, Math.floor(n / 4000));
+									STEPS.push(step);
+									totalLineSegs += Math.ceil(n / step);
+								}
 								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${totalLineSegs}-${drawRanges.length}-${drawRanges[0]?.start ?? 0}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
@@ -974,15 +979,20 @@ export const WebGLRenderer = React.memo(
 									const scaleY = (chartHeight * dpr) / yRange;
 
 									let outIdx = 0;
-									for (const r of drawRanges) {
+									for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
+										const r = drawRanges[rIdx];
+										const step = STEPS[rIdx];
 										let cumDist = 0;
 										const n = r.count - 1;
-										for (let i = 0; i < n; i++) {
+										for (let i = 0; i < n; i += step) {
 											const ai = r.start + i;
+											let bi = ai + step;
+											if (bi > r.start + n) bi = r.start + n;
+
 											const ax = xData[ai],
 												ay = yData[ai];
-											const bx = xData[ai + 1],
-												by = yData[ai + 1];
+											const bx = xData[bi],
+												by = yData[bi];
 											const sLen = Math.sqrt(
 												((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
 											);
