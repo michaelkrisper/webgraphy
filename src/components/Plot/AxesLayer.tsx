@@ -66,7 +66,6 @@ const AxesLayer = React.memo(
 			const canvasRef = useRef<HTMLCanvasElement>(null);
 			const gridCanvasRef = useRef<HTMLCanvasElement>(null);
 			const labelsContainerRef = useRef<HTMLDivElement>(null);
-			const labelPoolRef = useRef<HTMLDivElement[]>([]);
 			const yTitlePoolRef = useRef<Map<string, HTMLDivElement>>(new Map());
 			const yTitleCacheRef = useRef<Map<string, string>>(new Map());
 			const yTitleUsedRef = useRef<Set<string>>(new Set());
@@ -310,8 +309,6 @@ const AxesLayer = React.memo(
 						ctx.stroke();
 					});
 
-					ctx.restore();
-
 					yTitleUsedRef.current.clear();
 					const getYTitleDiv = (axisId: string) => {
 						let div = yTitlePoolRef.current.get(axisId);
@@ -329,34 +326,20 @@ const AxesLayer = React.memo(
 						yTitleUsedRef.current.add(axisId);
 						return div;
 					};
-					let labelIdx = 0;
-					const getLabelDiv = () => {
-						let div = labelPoolRef.current[labelIdx];
-						if (!div) {
-							div = document.createElement("div");
-							div.style.position = "absolute";
-							div.style.pointerEvents = "none";
-							div.style.whiteSpace = "nowrap";
-							div.style.left = "0px";
-							div.style.top = "0px";
-							labelsContainerRef.current?.appendChild(div);
-							labelPoolRef.current.push(div);
-						}
-						div.style.display = "block";
-						div.style.background = "transparent";
-						div.style.border = "none";
-						div.style.padding = "0";
-						labelIdx++;
-						return div;
-					};
 
-					// X Axes Labels
+					// X Axes Labels (canvas)
 					xAxes.forEach((axis, axisIdx) => {
 						const metrics = xAxesMetrics[axisIdx];
 						if (!metrics) return;
 						const baseY = height - padding.bottom + metrics.cumulativeOffset;
+						const lblColor = axis.color || labelColor;
 
 						// Primary Labels
+						ctx.font = `9px ${fontFamily}`;
+						ctx.fillStyle = lblColor;
+						ctx.textAlign = "center";
+						ctx.textBaseline = "alphabetic";
+						const primaryY = baseY + metrics.labelBottom;
 						axis.ticks.result.forEach((t) => {
 							const timestamp = typeof t === "number" ? t : t.timestamp;
 							const normX = (timestamp - axis.min) / (axis.max - axis.min);
@@ -377,79 +360,70 @@ const AxesLayer = React.memo(
 										? formatAxisLabel(t, axis.ticks.precision ?? 0)
 										: t.label;
 							}
-							const div = getLabelDiv();
-							div.textContent = label;
-							div.style.font = `9px ${fontFamily}`;
-							div.style.color = axis.color || labelColor;
-							div.style.transform = `translate(${x}px, ${baseY + metrics.labelBottom - 9}px) translate(-50%, -100%)`;
+							ctx.fillText(label, x, primaryY);
 						});
 
 						// Secondary Labels
 						if (axis.ticks.secondaryLabels) {
-							axis.ticks.secondaryLabels.forEach(
-								(sl: SecondaryLabel, i: number) => {
-									const nextSl = axis.ticks.secondaryLabels?.[i + 1];
-									const normX =
-										(sl.timestamp - axis.min) / (axis.max - axis.min);
-									const nextNormX = nextSl
-										? (nextSl.timestamp - axis.min) / (axis.max - axis.min)
-										: 1.5;
+							ctx.font = `bold 10px ${fontFamily}`;
+							ctx.textAlign = "left";
+							const rectY = baseY + metrics.secLabelBottom - 14;
+							const secList = axis.ticks.secondaryLabels;
+							secList.forEach((sl: SecondaryLabel, i: number) => {
+								const nextSl = secList[i + 1];
+								const normX = (sl.timestamp - axis.min) / (axis.max - axis.min);
+								const nextNormX = nextSl
+									? (nextSl.timestamp - axis.min) / (axis.max - axis.min)
+									: 1.5;
 
-									const currentX = padding.left + normX * chartWidth;
-									const nextX = padding.left + nextNormX * chartWidth;
+								const currentX = padding.left + normX * chartWidth;
+								const nextX = padding.left + nextNormX * chartWidth;
 
-									if (currentX > width - padding.right || nextX < padding.left)
-										return;
+								if (currentX > width - padding.right || nextX < padding.left)
+									return;
 
-									const x = Math.max(currentX + 5, padding.left + 5);
+								const x = Math.max(currentX + 5, padding.left + 5);
 
-									ctx.save();
-									ctx.scale(dpr, dpr);
-									ctx.font = `bold 10px ${fontFamily}`;
-									const textWidth = ctx.measureText(sl.label).width;
-									const rectY = baseY + metrics.secLabelBottom - 14;
-									ctx.fillStyle = secLabelBg;
-									ctx.fillRect(x - 2, rectY, textWidth + 4, 14);
+								const textWidth = ctx.measureText(sl.label).width;
+								ctx.fillStyle = secLabelBg;
+								ctx.fillRect(x - 2, rectY, textWidth + 4, 14);
 
-									if (currentX > padding.left) {
-										ctx.strokeStyle = axis.color || labelColor;
-										ctx.lineWidth = 2;
-										ctx.beginPath();
-										ctx.moveTo(currentX, rectY);
-										ctx.lineTo(currentX, rectY + 14);
-										ctx.stroke();
-									}
-									ctx.restore();
+								if (currentX > padding.left) {
+									ctx.strokeStyle = lblColor;
+									ctx.lineWidth = 2;
+									ctx.beginPath();
+									ctx.moveTo(currentX, rectY);
+									ctx.lineTo(currentX, rectY + 14);
+									ctx.stroke();
+								}
 
-									const div = getLabelDiv();
-									div.textContent = sl.label;
-									div.style.font = `bold 10px ${fontFamily}`;
-									div.style.color = axis.color || labelColor;
-										div.style.transform = `translate(${x}px, ${baseY + metrics.secLabelBottom - 10}px)`;
-								},
-							);
+								ctx.fillStyle = lblColor;
+								ctx.fillText(sl.label, x, baseY + metrics.secLabelBottom - 2);
+							});
 						}
 
-						// Axis Title
-						const titleDiv = getLabelDiv();
-						titleDiv.style.font = `bold 12px ${fontFamily}`;
-						titleDiv.style.color = axis.color || labelColor;
-						titleDiv.style.transform = `translate(${padding.left + chartWidth / 2}px, ${baseY + metrics.titleBottom - 12}px) translate(-50%, -100%)`;
-
+						// Axis Title (canvas)
 						const axisSeries = seriesByXAxisId[axis.id] || [];
 						const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
-						titleDiv.textContent = axis.title;
-						titleDiv.style.color =
+						const titleColor =
 							uniqueColors.size === 1
 								? (axisSeries[0].lineColor ?? labelColor)
-								: axis.color || labelColor;
+								: lblColor;
+						ctx.font = `bold 12px ${fontFamily}`;
+						ctx.fillStyle = titleColor;
+						ctx.textAlign = "center";
+						ctx.textBaseline = "alphabetic";
+						ctx.fillText(
+							axis.title,
+							padding.left + chartWidth / 2,
+							baseY + metrics.titleBottom,
+						);
 					});
 
-					// Y Axes Labels
+					// Y Axes Labels (canvas)
 					yAxes.forEach((axis) => {
 						const isLeft = axis.position === "left";
 						const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
-						const axisSeries = seriesByYAxisId[axis.id] || [];
 
 						const xPos = isLeft
 							? padding.left - (leftOffsets[axis.id] ?? 0) - metrics.total
@@ -459,7 +433,10 @@ const AxesLayer = React.memo(
 						const labelX = isLeft ? spineX - 7 : spineX + 7;
 						const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
 
-						// Y Labels
+						ctx.font = `9px ${fontFamily}`;
+						ctx.fillStyle = labelColor;
+						ctx.textAlign = isLeft ? "right" : "left";
+						ctx.textBaseline = "middle";
 						axis.ticks.forEach((t) => {
 							const normY = (t - axis.min) / (axis.max - axis.min);
 							if (normY < 0 || normY > 1) return;
@@ -473,26 +450,23 @@ const AxesLayer = React.memo(
 							} else {
 								label = formatAxisLabel(t, axis.precision);
 							}
-
-							const div = getLabelDiv();
-							div.textContent = label;
-							div.style.font = `9px ${fontFamily}`;
-							div.style.color = labelColor;
-							const offsetTransform = isLeft ? "translate(-100%, -50%)" : "translate(0, -50%)";
-							div.style.transform = `translate(${labelX}px, ${y}px) ${offsetTransform}`;
+							ctx.fillText(label, labelX, y);
 						});
 
-						// Y Axis Title (dedicated pool so DOM stays stable across redraws)
+						// Y Axis Title (DOM — multicolor spans, only when changes)
+						const axisSeries = seriesByYAxisId[axis.id] || [];
 						const titleDiv = getYTitleDiv(axis.id);
-						titleDiv.style.font = `bold 12px ${fontFamily}`;
 						const rotate = isLeft ? "rotate(-90deg)" : "rotate(90deg)";
-						titleDiv.style.transform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
-
+						const newTransform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
+						if (titleDiv.style.transform !== newTransform) {
+							titleDiv.style.transform = newTransform;
+						}
 						const titleKey =
 							axisSeries
 								.map((s) => `${s.id}:${s.name || s.yColumn}:${s.lineColor}`)
-								.join("|") + `||${labelColor}`;
+								.join("|") + `||${labelColor}||${fontFamily}`;
 						if (yTitleCacheRef.current.get(axis.id) !== titleKey) {
+							titleDiv.style.font = `bold 12px ${fontFamily}`;
 							let html = "";
 							axisSeries.forEach((s, i) => {
 								if (i > 0 && axisSeries.length > 1) {
@@ -509,10 +483,8 @@ const AxesLayer = React.memo(
 						}
 					});
 
-					// Hide remaining unused label divs
-					for (let i = labelIdx; i < labelPoolRef.current.length; i++) {
-						labelPoolRef.current[i].style.display = "none";
-					}
+					ctx.restore();
+
 					// Hide y-title divs not used this frame
 					yTitlePoolRef.current.forEach((div, axisId) => {
 						if (!yTitleUsedRef.current.has(axisId)) {

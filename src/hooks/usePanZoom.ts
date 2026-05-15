@@ -88,6 +88,8 @@ export function usePanZoom({
 	const containerRectRef = useRef<DOMRect | null>(null);
 	const zoomBoxSvgRef = useRef<SVGSVGElement | null>(null);
 	const zoomBoxRectRef = useRef<SVGRectElement | null>(null);
+	const panTargetRef = useRef<PanTarget | null>(null);
+	const isShiftPressedRef = useRef(false);
 
 	const isInteracting = !!panTarget || isZooming || isWheeling;
 
@@ -397,6 +399,7 @@ export function usePanZoom({
 				}
 			} else {
 				setPanTarget(target);
+				panTargetRef.current = target;
 				shiftDownRef.current = e.shiftKey;
 				lastMousePos.current = { x: e.clientX, y: e.clientY };
 			}
@@ -444,9 +447,6 @@ export function usePanZoom({
 	);
 
 	// Raw event listeners (non-React for passive:false touch)
-	const panTargetRef = useRef(panTarget);
-	const isShiftPressedRef = useRef(isShiftPressed);
-
 	useEffect(() => {
 		panTargetRef.current = panTarget;
 		isShiftPressedRef.current = isShiftPressed;

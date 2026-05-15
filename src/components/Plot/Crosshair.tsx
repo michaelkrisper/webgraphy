@@ -426,6 +426,14 @@ const Crosshair = React.memo(
 			if (!el) return;
 			let rafId: number | null = null;
 			let pendingPos: { x: number; y: number } | null = null;
+			let cachedRect: DOMRect = el.getBoundingClientRect();
+			const refreshRect = () => {
+				cachedRect = el.getBoundingClientRect();
+			};
+			const ro = new ResizeObserver(refreshRect);
+			ro.observe(el);
+			window.addEventListener("scroll", refreshRect, true);
+			window.addEventListener("resize", refreshRect);
 
 			const schedule = () => {
 				if (rafId !== null) return;
@@ -443,7 +451,7 @@ const Crosshair = React.memo(
 					updateCrosshair(null);
 					return;
 				}
-				const rect = el.getBoundingClientRect();
+				const rect = cachedRect;
 				let clientX: number;
 				let clientY: number;
 				if ("touches" in e) {
@@ -482,6 +490,9 @@ const Crosshair = React.memo(
 			el.addEventListener("mouseleave", handleLeave);
 			return () => {
 				if (rafId) cancelAnimationFrame(rafId);
+				ro.disconnect();
+				window.removeEventListener("scroll", refreshRect, true);
+				window.removeEventListener("resize", refreshRect);
 				window.removeEventListener("mousemove", handleMove);
 				window.removeEventListener("touchstart", handleMove);
 				window.removeEventListener("touchmove", handleMove);
