@@ -29,10 +29,23 @@ export const rgbToHex = (r: number, g: number, b: number): string => {
 };
 
 export function hexToRgb(hex: string) {
+	if (
+		!hex ||
+		typeof hex !== "string" ||
+		!hex.startsWith("#") ||
+		hex.length !== 7
+	)
+		return { r: 0, g: 0, b: 0 };
+
 	const r = parseInt(hex.slice(1, 3), 16);
 	const g = parseInt(hex.slice(3, 5), 16);
 	const b = parseInt(hex.slice(5, 7), 16);
-	return { r, g, b };
+
+	return {
+		r: Number.isNaN(r) ? 0 : r,
+		g: Number.isNaN(g) ? 0 : g,
+		b: Number.isNaN(b) ? 0 : b,
+	};
 }
 
 /**
