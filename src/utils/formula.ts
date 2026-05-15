@@ -213,7 +213,7 @@ export function compileFormula(
 	try {
 		const usedColumnIndices: number[] = [];
 		const columnMap = new Map<string, number>();
-		let funcIdCounter = 0;
+		let funcIdCounter = 1;
 		let usesAllColumns = false;
 
 		let availableColumnsMap = columnMapCache.get(availableColumns);
