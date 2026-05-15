@@ -162,7 +162,7 @@ describe("colors", () => {
 		});
 
 		it("should correctly convert white", () => {
-			const { L, C, h } = rgbToLch(255, 255, 255);
+			const { L, C } = rgbToLch(255, 255, 255);
 			expect(L).toBeCloseTo(100, 1);
 			expect(C).toBeCloseTo(0, 1);
 		});
@@ -186,6 +186,45 @@ describe("colors", () => {
 			expect(L).toBeCloseTo(32.3, 1);
 			expect(C).toBeCloseTo(133.8, 1);
 			expect(h).toBeCloseTo(306.3, 1);
+		});
+
+		it("should correctly convert arbitrary colors", () => {
+			// Cyan
+			const cyan = rgbToLch(0, 255, 255);
+			expect(cyan.L).toBeCloseTo(91.1, 1);
+			expect(cyan.C).toBeCloseTo(50.1, 1);
+			expect(cyan.h).toBeCloseTo(196.4, 1);
+
+			// Magenta
+			const magenta = rgbToLch(255, 0, 255);
+			expect(magenta.L).toBeCloseTo(60.3, 1);
+			expect(magenta.C).toBeCloseTo(115.6, 1);
+			expect(magenta.h).toBeCloseTo(328.2, 1);
+
+			// Yellow
+			const yellow = rgbToLch(255, 255, 0);
+			expect(yellow.L).toBeCloseTo(97.1, 1);
+			expect(yellow.C).toBeCloseTo(96.9, 1);
+			expect(yellow.h).toBeCloseTo(102.9, 1);
+
+			// Gray
+			const gray = rgbToLch(128, 128, 128);
+			expect(gray.L).toBeCloseTo(53.6, 1);
+			expect(gray.C).toBeCloseTo(0, 1);
+		});
+
+		it("should correctly handle linear sRGB conversion for very dark colors", () => {
+			// Values <= 0.04045
+			const dark = rgbToLch(10, 10, 10);
+			expect(dark.L).toBeCloseTo(2.7, 1);
+			expect(dark.C).toBeCloseTo(0, 1);
+		});
+
+		it("should wrap negative hue values", () => {
+			const { h } = rgbToLch(0, 0, 255);
+			// Blue produces a negative hue internally before wrap
+			expect(h).toBeGreaterThanOrEqual(0);
+			expect(h).toBeLessThan(360);
 		});
 	});
 });
