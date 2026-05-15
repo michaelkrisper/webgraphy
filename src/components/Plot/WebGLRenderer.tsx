@@ -169,8 +169,37 @@ interface Props {
 	plotBg: string;
 }
 
+export interface OverlayInput {
+	xAxes: Array<{
+		id: string;
+		min: number;
+		max: number;
+		showGrid: boolean;
+		ticks: number[];
+		categoryLabels?: string[];
+	}>;
+	yAxes: Array<{
+		id: string;
+		min: number;
+		max: number;
+		showGrid: boolean;
+		ticks: number[];
+		position: "left" | "right";
+		categoryLabels?: string[];
+	}>;
+	xAxesMetrics: Array<{ id: string; cumulativeOffset: number }>;
+	axisLayout: Record<string, { total: number; label: number }>;
+	leftOffsets: Record<string, number>;
+	rightOffsets: Record<string, number>;
+	axisColor: string;
+	zeroLineColor: string;
+	gridColor: string;
+	plotBg: string;
+}
+
 export interface WebGLRendererHandle {
 	redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
+	setOverlay: (overlay: OverlayInput) => void;
 }
 
 /**
@@ -193,13 +222,29 @@ export const WebGLRenderer = React.memo(
 		const programRef = useRef<WebGLProgram | null>(null);
 		const locationsRef = useRef<WebGLLocations | null>(null);
 		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
-		const scratchXRef = useRef<Float32Array | null>(null);
-		const scratchYRef = useRef<Float32Array | null>(null);
 		const segParamsRef = useRef<Map<string, string>>(new Map());
 		const segmentCacheRef = useRef<
 			WeakMap<Float32Array, { start: number; end: number }[]>
 		>(new WeakMap());
 		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
+		// Cache GPU buffers keyed by source Float32Array identity (raw column data).
+		// Pan/zoom reuses these without re-uploading.
+		const columnBufferRef = useRef<WeakMap<Float32Array, WebGLBuffer>>(
+			new WeakMap(),
+		);
+		// Overlay screen-space: one packed Float32Array (x,y pairs) for all primitives.
+		// Groups reference offsets/counts into this buffer.
+		const overlayRef = useRef<{
+			packed: Float32Array; // (x,y) pairs in device pixels
+			packedLen: number; // valid floats in packed
+			groups: Array<{
+				topology: "LINES" | "TRIANGLES";
+				rgba: [number, number, number, number];
+				width: number;
+				offset: number; // vertex offset
+				count: number; // vertex count
+			}>;
+		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
 
 		const pixelBudgetMultRef = useRef<number>(64);
 		const frameTimeRef = useRef<number>(0);
@@ -224,6 +269,265 @@ export const WebGLRenderer = React.memo(
 					liveXAxesRef.current = xAxes;
 					liveYAxesRef.current = yAxes;
 					drawFrameRef.current?.(xAxes, yAxes);
+				},
+				setOverlay: (overlay: OverlayInput) => {
+					const { width: w, height: h, padding: pad } = propsRef.current;
+					const dpr = window.devicePixelRatio || 1;
+					const cw = w - pad.left - pad.right;
+					const ch = h - pad.top - pad.bottom;
+
+					const hexRgba = (
+						hex: string,
+						a = 1,
+					): [number, number, number, number] => {
+						const c = hexToRgba(hex);
+						return [c[0], c[1], c[2], a];
+					};
+					const gridRgba = hexRgba(overlay.gridColor, 1);
+					const axisRgba = hexRgba(overlay.axisColor, 1);
+					const zeroRgba = hexRgba(overlay.zeroLineColor, 1);
+					const bgRgba = hexRgba(overlay.plotBg, 1);
+
+					const ov = overlayRef.current;
+					// Estimate vertex count and grow packed buffer as needed.
+					let est = 12; // bg quad (6 verts * 2 floats)
+					if (overlay.xAxes[0]?.showGrid)
+						est += overlay.xAxes[0].ticks.length * 4;
+					for (const ax of overlay.yAxes)
+						if (ax.showGrid) est += ax.ticks.length * 4;
+					for (const ax of overlay.xAxes) est += (ax.ticks.length + 1) * 4 + 6;
+					for (const ax of overlay.yAxes) est += (ax.ticks.length + 1) * 4 + 6;
+					est += 12 + 32;
+					if (ov.packed.length < est)
+						ov.packed = new Float32Array(Math.max(est, ov.packed.length * 2));
+					const buf = ov.packed;
+					let p = 0;
+					ov.groups.length = 0;
+
+					// --- Background quad (TRIANGLES) ---
+					const x0 = pad.left * dpr,
+						y0 = pad.top * dpr,
+						x1 = (pad.left + cw) * dpr,
+						y1 = (pad.top + ch) * dpr;
+					const bgStart = p / 2;
+					buf[p++] = x0; buf[p++] = y0;
+					buf[p++] = x1; buf[p++] = y0;
+					buf[p++] = x0; buf[p++] = y1;
+					buf[p++] = x1; buf[p++] = y0;
+					buf[p++] = x1; buf[p++] = y1;
+					buf[p++] = x0; buf[p++] = y1;
+					ov.groups.push({
+						topology: "TRIANGLES",
+						rgba: bgRgba,
+						width: 1,
+						offset: bgStart,
+						count: 6,
+					});
+
+					// Grid: vertical (first x axis) + horizontal (y axes that show grid).
+					const gridStart = p / 2;
+					if (overlay.xAxes.length > 0) {
+						const ax = overlay.xAxes[0];
+						if (ax.showGrid && ax.max > ax.min) {
+							const range = ax.max - ax.min;
+							const yTop = pad.top * dpr;
+							const yBot = (pad.top + ch) * dpr;
+							for (const t of ax.ticks) {
+								const norm = (t - ax.min) / range;
+								if (norm < 0 || norm > 1) continue;
+								const sx = (pad.left + norm * cw) * dpr;
+								buf[p++] = sx; buf[p++] = yTop;
+								buf[p++] = sx; buf[p++] = yBot;
+							}
+						}
+					}
+					for (const ax of overlay.yAxes) {
+						if (!ax.showGrid || ax.max <= ax.min) continue;
+						const range = ax.max - ax.min;
+						const xL = pad.left * dpr;
+						const xR = (w - pad.right) * dpr;
+						for (const t of ax.ticks) {
+							const norm = (t - ax.min) / range;
+							if (norm < 0 || norm > 1) continue;
+							const sy = (pad.top + (1 - norm) * ch) * dpr;
+							buf[p++] = xL; buf[p++] = sy;
+							buf[p++] = xR; buf[p++] = sy;
+						}
+					}
+					const gridCount = p / 2 - gridStart;
+					if (gridCount > 0)
+						ov.groups.push({
+							topology: "LINES",
+							rgba: gridRgba,
+							width: 1,
+							offset: gridStart,
+							count: gridCount,
+						});
+
+					// Zero lines (horizontal for y-axes, vertical for first x-axis).
+					const zeroLineStart = p / 2;
+					for (const ax of overlay.yAxes) {
+						if (ax.categoryLabels) continue;
+						if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+							const range = ax.max - ax.min;
+							const norm = (0 - ax.min) / range;
+							const sy = (pad.top + (1 - norm) * ch) * dpr;
+							const arrowTipX = (w - pad.right + 8) * dpr;
+							buf[p++] = pad.left * dpr; buf[p++] = sy;
+							buf[p++] = arrowTipX; buf[p++] = sy;
+						}
+					}
+					if (overlay.xAxes.length > 0) {
+						const ax = overlay.xAxes[0];
+						if (!ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+							const range = ax.max - ax.min;
+							const norm = (0 - ax.min) / range;
+							const sx = (pad.left + norm * cw) * dpr;
+							const tipY = (pad.top - 8) * dpr;
+							buf[p++] = sx; buf[p++] = (h - pad.bottom) * dpr;
+							buf[p++] = sx; buf[p++] = tipY;
+						}
+					}
+					const zeroLineCount = p / 2 - zeroLineStart;
+					if (zeroLineCount > 0)
+						ov.groups.push({
+							topology: "LINES",
+							rgba: zeroRgba,
+							width: 1.5,
+							offset: zeroLineStart,
+							count: zeroLineCount,
+						});
+
+					// Axis lines: frame spines + x/y axis lines + tick marks.
+					const axisLineStart = p / 2;
+					buf[p++] = pad.left * dpr; buf[p++] = pad.top * dpr;
+					buf[p++] = pad.left * dpr; buf[p++] = (pad.top + ch) * dpr;
+					buf[p++] = pad.left * dpr; buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr; buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr; buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr; buf[p++] = (pad.top + ch) * dpr;
+					overlay.xAxes.forEach((ax, idx) => {
+						const m = overlay.xAxesMetrics[idx];
+						if (!m) return;
+						const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
+						buf[p++] = pad.left * dpr; buf[p++] = yL;
+						buf[p++] = (w - pad.right + 8) * dpr; buf[p++] = yL;
+						if (ax.max <= ax.min) return;
+						const range = ax.max - ax.min;
+						const tickEnd = yL + 6 * dpr;
+						for (const t of ax.ticks) {
+							const norm = (t - ax.min) / range;
+							if (norm < 0 || norm > 1) continue;
+							const sx = (pad.left + norm * cw) * dpr;
+							buf[p++] = sx; buf[p++] = yL;
+							buf[p++] = sx; buf[p++] = tickEnd;
+						}
+					});
+					for (const ax of overlay.yAxes) {
+						const isLeft = ax.position === "left";
+						const metrics = overlay.axisLayout[ax.id] || { total: 40, label: 30 };
+						const xPos = isLeft
+							? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
+							: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
+						const lineX = isLeft ? xPos + metrics.total : xPos;
+						const tipY = (pad.top - 8) * dpr;
+						buf[p++] = lineX * dpr; buf[p++] = (h - pad.bottom) * dpr;
+						buf[p++] = lineX * dpr; buf[p++] = tipY;
+						if (ax.max <= ax.min) continue;
+						const range = ax.max - ax.min;
+						const xa = (isLeft ? lineX - 5 : lineX) * dpr;
+						const xb = (isLeft ? lineX : lineX + 5) * dpr;
+						for (const t of ax.ticks) {
+							const norm = (t - ax.min) / range;
+							if (norm < 0 || norm > 1) continue;
+							const sy = (pad.top + (1 - norm) * ch) * dpr;
+							buf[p++] = xa; buf[p++] = sy;
+							buf[p++] = xb; buf[p++] = sy;
+						}
+					}
+					const axisLineCount = p / 2 - axisLineStart;
+					if (axisLineCount > 0)
+						ov.groups.push({
+							topology: "LINES",
+							rgba: axisRgba,
+							width: 1,
+							offset: axisLineStart,
+							count: axisLineCount,
+						});
+
+					// Zero-line arrow triangles.
+					const zeroTriStart = p / 2;
+					for (const ax of overlay.yAxes) {
+						if (ax.categoryLabels) continue;
+						if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+							const range = ax.max - ax.min;
+							const norm = (0 - ax.min) / range;
+							const sy = (pad.top + (1 - norm) * ch) * dpr;
+							const arrowTipX = (w - pad.right + 8) * dpr;
+							const aSize = 6 * dpr;
+							buf[p++] = arrowTipX; buf[p++] = sy;
+							buf[p++] = arrowTipX - aSize; buf[p++] = sy - aSize / 2;
+							buf[p++] = arrowTipX - aSize; buf[p++] = sy + aSize / 2;
+						}
+					}
+					if (overlay.xAxes.length > 0) {
+						const ax = overlay.xAxes[0];
+						if (!ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+							const range = ax.max - ax.min;
+							const norm = (0 - ax.min) / range;
+							const sx = (pad.left + norm * cw) * dpr;
+							const tipY = (pad.top - 8) * dpr;
+							const aSize = 6 * dpr;
+							buf[p++] = sx; buf[p++] = tipY;
+							buf[p++] = sx - aSize / 2; buf[p++] = tipY + aSize;
+							buf[p++] = sx + aSize / 2; buf[p++] = tipY + aSize;
+						}
+					}
+					const zeroTriCount = p / 2 - zeroTriStart;
+					if (zeroTriCount > 0)
+						ov.groups.push({
+							topology: "TRIANGLES",
+							rgba: zeroRgba,
+							width: 1,
+							offset: zeroTriStart,
+							count: zeroTriCount,
+						});
+
+					// Axis arrow triangles (x/y).
+					const axisTriStart = p / 2;
+					overlay.xAxes.forEach((_, idx) => {
+						const m = overlay.xAxesMetrics[idx];
+						if (!m) return;
+						const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
+						const aSize = 6 * dpr;
+						buf[p++] = (w - pad.right + 8) * dpr; buf[p++] = yL;
+						buf[p++] = (w - pad.right + 8 - 6) * dpr; buf[p++] = yL - aSize / 2;
+						buf[p++] = (w - pad.right + 8 - 6) * dpr; buf[p++] = yL + aSize / 2;
+					});
+					for (const ax of overlay.yAxes) {
+						const isLeft = ax.position === "left";
+						const metrics = overlay.axisLayout[ax.id] || { total: 40, label: 30 };
+						const xPos = isLeft
+							? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
+							: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
+						const lineX = isLeft ? xPos + metrics.total : xPos;
+						const tipY = (pad.top - 8) * dpr;
+						const aSize = 6 * dpr;
+						buf[p++] = lineX * dpr; buf[p++] = tipY;
+						buf[p++] = (lineX - 3) * dpr; buf[p++] = tipY + aSize;
+						buf[p++] = (lineX + 3) * dpr; buf[p++] = tipY + aSize;
+					}
+					const axisTriCount = p / 2 - axisTriStart;
+					if (axisTriCount > 0)
+						ov.groups.push({
+							topology: "TRIANGLES",
+							rgba: axisRgba,
+							width: 1,
+							offset: axisTriStart,
+							count: axisTriCount,
+						});
+
+					ov.packedLen = p;
 				},
 			}),
 			[],
@@ -395,6 +699,57 @@ export const WebGLRenderer = React.memo(
 				gl.uniform2f(locs.resLoc, pw, ph);
 				gl.uniform1f(locs.dprLoc, dpr);
 
+				// --- Draw overlay (bg, grid, spines, ticks, arrows, zero lines) ---
+				const overlay = overlayRef.current;
+				if (overlay && overlay.packedLen > 0 && overlay.groups.length > 0) {
+					gl.uniform1i(locs.screenSpaceLoc, 1);
+					gl.uniform1i(locs.styleLoc, 3); // solid color
+					gl.uniform1i(locs.lineStyleLoc, 0);
+					gl.disableVertexAttribArray(locs.otherLoc);
+					gl.vertexAttrib2f(locs.otherLoc, 0, 0);
+					gl.disableVertexAttribArray(locs.tLoc);
+					gl.vertexAttrib1f(locs.tLoc, 0);
+					gl.disableVertexAttribArray(locs.distStartLoc);
+					gl.vertexAttrib1f(locs.distStartLoc, 0);
+
+					let overlayBuf = buffersRef.current.get("__overlay");
+					if (!overlayBuf) {
+						const b = gl.createBuffer();
+						if (b) {
+							overlayBuf = b;
+							buffersRef.current.set("__overlay", overlayBuf);
+						}
+					}
+					if (overlayBuf) {
+						gl.bindBuffer(gl.ARRAY_BUFFER, overlayBuf);
+						gl.bufferData(
+							gl.ARRAY_BUFFER,
+							overlay.packed.subarray(0, overlay.packedLen),
+							gl.STREAM_DRAW,
+						);
+						gl.enableVertexAttribArray(locs.xLoc);
+						gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 8, 0);
+						gl.enableVertexAttribArray(locs.yLoc);
+						gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
+
+						let curWidth = -1;
+						for (const grp of overlay.groups) {
+							if (grp.count === 0) continue;
+							const c = grp.rgba;
+							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], c[3]);
+							if (grp.topology === "LINES") {
+								if (curWidth !== grp.width) {
+									gl.lineWidth(grp.width);
+									curWidth = grp.width;
+								}
+								gl.drawArrays(gl.LINES, grp.offset, grp.count);
+							} else {
+								gl.drawArrays(gl.TRIANGLES, grp.offset, grp.count);
+							}
+						}
+					}
+				}
+
 				gl.uniform1i(locs.screenSpaceLoc, 0);
 				gl.enable(gl.SCISSOR_TEST);
 				gl.scissor(
@@ -504,8 +859,39 @@ export const WebGLRenderer = React.memo(
 								)
 							: xDataLen - 1;
 
-						const drawSegments: { x: Float32Array; y: Float32Array }[] = [];
-						let totalDrawCount = 0;
+						const xScaleVal = (chartWidth * dpr) / xRange;
+						const xOffsetVal =
+							padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
+						const yScaleVal =
+							(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
+						const yOffsetVal =
+							(height - padding.bottom) * dpr -
+							(yAxis.min - colY.refPoint) * yScaleVal;
+
+						// Cache GPU buffers per source Float32Array identity (xData/yData).
+						// Avoids re-uploading during pan/zoom — only uniforms change.
+						let xBuffer = columnBufferRef.current.get(xData);
+						if (!xBuffer) {
+							const b = gl.createBuffer();
+							if (!b) return;
+							xBuffer = b;
+							gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
+							gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
+							columnBufferRef.current.set(xData, xBuffer);
+						}
+						let yBuffer = columnBufferRef.current.get(yData);
+						if (!yBuffer) {
+							const b = gl.createBuffer();
+							if (!b) return;
+							yBuffer = b;
+							gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
+							gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
+							columnBufferRef.current.set(yData, yBuffer);
+						}
+
+						// Build draw ranges directly in original buffer indices using cachedSegments
+						// clipped to [sliceStart, sliceEnd]. This skips the per-frame slice + scratch copy.
+						const drawRanges: { start: number; count: number }[] = [];
 						if (isMonotonic) {
 							let segLo = 0,
 								segHi = cachedSegments.length - 1;
@@ -517,87 +903,21 @@ export const WebGLRenderer = React.memo(
 									segHi = m - 1;
 								} else segLo = m + 1;
 							}
-
 							for (let i = startSegIdx; i < cachedSegments.length; i++) {
 								const seg = cachedSegments[i];
 								if (seg.start > sliceEnd) break;
 								const s = Math.max(seg.start, sliceStart);
 								const e = Math.min(seg.end, sliceEnd);
-								if (e >= s) {
-									const segX = xData.subarray(s, e + 1);
-									const segY = yData.subarray(s, e + 1);
-									drawSegments.push({ x: segX, y: segY });
-									totalDrawCount += segX.length;
-								}
+								if (e >= s) drawRanges.push({ start: s, count: e - s + 1 });
 							}
 						} else {
 							for (const seg of cachedSegments) {
-								const segX = xData.subarray(seg.start, seg.end + 1);
-								const segY = yData.subarray(seg.start, seg.end + 1);
-								drawSegments.push({ x: segX, y: segY });
-								totalDrawCount += segX.length;
+								drawRanges.push({
+									start: seg.start,
+									count: seg.end - seg.start + 1,
+								});
 							}
 						}
-
-						const reqLen =
-							totalDrawCount + Math.max(0, drawSegments.length - 1);
-						let flatX = scratchXRef.current;
-						let flatY = scratchYRef.current;
-						if (!flatX || !flatY || flatX.length < reqLen) {
-							const newCap = Math.max(reqLen, (flatX?.length || 0) * 2 || 1024);
-							flatX = new Float32Array(newCap);
-							flatY = new Float32Array(newCap);
-							scratchXRef.current = flatX;
-							scratchYRef.current = flatY;
-						}
-
-						const drawRanges: { start: number; count: number }[] = [];
-						let offset = 0;
-						for (const seg of drawSegments) {
-							drawRanges.push({ start: offset, count: seg.x.length });
-							flatX.set(seg.x, offset);
-							flatY.set(seg.y, offset);
-							offset += seg.x.length + 1;
-						}
-
-						const drawCount = reqLen;
-
-						const xScaleVal = (chartWidth * dpr) / xRange;
-						const xOffsetVal =
-							padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
-						const yScaleVal =
-							(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-						const yOffsetVal =
-							(height - padding.bottom) * dpr -
-							(yAxis.min - colY.refPoint) * yScaleVal;
-
-						const dynXKey = `dyn-x-${ds.id}-${xIdx}-${yIdx}`;
-						const dynYKey = `dyn-y-${ds.id}-${xIdx}-${yIdx}`;
-
-						let xBuffer = buffersRef.current.get(dynXKey);
-						if (!xBuffer) {
-							xBuffer = gl.createBuffer();
-							if (!xBuffer) return;
-							buffersRef.current.set(dynXKey, xBuffer);
-						}
-						let yBuffer = buffersRef.current.get(dynYKey);
-						if (!yBuffer) {
-							yBuffer = gl.createBuffer();
-							if (!yBuffer) return;
-							buffersRef.current.set(dynYKey, yBuffer);
-						}
-						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							flatX.subarray(0, drawCount),
-							gl.STREAM_DRAW,
-						);
-						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(
-							gl.ARRAY_BUFFER,
-							flatY.subarray(0, drawCount),
-							gl.STREAM_DRAW,
-						);
 
 						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
 						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
@@ -637,16 +957,16 @@ export const WebGLRenderer = React.memo(
 								}
 							} else {
 								const segBufferKey = `seg-${ds.id}-${xIdx}-${yIdx}-dyn`;
-								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${drawCount}`;
+								let totalLineSegs = 0;
+								for (const r of drawRanges)
+									totalLineSegs += Math.max(0, r.count - 1);
+								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${totalLineSegs}-${drawRanges.length}-${drawRanges[0]?.start ?? 0}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
 									segBuffer = gl.createBuffer();
 									if (!segBuffer) return;
 									buffersRef.current.set(segBufferKey, segBuffer);
 								}
-								let totalLineSegs = 0;
-								for (const seg of drawSegments)
-									totalLineSegs += Math.max(0, seg.x.length - 1);
 
 								if (segParamsRef.current.get(segBufferKey) !== paramKey) {
 									const sharedArr = new Float32Array(totalLineSegs * 12);
@@ -654,14 +974,15 @@ export const WebGLRenderer = React.memo(
 									const scaleY = (chartHeight * dpr) / yRange;
 
 									let outIdx = 0;
-									for (const seg of drawSegments) {
+									for (const r of drawRanges) {
 										let cumDist = 0;
-										const n = seg.x.length - 1;
+										const n = r.count - 1;
 										for (let i = 0; i < n; i++) {
-											const ax = seg.x[i],
-												ay = seg.y[i];
-											const bx = seg.x[i + 1],
-												by = seg.y[i + 1];
+											const ai = r.start + i;
+											const ax = xData[ai],
+												ay = yData[ai];
+											const bx = xData[ai + 1],
+												by = yData[ai + 1];
 											const sLen = Math.sqrt(
 												((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
 											);

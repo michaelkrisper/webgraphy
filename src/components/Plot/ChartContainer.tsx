@@ -650,11 +650,41 @@ const ChartContainer: React.FC = () => {
 					Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
 				if (hasUpdates) {
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
-					webglRef.current?.redraw(liveX, liveY);
 
 					const isInteractingNow = panStateRef.current.active || isInteracting;
 					const xLayout = computeXAxesLayout(liveX);
 					const yLayout = computeYAxesLayout(liveY);
+
+					webglRef.current?.setOverlay({
+						xAxes: xLayout.map((a) => ({
+							id: a.id,
+							min: a.min,
+							max: a.max,
+							showGrid: a.showGrid,
+							ticks: a.ticks.result.map((t) =>
+								typeof t === "number" ? t : t.timestamp,
+							),
+							categoryLabels: a.categoryLabels,
+						})),
+						yAxes: yLayout.map((a) => ({
+							id: a.id,
+							min: a.min,
+							max: a.max,
+							showGrid: a.showGrid,
+							ticks: a.ticks,
+							position: a.position,
+							categoryLabels: a.categoryLabels,
+						})),
+						xAxesMetrics: xAxesMetrics,
+						axisLayout,
+						leftOffsets,
+						rightOffsets,
+						axisColor: themeColors.axisColor,
+						zeroLineColor: themeColors.zeroLineColor,
+						gridColor: themeColors.gridColor,
+						plotBg: themeColors.plotBg,
+					});
+					webglRef.current?.redraw(liveX, liveY);
 					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
@@ -714,7 +744,17 @@ const ChartContainer: React.FC = () => {
 				rafId.current = requestAnimationFrame(runSync);
 			}
 		},
-		[buildLiveAxes, computeXAxesLayout, computeYAxesLayout, isInteracting],
+		[
+			buildLiveAxes,
+			computeXAxesLayout,
+			computeYAxesLayout,
+			isInteracting,
+			xAxesMetrics,
+			axisLayout,
+			leftOffsets,
+			rightOffsets,
+			themeColors,
+		],
 	);
 
 	syncViewportRef.current = syncViewport;
