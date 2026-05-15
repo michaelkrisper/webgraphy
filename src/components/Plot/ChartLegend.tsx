@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import type { SeriesConfig } from "../../services/persistence";
 
 interface ChartLegendProps {
@@ -15,9 +15,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 	onHighlight,
 	padding,
 }) => {
-	const [position, setPosition] = useState<{ x: number; y: number } | null>(
-		null,
-	);
+	const positionRef = useRef<{ x: number; y: number } | null>(null);
 	const dragRef = useRef<{
 		startX: number;
 		startY: number;
@@ -26,13 +24,21 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 	} | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 
+	const applyPosition = useCallback((x: number, y: number) => {
+		const el = containerRef.current;
+		if (!el) return;
+		el.style.left = `${x}px`;
+		el.style.top = `${y}px`;
+		el.style.right = "auto";
+	}, []);
+
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			if ((e.target as HTMLElement).closest("[data-legend-item]")) return;
 			e.preventDefault();
 			e.stopPropagation();
 			const el = containerRef.current;
-			const cur = position ?? {
+			const cur = positionRef.current ?? {
 				x: el
 					? el.getBoundingClientRect().left -
 						(el.offsetParent as HTMLElement)?.getBoundingClientRect().left
@@ -47,16 +53,16 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			};
 			const handleMove = (ev: MouseEvent) => {
 				if (!dragRef.current) return;
-				setPosition({
-					x: Math.max(
-						0,
-						dragRef.current.origX + (ev.clientX - dragRef.current.startX),
-					),
-					y: Math.max(
-						0,
-						dragRef.current.origY + (ev.clientY - dragRef.current.startY),
-					),
-				});
+				const nx = Math.max(
+					0,
+					dragRef.current.origX + (ev.clientX - dragRef.current.startX),
+				);
+				const ny = Math.max(
+					0,
+					dragRef.current.origY + (ev.clientY - dragRef.current.startY),
+				);
+				positionRef.current = { x: nx, y: ny };
+				applyPosition(nx, ny);
 			};
 			const handleUp = () => {
 				dragRef.current = null;
@@ -66,7 +72,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			window.addEventListener("mousemove", handleMove);
 			window.addEventListener("mouseup", handleUp);
 		},
-		[position],
+		[applyPosition],
 	);
 
 	const visibleSeries = series.filter(
@@ -80,6 +86,8 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 		return "none";
 	};
 
+	const pos = positionRef.current;
+
 	return (
 		<section
 			ref={containerRef}
@@ -87,8 +95,8 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			className="legend-container"
 			aria-label="Chart Legend"
 			style={
-				position
-					? { left: position.x, top: position.y }
+				pos
+					? { left: pos.x, top: pos.y }
 					: {
 							right: (padding?.right ?? 0) + 10,
 							top: (padding?.top ?? 0) + 10,

@@ -47,12 +47,9 @@ interface UsePanZoomResult {
 	isCtrlPressed: boolean;
 	isShiftPressed: boolean;
 	isInteracting: boolean;
-	zoomBoxState: {
-		startX: number;
-		startY: number;
-		endX: number;
-		endY: number;
-	} | null;
+	isZooming: boolean;
+	zoomBoxSvgRef: React.RefObject<SVGSVGElement | null>;
+	zoomBoxRectRef: React.RefObject<SVGRectElement | null>;
 	handleMouseDown: (e: React.MouseEvent, target?: PanTarget) => void;
 	handleTouchStart: (e: React.TouchEvent, target?: PanTarget) => void;
 	handleWheel: (e: React.WheelEvent, target?: PanTarget) => void;
@@ -85,17 +82,30 @@ export function usePanZoom({
 	const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
 	const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 	const [isShiftPressed, setIsShiftPressed] = useState(false);
-	const [zoomBoxState, setZoomBoxState] = useState<{
-		startX: number;
-		startY: number;
-		endX: number;
-		endY: number;
-	} | null>(null);
+	const [isZooming, setIsZooming] = useState(false);
 	const [isWheeling, setIsWheeling] = useState(false);
 	const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const containerRectRef = useRef<DOMRect | null>(null);
+	const zoomBoxSvgRef = useRef<SVGSVGElement | null>(null);
+	const zoomBoxRectRef = useRef<SVGRectElement | null>(null);
 
-	const isInteracting = !!panTarget || !!zoomBoxState || isWheeling;
+	const isInteracting = !!panTarget || isZooming || isWheeling;
+
+	const updateZoomBoxDom = useCallback(
+		(box: { startX: number; startY: number; endX: number; endY: number }) => {
+			const rect = zoomBoxRectRef.current;
+			if (!rect) return;
+			const x = Math.min(box.startX, box.endX);
+			const y = Math.min(box.startY, box.endY);
+			const w = Math.abs(box.endX - box.startX);
+			const h = Math.abs(box.endY - box.startY);
+			rect.setAttribute("x", String(x));
+			rect.setAttribute("y", String(y));
+			rect.setAttribute("width", String(w));
+			rect.setAttribute("height", String(h));
+		},
+		[],
+	);
 
 	// Track shift state in a ref so updatePan (called from rAF/event handlers) sees the latest value.
 	const shiftDownRef = useRef(false);
@@ -382,7 +392,8 @@ export function usePanZoom({
 				) {
 					const box = { startX: x, startY: y, endX: x, endY: y };
 					zoomBoxStartRef.current = box;
-					setZoomBoxState(box);
+					setIsZooming(true);
+					updateZoomBoxDom(box);
 				}
 			} else {
 				setPanTarget(target);
@@ -390,7 +401,7 @@ export function usePanZoom({
 				lastMousePos.current = { x: e.clientX, y: e.clientY };
 			}
 		},
-		[containerRef, padding, width, height],
+		[containerRef, padding, width, height, updateZoomBoxDom],
 	);
 
 	const handleTouchStart = useCallback(
@@ -503,7 +514,7 @@ export function usePanZoom({
 				const box = zoomBoxStartRef.current;
 				box.endX = Math.max(padding.left, Math.min(width - padding.right, mx));
 				box.endY = Math.max(padding.top, Math.min(height - padding.bottom, my));
-				setZoomBoxState({ ...box });
+				updateZoomBoxDom(box);
 				return;
 			}
 			const target = panTargetRef.current;
@@ -537,7 +548,7 @@ export function usePanZoom({
 			if (zoomBoxStartRef.current) {
 				const box = zoomBoxStartRef.current;
 				zoomBoxStartRef.current = null;
-				setZoomBoxState(null);
+				setIsZooming(false);
 				const minX = Math.min(box.startX, box.endX),
 					maxX = Math.max(box.startX, box.endX);
 				const minY = Math.min(box.startY, box.endY),
@@ -616,6 +627,7 @@ export function usePanZoom({
 		updatePan,
 		onPanEnd,
 		panStateRef,
+		updateZoomBoxDom,
 	]);
 
 	useEffect(() => {
@@ -656,7 +668,9 @@ export function usePanZoom({
 		isCtrlPressed,
 		isShiftPressed,
 		isInteracting,
-		zoomBoxState,
+		isZooming,
+		zoomBoxSvgRef,
+		zoomBoxRectRef,
 		handleMouseDown,
 		handleTouchStart,
 		handleWheel,

@@ -67,6 +67,9 @@ const AxesLayer = React.memo(
 			const gridCanvasRef = useRef<HTMLCanvasElement>(null);
 			const labelsContainerRef = useRef<HTMLDivElement>(null);
 			const labelPoolRef = useRef<HTMLDivElement[]>([]);
+			const yTitlePoolRef = useRef<Map<string, HTMLDivElement>>(new Map());
+			const yTitleCacheRef = useRef<Map<string, string>>(new Map());
+			const yTitleUsedRef = useRef<Set<string>>(new Set());
 
 			const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
 			const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
@@ -309,6 +312,23 @@ const AxesLayer = React.memo(
 
 					ctx.restore();
 
+					yTitleUsedRef.current.clear();
+					const getYTitleDiv = (axisId: string) => {
+						let div = yTitlePoolRef.current.get(axisId);
+						if (!div) {
+							div = document.createElement("div");
+							div.style.position = "absolute";
+							div.style.pointerEvents = "none";
+							div.style.whiteSpace = "nowrap";
+							div.style.left = "0px";
+							div.style.top = "0px";
+							labelsContainerRef.current?.appendChild(div);
+							yTitlePoolRef.current.set(axisId, div);
+						}
+						div.style.display = "block";
+						yTitleUsedRef.current.add(axisId);
+						return div;
+					};
 					let labelIdx = 0;
 					const getLabelDiv = () => {
 						let div = labelPoolRef.current[labelIdx];
@@ -462,31 +482,43 @@ const AxesLayer = React.memo(
 							div.style.transform = `translate(${labelX}px, ${y}px) ${offsetTransform}`;
 						});
 
-						// Y Axis Title
-						const titleDiv = getLabelDiv();
+						// Y Axis Title (dedicated pool so DOM stays stable across redraws)
+						const titleDiv = getYTitleDiv(axis.id);
 						titleDiv.style.font = `bold 12px ${fontFamily}`;
 						const rotate = isLeft ? "rotate(-90deg)" : "rotate(90deg)";
 						titleDiv.style.transform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
 
-						titleDiv.textContent = "";
-						axisSeries.forEach((s, i) => {
-							if (i > 0 && axisSeries.length > 1) {
-								const sepSpan = document.createElement("span");
-								sepSpan.style.color = labelColor;
-								sepSpan.textContent = " / ";
-								titleDiv.appendChild(sepSpan);
-							}
-							const nameSpan = document.createElement("span");
-							nameSpan.style.color = s.lineColor;
-							nameSpan.textContent = s.name || s.yColumn;
-							titleDiv.appendChild(nameSpan);
-						});
+						const titleKey =
+							axisSeries
+								.map((s) => `${s.id}:${s.name || s.yColumn}:${s.lineColor}`)
+								.join("|") + `||${labelColor}`;
+						if (yTitleCacheRef.current.get(axis.id) !== titleKey) {
+							let html = "";
+							axisSeries.forEach((s, i) => {
+								if (i > 0 && axisSeries.length > 1) {
+									html += `<span style="color:${labelColor}"> / </span>`;
+								}
+								const name = (s.name || s.yColumn)
+									.replace(/&/g, "&amp;")
+									.replace(/</g, "&lt;")
+									.replace(/>/g, "&gt;");
+								html += `<span style="color:${s.lineColor}">${name}</span>`;
+							});
+							titleDiv.innerHTML = html;
+							yTitleCacheRef.current.set(axis.id, titleKey);
+						}
 					});
 
 					// Hide remaining unused label divs
 					for (let i = labelIdx; i < labelPoolRef.current.length; i++) {
 						labelPoolRef.current[i].style.display = "none";
 					}
+					// Hide y-title divs not used this frame
+					yTitlePoolRef.current.forEach((div, axisId) => {
+						if (!yTitleUsedRef.current.has(axisId)) {
+							div.style.display = "none";
+						}
+					});
 				},
 				[
 					drawGrid,

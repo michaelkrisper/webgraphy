@@ -586,7 +586,9 @@ const ChartContainer: React.FC = () => {
 		isCtrlPressed,
 		isShiftPressed,
 		isInteracting,
-		zoomBoxState,
+		isZooming,
+		zoomBoxSvgRef,
+		zoomBoxRectRef,
 		handleMouseDown,
 		handleTouchStart,
 		handleWheel,
@@ -939,7 +941,7 @@ const ChartContainer: React.FC = () => {
 					position: "relative",
 					cursor: panTarget
 						? "grabbing"
-						: zoomBoxState || isCtrlPressed
+						: isZooming || isCtrlPressed
 							? "zoom-in"
 							: isShiftPressed
 								? "ew-resize"
@@ -1212,8 +1214,9 @@ const ChartContainer: React.FC = () => {
 						plotBg={themeColors.plotBg}
 					/>
 				)}
-				{zoomBoxState && (
+				{isZooming && (
 					<svg
+						ref={zoomBoxSvgRef}
 						width="100%"
 						height="100%"
 						className="chart-abs-fill"
@@ -1221,10 +1224,11 @@ const ChartContainer: React.FC = () => {
 					>
 						<title>Zoom Selection Box</title>
 						<rect
-							x={Math.min(zoomBoxState.startX, zoomBoxState.endX)}
-							y={Math.min(zoomBoxState.startY, zoomBoxState.endY)}
-							width={Math.abs(zoomBoxState.endX - zoomBoxState.startX)}
-							height={Math.abs(zoomBoxState.endY - zoomBoxState.startY)}
+							ref={zoomBoxRectRef}
+							x={0}
+							y={0}
+							width={0}
+							height={0}
 							fill="rgba(0, 123, 255, 0.2)"
 							stroke="#007bff"
 							strokeWidth="1"
