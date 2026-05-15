@@ -441,6 +441,10 @@ const ChartContainer: React.FC = () => {
 		[],
 	);
 
+	const xLayoutCacheRef = useRef<
+		Map<string, { key: string; layout: XAxisLayout }>
+	>(new Map());
+	const xLayoutCacheDepsRef = useRef<string>("");
 	const computeXAxesLayout = useCallback(
 		(liveXAxes: XAxisConfig[]): XAxisLayout[] => {
 			const dsByX: DatasetsByAxisId = {};
@@ -452,9 +456,20 @@ const ChartContainer: React.FC = () => {
 				}
 			});
 
+			const depsKey = `${chartWidth}|${themeColors.labelColor}|${datasets.length}|${activeDsIdsSet.size}`;
+			if (xLayoutCacheDepsRef.current !== depsKey) {
+				xLayoutCacheRef.current.clear();
+				xLayoutCacheDepsRef.current = depsKey;
+			}
+			const cache = xLayoutCacheRef.current;
+
 			return liveXAxes
 				.filter((axis) => activeXAxesUsed.some((ax) => ax.id === axis.id))
 				.map((axis) => {
+					const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
+					const cached = cache.get(axis.id);
+					if (cached && cached.key === cacheKey) return cached.layout;
+					const layout = ((): XAxisLayout => {
 					const r = axis.max - axis.min,
 						isDate = axis.xMode === "date";
 					const catInfo = xAxisCategoryLabels.get(axis.id);
@@ -564,6 +579,9 @@ const ChartContainer: React.FC = () => {
 							color,
 						};
 					}
+				})();
+					cache.set(axis.id, { key: cacheKey, layout });
+					return layout;
 				});
 		},
 		[
@@ -576,11 +594,24 @@ const ChartContainer: React.FC = () => {
 		],
 	);
 
+	const yLayoutCacheRef = useRef<
+		Map<string, { key: string; layout: YAxisLayout }>
+	>(new Map());
+	const yLayoutCacheDepsRef = useRef<string>("");
 	const computeYAxesLayout = useCallback(
 		(liveYAxes: YAxisConfig[]): YAxisLayout[] => {
+			const depsKey = `${chartHeight}|${usedYAxisIdsSet.size}`;
+			if (yLayoutCacheDepsRef.current !== depsKey) {
+				yLayoutCacheRef.current.clear();
+				yLayoutCacheDepsRef.current = depsKey;
+			}
+			const cache = yLayoutCacheRef.current;
 			return liveYAxes
 				.filter((a) => usedYAxisIdsSet.has(a.id))
 				.map((axis) => {
+					const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
+					const cached = cache.get(axis.id);
+					if (cached && cached.key === cacheKey) return cached.layout;
 					const categoryLabels = yAxisCategoryLabels.get(axis.id);
 					const { ticks, precision, actualStep } = calcYAxisTicks(
 						axis.min,
@@ -589,7 +620,15 @@ const ChartContainer: React.FC = () => {
 						categoryLabels ? 1 : undefined,
 						categoryLabels?.length,
 					);
-					return { ...axis, ticks, precision, actualStep, categoryLabels };
+					const layout = {
+						...axis,
+						ticks,
+						precision,
+						actualStep,
+						categoryLabels,
+					};
+					cache.set(axis.id, { key: cacheKey, layout });
+					return layout;
 				});
 		},
 		[usedYAxisIdsSet, chartHeight, yAxisCategoryLabels],
