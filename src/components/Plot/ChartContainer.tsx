@@ -903,31 +903,13 @@ const ChartContainer: React.FC = () => {
 	// 6. Effects
 	useEffect(() => {
 		if (isLoaded) {
-			const EPSILON = 1e-10;
-			let changed = false;
 			xAxes.forEach((axis) => {
-				const target = targetXAxes.current[axis.id];
-				if (
-					!target ||
-					Math.abs(target.min - axis.min) > EPSILON ||
-					Math.abs(target.max - axis.max) > EPSILON
-				) {
-					targetXAxes.current[axis.id] = { min: axis.min, max: axis.max };
-					changed = true;
-				}
+				targetXAxes.current[axis.id] = { min: axis.min, max: axis.max };
 			});
 			yAxes.forEach((axis) => {
-				const target = targetYs.current[axis.id];
-				if (
-					!target ||
-					Math.abs(target.min - axis.min) > EPSILON ||
-					Math.abs(target.max - axis.max) > EPSILON
-				) {
-					targetYs.current[axis.id] = { min: axis.min, max: axis.max };
-					changed = true;
-				}
+				targetYs.current[axis.id] = { min: axis.min, max: axis.max };
 			});
-			if (changed) syncViewportRef.current();
+			syncViewportRef.current();
 		}
 	}, [isLoaded, xAxes, yAxes]);
 
@@ -938,20 +920,7 @@ const ChartContainer: React.FC = () => {
 			overlayInitRef.current = false;
 			syncViewportRef.current(true);
 		}
-	}, [isLoaded, series, datasets, xAxes, yAxes, themeColors, width, height]);
-
-	useEffect(() => {
-		if (!containerRef.current) return;
-		const observer = new ResizeObserver((entries) => {
-			if (entries.length > 0) {
-				const e = entries[entries.length - 1];
-				setWidth(e.contentRect.width);
-				setHeight(e.contentRect.height);
-			}
-		});
-		observer.observe(containerRef.current);
-		return () => observer.disconnect();
-	}, []);
+	}, [isLoaded, series, datasets, themeColors, width, height]);
 
 	// 7. Memos for static rendering (JSX)
 	const activeYAxesLayout = useMemo((): YAxisLayout[] => {
