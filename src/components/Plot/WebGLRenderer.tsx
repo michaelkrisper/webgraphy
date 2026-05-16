@@ -436,6 +436,7 @@ export const WebGLRenderer = React.memo(
 					const zeroLineStart = p / 2;
 					for (const ax of overlay.yAxes) {
 						if (ax.categoryLabels) continue;
+						if (!ax.showGrid) continue;
 						if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
@@ -447,7 +448,7 @@ export const WebGLRenderer = React.memo(
 					}
 					if (overlay.xAxes.length > 0) {
 						const ax = overlay.xAxes[0];
-						if (!ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+						if (ax.showGrid && !ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
 							const sx = (pad.left + norm * cw) * dpr;
@@ -527,6 +528,7 @@ export const WebGLRenderer = React.memo(
 					const zeroTriStart = p / 2;
 					for (const ax of overlay.yAxes) {
 						if (ax.categoryLabels) continue;
+						if (!ax.showGrid) continue;
 						if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
@@ -540,7 +542,7 @@ export const WebGLRenderer = React.memo(
 					}
 					if (overlay.xAxes.length > 0) {
 						const ax = overlay.xAxes[0];
-						if (!ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+						if (ax.showGrid && !ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
 							const sx = (pad.left + norm * cw) * dpr;

@@ -57,8 +57,8 @@ const getXAxisMetrics = (
 	if (xMode === "date") {
 		return {
 			height: 70,
-			labelBottom: 25,
-			secLabelBottom: 36,
+			labelBottom: 22,
+			secLabelBottom: 38,
 			titleBottom: 60,
 		};
 	}
@@ -930,6 +930,15 @@ const ChartContainer: React.FC = () => {
 			if (changed) syncViewportRef.current();
 		}
 	}, [isLoaded, xAxes, yAxes]);
+
+	// Force redraw on sidebar config changes (series, datasets, axes config, theme)
+	// that don't affect axis min/max but do affect rendering output.
+	useEffect(() => {
+		if (isLoaded) {
+			overlayInitRef.current = false;
+			syncViewportRef.current(true);
+		}
+	}, [isLoaded, series, datasets, xAxes, yAxes, themeColors]);
 
 	useEffect(() => {
 		if (!containerRef.current) return;

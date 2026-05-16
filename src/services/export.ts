@@ -167,7 +167,7 @@ export const exportToSVG = (
 	}
 
 	// 2b. Zero lines
-	if (gridXAxis && gridXAxis.min <= 0 && gridXAxis.max >= 0) {
+	if (gridXAxis?.showGrid && gridXAxis.min <= 0 && gridXAxis.max >= 0) {
 		const normX = (0 - gridXAxis.min) / (gridXAxis.max - gridXAxis.min);
 		const x = padding.left + normX * chartWidth;
 		const arrowSize = 6;
