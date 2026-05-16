@@ -193,7 +193,7 @@ export function usePanZoom({
 	]);
 
 	const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
-	const lastPinchDist = useRef<number | null>(null);
+	const lastPinchDist = useRef<{ dist: number; cx: number; cy: number } | null>(null);
 	const lastTouchTime = useRef<number>(0);
 	const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 	const zoomBoxStartRef = useRef<{
@@ -247,7 +247,7 @@ export function usePanZoom({
 
 	const performZoom = useCallback(
 		(
-			zoomFactor: number,
+			zoomFactor: number | { x: number; y: number },
 			mouseX: number,
 			mouseY: number,
 			target: PanTarget = "all",
@@ -280,7 +280,8 @@ export function usePanZoom({
 						padding,
 					};
 					const worldMouse = screenToWorld(mouseX, 0, vp);
-					const newXRange = (currentX.max - currentX.min) * zoomFactor;
+					const zfX = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.x;
+					const newXRange = (currentX.max - currentX.min) * zfX;
 					const weight = (mouseX - padding.left) / chartWidth;
 					targetXAxes.current[axis.id] = {
 						min: worldMouse.x - weight * newXRange,
@@ -317,8 +318,8 @@ export function usePanZoom({
 						padding,
 					};
 					const worldMouse = screenToWorld(0, mouseY, axisVp);
-					const newYRange =
-						(currentTarget.max - currentTarget.min) * zoomFactor;
+					const zfY = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.y;
+						const newYRange = (currentTarget.max - currentTarget.min) * zfY;
 					const weight = (height - padding.bottom - mouseY) / chartHeight;
 					targetYs.current[axis.id] = {
 						min: worldMouse.y - weight * newYRange,
@@ -431,10 +432,11 @@ export function usePanZoom({
 				setPanTarget((prev) => (prev && prev !== "all" ? prev : target));
 				const t1 = e.touches[0],
 					t2 = e.touches[1];
-				lastPinchDist.current = Math.hypot(
-					t1.clientX - t2.clientX,
-					t1.clientY - t2.clientY,
-				);
+				lastPinchDist.current = {
+						dist: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
+						cx: (t1.clientX + t2.clientX) / 2,
+						cy: (t1.clientY + t2.clientY) / 2
+					};
 			}
 		},
 		[containerRef, activeYAxes, handleAutoScaleX, handleAutoScaleY],
@@ -479,20 +481,71 @@ export function usePanZoom({
 				if (!rect) return;
 				const t1 = e.touches[0],
 					t2 = e.touches[1];
-				const dist = Math.hypot(
-					t1.clientX - t2.clientX,
-					t1.clientY - t2.clientY,
-				);
-				if (dist === 0) return;
-				const zf = lastPinchDist.current / dist;
-				lastPinchDist.current = dist;
-				performZoom(
-					zf,
-					(t1.clientX + t2.clientX) / 2 - rect.left,
-					(t1.clientY + t2.clientY) / 2 - rect.top,
-					target || "all",
-					e.shiftKey,
-				);
+									const dx = Math.abs(t1.clientX - t2.clientX);
+					const dy = Math.abs(t1.clientY - t2.clientY);
+					const dist = Math.hypot(dx, dy);
+					if (dist === 0) return;
+
+					const zf = lastPinchDist.current.dist / dist;
+
+					let zfX = zf;
+					let zfY = zf;
+
+					// If the gesture is mostly horizontal, don't zoom vertically
+					if (dx > dy * 1.5) {
+						zfY = 1;
+					}
+					// If the gesture is mostly vertical, don't zoom horizontally
+					else if (dy > dx * 1.5) {
+						zfX = 1;
+					}
+
+					const cx = (t1.clientX + t2.clientX) / 2;
+					const cy = (t1.clientY + t2.clientY) / 2;
+
+					// Apply pan
+					const panDx = cx - lastPinchDist.current.cx;
+					const panDy = cy - lastPinchDist.current.cy;
+
+					lastPinchDist.current = { dist, cx, cy };
+
+					performZoom(
+						{ x: zfX, y: zfY },
+						cx - rect.left,
+						cy - rect.top,
+						target || "all",
+						e.shiftKey,
+					);
+
+					// Apply pan AFTER performZoom overwrites the refs
+					if (target === "all" || (target && typeof target === "object" && "xAxisId" in target)) {
+						activeXAxes.forEach(a => {
+							const cur = targetXAxes.current[a.id];
+							if (cur) {
+								const pxPerWorld = chartWidth / (cur.max - cur.min);
+								const shiftWorld = panDx / pxPerWorld;
+								cur.min -= shiftWorld;
+								cur.max -= shiftWorld;
+							}
+						});
+					}
+
+					if (target === "all" || (target && typeof target === "object" && "yAxisId" in target)) {
+						activeYAxes.forEach(a => {
+							const cur = targetYs.current[a.id];
+							if (cur) {
+								const pxPerWorld = chartHeight / (cur.max - cur.min);
+								const shiftWorld = panDy / pxPerWorld;
+								cur.min += shiftWorld;
+								cur.max += shiftWorld;
+							}
+						});
+					}
+
+					// Important: performZoom calls syncViewport() at the end.
+					// Since we modify the refs *after* performZoom, we must sync the viewport again
+					// to flush our pan adjustments to the actual component state.
+					syncViewport();
 			}
 		};
 
