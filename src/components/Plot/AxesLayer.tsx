@@ -64,6 +64,31 @@ const AxesLayer = React.memo(
 			const yTitlePoolRef = useRef<Map<string, HTMLDivElement>>(new Map());
 			const yTitleCacheRef = useRef<Map<string, string>>(new Map());
 			const yTitleUsedRef = useRef<Set<string>>(new Set());
+			// Label string cache: per-axis (id+precision) → tickValue → string.
+			// Avoids per-frame toFixed/toExponential calls in formatAxisLabel.
+			const labelCacheRef = useRef<Map<string, Map<number, string>>>(new Map());
+			const labelCacheUsedRef = useRef<Set<string>>(new Set());
+			const getLabel = (
+				axisKey: string,
+				precision: number,
+				value: number,
+			): string => {
+				const mapKey = `${axisKey}|${precision}`;
+				labelCacheUsedRef.current.add(mapKey);
+				let m = labelCacheRef.current.get(mapKey);
+				if (!m) {
+					m = new Map();
+					labelCacheRef.current.set(mapKey, m);
+				}
+				let s = m.get(value);
+				if (s === undefined) {
+					s = formatAxisLabel(value, precision);
+					// Cap to prevent unbounded growth under heavy panning.
+					if (m.size > 4096) m.clear();
+					m.set(value, s);
+				}
+				return s;
+			};
 
 			const lastXAxes = useRef<XAxisLayout[]>(initialXAxes);
 			const lastYAxes = useRef<YAxisLayout[]>(initialYAxes);
@@ -116,6 +141,7 @@ const AxesLayer = React.memo(
 					ctx.scale(dpr, dpr);
 
 					yTitleUsedRef.current.clear();
+					labelCacheUsedRef.current.clear();
 					const getYTitleDiv = (axisId: string) => {
 						let div = yTitlePoolRef.current.get(axisId);
 						if (!div) {
@@ -163,7 +189,7 @@ const AxesLayer = React.memo(
 							} else {
 								label =
 									typeof t === "number"
-										? formatAxisLabel(t, axis.ticks.precision ?? 0)
+										? getLabel(`x:${axis.id}`, axis.ticks.precision ?? 0, t)
 										: t.label;
 							}
 							ctx.fillText(label, x, primaryY);
@@ -254,7 +280,7 @@ const AxesLayer = React.memo(
 								if (name === undefined) return;
 								label = name;
 							} else {
-								label = formatAxisLabel(t, axis.precision);
+								label = getLabel(`y:${axis.id}`, axis.precision, t);
 							}
 							ctx.fillText(label, labelX, y);
 						});
@@ -296,6 +322,11 @@ const AxesLayer = React.memo(
 						if (!yTitleUsedRef.current.has(axisId)) {
 							div.style.display = "none";
 						}
+					});
+					// Evict label caches for axes/precisions not seen this frame.
+					labelCacheRef.current.forEach((_, key) => {
+						if (!labelCacheUsedRef.current.has(key))
+							labelCacheRef.current.delete(key);
 					});
 				},
 				[

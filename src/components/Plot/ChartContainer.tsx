@@ -424,18 +424,35 @@ const ChartContainer: React.FC = () => {
 	const chartHeight = Math.max(0, height - padding.top - padding.bottom);
 
 	// 4. Callbacks for canvas rendering
+	const liveAxesScratchRef = useRef<{ liveX: XAxisConfig[]; liveY: YAxisConfig[] }>({
+		liveX: [],
+		liveY: [],
+	});
+	const syncScratchRef = useRef<{
+		xUpdates: Record<string, { min: number; max: number }>;
+		yUpdates: Record<string, { min: number; max: number }>;
+	}>({ xUpdates: {}, yUpdates: {} });
 	const buildLiveAxes = useCallback(
 		(
 			xUpdates: Record<string, { min: number; max: number }>,
 			yUpdates: Record<string, { min: number; max: number }>,
 		) => {
 			const state = useGraphStore.getState();
-			const liveX = state.xAxes.map((a) =>
-				xUpdates[a.id] ? { ...a, ...xUpdates[a.id] } : a,
-			);
-			const liveY = state.yAxes.map((a) =>
-				yUpdates[a.id] ? { ...a, ...yUpdates[a.id] } : a,
-			);
+			const scratch = liveAxesScratchRef.current;
+			const liveX = scratch.liveX;
+			const liveY = scratch.liveY;
+			liveX.length = state.xAxes.length;
+			for (let i = 0; i < state.xAxes.length; i++) {
+				const a = state.xAxes[i];
+				const upd = xUpdates[a.id];
+				liveX[i] = upd ? { ...a, min: upd.min, max: upd.max } : a;
+			}
+			liveY.length = state.yAxes.length;
+			for (let i = 0; i < state.yAxes.length; i++) {
+				const a = state.yAxes[i];
+				const upd = yUpdates[a.id];
+				liveY[i] = upd ? { ...a, min: upd.min, max: upd.max } : a;
+			}
 			return { liveX, liveY };
 		},
 		[],
@@ -701,6 +718,11 @@ const ChartContainer: React.FC = () => {
 		}, []),
 	});
 
+	const isInteractingRef = useRef(false);
+	useEffect(() => {
+		isInteractingRef.current = isInteracting;
+	}, [isInteracting]);
+
 	const syncViewport = useCallback(
 		(forceStoreUpdate = false) => {
 			if (rafId.current && !forceStoreUpdate) return;
@@ -721,19 +743,20 @@ const ChartContainer: React.FC = () => {
 					targetYs.current,
 				);
 
-				const { xUpdates, yUpdates }: AxesFrame = syncAxesWithTargets(
-					state,
-					targetXAxes.current,
-					targetYs.current,
-				);
+				const { xUpdates, yUpdates, hasUpdates }: AxesFrame =
+					syncAxesWithTargets(
+						state,
+						targetXAxes.current,
+						targetYs.current,
+						syncScratchRef.current,
+					);
 
-				const hasUpdates =
-					Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
 				if (hasUpdates || !overlayInitRef.current) {
 					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
-					const isInteractingNow = panStateRef.current.active || isInteracting;
+					const isInteractingNow =
+						panStateRef.current.active || isInteractingRef.current;
 					const xLayout = computeXAxesLayout(liveX);
 					const yLayout = computeYAxesLayout(liveY);
 
@@ -867,7 +890,6 @@ const ChartContainer: React.FC = () => {
 			buildLiveAxes,
 			computeXAxesLayout,
 			computeYAxesLayout,
-			isInteracting,
 			xAxesMetrics,
 			axisLayout,
 			leftOffsets,

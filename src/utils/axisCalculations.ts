@@ -83,11 +83,13 @@ export function calcYAxisTicks(
 export interface AxesFrame {
 	xUpdates: Record<string, { min: number; max: number }>;
 	yUpdates: Record<string, { min: number; max: number }>;
+	hasUpdates: boolean;
 }
 
 /**
  * Returns updates to sync axes with targets instantly (no lerp).
  * Uses epsilon-based comparison to prevent infinite update loops.
+ * `scratch` lets callers reuse output records across rAF frames.
  */
 export function syncAxesWithTargets(
 	state: {
@@ -96,12 +98,20 @@ export function syncAxesWithTargets(
 	},
 	targetXAxes: Record<string, { min: number; max: number }>,
 	targetYs: Record<string, { min: number; max: number }>,
+	scratch?: {
+		xUpdates: Record<string, { min: number; max: number }>;
+		yUpdates: Record<string, { min: number; max: number }>;
+	},
 ): AxesFrame {
-	const xUpdates: Record<string, { min: number; max: number }> = {};
-	const yUpdates: Record<string, { min: number; max: number }> = {};
+	const xUpdates = scratch?.xUpdates ?? {};
+	const yUpdates = scratch?.yUpdates ?? {};
+	for (const k in xUpdates) delete xUpdates[k];
+	for (const k in yUpdates) delete yUpdates[k];
 	const EPSILON = 1e-10;
+	let hasUpdates = false;
 
-	state.xAxes.forEach((axis) => {
+	for (let i = 0; i < state.xAxes.length; i++) {
+		const axis = state.xAxes[i];
 		const target = targetXAxes[axis.id];
 		if (
 			target &&
@@ -109,10 +119,12 @@ export function syncAxesWithTargets(
 				Math.abs(axis.max - target.max) > EPSILON)
 		) {
 			xUpdates[axis.id] = { min: target.min, max: target.max };
+			hasUpdates = true;
 		}
-	});
+	}
 
-	state.yAxes.forEach((axis) => {
+	for (let i = 0; i < state.yAxes.length; i++) {
+		const axis = state.yAxes[i];
 		const target = targetYs[axis.id];
 		if (
 			target &&
@@ -120,8 +132,9 @@ export function syncAxesWithTargets(
 				Math.abs(axis.max - target.max) > EPSILON)
 		) {
 			yUpdates[axis.id] = { min: target.min, max: target.max };
+			hasUpdates = true;
 		}
-	});
+	}
 
-	return { xUpdates, yUpdates };
+	return { xUpdates, yUpdates, hasUpdates };
 }
