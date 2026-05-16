@@ -938,7 +938,7 @@ const ChartContainer: React.FC = () => {
 			overlayInitRef.current = false;
 			syncViewportRef.current(true);
 		}
-	}, [isLoaded, series, datasets, xAxes, yAxes, themeColors]);
+	}, [isLoaded, series, datasets, xAxes, yAxes, themeColors, width, height]);
 
 	useEffect(() => {
 		if (!containerRef.current) return;
