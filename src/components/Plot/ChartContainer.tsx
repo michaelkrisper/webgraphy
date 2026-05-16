@@ -2,7 +2,6 @@
 // src/components/Plot/ChartContainer.tsx
 
 import { ChartGantt, Expand } from "lucide-react";
-import type React from "react";
 import {
 	Fragment,
 	useCallback,
@@ -65,7 +64,7 @@ const getXAxisMetrics = (
 	return { height: 50, labelBottom: 26, secLabelBottom: 0, titleBottom: 40 };
 };
 
-const ChartContainer: React.FC = () => {
+export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
@@ -751,7 +750,7 @@ const ChartContainer: React.FC = () => {
 						syncScratchRef.current,
 					);
 
-				if (hasUpdates || !overlayInitRef.current) {
+				if (hasUpdates || !overlayInitRef.current || forceStoreUpdate) {
 					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
@@ -901,6 +900,9 @@ const ChartContainer: React.FC = () => {
 	syncViewportRef.current = syncViewport;
 
 	// 6. Effects
+	// Force redraw on ANY change (ranges, names, config, sidebar, resize, theme).
+	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
+	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
 		if (isLoaded) {
 			xAxes.forEach((axis) => {
@@ -909,18 +911,22 @@ const ChartContainer: React.FC = () => {
 			yAxes.forEach((axis) => {
 				targetYs.current[axis.id] = { min: axis.min, max: axis.max };
 			});
-			syncViewportRef.current();
-		}
-	}, [isLoaded, xAxes, yAxes]);
 
-	// Force redraw on sidebar config changes (series, datasets, axes config, theme)
-	// that don't affect axis min/max but do affect rendering output.
-	useEffect(() => {
-		if (isLoaded) {
 			overlayInitRef.current = false;
+			// Use force=true to ensure runSync redrawing even if world ranges haven't changed.
+			// Use immediate=false (default) to schedule via rAF, breaking synchronous render loops.
 			syncViewportRef.current(true);
 		}
-	}, [isLoaded, series, datasets, themeColors, width, height]);
+	}, [
+		isLoaded,
+		xAxes,
+		yAxes,
+		series,
+		datasets,
+		themeColors,
+		width,
+		height,
+	]);
 
 	// 7. Memos for static rendering (JSX)
 	const activeYAxesLayout = useMemo((): YAxisLayout[] => {
@@ -1421,6 +1427,4 @@ const ChartContainer: React.FC = () => {
 			)}
 		</>
 	);
-};
-
-export default ChartContainer;
+}

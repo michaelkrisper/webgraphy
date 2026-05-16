@@ -349,7 +349,6 @@ const AxesLayer = React.memo(
 				drawRef.current = draw;
 			}, [draw]);
 
-			const frameCounterRef = useRef(0);
 			const isInteractingRef = useRef(isInteracting);
 			useEffect(() => {
 				isInteractingRef.current = isInteracting;
@@ -364,9 +363,6 @@ const AxesLayer = React.memo(
 					redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
 						lastXAxes.current = xAxes;
 						lastYAxes.current = yAxes;
-						if (isInteractingRef.current && (++frameCounterRef.current % 2 === 1)) {
-							return;
-						}
 						drawRef.current(xAxes, yAxes);
 					},
 				}),
