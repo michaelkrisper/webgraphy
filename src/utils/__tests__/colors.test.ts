@@ -151,6 +151,31 @@ describe("colors", () => {
 			expect(negativeLightness.g).toBeLessThanOrEqual(255);
 			expect(negativeLightness.b).toBeLessThanOrEqual(255);
 		});
+
+		it("should correctly handle linear sRGB conversion for very dark colors", () => {
+			const dark = lchToRgb(2.7, 0, 0); // ~ rgb(10, 10, 10)
+			expect(dark.r).toBeCloseTo(10, -1);
+			expect(dark.g).toBeCloseTo(10, -1);
+			expect(dark.b).toBeCloseTo(10, -1);
+		});
+
+		it("should wrap hue angles correctly", () => {
+			const base = lchToRgb(50, 50, 45);
+			const over360 = lchToRgb(50, 50, 405); // 45 + 360
+			const negative = lchToRgb(50, 50, -315); // 45 - 360
+
+			expect(over360).toEqual(base);
+			expect(negative).toEqual(base);
+		});
+
+		it("should produce the same grayscale output regardless of hue when chroma is zero", () => {
+			const gray0 = lchToRgb(50, 0, 0);
+			const gray180 = lchToRgb(50, 0, 180);
+			const gray360 = lchToRgb(50, 0, 360);
+
+			expect(gray180).toEqual(gray0);
+			expect(gray360).toEqual(gray0);
+		});
 	});
 
 	describe("rgbToLch", () => {
