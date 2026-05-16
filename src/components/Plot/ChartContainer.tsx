@@ -636,6 +636,7 @@ const ChartContainer: React.FC = () => {
 
 	const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
 	const rafId = useRef<number | null>(null);
+	const overlayInitRef = useRef(false);
 
 	// 5. Hooks
 	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale(
@@ -728,7 +729,8 @@ const ChartContainer: React.FC = () => {
 
 				const hasUpdates =
 					Object.keys(xUpdates).length > 0 || Object.keys(yUpdates).length > 0;
-				if (hasUpdates) {
+				if (hasUpdates || !overlayInitRef.current) {
+					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
 					const isInteractingNow = panStateRef.current.active || isInteracting;
