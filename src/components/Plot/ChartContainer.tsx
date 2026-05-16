@@ -651,7 +651,7 @@ const ChartContainer: React.FC = () => {
 		[usedYAxisIdsSet, chartHeight, yAxisCategoryLabels],
 	);
 
-	const syncViewportRef = useRef<(force?: boolean) => void>(() => {});
+	const syncViewportRef = useRef<(force?: boolean, immediate?: boolean) => void>(() => {});
 	const rafId = useRef<number | null>(null);
 	const overlayInitRef = useRef(false);
 
@@ -668,7 +668,7 @@ const ChartContainer: React.FC = () => {
 			chartHeight,
 			targetXAxes,
 			targetYs,
-			syncViewport: (force) => syncViewportRef.current(force),
+			syncViewport: (force, immediate) => syncViewportRef.current(force, immediate),
 		},
 	);
 
@@ -703,7 +703,7 @@ const ChartContainer: React.FC = () => {
 		yAxesById,
 		targetXAxes,
 		targetYs,
-		syncViewport: (force) => syncViewportRef.current(force),
+		syncViewport: (force, immediate) => syncViewportRef.current(force, immediate),
 		xAxesMetrics,
 		axisLayout,
 		leftAxes,
@@ -724,8 +724,8 @@ const ChartContainer: React.FC = () => {
 	}, [isInteracting]);
 
 	const syncViewport = useCallback(
-		(forceStoreUpdate = false) => {
-			if (rafId.current && !forceStoreUpdate) return;
+		(forceStoreUpdate = false, immediate = false) => {
+			if (rafId.current && !forceStoreUpdate && !immediate) return;
 
 			const runSync = () => {
 				rafId.current = null;
@@ -879,7 +879,7 @@ const ChartContainer: React.FC = () => {
 				}
 			};
 
-			if (forceStoreUpdate) {
+			if (forceStoreUpdate || immediate) {
 				if (rafId.current) cancelAnimationFrame(rafId.current);
 				runSync();
 			} else {

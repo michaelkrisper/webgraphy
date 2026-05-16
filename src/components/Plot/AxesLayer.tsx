@@ -349,22 +349,29 @@ const AxesLayer = React.memo(
 				drawRef.current = draw;
 			}, [draw]);
 
+			const frameCounterRef = useRef(0);
+			const isInteractingRef = useRef(isInteracting);
+			useEffect(() => {
+				isInteractingRef.current = isInteracting;
+				if (!isInteracting) {
+					drawRef.current(lastXAxes.current, lastYAxes.current);
+				}
+			}, [isInteracting]);
+
 			useImperativeHandle(
 				ref,
 				() => ({
 					redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => {
 						lastXAxes.current = xAxes;
 						lastYAxes.current = yAxes;
+						if (isInteractingRef.current && (++frameCounterRef.current % 2 === 1)) {
+							return;
+						}
 						drawRef.current(xAxes, yAxes);
 					},
 				}),
 				[],
 			);
-
-			const isInteractingRef = useRef(isInteracting);
-			useEffect(() => {
-				isInteractingRef.current = isInteracting;
-			}, [isInteracting]);
 
 			useEffect(() => {
 				if (!isInteractingRef.current) {

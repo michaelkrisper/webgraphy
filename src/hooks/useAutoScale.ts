@@ -59,7 +59,7 @@ interface UseAutoScaleOptions {
 	targetYs: React.MutableRefObject<
 		Record<string, { min: number; max: number }>
 	>;
-	syncViewport: (force?: boolean) => void;
+	syncViewport: (force?: boolean, immediate?: boolean) => void;
 }
 
 interface UseAutoScaleResult {

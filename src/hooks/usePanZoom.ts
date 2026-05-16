@@ -21,7 +21,7 @@ interface UsePanZoomOptions {
 	targetYs: React.MutableRefObject<
 		Record<string, { min: number; max: number }>
 	>;
-	syncViewport: (force?: boolean) => void;
+	syncViewport: (force?: boolean, immediate?: boolean) => void;
 	xAxesMetrics: Array<{ id: string; height: number; cumulativeOffset: number }>;
 	axisLayout: Record<string, { total: number; label: number }>;
 	leftAxes: YAxisConfig[];
@@ -178,7 +178,7 @@ export function usePanZoom({
 			}
 		}
 
-		if (changed) syncViewport();
+		if (changed) syncViewport(false, true);
 	}, [
 		activeXAxes,
 		activeYAxes,
