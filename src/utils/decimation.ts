@@ -43,7 +43,18 @@ export function m4ByXFloat32(
 	const bucket = [0, 0, 0, 0];
 
 	let i = 0;
-	while (i < n && xData[i] + xRef < xMin) i++;
+	let low = 0;
+	let high = n - 1;
+	const target = xMin - xRef;
+	while (low <= high) {
+		const mid = (low + high) >>> 1;
+		if (xData[mid] < target) {
+			low = mid + 1;
+		} else {
+			high = mid - 1;
+		}
+	}
+	i = low;
 
 	// Continuity anchor: emit last point before xMin (if any, non-NaN) so the line
 	// enters from the left edge instead of starting inside the viewport.
@@ -58,6 +69,7 @@ export function m4ByXFloat32(
 	}
 
 	for (let b = 0; b < numBuckets; b++) {
+		if (i >= n) break;
 		const bEnd = xMin + (b + 1) * bucketWidth;
 		const firstIdx = i;
 		let lastIdx = -1;

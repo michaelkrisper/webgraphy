@@ -1122,7 +1122,7 @@ export const WebGLRenderer = React.memo(
 									const decimMax = xAxis.max + pad;
 									// Quantize cache key to xRange so wheel zoom rebuilds
 									// gracefully; pan within window hits cache.
-									const q = xRange / 8;
+									const q = 2 ** Math.floor(Math.log2(xRange / 8));
 									const qMin = Math.floor(decimMin / q) * q;
 									const qMax = Math.ceil(decimMax / q) * q;
 									const sig = `${numBuckets * 3}|${qMin}|${qMax}|${colY.refPoint}`;
@@ -1324,7 +1324,7 @@ export const WebGLRenderer = React.memo(
 								const pad = xRange * 0.5;
 								const decimMin = xAxis.min - pad;
 								const decimMax = xAxis.max + pad;
-								const q = xRange / 8;
+								const q = 2 ** Math.floor(Math.log2(xRange / 8));
 								const qMin = Math.floor(decimMin / q) * q;
 								const qMax = Math.ceil(decimMax / q) * q;
 								const sig = `${numBuckets}|${qMin}|${qMax}|${xRef}`;
