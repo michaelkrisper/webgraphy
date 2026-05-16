@@ -246,6 +246,31 @@ export const WebGLRenderer = React.memo(
 			}>;
 		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
 
+		// GL state cache — survives across draw frames. Cleared on program/init.
+		const glStateRef = useRef<{
+			color: [number, number, number, number] | null;
+			style: number;
+			lineStyle: number;
+			screenSpace: number;
+			pointSize: number;
+			lineWidth: number;
+			xScaleOff: [number, number] | null;
+			yScaleOff: [number, number] | null;
+			attribEnabled: Map<number, boolean>;
+			attribConst: Map<number, string>; // serialized const value
+		}>({
+			color: null,
+			style: -2,
+			lineStyle: -2,
+			screenSpace: -1,
+			pointSize: -1,
+			lineWidth: -1,
+			xScaleOff: null,
+			yScaleOff: null,
+			attribEnabled: new Map(),
+			attribConst: new Map(),
+		});
+
 		const pixelBudgetMultRef = useRef<number>(64);
 		const frameTimeRef = useRef<number>(0);
 		const lastBudgetUpdateRef = useRef<number>(0);
@@ -575,6 +600,16 @@ export const WebGLRenderer = React.memo(
 				return;
 			}
 			programRef.current = program;
+			glStateRef.current.color = null;
+			glStateRef.current.style = -2;
+			glStateRef.current.lineStyle = -2;
+			glStateRef.current.screenSpace = -1;
+			glStateRef.current.pointSize = -1;
+			glStateRef.current.lineWidth = -1;
+			glStateRef.current.xScaleOff = null;
+			glStateRef.current.yScaleOff = null;
+			glStateRef.current.attribEnabled.clear();
+			glStateRef.current.attribConst.clear();
 			locationsRef.current = {
 				xScaleOffLoc: gl.getUniformLocation(program, "u_x_scale_offset"),
 				yScaleOffLoc: gl.getUniformLocation(program, "u_y_scale_offset"),
@@ -688,7 +723,89 @@ export const WebGLRenderer = React.memo(
 				gl.clearColor(0, 0, 0, 0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
-				gl["useProgram"](program);
+				gl.useProgram(program);
+				const st = glStateRef.current;
+				const setColor = (r: number, g: number, b: number, a: number) => {
+					const c = st.color;
+					if (!c || c[0] !== r || c[1] !== g || c[2] !== b || c[3] !== a) {
+						gl.uniform4f(locs.colorLoc, r, g, b, a);
+						st.color = [r, g, b, a];
+					}
+				};
+				const setStyle = (v: number) => {
+					if (st.style !== v) {
+						gl.uniform1i(locs.styleLoc, v);
+						st.style = v;
+					}
+				};
+				const setLineStyle = (v: number) => {
+					if (st.lineStyle !== v) {
+						gl.uniform1i(locs.lineStyleLoc, v);
+						st.lineStyle = v;
+					}
+				};
+				const setScreenSpace = (v: number) => {
+					if (st.screenSpace !== v) {
+						gl.uniform1i(locs.screenSpaceLoc, v);
+						st.screenSpace = v;
+					}
+				};
+				const setPointSize = (v: number) => {
+					if (st.pointSize !== v) {
+						gl.uniform1f(locs.sizeLoc, v);
+						st.pointSize = v;
+					}
+				};
+				const setLineWidth = (v: number) => {
+					if (st.lineWidth !== v) {
+						gl.lineWidth(v);
+						st.lineWidth = v;
+					}
+				};
+				const setXScaleOff = (a: number, b: number) => {
+					const v = st.xScaleOff;
+					if (!v || v[0] !== a || v[1] !== b) {
+						gl.uniform2f(locs.xScaleOffLoc, a, b);
+						st.xScaleOff = [a, b];
+					}
+				};
+				const setYScaleOff = (a: number, b: number) => {
+					const v = st.yScaleOff;
+					if (!v || v[0] !== a || v[1] !== b) {
+						gl.uniform2f(locs.yScaleOffLoc, a, b);
+						st.yScaleOff = [a, b];
+					}
+				};
+				const enableAttrib = (loc: number) => {
+					if (st.attribEnabled.get(loc) !== true) {
+						gl.enableVertexAttribArray(loc);
+						st.attribEnabled.set(loc, true);
+						st.attribConst.delete(loc);
+					}
+				};
+				const disableAttribConst1 = (loc: number, v: number) => {
+					const key = `1:${v}`;
+					if (st.attribEnabled.get(loc) !== false) {
+						gl.disableVertexAttribArray(loc);
+						st.attribEnabled.set(loc, false);
+					}
+					if (st.attribConst.get(loc) !== key) {
+						gl.vertexAttrib1f(loc, v);
+						st.attribConst.set(loc, key);
+					}
+				};
+				const disableAttribConst2 = (loc: number, x: number, y: number) => {
+					const key = `2:${x},${y}`;
+					if (st.attribEnabled.get(loc) !== false) {
+						gl.disableVertexAttribArray(loc);
+						st.attribEnabled.set(loc, false);
+					}
+					if (st.attribConst.get(loc) !== key) {
+						gl.vertexAttrib2f(loc, x, y);
+						st.attribConst.set(loc, key);
+					}
+				};
+
 				gl.uniform4f(
 					locs.padLoc,
 					padding.top * dpr,
@@ -702,15 +819,12 @@ export const WebGLRenderer = React.memo(
 				// --- Draw overlay (bg, grid, spines, ticks, arrows, zero lines) ---
 				const overlay = overlayRef.current;
 				if (overlay && overlay.packedLen > 0 && overlay.groups.length > 0) {
-					gl.uniform1i(locs.screenSpaceLoc, 1);
-					gl.uniform1i(locs.styleLoc, 3); // solid color
-					gl.uniform1i(locs.lineStyleLoc, 0);
-					gl.disableVertexAttribArray(locs.otherLoc);
-					gl.vertexAttrib2f(locs.otherLoc, 0, 0);
-					gl.disableVertexAttribArray(locs.tLoc);
-					gl.vertexAttrib1f(locs.tLoc, 0);
-					gl.disableVertexAttribArray(locs.distStartLoc);
-					gl.vertexAttrib1f(locs.distStartLoc, 0);
+					setScreenSpace(1);
+					setStyle(3);
+					setLineStyle(0);
+					disableAttribConst2(locs.otherLoc, 0, 0);
+					disableAttribConst1(locs.tLoc, 0);
+					disableAttribConst1(locs.distStartLoc, 0);
 
 					let overlayBuf = buffersRef.current.get("__overlay");
 					if (!overlayBuf) {
@@ -727,21 +841,17 @@ export const WebGLRenderer = React.memo(
 							overlay.packed.subarray(0, overlay.packedLen),
 							gl.STREAM_DRAW,
 						);
-						gl.enableVertexAttribArray(locs.xLoc);
+						enableAttrib(locs.xLoc);
 						gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 8, 0);
-						gl.enableVertexAttribArray(locs.yLoc);
+						enableAttrib(locs.yLoc);
 						gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 8, 4);
 
-						let curWidth = -1;
 						for (const grp of overlay.groups) {
 							if (grp.count === 0) continue;
 							const c = grp.rgba;
-							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], c[3]);
+							setColor(c[0], c[1], c[2], c[3]);
 							if (grp.topology === "LINES") {
-								if (curWidth !== grp.width) {
-									gl.lineWidth(grp.width);
-									curWidth = grp.width;
-								}
+								setLineWidth(grp.width);
 								gl.drawArrays(gl.LINES, grp.offset, grp.count);
 							} else {
 								gl.drawArrays(gl.TRIANGLES, grp.offset, grp.count);
@@ -750,7 +860,7 @@ export const WebGLRenderer = React.memo(
 					}
 				}
 
-				gl.uniform1i(locs.screenSpaceLoc, 0);
+				setScreenSpace(0);
 				gl.enable(gl.SCISSOR_TEST);
 				gl.scissor(
 					padding.left * dpr,
@@ -759,26 +869,20 @@ export const WebGLRenderer = React.memo(
 					chartHeight * dpr,
 				);
 
+				const plotBgRgba = hexToRgba(plotBg ?? "#ffffff");
+				const xAxisById = new Map<string, XAxisConfig>();
+				for (let i = 0; i < currentXAxes.length; i++)
+					xAxisById.set(currentXAxes[i].id, currentXAxes[i]);
+				const yAxisById = new Map<string, YAxisConfig>();
+				for (let i = 0; i < currentYAxes.length; i++)
+					yAxisById.set(currentYAxes[i].id, currentYAxes[i]);
+
 				const t0 = performance.now();
 				for (let idx = 0; idx < seriesMetadata.length; idx++) {
 					const { series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba } = seriesMetadata[idx];
 
-					let xAxis: XAxisConfig | undefined;
-					const targetXId = ds.xAxisId || "axis-1";
-					for (let i = 0; i < currentXAxes.length; i++) {
-						if (currentXAxes[i].id === targetXId) {
-							xAxis = currentXAxes[i];
-							break;
-						}
-					}
-
-					let yAxis: YAxisConfig | undefined;
-					for (let i = 0; i < currentYAxes.length; i++) {
-						if (currentYAxes[i].id === s.yAxisId) {
-							yAxis = currentYAxes[i];
-							break;
-						}
-					}
+					const xAxis = xAxisById.get(ds.xAxisId || "axis-1");
+					const yAxis = yAxisById.get(s.yAxisId);
 
 					if (!xAxis || !yAxis) continue;
 
@@ -919,38 +1023,35 @@ export const WebGLRenderer = React.memo(
 							}
 						}
 
-						gl.uniform2f(locs.xScaleOffLoc, xScaleVal, xOffsetVal);
-						gl.uniform2f(locs.yScaleOffLoc, yScaleVal, yOffsetVal);
+						setXScaleOff(xScaleVal, xOffsetVal);
+						setYScaleOff(yScaleVal, yOffsetVal);
 
 						const isHighlighted = highlightedSeriesId === s.id;
 						const baseLineWidth = isHighlighted ? 2.5 : 1;
 
 						if (s.lineStyle !== "none") {
 							const c = lineColorRgba;
-							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, (isHighlighted ? 2.5 : 1.5) * dpr);
+							setColor(c[0], c[1], c[2], 1.0);
+							setPointSize((isHighlighted ? 2.5 : 1.5) * dpr);
 							const lStyle =
 								s.lineStyle === "solid" ? 0 : s.lineStyle === "dashed" ? 1 : 2;
-							gl.uniform1i(locs.lineStyleLoc, lStyle);
-							gl.uniform1i(locs.styleLoc, -1);
+							setLineStyle(lStyle);
+							setStyle(-1);
 
 							if (lStyle === 0) {
-								gl.disableVertexAttribArray(locs.otherLoc);
-								gl.vertexAttrib2f(locs.otherLoc, 0, 0);
-								gl.disableVertexAttribArray(locs.tLoc);
-								gl.vertexAttrib1f(locs.tLoc, 0);
-								gl.disableVertexAttribArray(locs.distStartLoc);
-								gl.vertexAttrib1f(locs.distStartLoc, 0);
+								disableAttribConst2(locs.otherLoc, 0, 0);
+								disableAttribConst1(locs.tLoc, 0);
+								disableAttribConst1(locs.distStartLoc, 0);
 
 								gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-								gl.enableVertexAttribArray(locs.xLoc);
+								enableAttrib(locs.xLoc);
 								gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
 
 								gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-								gl.enableVertexAttribArray(locs.yLoc);
+								enableAttrib(locs.yLoc);
 								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
-								gl.lineWidth(baseLineWidth);
+								setLineWidth(baseLineWidth);
 								for (const seg of drawRanges) {
 									if (seg.count >= 2)
 										gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
@@ -965,7 +1066,12 @@ export const WebGLRenderer = React.memo(
 									STEPS.push(step);
 									totalLineSegs += Math.ceil(n / step);
 								}
-								const paramKey = `${xRange}-${yRange}-${chartWidth}-${chartHeight}-${dpr}-${totalLineSegs}-${drawRanges.length}-${drawRanges[0]?.start ?? 0}`;
+								// Quantize float ranges so micro pan jitter hits cache.
+								// Pan = translation (xRange constant) so cache hits every frame.
+								// Zoom changes range slowly; rebuild cost amortized over many frames.
+								const qx = xRange.toPrecision(4);
+								const qy = yRange.toPrecision(4);
+								const paramKey = `${qx}-${qy}-${chartWidth}-${chartHeight}-${dpr}-${totalLineSegs}-${drawRanges.length}-${drawRanges[0]?.start ?? 0}`;
 								let segBuffer = buffersRef.current.get(segBufferKey);
 								if (!segBuffer) {
 									segBuffer = gl.createBuffer();
@@ -1019,11 +1125,11 @@ export const WebGLRenderer = React.memo(
 								} else {
 									gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 								}
-								gl.enableVertexAttribArray(locs.xLoc);
+								enableAttrib(locs.xLoc);
 								gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
-								gl.enableVertexAttribArray(locs.yLoc);
+								enableAttrib(locs.yLoc);
 								gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
-								gl.enableVertexAttribArray(locs.otherLoc);
+								enableAttrib(locs.otherLoc);
 								gl.vertexAttribPointer(
 									locs.otherLoc,
 									2,
@@ -1032,9 +1138,9 @@ export const WebGLRenderer = React.memo(
 									24,
 									8,
 								);
-								gl.enableVertexAttribArray(locs.tLoc);
+								enableAttrib(locs.tLoc);
 								gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
-								gl.enableVertexAttribArray(locs.distStartLoc);
+								enableAttrib(locs.distStartLoc);
 								gl.vertexAttribPointer(
 									locs.distStartLoc,
 									1,
@@ -1043,7 +1149,7 @@ export const WebGLRenderer = React.memo(
 									24,
 									20,
 								);
-								gl.lineWidth(baseLineWidth);
+								setLineWidth(baseLineWidth);
 								gl.drawArrays(gl.LINES, 0, totalLineSegs * 2);
 							}
 						}
@@ -1057,36 +1163,29 @@ export const WebGLRenderer = React.memo(
 									: s.pointStyle === "square"
 										? 1
 										: 2;
-							gl.uniform1i(locs.styleLoc, pStyle);
+							setStyle(pStyle);
 
-							gl.disableVertexAttribArray(locs.otherLoc);
-							gl.vertexAttrib2f(locs.otherLoc, 0, 0);
-							gl.disableVertexAttribArray(locs.tLoc);
-							gl.vertexAttrib1f(locs.tLoc, 0);
-							gl.disableVertexAttribArray(locs.distStartLoc);
-							gl.vertexAttrib1f(locs.distStartLoc, 0);
+							disableAttribConst2(locs.otherLoc, 0, 0);
+							disableAttribConst1(locs.tLoc, 0);
+							disableAttribConst1(locs.distStartLoc, 0);
 
 							gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-							gl.enableVertexAttribArray(locs.xLoc);
+							enableAttrib(locs.xLoc);
 							gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
 
 							gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-							gl.enableVertexAttribArray(locs.yLoc);
+							enableAttrib(locs.yLoc);
 							gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
 
-							const bg = hexToRgba(plotBg ?? "#ffffff");
-							gl.uniform4f(locs.colorLoc, bg[0], bg[1], bg[2], 1.0);
-							gl.uniform1f(
-								locs.sizeLoc,
-								baseSize + (pStyle === 2 ? 3.0 : 2.0) * dpr,
-							);
+							setColor(plotBgRgba[0], plotBgRgba[1], plotBgRgba[2], 1.0);
+							setPointSize(baseSize + (pStyle === 2 ? 3.0 : 2.0) * dpr);
 							for (const seg of drawRanges) {
 								if (seg.count >= 1)
 									gl.drawArrays(gl.POINTS, seg.start, seg.count);
 							}
 
-							gl.uniform4f(locs.colorLoc, c[0], c[1], c[2], 1.0);
-							gl.uniform1f(locs.sizeLoc, baseSize);
+							setColor(c[0], c[1], c[2], 1.0);
+							setPointSize(baseSize);
 							for (const seg of drawRanges) {
 								if (seg.count >= 1)
 									gl.drawArrays(gl.POINTS, seg.start, seg.count);
