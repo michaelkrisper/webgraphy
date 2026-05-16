@@ -913,9 +913,9 @@ export default function ChartContainer() {
 			});
 
 			overlayInitRef.current = false;
-			// Use force=true to ensure runSync redrawing even if world ranges haven't changed.
-			// Use immediate=false (default) to schedule via rAF, breaking synchronous render loops.
-			syncViewportRef.current(true);
+			// Use force=false to schedule via rAF, breaking synchronous render loops.
+			// Redraw is still forced because we set overlayInitRef.current = false above.
+			syncViewportRef.current(false);
 		}
 	}, [
 		isLoaded,
