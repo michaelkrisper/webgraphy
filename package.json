@@ -38,7 +38,6 @@
 		"eslint": "^10.3.0",
 		"eslint-plugin-react-hooks": "^7.1.1",
 		"eslint-plugin-react-refresh": "^0.5.2",
-		"fallow": "^2.63.0",
 		"globals": "^17.6.0",
 		"jsdom": "^29.1.1",
 		"knip": "^6.11.0",
@@ -62,8 +61,7 @@
 			"@babel/plugin-transform-modules-systemjs": "^7.29.4"
 		},
 		"onlyBuiltDependencies": [
-			"esbuild",
-			"fallow"
+			"esbuild"
 		]
 	}
 }
