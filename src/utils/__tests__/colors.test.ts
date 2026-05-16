@@ -37,6 +37,32 @@ describe("colors", () => {
 			// Test an arbitrary color
 			expect(hexToRgb("#804020")).toEqual({ r: 128, g: 64, b: 32 });
 		});
+
+		it("should handle invalid hex strings safely", () => {
+			// Missing #
+			expect(hexToRgb("ffffff")).toEqual({ r: 0, g: 0, b: 0 });
+
+			// Incorrect length
+			expect(hexToRgb("#fff")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("#ffffffff")).toEqual({ r: 0, g: 0, b: 0 });
+
+			// Invalid characters resulting in NaN
+			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
+		it("should handle invalid types at runtime", () => {
+			// @ts-expect-error testing runtime invalid type
+			expect(hexToRgb(null)).toEqual({ r: 0, g: 0, b: 0 });
+
+			// @ts-expect-error testing runtime invalid type
+			expect(hexToRgb(undefined)).toEqual({ r: 0, g: 0, b: 0 });
+
+			// @ts-expect-error testing runtime invalid type
+			expect(hexToRgb(123)).toEqual({ r: 0, g: 0, b: 0 });
+
+			// @ts-expect-error testing runtime invalid type
+			expect(hexToRgb({})).toEqual({ r: 0, g: 0, b: 0 });
+		});
 	});
 
 	describe("hexToRgba", () => {
