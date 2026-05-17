@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  serialize-javascript: ^7.0.5
+  fast-uri: ^3.1.2
+  '@babel/plugin-transform-modules-systemjs': ^7.29.4
+
 importers:
 
   .:
