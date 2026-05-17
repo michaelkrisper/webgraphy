@@ -987,18 +987,12 @@ export function evaluateFormulaSync(
 			const orderLen = compactX.length;
 			const order = new Uint32Array(orderLen);
 			for (let i = 0; i < orderLen; i++) order[i] = i;
-			const orderSorted = Array.prototype.sort.call(order, (a, b) =>
-				compactX[a] - compactX[b] > 0
-					? 1
-					: compactX[a] - compactX[b] < 0
-						? -1
-						: 0,
-			) as Uint32Array;
+			order.sort((a, b) => compactX[a] - compactX[b]);
 			const sortedX = new Float64Array(orderLen);
 			const sortedY = new Float64Array(orderLen);
 			for (let i = 0; i < orderLen; i++) {
-				sortedX[i] = compactX[orderSorted[i]];
-				sortedY[i] = compactY[orderSorted[i]];
+				sortedX[i] = compactX[order[i]];
+				sortedY[i] = compactY[order[i]];
 			}
 
 			const processedX = processRawColumn(sortedX);

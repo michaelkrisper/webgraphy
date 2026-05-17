@@ -46,11 +46,16 @@ describe("useDataImport hook", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		// Setup store mock
-		vi.mocked(useGraphStore).mockImplementation(() => ({
+		const storeState = {
 			addDataset: mockAddDataset,
 			addSeries: mockAddSeries,
-		}));
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
+		// The hook now reads each field via a per-field selector; replicate that
+		// behaviour so the mock honours the selector function.
+		vi.mocked(useGraphStore).mockImplementation((selector?: unknown) => {
+			if (typeof selector === "function") return (selector as (s: typeof storeState) => unknown)(storeState);
+			return storeState;
+		});
 		vi.mocked(useGraphStore.getState).mockReturnValue({
 			datasets: [],
 			series: [],
