@@ -1,17 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset } from "../../services/persistence";
-import { evaluateFormulaSync } from "../../utils/formula";
 import { useGraphStore } from "../useGraphStore";
-
-vi.mock("../../utils/formula", async () => {
-	const actual = (await vi.importActual(
-		"../../utils/formula",
-	)) as typeof import("../../utils/formula");
-	return {
-		...actual,
-		evaluateFormulaSync: vi.fn(actual.evaluateFormulaSync),
-	};
-});
 
 class MockWorker {
 	onmessage: ((ev: MessageEvent) => void) | null = null;
