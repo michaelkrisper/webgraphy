@@ -283,26 +283,44 @@ export const WebGLRenderer = React.memo(
 		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
 
 		// GL state cache — survives across draw frames. Cleared on program/init.
+		// Scalars instead of tuple arrays to avoid per-frame allocations.
+		// colorSet=false flags an unseeded color cache (replaces null sentinel).
 		const glStateRef = useRef<{
-			color: [number, number, number, number] | null;
+			colorSet: boolean;
+			colorR: number;
+			colorG: number;
+			colorB: number;
+			colorA: number;
 			style: number;
 			lineStyle: number;
 			screenSpace: number;
 			pointSize: number;
 			lineWidth: number;
-			xScaleOff: [number, number] | null;
-			yScaleOff: [number, number] | null;
+			xScaleSet: boolean;
+			xScaleA: number;
+			xScaleB: number;
+			yScaleSet: boolean;
+			yScaleA: number;
+			yScaleB: number;
 			attribEnabled: Map<number, boolean>;
-			attribConst: Map<number, string>; // serialized const value
+			attribConst: Map<number, string>;
 		}>({
-			color: null,
+			colorSet: false,
+			colorR: 0,
+			colorG: 0,
+			colorB: 0,
+			colorA: 0,
 			style: -2,
 			lineStyle: -2,
 			screenSpace: -1,
 			pointSize: -1,
 			lineWidth: -1,
-			xScaleOff: null,
-			yScaleOff: null,
+			xScaleSet: false,
+			xScaleA: 0,
+			xScaleB: 0,
+			yScaleSet: false,
+			yScaleA: 0,
+			yScaleB: 0,
 			attribEnabled: new Map(),
 			attribConst: new Map(),
 		});
@@ -645,14 +663,14 @@ export const WebGLRenderer = React.memo(
 				return;
 			}
 			programRef.current = program;
-			glStateRef.current.color = null;
+			glStateRef.current.colorSet = false;
 			glStateRef.current.style = -2;
 			glStateRef.current.lineStyle = -2;
 			glStateRef.current.screenSpace = -1;
 			glStateRef.current.pointSize = -1;
 			glStateRef.current.lineWidth = -1;
-			glStateRef.current.xScaleOff = null;
-			glStateRef.current.yScaleOff = null;
+			glStateRef.current.xScaleSet = false;
+			glStateRef.current.yScaleSet = false;
 			glStateRef.current.attribEnabled.clear();
 			glStateRef.current.attribConst.clear();
 			locationsRef.current = {
@@ -777,10 +795,19 @@ export const WebGLRenderer = React.memo(
 				gl.useProgram(program);
 				const st = glStateRef.current;
 				const setColor = (r: number, g: number, b: number, a: number) => {
-					const c = st.color;
-					if (!c || c[0] !== r || c[1] !== g || c[2] !== b || c[3] !== a) {
+					if (
+						!st.colorSet ||
+						st.colorR !== r ||
+						st.colorG !== g ||
+						st.colorB !== b ||
+						st.colorA !== a
+					) {
 						gl.uniform4f(locs.colorLoc, r, g, b, a);
-						st.color = [r, g, b, a];
+						st.colorR = r;
+						st.colorG = g;
+						st.colorB = b;
+						st.colorA = a;
+						st.colorSet = true;
 					}
 				};
 				const setStyle = (v: number) => {
@@ -814,17 +841,19 @@ export const WebGLRenderer = React.memo(
 					}
 				};
 				const setXScaleOff = (a: number, b: number) => {
-					const v = st.xScaleOff;
-					if (!v || v[0] !== a || v[1] !== b) {
+					if (!st.xScaleSet || st.xScaleA !== a || st.xScaleB !== b) {
 						gl.uniform2f(locs.xScaleOffLoc, a, b);
-						st.xScaleOff = [a, b];
+						st.xScaleA = a;
+						st.xScaleB = b;
+						st.xScaleSet = true;
 					}
 				};
 				const setYScaleOff = (a: number, b: number) => {
-					const v = st.yScaleOff;
-					if (!v || v[0] !== a || v[1] !== b) {
+					if (!st.yScaleSet || st.yScaleA !== a || st.yScaleB !== b) {
 						gl.uniform2f(locs.yScaleOffLoc, a, b);
-						st.yScaleOff = [a, b];
+						st.yScaleA = a;
+						st.yScaleB = b;
+						st.yScaleSet = true;
 					}
 				};
 				const enableAttrib = (loc: number) => {
