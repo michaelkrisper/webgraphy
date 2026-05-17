@@ -1155,7 +1155,8 @@ export const WebGLRenderer = React.memo(
 									const q = 2 ** Math.floor(Math.log2(xRange / 8));
 									const qMin = Math.floor(decimMin / q) * q;
 									const qMax = Math.ceil(decimMax / q) * q;
-									const sig = `${numBuckets * 3}|${qMin}|${qMax}|${colY.refPoint}`;
+									const bucketWidth = xRange / (numBuckets * 3);
+									const sig = `${bucketWidth}|${qMin}|${qMax}|${colY.refPoint}`;
 									let entry = decimCacheRef.current.get(yData);
 									if (!entry || entry.sig !== sig) {
 										const scratch = decimScratchRef.current;
@@ -1165,7 +1166,7 @@ export const WebGLRenderer = React.memo(
 											xRef,
 											qMin,
 											qMax,
-											numBuckets * 3,
+											bucketWidth,
 											scratch,
 										);
 										// Copy into entry-owned buffers so the WeakMap
@@ -1357,7 +1358,8 @@ export const WebGLRenderer = React.memo(
 								const q = 2 ** Math.floor(Math.log2(xRange / 8));
 								const qMin = Math.floor(decimMin / q) * q;
 								const qMax = Math.ceil(decimMax / q) * q;
-								const sig = `${numBuckets}|${qMin}|${qMax}|${xRef}`;
+								const bucketWidth = xRange / numBuckets;
+								const sig = `${bucketWidth}|${qMin}|${qMax}|${xRef}`;
 								let entry = pointDecimCacheRef.current.get(yData);
 								if (!entry || entry.sig !== sig) {
 									const scratch = pointDecimScratchRef.current;
@@ -1367,7 +1369,7 @@ export const WebGLRenderer = React.memo(
 										xRef,
 										qMin,
 										qMax,
-										numBuckets,
+										bucketWidth,
 										scratch,
 									);
 									const xArr = new Float32Array(dx.length);

@@ -9,8 +9,12 @@
  *
  * Requires xData strictly monotonically increasing.
  *
- * Per bucket: emit (first, min, max, last) sorted by index.
- * Buckets fully outside [xMin, xMax) are dropped. Empty buckets produce no output.
+ * Bucket grid is anchored at world X = 0 with step `bucketWidth`, so boundaries are
+ * absolute (k * bucketWidth). Pan within fixed zoom keeps every point on the same bucket,
+ * so cached output does not flip extrema as the window shifts.
+ *
+ * Iterates buckets covering [xMin, xMax). xMin is snapped down to the nearest grid line.
+ * Per bucket: emit (first, min, max, last) sorted by index. Empty buckets skipped.
  */
 export function m4ByXFloat32(
 	xData: Float32Array,
@@ -18,10 +22,12 @@ export function m4ByXFloat32(
 	xRef: number,
 	xMin: number,
 	xMax: number,
-	numBuckets: number,
+	bucketWidth: number,
 	out?: { x: Float32Array; y: Float32Array },
 ): { x: Float32Array; y: Float32Array } {
 	const n = xData.length;
+	const numBuckets =
+		bucketWidth > 0 ? Math.ceil((xMax - xMin) / bucketWidth) + 1 : 0;
 	const maxPoints = Math.max(4, numBuckets * 4);
 	let xOut = out ? out.x : new Float32Array(maxPoints);
 	let yOut = out ? out.y : new Float32Array(maxPoints);
@@ -30,7 +36,7 @@ export function m4ByXFloat32(
 		yOut = new Float32Array(maxPoints);
 	}
 
-	if (n === 0 || numBuckets <= 0 || xMax <= xMin) {
+	if (n === 0 || numBuckets <= 0 || xMax <= xMin || bucketWidth <= 0) {
 		if (out) {
 			out.x = xOut;
 			out.y = yOut;
@@ -38,14 +44,17 @@ export function m4ByXFloat32(
 		return { x: xOut.subarray(0, 0), y: yOut.subarray(0, 0) };
 	}
 
-	const bucketWidth = (xMax - xMin) / numBuckets;
+	// Snap xMin DOWN to global grid (anchored at world X = 0). Without this,
+	// pan offsets within a quantization step would re-slice the bucket grid
+	// and cause cached extrema to flip — the "jumping points" effect.
+	const gridStart = Math.floor(xMin / bucketWidth) * bucketWidth;
 	let outIdx = 0;
 	const bucket = [0, 0, 0, 0];
 
 	let i = 0;
 	let low = 0;
 	let high = n - 1;
-	const target = xMin - xRef;
+	const target = gridStart - xRef;
 	while (low <= high) {
 		const mid = (low + high) >>> 1;
 		if (xData[mid] < target) {
@@ -70,7 +79,8 @@ export function m4ByXFloat32(
 
 	for (let b = 0; b < numBuckets; b++) {
 		if (i >= n) break;
-		const bEnd = xMin + (b + 1) * bucketWidth;
+		const bEnd = gridStart + (b + 1) * bucketWidth;
+		if (bEnd - bucketWidth >= xMax) break;
 		const firstIdx = i;
 		let lastIdx = -1;
 		let minIdx = -1;

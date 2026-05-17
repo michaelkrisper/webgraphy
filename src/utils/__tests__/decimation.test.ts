@@ -183,7 +183,7 @@ describe("m4ByXFloat32", () => {
 	it("returns empty for empty input", () => {
 		const x = new Float32Array([]);
 		const y = new Float32Array([]);
-		const r = m4ByXFloat32(x, y, 0, 0, 10, 4);
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 2.5);
 		expect(r.x.length).toBe(0);
 	});
 
@@ -191,14 +191,14 @@ describe("m4ByXFloat32", () => {
 		const x = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7]);
 		const y = new Float32Array([10, 20, 0, 15, 5, 0, 100, 50]);
 		// 2 buckets across [0, 8): bucket0=x<4 (idx 0..3), bucket1=x<8 (idx 4..7)
-		const r = m4ByXFloat32(x, y, 0, 0, 8, 2);
+		const r = m4ByXFloat32(x, y, 0, 0, 8, 4);
 		expect(Array.from(r.y)).toEqual([10, 20, 0, 15, 5, 0, 100, 50]);
 	});
 
 	it("preserves extrema across buckets", () => {
 		const x = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const y = new Float32Array([0, 100, -100, 0, 0, 0, 0, 500, -500, 0]);
-		const r = m4ByXFloat32(x, y, 0, 0, 10, 2);
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 5);
 		const ys = Array.from(r.y);
 		expect(ys).toContain(100);
 		expect(ys).toContain(-100);
@@ -222,11 +222,32 @@ describe("m4ByXFloat32", () => {
 		expect(Array.from(r2.y)).toEqual(Array.from(r1.y));
 	});
 
+	it("bucket boundaries are stable under pan (world-grid anchored)", () => {
+		// Same bucketWidth + zoom but pan-shifted window must pick same extrema in overlap.
+		const xFull = new Float32Array(1000);
+		const yFull = new Float32Array(1000);
+		for (let i = 0; i < 1000; i++) {
+			xFull[i] = i;
+			yFull[i] = Math.sin(i * 0.13) * 100 + Math.cos(i * 0.07) * 50;
+		}
+		const bw = 7;
+		const a = m4ByXFloat32(xFull, yFull, 0, 100, 300, bw);
+		const b = m4ByXFloat32(xFull, yFull, 0, 103, 303, bw);
+		// Find overlap of bucket grids: any aligned bucket in both windows must produce
+		// identical x-samples (same extrema indices).
+		const setA = new Set(Array.from(a.x));
+		const setB = new Set(Array.from(b.x));
+		let shared = 0;
+		for (const xv of setA) if (setB.has(xv)) shared++;
+		expect(shared).toBeGreaterThan(20);
+	});
+
 	it("respects xRef offset", () => {
 		const x = new Float32Array([0, 1, 2, 3]);
 		const y = new Float32Array([1, 2, 3, 4]);
 		// xRef=1000 → world X = 1000..1003
 		const r = m4ByXFloat32(x, y, 1000, 1000, 1004, 2);
+
 		expect(r.x.length).toBeGreaterThan(0);
 		expect(Array.from(r.y)).toContain(1);
 		expect(Array.from(r.y)).toContain(4);
@@ -236,14 +257,14 @@ describe("m4ByXFloat32", () => {
 		const x = new Float32Array([0, 1, 9]);
 		const y = new Float32Array([1, 2, 3]);
 		// 5 buckets across [0,10): bucket 1..3 empty
-		const r = m4ByXFloat32(x, y, 0, 0, 10, 5);
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 2);
 		expect(Array.from(r.y).sort()).toEqual([1, 2, 3]);
 	});
 
 	it("ignores NaN y values", () => {
 		const x = new Float32Array([0, 1, 2, 3]);
 		const y = new Float32Array([1, NaN, 3, NaN]);
-		const r = m4ByXFloat32(x, y, 0, 0, 4, 1);
+		const r = m4ByXFloat32(x, y, 0, 0, 4, 4);
 		const ys = Array.from(r.y);
 		expect(ys).not.toContain(NaN);
 		expect(ys).toContain(1);
