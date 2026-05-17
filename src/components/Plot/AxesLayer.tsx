@@ -60,10 +60,6 @@ const AxesLayer = React.memo(
 			ref,
 		) => {
 			const canvasRef = useRef<HTMLCanvasElement>(null);
-			const labelsContainerRef = useRef<HTMLDivElement>(null);
-			const yTitlePoolRef = useRef<Map<string, HTMLDivElement>>(new Map());
-			const yTitleCacheRef = useRef<Map<string, string>>(new Map());
-			const yTitleUsedRef = useRef<Set<string>>(new Set());
 			// Label string cache: per-axis (id+precision) → tickValue → string.
 			// Avoids per-frame toFixed/toExponential calls in formatAxisLabel.
 			const labelCacheRef = useRef<Map<string, Map<number, string>>>(new Map());
@@ -140,24 +136,7 @@ const AxesLayer = React.memo(
 					ctx.save();
 					ctx.scale(dpr, dpr);
 
-					yTitleUsedRef.current.clear();
 					labelCacheUsedRef.current.clear();
-					const getYTitleDiv = (axisId: string) => {
-						let div = yTitlePoolRef.current.get(axisId);
-						if (!div) {
-							div = document.createElement("div");
-							div.style.position = "absolute";
-							div.style.pointerEvents = "none";
-							div.style.whiteSpace = "nowrap";
-							div.style.left = "0px";
-							div.style.top = "0px";
-							labelsContainerRef.current?.appendChild(div);
-							yTitlePoolRef.current.set(axisId, div);
-						}
-						div.style.display = "block";
-						yTitleUsedRef.current.add(axisId);
-						return div;
-					};
 
 					// X Axes Labels (canvas)
 					xAxes.forEach((axis, axisIdx) => {
@@ -285,44 +264,43 @@ const AxesLayer = React.memo(
 							ctx.fillText(label, labelX, y);
 						});
 
-						// Y Axis Title (DOM — multicolor spans, only when changes)
+						// Y Axis Title (canvas — multicolor segments, rotated)
 						const axisSeries = seriesByYAxisId[axis.id] || [];
-						const titleDiv = getYTitleDiv(axis.id);
-						const rotate = isLeft ? "rotate(-90deg)" : "rotate(90deg)";
-						const newTransform = `translate(${titleX}px, ${padding.top + chartHeight / 2}px) translate(-50%, -50%) ${rotate}`;
-						if (titleDiv.style.transform !== newTransform) {
-							titleDiv.style.transform = newTransform;
-						}
-						const titleKey =
-							axisSeries
-								.map((s) => `${s.id}:${s.name || s.yColumn}:${s.lineColor}`)
-								.join("|") + `||${labelColor}||${fontFamily}`;
-						if (yTitleCacheRef.current.get(axis.id) !== titleKey) {
-							titleDiv.style.font = `bold 12px ${fontFamily}`;
-							let html = "";
+						if (axisSeries.length > 0) {
+							ctx.save();
+							ctx.font = `bold 12px ${fontFamily}`;
+							ctx.textBaseline = "middle";
+							ctx.textAlign = "center";
+							const sep = " / ";
+							const segments: { text: string; color: string }[] = [];
 							axisSeries.forEach((s, i) => {
 								if (i > 0 && axisSeries.length > 1) {
-									html += `<span style="color:${labelColor}"> / </span>`;
+									segments.push({ text: sep, color: labelColor });
 								}
-								const name = (s.name || s.yColumn)
-									.replace(/&/g, "&amp;")
-									.replace(/</g, "&lt;")
-									.replace(/>/g, "&gt;");
-								html += `<span style="color:${s.lineColor}">${name}</span>`;
+								segments.push({
+									text: s.name || s.yColumn,
+									color: s.lineColor ?? labelColor,
+								});
 							});
-							titleDiv.innerHTML = html;
-							yTitleCacheRef.current.set(axis.id, titleKey);
+							const widths = segments.map((seg) => ctx.measureText(seg.text).width);
+							const totalW = widths.reduce((a, b) => a + b, 0);
+							const cx = titleX;
+							const cy = padding.top + chartHeight / 2;
+							ctx.translate(cx, cy);
+							ctx.rotate(isLeft ? -Math.PI / 2 : Math.PI / 2);
+							ctx.textAlign = "left";
+							let x = -totalW / 2;
+							for (let i = 0; i < segments.length; i++) {
+								ctx.fillStyle = segments[i].color;
+								ctx.fillText(segments[i].text, x, 0);
+								x += widths[i];
+							}
+							ctx.restore();
 						}
 					});
 
 					ctx.restore();
 
-					// Hide y-title divs not used this frame
-					yTitlePoolRef.current.forEach((div, axisId) => {
-						if (!yTitleUsedRef.current.has(axisId)) {
-							div.style.display = "none";
-						}
-					});
 					// Evict label caches for axes/precisions not seen this frame.
 					labelCacheRef.current.forEach((_, key) => {
 						if (!labelCacheUsedRef.current.has(key))
@@ -380,33 +358,19 @@ const AxesLayer = React.memo(
 			const dpr = window.devicePixelRatio || 1;
 
 			return (
-				<>
-					<canvas
-						ref={canvasRef}
-						width={width * dpr}
-						height={height * dpr}
-						style={{
-							position: "absolute",
-							inset: 0,
-							width: "100%",
-							height: "100%",
-							pointerEvents: "none",
-							zIndex: 6,
-						}}
-					/>
-					<div
-						ref={labelsContainerRef}
-						style={{
-							position: "absolute",
-							inset: 0,
-							width: "100%",
-							height: "100%",
-							pointerEvents: "none",
-							zIndex: 7,
-							overflow: "hidden",
-						}}
-					/>
-				</>
+				<canvas
+					ref={canvasRef}
+					width={width * dpr}
+					height={height * dpr}
+					style={{
+						position: "absolute",
+						inset: 0,
+						width: "100%",
+						height: "100%",
+						pointerEvents: "none",
+						zIndex: 6,
+					}}
+				/>
 			);
 		},
 	),

@@ -609,7 +609,7 @@ export const WebGLRenderer = React.memo(
 			const gl = canvas.getContext("webgl", {
 				preserveDrawingBuffer: true,
 				antialias: true,
-				alpha: true,
+				alpha: false,
 			});
 			if (!gl) return;
 			glRef.current = gl;
@@ -770,7 +770,8 @@ export const WebGLRenderer = React.memo(
 					ph = height * dpr;
 
 				gl.viewport(0, 0, pw, ph);
-				gl.clearColor(0, 0, 0, 0);
+				const bg = plotBgRgbaRef.current;
+				gl.clearColor(bg[0], bg[1], bg[2], 1);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 
 				gl.useProgram(program);
