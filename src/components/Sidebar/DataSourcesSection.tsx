@@ -305,7 +305,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 								<div
 									style={{
 										display: "grid",
-										gridTemplateColumns: "repeat(5, 1fr)",
+										gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
 										gap: "0",
 										borderTop: `1px solid ${t.accent}`,
 										borderLeft: `1px solid ${t.accent}`,
@@ -384,7 +384,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 																fontWeight: "600",
 															}}
 															title={
-																isCalc ? `Formula: ${colData.formula}` : col
+																isCalc ? `${label}\nFormula: ${colData.formula}` : label
 															}
 														>
 															{isCalc ? `ƒ ${label}` : label}
