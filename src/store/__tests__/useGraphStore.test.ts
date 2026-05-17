@@ -725,13 +725,16 @@ describe("useGraphStore", () => {
 		expect(result.success).toBe(true);
 		expect(useGraphStore.getState().datasets[0].columns).toContain("NewCol");
 
-		vi.mocked(evaluateFormulaSync).mockReturnValueOnce({
-			type: "error",
-			error: "Sync error",
-		});
+		// "[Val] * 3" triggers MockWorker.onerror — the store must surface that
+		// as a failed result rather than throwing.
 		result = await store.addCalculatedColumn("ds-1", "NewCol2", "[Val] * 3");
 		expect(result.success).toBe(false);
-		expect(result.error).toBe("Sync error");
+		expect(result.error).toBeDefined();
+
+		// "[Val] * 4" returns { type: "error" } via onmessage.
+		result = await store.addCalculatedColumn("ds-1", "NewCol3", "[Val] * 4");
+		expect(result.success).toBe(false);
+		expect(result.error).toBe("Calculation failed");
 	});
 
 	it("should create sparse dataset for sparse results", async () => {

@@ -8,7 +8,8 @@ import {
 	type YAxisConfig,
 } from "../services/persistence";
 import { getColumnIndex } from "../utils/columns";
-import { compileFormula, evaluateFormulaSync } from "../utils/formula";
+import { compileFormula } from "../utils/formula";
+import { evaluateFormulaInWorker } from "../workers/formulaClient";
 
 interface GraphState {
 	datasets: Dataset[];
@@ -166,14 +167,22 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			}));
 		}
 
-		const result = evaluateFormulaSync({
-			datasetId,
-			name: trimmedName,
-			formula,
-			columns: dataset.columns,
-			rowCount: dataset.rowCount,
-			columnData,
-		});
+		let result;
+		try {
+			result = await evaluateFormulaInWorker({
+				datasetId,
+				name: trimmedName,
+				formula,
+				columns: dataset.columns,
+				rowCount: dataset.rowCount,
+				columnData,
+			});
+		} catch (err) {
+			return {
+				success: false,
+				error: err instanceof Error ? err.message : String(err),
+			};
+		}
 
 		if (result.type === "success") {
 			const { newColumn, sparseXColumn } = result;

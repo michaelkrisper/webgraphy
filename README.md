@@ -10,7 +10,7 @@ Webgraphy is a precision-focused, high-performance data visualization applicatio
 ## Key Features
 
 - **Ultra High Performance:** Render millions of data points smoothly using raw WebGL with custom high-precision shaders.
-- **Advanced Data Handling:** Multi-threaded data parsing (CSV/JSON) using Web Workers to ensure a responsive UI even with large datasets.
+- **Advanced Data Handling:** CSV/JSON parsing and formula evaluation run in dedicated Web Workers, keeping the UI responsive even with very large datasets.
 - **Precision Rendering:** Raw data rendering using custom WebGL shaders for maximum visual integrity and accuracy, utilizing relative offsets (`refPoint`) to avoid floating-point artifacts.
 - **Rich Interaction:**
   - **Interactive Axes:** Pan and zoom directly on individual X or Y axes.
