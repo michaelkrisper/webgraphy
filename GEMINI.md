@@ -31,23 +31,23 @@
 
 ### Development
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### Build
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### Linting
 ```bash
-npm run lint
+pnpm run lint
 ```
 
 ### Deployment
 The project is configured for deployment to GitHub Pages.
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
 ## Development Conventions
@@ -56,6 +56,7 @@ npm run deploy
 - **Precision:** Shaders are designed for ultra-precision, using relative offsets (`refPoint`) to handle large coordinate values without floating-point artifacts.
 - **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
 - **Persistence Awareness:** Any changes to the `GraphState` that should survive a refresh must be persisted via the `persistence` service.
+- **Package Manager:** This project uses `pnpm`. Whenever you modify `package.json` (e.g., adding/updating dependencies or overrides), you MUST run `pnpm install` and ensure `pnpm-lock.yaml` is staged and committed alongside `package.json`.
 
 ## Agent Optimization & Efficiency
 - **Caveman Mode:** Adopt extreme token efficiency ("Why use many token when few do trick"). Eliminate all conversational filler, preambles, and postambles. Prioritize direct action, maximum brevity, and high-signal output.
