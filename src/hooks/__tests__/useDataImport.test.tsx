@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { persistence } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import type { ImportSettings } from "../../types/import";
-import { parseData } from "../../utils/data-parser";
+import { parseDataInWorker } from "../../workers/parserClient";
 import { useDataImport } from "../useDataImport";
 
 // Mock the graph store
@@ -29,9 +29,9 @@ vi.mock("../../services/persistence", () => ({
 	},
 }));
 
-// Mock the parseData function
-vi.mock("../../utils/data-parser", () => ({
-	parseData: vi.fn(),
+// Mock the parser worker client
+vi.mock("../../workers/parserClient", () => ({
+	parseDataInWorker: vi.fn(),
 }));
 
 // Mock URL.createObjectURL since JSDOM might not have it
@@ -46,11 +46,16 @@ describe("useDataImport hook", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		// Setup store mock
-		vi.mocked(useGraphStore).mockImplementation(() => ({
+		const storeState = {
 			addDataset: mockAddDataset,
 			addSeries: mockAddSeries,
-		}));
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
+		// The hook now reads each field via a per-field selector; replicate that
+		// behaviour so the mock honours the selector function.
+		vi.mocked(useGraphStore).mockImplementation((selector?: unknown) => {
+			if (typeof selector === "function") return (selector as (s: typeof storeState) => unknown)(storeState);
+			return storeState;
+		});
 		vi.mocked(useGraphStore.getState).mockReturnValue({
 			datasets: [],
 			series: [],
@@ -213,15 +218,15 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
 			mockDataset,
-		] as unknown as ReturnType<typeof parseData>);
+		] as unknown as ReturnType<typeof parseDataInWorker>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
 		});
 
-		expect(parseData).toHaveBeenCalledWith(file, "csv", settings);
+		expect(parseDataInWorker).toHaveBeenCalledWith(file, "csv", settings);
 		expect(mockAddDataset).toHaveBeenCalled();
 		expect(mockAddDataset.mock.calls[0][0].name).toBe("A - test.csv");
 		expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe("A: Col1");
@@ -263,9 +268,9 @@ describe("useDataImport hook", () => {
 			data: [],
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
 			mockDataset,
-		] as unknown as ReturnType<typeof parseData>);
+		] as unknown as ReturnType<typeof parseDataInWorker>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -306,7 +311,7 @@ describe("useDataImport hook", () => {
 		};
 
 		const errorMessage = "Failed to parse JSON";
-		vi.mocked(parseData).mockRejectedValueOnce(new Error(errorMessage));
+		vi.mocked(parseDataInWorker).mockRejectedValueOnce(new Error(errorMessage));
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -388,9 +393,9 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
 			mockDataset,
-		] as unknown as ReturnType<typeof parseData>);
+		] as unknown as ReturnType<typeof parseDataInWorker>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);
@@ -438,9 +443,9 @@ describe("useDataImport hook", () => {
 			xAxisId: "axis-1",
 		};
 
-		vi.mocked(parseData).mockResolvedValueOnce([
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
 			mockDataset,
-		] as unknown as ReturnType<typeof parseData>);
+		] as unknown as ReturnType<typeof parseDataInWorker>);
 
 		await act(async () => {
 			await result.current.confirmImport(settings);

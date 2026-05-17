@@ -3,8 +3,8 @@ import type { WorkBook } from "xlsx";
 import type { Dataset } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
-import { parseData } from "../utils/data-parser";
 import { buildSeriesConfig } from "../utils/series";
+import { parseDataInWorker } from "../workers/parserClient";
 
 const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
@@ -34,7 +34,8 @@ export const useDataImport = () => {
 		selectedSheet?: string;
 		workbook?: WorkBook;
 	} | null>(null);
-	const { addDataset, addSeries } = useGraphStore();
+	const addDataset = useGraphStore((s) => s.addDataset);
+	const addSeries = useGraphStore((s) => s.addSeries);
 
 	const initiateImport = useCallback(async (file: File) => {
 		setError(null);
@@ -110,11 +111,11 @@ export const useDataImport = () => {
 			}
 
 			try {
-				// To keep UI responsive during parsing of large files, we use a small timeout to allow
-				// the "isImporting" state to render before blocking the main thread.
-				await new Promise((resolve) => setTimeout(resolve, 10));
-
-				const datasets = await parseData(workerFile, workerType, settings);
+				const datasets = await parseDataInWorker(
+					workerFile,
+					workerType,
+					settings,
+				);
 				const incoming = (datasets as Dataset[]) || [];
 				const isSplitImport = incoming.length > 1;
 

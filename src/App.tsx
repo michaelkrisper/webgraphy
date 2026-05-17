@@ -6,7 +6,7 @@ import { useGraphStore } from "./store/useGraphStore";
 import "./index.css";
 
 export default function App() {
-	const { loadPersistedState } = useGraphStore();
+	const loadPersistedState = useGraphStore((s) => s.loadPersistedState);
 
 	useEffect(() => {
 		loadPersistedState();

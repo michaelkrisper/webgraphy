@@ -64,7 +64,9 @@ export async function parseData(
 	}
 	const doSplit = splitColIdxs.length > 0;
 
-	const groups: { name: string; rowIdxs: number[] }[] = [];
+	// rowIdxs === null means "identity mapping" — every row index maps to itself.
+	// Keeps the non-split fast path from allocating a redundant index array.
+	const groups: { name: string; rowIdxs: number[] | null }[] = [];
 	if (doSplit) {
 		const valueToNames = splitColIdxs.map((idx) => {
 			const m = new Map<number, string>();
@@ -99,10 +101,7 @@ export async function parseData(
 		});
 		groups.sort((a, b) => a.name.localeCompare(b.name));
 	} else {
-		groups.push({
-			name: "",
-			rowIdxs: Array.from({ length: totalRows }, (_, i) => i),
-		});
+		groups.push({ name: "", rowIdxs: null });
 	}
 
 	// Output columns exclude the split columns themselves
@@ -115,20 +114,20 @@ export async function parseData(
 	}
 
 	const datasets = groups.map((group) => {
-		// Build per-group, per-column Float64Arrays by gathering selected row indices
 		const rowIdxs = group.rowIdxs;
-		const groupRowCount = rowIdxs.length;
-		const groupData: Float64Array[] = outputColIdxs.map((srcCol) => {
-			const src = allData[srcCol];
-			const dst = new Float64Array(groupRowCount);
-			for (let r = 0; r < groupRowCount; r++) dst[r] = src[rowIdxs[r]];
-			return dst;
-		});
-
-		const colCount = groupData.length;
+		const groupRowCount = rowIdxs === null ? totalRows : rowIdxs.length;
+		const colCount = outputColIdxs.length;
 		const relativeData = new Array(colCount);
 		for (let j = 0; j < colCount; j++) {
-			relativeData[j] = processRawColumn(groupData[j]);
+			const src = allData[outputColIdxs[j]];
+			if (rowIdxs === null) {
+				// Identity mapping — processRawColumn doesn't mutate src.
+				relativeData[j] = processRawColumn(src);
+			} else {
+				const gathered = new Float64Array(groupRowCount);
+				for (let r = 0; r < groupRowCount; r++) gathered[r] = src[rowIdxs[r]];
+				relativeData[j] = processRawColumn(gathered);
+			}
 		}
 
 		const baseName = group.name ? `${file.name} (${group.name})` : file.name;
@@ -571,47 +570,77 @@ function parseValue(
 	return Number.isNaN(p) ? NaN : p;
 }
 
+interface DateFormatIndices {
+	yIdx: number;
+	moIdx: number;
+	dIdx: number;
+	hIdx: number;
+	miIdx: number;
+	sIdx: number;
+}
+
+const dateFormatCache = new Map<string, DateFormatIndices>();
+
+function getDateFormatIndices(format: string): DateFormatIndices {
+	let cached = dateFormatCache.get(format);
+	if (cached) return cached;
+	cached = {
+		yIdx: format.indexOf("YYYY"),
+		moIdx: format.indexOf("MM"),
+		dIdx: format.indexOf("DD"),
+		hIdx: format.indexOf("HH"),
+		miIdx: format.indexOf("mm"),
+		sIdx: format.indexOf("ss"),
+	};
+	dateFormatCache.set(format, cached);
+	return cached;
+}
+
 function parseDate(val: string, format?: string): number {
 	if (!format) {
 		const d = new Date(val);
 		return d.getTime() / 1000;
 	}
 
-	// Basic format parser (YYYY, MM, DD, HH, mm, ss)
-	try {
-		let year = 1970,
-			month = 0,
-			day = 1,
-			hour = 0,
-			min = 0,
-			sec = 0;
+	const idx = getDateFormatIndices(format);
+	let year = 1970;
+	let month = 0;
+	let day = 1;
+	let hour = 0;
+	let min = 0;
+	let sec = 0;
 
-		const parts = {
-			YYYY: { idx: format.indexOf("YYYY"), len: 4 },
-			MM: { idx: format.indexOf("MM"), len: 2 },
-			DD: { idx: format.indexOf("DD"), len: 2 },
-			HH: { idx: format.indexOf("HH"), len: 2 },
-			mm: { idx: format.indexOf("mm"), len: 2 },
-			ss: { idx: format.indexOf("ss"), len: 2 },
-		};
+	if (idx.yIdx !== -1)
+		year = parseInt(val.substring(idx.yIdx, idx.yIdx + 4), 10);
+	if (idx.moIdx !== -1)
+		month = parseInt(val.substring(idx.moIdx, idx.moIdx + 2), 10) - 1;
+	if (idx.dIdx !== -1)
+		day = parseInt(val.substring(idx.dIdx, idx.dIdx + 2), 10);
+	if (idx.hIdx !== -1)
+		hour = parseInt(val.substring(idx.hIdx, idx.hIdx + 2), 10);
+	if (idx.miIdx !== -1)
+		min = parseInt(val.substring(idx.miIdx, idx.miIdx + 2), 10);
+	if (idx.sIdx !== -1)
+		sec = parseInt(val.substring(idx.sIdx, idx.sIdx + 2), 10);
 
-		if (parts.YYYY.idx !== -1)
-			year = parseInt(val.substring(parts.YYYY.idx, parts.YYYY.idx + 4), 10);
-		if (parts.MM.idx !== -1)
-			month = parseInt(val.substring(parts.MM.idx, parts.MM.idx + 2), 10) - 1;
-		if (parts.DD.idx !== -1)
-			day = parseInt(val.substring(parts.DD.idx, parts.DD.idx + 2), 10);
-		if (parts.HH.idx !== -1)
-			hour = parseInt(val.substring(parts.HH.idx, parts.HH.idx + 2), 10);
-		if (parts.mm.idx !== -1)
-			min = parseInt(val.substring(parts.mm.idx, parts.mm.idx + 2), 10);
-		if (parts.ss.idx !== -1)
-			sec = parseInt(val.substring(parts.ss.idx, parts.ss.idx + 2), 10);
-
-		const d = new Date(year, month, day, hour, min, sec);
-		return d.getTime() / 1000;
-	} catch {
-		const d = new Date(val);
-		return d.getTime() / 1000;
+	// Match the previous local-time semantics (new Date(y, m, d, h, mi, s)) while
+	// skipping the per-row Date allocation. Falls back to Date parsing if the
+	// computed fields are out of range (e.g. malformed value).
+	if (
+		Number.isFinite(year) &&
+		Number.isFinite(month) &&
+		Number.isFinite(day) &&
+		Number.isFinite(hour) &&
+		Number.isFinite(min) &&
+		Number.isFinite(sec)
+	) {
+		dateScratch.setFullYear(year, month, day);
+		dateScratch.setHours(hour, min, sec, 0);
+		return dateScratch.getTime() / 1000;
 	}
+
+	const d = new Date(val);
+	return d.getTime() / 1000;
 }
+
+const dateScratch = new Date();

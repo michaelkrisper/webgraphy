@@ -21,7 +21,8 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	initialName,
 	initialFormula,
 }) => {
-	const { addCalculatedColumn, removeCalculatedColumn } = useGraphStore();
+	const addCalculatedColumn = useGraphStore((s) => s.addCalculatedColumn);
+	const removeCalculatedColumn = useGraphStore((s) => s.removeCalculatedColumn);
 	const isEditing = !!initialName;
 	const [manualName, setManualName] = useState(initialName ?? "");
 	const [nameUserEdited, setNameUserEdited] = useState(isEditing);

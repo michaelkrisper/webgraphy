@@ -179,33 +179,6 @@ function evaluateFuncToken(
 	}
 }
 
-function evaluateOpToken(
-	token: Extract<Token, { type: "OP" }>,
-	stack: number[],
-): number {
-	if (token.unary) {
-		const a = stack.pop() ?? 0;
-		if (token.value === "u-") return -a;
-		return a;
-	}
-	const b = stack.pop() ?? 0;
-	const a = stack.pop() ?? 0;
-	switch (token.value) {
-		case "+":
-			return a + b;
-		case "-":
-			return a - b;
-		case "*":
-			return a * b;
-		case "/":
-			return a / b;
-		case "^":
-			return a ** b;
-		default:
-			return a;
-	}
-}
-
 export function compileFormula(
 	formula: string,
 	availableColumns: string[],
@@ -653,35 +626,66 @@ export function compileFormula(
 			return ctx;
 		};
 
+		// Pre-allocated stack + args scratch — reused across every row evaluation.
+		// The shunting-yard output rarely needs more than a handful of stack slots,
+		// but 64 leaves headroom for deeply nested expressions without bounds checks.
+		const stack = new Float64Array(64);
+		const argsScratch: number[] = [];
+
 		return {
 			usedColumnIndices,
 			createContext,
 			evaluate: (rowValues: number[], ctx?: FormulaContext) => {
-				const stack: number[] = [];
-				for (const token of outputQueue) {
-					if (token.type === "NUMBER") stack.push(token.value);
-					else if (token.type === "CONST") stack.push(token.value);
-					else if (token.type === "VAR") stack.push(rowValues[token.index]);
-					else if (token.type === "FUNC") {
+				let sp = 0;
+				for (let i = 0; i < outputQueue.length; i++) {
+					const token = outputQueue[i];
+					const type = token.type;
+					if (type === "NUMBER" || type === "CONST") {
+						stack[sp++] = token.value;
+					} else if (type === "VAR") {
+						stack[sp++] = rowValues[token.index];
+					} else if (type === "FUNC") {
 						const argCount = token.args !== undefined ? token.args : 1;
-						const args: number[] = [];
-						for (let j = 0; j < argCount; j++) args.push(stack.pop()!);
-						args.reverse();
-
-						stack.push(
-							evaluateFuncToken(
-								token as Extract<Token, { type: "FUNC" }>,
-								args,
-								rowValues,
-								finalDataColumnIndices,
-								timeVarIdx,
-								ctx,
-							),
+						argsScratch.length = argCount;
+						for (let j = argCount - 1; j >= 0; j--) argsScratch[j] = stack[--sp];
+						stack[sp++] = evaluateFuncToken(
+							token,
+							argsScratch,
+							rowValues,
+							finalDataColumnIndices,
+							timeVarIdx,
+							ctx,
 						);
-					} else if (token.type === "OP") {
-						stack.push(
-							evaluateOpToken(token as Extract<Token, { type: "OP" }>, stack),
-						);
+					} else if (type === "OP") {
+						const op = token.value;
+						if (token.unary) {
+							const a = stack[--sp];
+							stack[sp++] = op === "u-" ? -a : a;
+						} else {
+							const b = stack[--sp];
+							const a = stack[--sp];
+							let r: number;
+							switch (op) {
+								case "+":
+									r = a + b;
+									break;
+								case "-":
+									r = a - b;
+									break;
+								case "*":
+									r = a * b;
+									break;
+								case "/":
+									r = a / b;
+									break;
+								case "^":
+									r = a ** b;
+									break;
+								default:
+									r = a;
+							}
+							stack[sp++] = r;
+						}
 					}
 				}
 				return stack[0];
@@ -980,11 +984,16 @@ export function evaluateFormulaSync(
 
 			const compactX = new Float64Array(repXVals);
 			const compactY = new Float64Array(repYVals);
-			const order = Array.from({ length: compactX.length }, (_, i) => i).sort(
-				(a, b) => compactX[a] - compactX[b],
-			);
-			const sortedX = new Float64Array(order.map((i) => compactX[i]));
-			const sortedY = new Float64Array(order.map((i) => compactY[i]));
+			const orderLen = compactX.length;
+			const order = new Uint32Array(orderLen);
+			for (let i = 0; i < orderLen; i++) order[i] = i;
+			order.sort((a, b) => compactX[a] - compactX[b]);
+			const sortedX = new Float64Array(orderLen);
+			const sortedY = new Float64Array(orderLen);
+			for (let i = 0; i < orderLen; i++) {
+				sortedX[i] = compactX[order[i]];
+				sortedY[i] = compactY[order[i]];
+			}
 
 			const processedX = processRawColumn(sortedX);
 			const processedY = processRawColumn(sortedY);
