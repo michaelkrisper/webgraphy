@@ -15,15 +15,13 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	datasets,
 	onHandleMouseDown,
 }) => {
-	const {
-		updateSeries,
-		removeSeries,
-		yAxes,
-		updateYAxis,
-		updateSeriesVisibility,
-		series: allSeries,
-		setPreviewColor,
-	} = useGraphStore();
+	const updateSeries = useGraphStore((s) => s.updateSeries);
+	const removeSeries = useGraphStore((s) => s.removeSeries);
+	const yAxes = useGraphStore((s) => s.yAxes);
+	const updateYAxis = useGraphStore((s) => s.updateYAxis);
+	const updateSeriesVisibility = useGraphStore((s) => s.updateSeriesVisibility);
+	const allSeries = useGraphStore((s) => s.series);
+	const setPreviewColor = useGraphStore((s) => s.setPreviewColor);
 
 	const multiDs = datasets.length > 1;
 	const handleUpdate = (updates: Partial<SeriesConfig>) => {

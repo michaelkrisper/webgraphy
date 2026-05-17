@@ -3,6 +3,8 @@
  * Per bucket: emit (first, last, min, max) — preserves visible extrema for line plots.
  */
 
+import { findFirstGE } from "./binarySearch";
+
 /**
  * Pixel-anchored M4 decimation. Buckets are X-world intervals tied to screen pixels,
  * so bucket boundaries do not shift with slice length — eliminates sample jumping under zoom.
@@ -51,19 +53,7 @@ export function m4ByXFloat32(
 	let outIdx = 0;
 	const bucket = [0, 0, 0, 0];
 
-	let i = 0;
-	let low = 0;
-	let high = n - 1;
-	const target = gridStart - xRef;
-	while (low <= high) {
-		const mid = (low + high) >>> 1;
-		if (xData[mid] < target) {
-			low = mid + 1;
-		} else {
-			high = mid - 1;
-		}
-	}
-	i = low;
+	let i = findFirstGE(xData, gridStart - xRef, 0, n);
 
 	// Continuity anchor: emit last point before xMin (if any, non-NaN) so the line
 	// enters from the left edge instead of starting inside the viewport.

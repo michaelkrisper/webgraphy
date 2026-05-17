@@ -8,6 +8,7 @@ import type {
 	YAxisConfig,
 } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
+import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
 
 /**
@@ -20,26 +21,8 @@ function visibleIndexRange(
 	xMin: number,
 	xMax: number,
 ): { startIdx: number; endIdx: number } | null {
-	let startIdx = -1,
-		endIdx = -1,
-		low = 0,
-		high = xData.length - 1;
-	while (low <= high) {
-		const mid = (low + high) >>> 1;
-		if (xData[mid] + refX >= xMin) {
-			startIdx = mid;
-			high = mid - 1;
-		} else low = mid + 1;
-	}
-	low = 0;
-	high = xData.length - 1;
-	while (low <= high) {
-		const mid = (low + high) >>> 1;
-		if (xData[mid] + refX <= xMax) {
-			endIdx = mid;
-			low = mid + 1;
-		} else high = mid - 1;
-	}
+	const startIdx = findFirstGE(xData, xMin, refX, -1);
+	const endIdx = findLastLE(xData, xMax, refX, -1);
 	if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return null;
 	return { startIdx, endIdx };
 }

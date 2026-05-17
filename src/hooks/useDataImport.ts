@@ -34,7 +34,8 @@ export const useDataImport = () => {
 		selectedSheet?: string;
 		workbook?: WorkBook;
 	} | null>(null);
-	const { addDataset, addSeries } = useGraphStore();
+	const addDataset = useGraphStore((s) => s.addDataset);
+	const addSeries = useGraphStore((s) => s.addSeries);
 
 	const initiateImport = useCallback(async (file: File) => {
 		setError(null);

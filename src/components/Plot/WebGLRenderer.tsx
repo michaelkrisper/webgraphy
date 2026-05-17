@@ -12,6 +12,7 @@ import type {
 	YAxisConfig,
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
+import { findFirstGE, findLastLE } from "../../utils/binarySearch";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import { m4ByXFloat32 } from "../../utils/decimation";
@@ -1012,27 +1013,11 @@ export const WebGLRenderer = React.memo(
 						}
 
 						const xDataLen = xData.length;
-						let rawStart = 0,
-							rawEnd = xDataLen - 1;
+						let rawStart = 0;
+						let rawEnd = xDataLen - 1;
 						if (isMonotonic) {
-							let lo = 0,
-								hi = xDataLen - 1;
-							while (lo <= hi) {
-								const m = (lo + hi) >>> 1;
-								if (xData[m] + xRef <= xAxis.min) {
-									rawStart = m;
-									lo = m + 1;
-								} else hi = m - 1;
-							}
-							lo = 0;
-							hi = xDataLen - 1;
-							while (lo <= hi) {
-								const m = (lo + hi) >>> 1;
-								if (xData[m] + xRef >= xAxis.max) {
-									rawEnd = m;
-									hi = m - 1;
-								} else lo = m + 1;
-							}
+							rawStart = findLastLE(xData, xAxis.min, xRef, 0);
+							rawEnd = findFirstGE(xData, xAxis.max, xRef, xDataLen - 1);
 						}
 
 						const sliceStart = isMonotonic
@@ -1399,30 +1384,12 @@ export const WebGLRenderer = React.memo(
 									pointDecimCacheRef.current.set(yData, entry);
 								}
 								if (entry.xBuf && entry.yBuf && entry.count >= 1) {
-									// Binary-search visible range in decimated X (still monotonic
-									// because m4 emits indices in order within each bucket).
+									// m4 emits indices in order within each bucket, so the
+									// decimated X array remains monotonic.
 									const xArr = entry.xArr;
 									const cnt = entry.count;
-									let lo = 0,
-										hi = cnt - 1,
-										lowIdx = 0;
-									while (lo <= hi) {
-										const m = (lo + hi) >>> 1;
-										if (xArr[m] + xRef <= xAxis.min) {
-											lowIdx = m;
-											lo = m + 1;
-										} else hi = m - 1;
-									}
-									lo = 0;
-									hi = cnt - 1;
-									let highIdx = cnt - 1;
-									while (lo <= hi) {
-										const m = (lo + hi) >>> 1;
-										if (xArr[m] + xRef >= xAxis.max) {
-											highIdx = m;
-											hi = m - 1;
-										} else lo = m + 1;
-									}
+									const lowIdx = findLastLE(xArr, xAxis.min, xRef, 0);
+									const highIdx = findFirstGE(xArr, xAxis.max, xRef, cnt - 1);
 									const dStart = Math.max(0, lowIdx > 0 ? lowIdx - 1 : 0);
 									const dEnd = Math.min(
 										cnt - 1,

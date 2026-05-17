@@ -6,6 +6,7 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../../services/persistence";
+import { findClosest } from "../../utils/binarySearch";
 import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
 import { escapeHTML } from "../../utils/dom";
@@ -173,21 +174,7 @@ const Crosshair = React.memo(
 							padding,
 						};
 						const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-						let lo = 0,
-							hi = xData.length - 1;
-						while (lo < hi) {
-							const mid = (lo + hi) >>> 1;
-							if (xData[mid] + refX < sMouseWorld.x) lo = mid + 1;
-							else hi = mid;
-						}
-						let bestI = lo;
-						if (
-							lo > 0 &&
-							Math.abs(xData[lo - 1] + refX - sMouseWorld.x) <
-								Math.abs(xData[lo] + refX - sMouseWorld.x)
-						)
-							bestI = lo - 1;
-						cachedIdx = bestI;
+						cachedIdx = findClosest(xData, sMouseWorld.x, refX);
 						closestIdxByDataset.set(ds.id, cachedIdx);
 					}
 					const sVp = {

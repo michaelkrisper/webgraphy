@@ -605,13 +605,23 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 let viewportTimer: ReturnType<typeof setTimeout> | null = null;
 let configTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Schedule low-priority work via requestIdleCallback so persistence writes
+// don't compete with a render burst. Falls back to setTimeout in non-Chromium
+// browsers and during SSR/tests.
+const requestIdle =
+	typeof globalThis.requestIdleCallback === "function"
+		? globalThis.requestIdleCallback
+		: (cb: () => void) => setTimeout(cb, 0);
+
 function debouncedSaveViewport() {
 	if (viewportTimer) clearTimeout(viewportTimer);
 	viewportTimer = setTimeout(() => {
 		viewportTimer = null;
-		const s = useGraphStore.getState();
-		if (!s.isLoaded) return;
-		persistence.saveViewport({ xAxes: s.xAxes, yAxes: s.yAxes });
+		requestIdle(() => {
+			const s = useGraphStore.getState();
+			if (!s.isLoaded) return;
+			persistence.saveViewport({ xAxes: s.xAxes, yAxes: s.yAxes });
+		});
 	}, 250);
 }
 
@@ -619,13 +629,15 @@ function debouncedSaveConfig() {
 	if (configTimer) clearTimeout(configTimer);
 	configTimer = setTimeout(() => {
 		configTimer = null;
-		const s = useGraphStore.getState();
-		if (!s.isLoaded) return;
-		persistence.saveConfig({
-			series: s.series,
-			axisTitles: s.axisTitles,
-			legendVisible: s.legendVisible,
-			crosshairVisible: s.crosshairVisible,
+		requestIdle(() => {
+			const s = useGraphStore.getState();
+			if (!s.isLoaded) return;
+			persistence.saveConfig({
+				series: s.series,
+				axisTitles: s.axisTitles,
+				legendVisible: s.legendVisible,
+				crosshairVisible: s.crosshairVisible,
+			});
 		});
 	}, 150);
 }
