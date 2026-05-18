@@ -1,9 +1,10 @@
 :root {
 	--sidebar-width: 380px;
 	--plot-bg: #ffffff;
-	--sidebar-bg: #f8fafc;
-	--border-color: #e2e8f0;
-	--text-color: #1e293b;
+	--sidebar-bg: #fafaf7;
+	--border-color: #e6e3dc;
+	--text-color: #1a1a17;
+	--font-family-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 	--ui-size: 28px;
 	--ui-font-size: 11px;
 }

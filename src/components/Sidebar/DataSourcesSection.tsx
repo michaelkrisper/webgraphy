@@ -172,13 +172,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 									>
 										{ds.name.includes(": ") ? ds.name.split(": ")[1] : ds.name}
 									</span>
-									<span
-										style={{
-											fontSize: "0.7rem",
-											color: t.textMuted,
-											opacity: 0.8,
-										}}
-									>
+									<span className="sb-dataset-meta">
 										{ds.rowCount.toLocaleString()} lines
 									</span>
 									<div
@@ -197,6 +191,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 											}}
 										>
 											<button
+												className="sb-xaxis-btn-mono"
 												onClick={() => {
 													const currentId = ds.xAxisId || "axis-1";
 													const currentNum =
@@ -375,6 +370,8 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 															onClick={() => createSeries(ds.id, col)}
 															style={{
 																fontSize: "0.7rem",
+																fontFamily: "var(--font-family-mono)",
+																letterSpacing: "-0.005em",
 																padding: "3px 8px",
 																borderRadius: "0",
 																border: "none",

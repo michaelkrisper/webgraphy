@@ -4,11 +4,21 @@ import { THEME_CYCLE, THEMES, type ThemeName } from "../themes";
 const STORAGE_KEY = "theme";
 const loadedFonts = new Set<string>();
 
-const INTER_URL =
-	"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
+const PLEX_URL =
+	"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap";
+const JETBRAINS_URL =
+	"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap";
+const SERIF_URL =
+	"https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap";
+const COMIC_URL =
+	"https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap";
+
 const FONT_URLS: Partial<Record<ThemeName, string>> = {
-	light: INTER_URL,
-	dark: INTER_URL,
+	light: PLEX_URL,
+	dark: PLEX_URL,
+	matrix: JETBRAINS_URL,
+	winnie: SERIF_URL,
+	unicorn: COMIC_URL,
 };
 
 function loadFont(theme: ThemeName) {
@@ -50,6 +60,7 @@ function applyTheme(t: ThemeName) {
 	const theme = THEMES[t];
 	const s = document.documentElement.style;
 	s.setProperty("--font-family", theme.fontFamily);
+	s.setProperty("--font-family-mono", theme.fontFamilyMono);
 	s.setProperty("--text-color", theme.text);
 	s.setProperty("--text-muted-color", theme.textMuted);
 	s.setProperty("--plot-bg", theme.plotBg);

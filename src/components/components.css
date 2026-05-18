@@ -509,15 +509,13 @@
 	height: var(--ui-size);
 	flex-shrink: 0;
 	background: transparent;
-	border-right: 1px solid var(--border2);
 	font-size: var(--ui-font-size);
 	color: var(--text-muted-color);
 	padding: 0;
 	cursor: pointer;
-	border-top: none;
-	border-bottom: none;
-	border-left: none;
+	border: none;
 	position: relative;
+	font-variant-numeric: tabular-nums;
 }
 .sc-btn--plain {
 	background: none;
@@ -569,7 +567,6 @@
 	width: 24px;
 	height: var(--ui-size);
 	background: var(--bg2);
-	border-right: 1px solid var(--border2);
 	color: var(--text-muted-color);
 	cursor: grab;
 	flex-shrink: 0;
@@ -578,7 +575,6 @@
 	cursor: grabbing;
 }
 .sc-cell-placeholder {
-	border-right: 1px solid var(--border2);
 	width: var(--ui-size);
 	height: var(--ui-size);
 }
@@ -590,9 +586,9 @@
 	min-width: 0;
 	flex-shrink: 1;
 	border: none;
-	border-right: 1px solid var(--border2);
 	color: var(--text-muted-color);
 	background: transparent;
+	font-family: var(--font-family-mono);
 }
 .sc-line-icon {
 	display: block;
@@ -1075,7 +1071,8 @@
 	flex-direction: column;
 }
 .sb-section {
-	margin-bottom: 24px;
+	margin-bottom: 8px;
+	padding: 18px 0 6px;
 }
 .sb-section-header {
 	display: flex;
@@ -1090,12 +1087,13 @@
 	flex: 1;
 }
 .sb-section-title {
-	margin: 8px 8px 0 8px;
-	font-size: 0.75rem;
+	margin: 0;
+	padding-left: 10px;
+	font-size: 0.7rem;
 	font-weight: 700;
 	color: var(--text-muted-color);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.08em;
 }
 .sb-icon-btn {
 	padding: 4px;
@@ -1148,6 +1146,7 @@
 	align-items: center;
 }
 .sb-dataset-name {
+	font-family: var(--font-family);
 	font-weight: 700;
 	font-size: 0.85rem;
 	color: var(--text-mid);
@@ -1155,6 +1154,17 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	max-width: 180px;
+}
+.sb-dataset-meta {
+	font-size: 0.7rem;
+	color: var(--text-muted-color);
+	opacity: 0.85;
+	font-family: var(--font-family-mono);
+	font-variant-numeric: tabular-nums;
+}
+.sb-xaxis-btn-mono {
+	font-family: var(--font-family-mono);
+	font-variant-numeric: tabular-nums;
 }
 .sb-dataset-actions {
 	display: flex;
@@ -1245,6 +1255,8 @@
 	border: 1px solid var(--accent);
 	cursor: pointer;
 	font-weight: 600;
+	font-family: var(--font-family-mono);
+	letter-spacing: -0.005em;
 }
 .sb-series-list {
 	display: flex;
@@ -1269,6 +1281,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-family: var(--font-family);
 }
 .sb-series-row {
 	transition: background 0.2s;

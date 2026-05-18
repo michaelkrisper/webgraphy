@@ -2,6 +2,7 @@ export type ThemeName = "light" | "dark" | "matrix" | "winnie" | "unicorn";
 
 export interface Theme {
 	fontFamily: string;
+	fontFamilyMono: string;
 	// Sidebar / UI
 	bg: string;
 	bg2: string;
@@ -38,194 +39,200 @@ export interface Theme {
 }
 
 export const THEMES: Record<ThemeName, Theme> = {
-	// Publication White — print-ready, IEEE/Nature journal standard
-	// Palette: GitHub Primer Light (battle-tested, WCAG AA throughout)
+	// Modern light — warm near-white, cobalt accent, hairline borders
 	light: {
-		fontFamily: '"Inter", "Helvetica Neue", Arial, sans-serif',
-		bg: "#ffffff", // pure white — prints clean
-		bg2: "#f6f8fa", // sidebar body — barely-there tint
-		bg3: "#eaeef2", // tertiary surface
-		border: "#d0d7de", // crisp, not loud
-		border2: "#bdc4cc",
-		text: "#1f2328", // near-black — 15:1 contrast on white
-		textMid: "#24292f",
-		textMuted: "#57606a", // 4.6:1 — passes AA
-		textLight: "#6e7781",
-		accent: "#0969da", // IEEE blue — saturated but not childish
-		danger: "#cf222e",
-		shadow: "rgba(31,35,40,0.08)",
+		fontFamily: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
+		fontFamilyMono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+		bg: "#ffffff",
+		bg2: "#fafaf7",
+		bg3: "#f1efeb",
+		border: "#e6e3dc",
+		border2: "#d6d2c8",
+		text: "#1a1a17",
+		textMid: "#3a3a35",
+		textMuted: "#6b6760",
+		textLight: "#a09c93",
+		accent: "#1f4ed8",
+		danger: "#c93636",
+		shadow: "rgba(26,26,23,0.06)",
 		selectBg: "#ffffff",
-		selectColor: "#24292f",
-		btnBorder: "#d0d7de",
-		btnColor: "#24292f",
-		cardBorder: "#d0d7de",
-		sectionHeaderBg: "#f6f8fa",
-		// Chart — optimised for screen and print export
+		selectColor: "#1a1a17",
+		btnBorder: "#e6e3dc",
+		btnColor: "#3a3a35",
+		cardBorder: "#e6e3dc",
+		sectionHeaderBg: "#fafaf7",
 		plotBg: "#ffffff",
-		axisColor: "#24292f", // strong axis spine — reads in print
-		zeroLineColor: "#8c959f", // subtler reference line
-		gridColor: "#dde1e6",
-		labelColor: "#57606a",
+		axisColor: "#3a3a35",
+		zeroLineColor: "#a09c93",
+		gridColor: "#ececea",
+		labelColor: "#6b6760",
 		secLabelBg: "rgba(255,255,255,0.93)",
 		tooltipBg: "rgba(255,255,255,0.97)",
-		tooltipColor: "#1f2328",
-		tooltipBorder: "#d0d7de",
-		snapLineColor: "#d0d7de",
-		tooltipDividerColor: "rgba(31,35,40,0.07)",
-		tooltipSubColor: "#57606a",
-		noDataColor: "#d0d7de",
+		tooltipColor: "#1a1a17",
+		tooltipBorder: "#d6d2c8",
+		snapLineColor: "#d6d2c8",
+		tooltipDividerColor: "rgba(26,26,23,0.07)",
+		tooltipSubColor: "#6b6760",
+		noDataColor: "#d6d2c8",
 	},
 
-	// Engineering Dark — OLED-friendly, VS Code / JetBrains standard
-	// Palette: GitHub Primer Dark (same system — consistent semantics)
+	// Modern dark — desaturated blue-black
 	dark: {
-		fontFamily: '"Inter", "Helvetica Neue", Arial, sans-serif',
-		bg: "#161b22", // card surface
-		bg2: "#0d1117", // page background — true dark
-		bg3: "#1c2128", // inset / tertiary
-		border: "#30363d", // GitHub dark separator
-		border2: "#3d444d",
-		text: "#e6edf3", // primary — 14:1 on bg2
-		textMid: "#cdd9e5",
-		textMuted: "#8b949e", // 4.5:1 — passes AA
-		textLight: "#484f58",
-		accent: "#388bfd", // calibrated for dark bg — less saturated than light
-		danger: "#f85149",
+		fontFamily: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
+		fontFamilyMono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+		bg: "#15181f",
+		bg2: "#0f1115",
+		bg3: "#1c2028",
+		border: "#23272f",
+		border2: "#2e333d",
+		text: "#e8e6e1",
+		textMid: "#b8b6b1",
+		textMuted: "#807c75",
+		textLight: "#54514c",
+		accent: "#5b8dff",
+		danger: "#f06262",
 		shadow: "rgba(0,0,0,0.5)",
-		selectBg: "#1c2128",
-		selectColor: "#cdd9e5",
-		btnBorder: "#30363d",
-		btnColor: "#8b949e",
-		cardBorder: "#30363d",
-		sectionHeaderBg: "#0d1117",
-		// Chart
-		plotBg: "#0d1117", // same as page bg — seamless
-		axisColor: "#6e7681", // visible but not glaring
-		zeroLineColor: "#30363d",
-		gridColor: "#272e36",
-		labelColor: "#8b949e",
-		secLabelBg: "rgba(13,17,23,0.93)",
-		tooltipBg: "rgba(22,27,34,0.97)",
-		tooltipColor: "#e6edf3",
-		tooltipBorder: "#30363d",
-		snapLineColor: "#3d444d",
+		selectBg: "#1c2028",
+		selectColor: "#b8b6b1",
+		btnBorder: "#23272f",
+		btnColor: "#807c75",
+		cardBorder: "#23272f",
+		sectionHeaderBg: "#0f1115",
+		plotBg: "#0a0c10",
+		axisColor: "#54514c",
+		zeroLineColor: "#2e333d",
+		gridColor: "#181a20",
+		labelColor: "#807c75",
+		secLabelBg: "rgba(15,17,21,0.93)",
+		tooltipBg: "rgba(21,24,31,0.97)",
+		tooltipColor: "#e8e6e1",
+		tooltipBorder: "#2e333d",
+		snapLineColor: "#2e333d",
 		tooltipDividerColor: "rgba(255,255,255,0.05)",
-		tooltipSubColor: "#8b949e",
-		noDataColor: "#21262d",
+		tooltipSubColor: "#807c75",
+		noDataColor: "#23272f",
 	},
+
+	// Matrix — phosphor green on near-black
 	matrix: {
-		fontFamily: '"Share Tech Mono", "Courier New", monospace',
-		bg: "#001400",
-		bg2: "#000a00",
-		bg3: "#001a00",
-		border: "#003300",
-		border2: "#005500",
-		text: "#00ff41",
-		textMid: "#00cc33",
-		textMuted: "#009922",
-		textLight: "#005500",
-		accent: "#00ff41",
-		danger: "#ff4444",
-		shadow: "rgba(0,255,65,0.1)",
-		selectBg: "#000a00",
-		selectColor: "#00ff41",
-		btnBorder: "#003300",
-		btnColor: "#00cc33",
-		cardBorder: "#003300",
-		sectionHeaderBg: "#000a00",
-		plotBg: "#000000",
-		axisColor: "#00aa22",
-		zeroLineColor: "#004400",
-		gridColor: "#004400",
-		labelColor: "#00cc33",
-		secLabelBg: "rgba(0,0,0,0.88)",
-		tooltipBg: "rgba(0,8,0,0.96)",
-		tooltipColor: "#00ff41",
-		tooltipBorder: "#005500",
-		snapLineColor: "#006600",
-		tooltipDividerColor: "rgba(0,255,65,0.1)",
-		tooltipSubColor: "#009922",
-		noDataColor: "#003300",
+		fontFamily: '"JetBrains Mono", "Share Tech Mono", "Courier New", monospace',
+		fontFamilyMono: '"JetBrains Mono", "Share Tech Mono", "Courier New", monospace',
+		bg: "#081109",
+		bg2: "#040806",
+		bg3: "#0c1a0e",
+		border: "#13301a",
+		border2: "#1d4a26",
+		text: "#7dffa3",
+		textMid: "#4fcc73",
+		textMuted: "#2f9c4a",
+		textLight: "#1f6230",
+		accent: "#7dffa3",
+		danger: "#ff5c5c",
+		shadow: "rgba(125,255,163,0.1)",
+		selectBg: "#040806",
+		selectColor: "#7dffa3",
+		btnBorder: "#13301a",
+		btnColor: "#4fcc73",
+		cardBorder: "#13301a",
+		sectionHeaderBg: "#040806",
+		plotBg: "#020503",
+		axisColor: "#2f9c4a",
+		zeroLineColor: "#13301a",
+		gridColor: "#0a1a0d",
+		labelColor: "#4fcc73",
+		secLabelBg: "rgba(2,5,3,0.88)",
+		tooltipBg: "rgba(4,8,6,0.96)",
+		tooltipColor: "#7dffa3",
+		tooltipBorder: "#1d4a26",
+		snapLineColor: "#1d4a26",
+		tooltipDividerColor: "rgba(125,255,163,0.1)",
+		tooltipSubColor: "#2f9c4a",
+		noDataColor: "#13301a",
 	},
+
+	// Winnie — warm editorial, deep oak on cream linen
 	winnie: {
-		fontFamily: '"Lora", "Georgia", serif',
-		bg: "#fdf5e6", // OldLace / Light Cream
-		bg2: "#f5deb3", // Wheat
-		bg3: "#e6ccb2", // Muted Caramel
-		border: "#d2b48c", // Tan
-		border2: "#bc8f8f", // RosyBrown
-		text: "#5d4037", // Dark Brown
-		textMid: "#795548", // Brown
-		textMuted: "#a1887f", // Light Brown
-		textLight: "#d7ccc8",
-		accent: "#8b4513", // SaddleBrown
-		danger: "#b22222",
-		shadow: "rgba(139,69,19,0.15)",
-		selectBg: "#fdf5e6",
-		selectColor: "#5d4037",
-		btnBorder: "#d2b48c",
-		btnColor: "#795548",
-		cardBorder: "#d2b48c",
-		sectionHeaderBg: "#f5deb3",
-		plotBg: "#fdf5e6", // OldLace / Light Cream
-		axisColor: "#5d4037",
-		zeroLineColor: "#d2b48c",
-		gridColor: "#eedcb3",
-		labelColor: "#795548",
-		secLabelBg: "rgba(253,245,230,0.92)",
-		tooltipBg: "rgba(253,245,230,0.98)",
-		tooltipColor: "#5d4037",
-		tooltipBorder: "#d2b48c",
-		snapLineColor: "#bc8f8f",
-		tooltipDividerColor: "rgba(139,69,19,0.1)",
-		tooltipSubColor: "#a1887f",
-		noDataColor: "#d2b48c",
+		fontFamily: '"Source Serif 4", "Lora", Georgia, serif',
+		fontFamilyMono: '"JetBrains Mono", ui-monospace, monospace',
+		bg: "#faf3df",
+		bg2: "#f4ead4",
+		bg3: "#ecdfbe",
+		border: "#d9c290",
+		border2: "#b8975c",
+		text: "#3a2410",
+		textMid: "#5b3a1a",
+		textMuted: "#8a6634",
+		textLight: "#b08c5b",
+		accent: "#a0521b",
+		danger: "#a23a1d",
+		shadow: "rgba(58,36,16,0.12)",
+		selectBg: "#faf3df",
+		selectColor: "#3a2410",
+		btnBorder: "#d9c290",
+		btnColor: "#5b3a1a",
+		cardBorder: "#d9c290",
+		sectionHeaderBg: "#f4ead4",
+		plotBg: "#faf3df",
+		axisColor: "#5b3a1a",
+		zeroLineColor: "#b8975c",
+		gridColor: "#e8d8a8",
+		labelColor: "#8a6634",
+		secLabelBg: "rgba(250,243,223,0.92)",
+		tooltipBg: "rgba(250,243,223,0.98)",
+		tooltipColor: "#3a2410",
+		tooltipBorder: "#d9c290",
+		snapLineColor: "#b8975c",
+		tooltipDividerColor: "rgba(58,36,16,0.10)",
+		tooltipSubColor: "#8a6634",
+		noDataColor: "#d9c290",
 	},
+
+	// Unicorn — refined vapor-pop
 	unicorn: {
-		fontFamily: '"Comic Sans MS", cursive',
-		bg: "#fff0f9",
-		bg2: "#fce4f0",
-		bg3: "#fad4e8",
-		border: "#f9a8d4",
-		border2: "#f472b6",
-		text: "#7b2d8b",
-		textMid: "#9333a1",
-		textMuted: "#c026d3",
-		textLight: "#e879f9",
-		accent: "#f472b6",
-		danger: "#f43f5e",
-		shadow: "rgba(244,114,182,0.2)",
-		selectBg: "#fff0f9",
-		selectColor: "#7b2d8b",
-		btnBorder: "#f9a8d4",
-		btnColor: "#c026d3",
-		cardBorder: "#f9a8d4",
-		sectionHeaderBg: "#fce4f0",
-		plotBg: "#fff0f9",
-		axisColor: "#c026d3",
-		zeroLineColor: "#f9a8d4",
-		gridColor: "#f0a8d8",
-		labelColor: "#c026d3",
-		secLabelBg: "rgba(255,240,249,0.9)",
-		tooltipBg: "rgba(255,240,249,0.97)",
-		tooltipColor: "#7b2d8b",
-		tooltipBorder: "#f9a8d4",
-		snapLineColor: "#f9a8d4",
-		tooltipDividerColor: "rgba(244,114,182,0.15)",
-		tooltipSubColor: "#c026d3",
-		noDataColor: "#f9a8d4",
+		fontFamily: '"Comic Neue", "Comic Sans MS", cursive',
+		fontFamilyMono: '"Comic Neue", "Comic Sans MS", cursive',
+		bg: "#ffffff",
+		bg2: "#fff4fb",
+		bg3: "#fde6f3",
+		border: "#f9c8e0",
+		border2: "#f191c1",
+		text: "#4a1066",
+		textMid: "#7b2da1",
+		textMuted: "#b04dc4",
+		textLight: "#dba5e0",
+		accent: "#d422a4",
+		danger: "#e23a7a",
+		shadow: "rgba(212,34,164,0.18)",
+		selectBg: "#fff4fb",
+		selectColor: "#4a1066",
+		btnBorder: "#f9c8e0",
+		btnColor: "#7b2da1",
+		cardBorder: "#f9c8e0",
+		sectionHeaderBg: "#fff4fb",
+		plotBg: "#fff4fb",
+		axisColor: "#7b2da1",
+		zeroLineColor: "#f191c1",
+		gridColor: "#fcdcef",
+		labelColor: "#b04dc4",
+		secLabelBg: "rgba(255,244,251,0.9)",
+		tooltipBg: "rgba(255,244,251,0.97)",
+		tooltipColor: "#4a1066",
+		tooltipBorder: "#f9c8e0",
+		snapLineColor: "#f9c8e0",
+		tooltipDividerColor: "rgba(212,34,164,0.12)",
+		tooltipSubColor: "#b04dc4",
+		noDataColor: "#f9c8e0",
 	},
 };
 
+// Refined series palette — works on both light and dark
 export const COLOR_PALETTE = [
-	"#4589ff", // Blue
-	"#f0a830", // Orange
-	"#3dbf6e", // Green
-	"#e8445a", // Red
-	"#8a3ffc", // Purple
-	"#00a69c", // Teal
-	"#d44fbd", // Pink
-	"#ffcc00", // Yellow
+	"#1f4ed8", // cobalt
+	"#d97706", // amber
+	"#0d8770", // teal
+	"#db2777", // magenta
+	"#7c3aed", // violet
+	"#0891b2", // cyan
 ];
 
 export const THEME_CYCLE: ThemeName[] = [
