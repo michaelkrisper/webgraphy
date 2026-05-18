@@ -169,14 +169,37 @@ export async function parseData(
 	return datasets;
 }
 
+export function splitCSVLine(line: string, delimiter: string): string[] {
+	if (delimiter.length === 1) {
+		const delimChar = delimiter.charCodeAt(0);
+		const vals: string[] = [];
+		let start = 0;
+		const lineLen = line.length;
+		let inQuote = false;
+
+		for (let i = 0; i < lineLen; i++) {
+			const c = line.charCodeAt(i);
+			if (c === 34) {
+				inQuote = !inQuote;
+			} else if (c === delimChar && !inQuote) {
+				vals.push(line.substring(start, i));
+				start = i + 1;
+			}
+		}
+		vals.push(line.substring(start));
+		return vals;
+	}
+
+	return line.split(delimiter);
+}
+
 function processCSVHeader(
 	line: string,
 	delimiter: string,
 	columnConfigs: ColumnConfigEntry[],
 	capacity: number,
 ) {
-	const headers = line
-		.split(delimiter)
+	const headers = splitCSVLine(line, delimiter)
 		.map((h) => h.trim().replace(/^"|"$/g, ""));
 
 	const configMap = new Map<number, ColumnConfigEntry>();
@@ -246,7 +269,14 @@ function processCSVRow(
 
 			// Fast forward to target column
 			while (currentCol < targetCol && start < lineLen) {
-				while (start < lineLen && line.charCodeAt(start) !== delimChar) {
+				let inQuote = false;
+				while (start < lineLen) {
+					const c = line.charCodeAt(start);
+					if (c === 34) {
+						inQuote = !inQuote;
+					} else if (c === delimChar && !inQuote) {
+						break;
+					}
 					start++;
 				}
 				if (start < lineLen) {
@@ -258,7 +288,14 @@ function processCSVRow(
 			let val = "";
 			if (start < lineLen) {
 				let end = start;
-				while (end < lineLen && line.charCodeAt(end) !== delimChar) {
+				let inQuote = false;
+				while (end < lineLen) {
+					const c = line.charCodeAt(end);
+					if (c === 34) {
+						inQuote = !inQuote;
+					} else if (c === delimChar && !inQuote) {
+						break;
+					}
 					end++;
 				}
 
