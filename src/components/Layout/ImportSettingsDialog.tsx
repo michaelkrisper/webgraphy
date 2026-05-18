@@ -7,6 +7,7 @@ import type {
 	ImportSettings,
 } from "../../types/import";
 import { secureJSONParse } from "../../utils/json";
+import { splitCSVLine } from "../../utils/data-parser";
 import { Modal } from "./Modal";
 
 interface ImportSettingsDialogProps {
@@ -199,14 +200,12 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		const headerRowIndex = Math.max(0, deferredStartRow - 1);
 		const skippedLines = lines.slice(0, headerRowIndex);
 		const headerLine = lines[headerRowIndex] || "";
-		const headers = headerLine
-			.split(deferredDelimiter)
+		const headers = splitCSVLine(headerLine, deferredDelimiter)
 			.map((h) => h.trim().replace(/^"|"$/g, ""));
 		const rows = lines
 			.slice(headerRowIndex + 1, headerRowIndex + 51)
 			.map((line) =>
-				line
-					.split(deferredDelimiter)
+				splitCSVLine(line, deferredDelimiter)
 					.map((v) => v.trim().replace(/^"|"$/g, "")),
 			);
 		return { headers, rows, skippedLines };
