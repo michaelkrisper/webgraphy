@@ -71,7 +71,7 @@ export const readTextFile = (
 			resolve({ file, preview, type });
 		};
 		reader.onerror = () => reject(new Error("Failed to read file."));
-		reader.readAsText(file.slice(0, 25600));
+		reader.readAsText(file);
 	});
 };
 

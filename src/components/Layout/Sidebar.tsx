@@ -2,13 +2,14 @@ import {
 	Cat,
 	Columns3,
 	Crosshair,
-	FileImage,
 	FilePlus,
 	FlaskConical,
+	Grid3x3,
 	Image,
 	List,
 	Moon,
 	PanelRightClose,
+	Spline,
 	Sun,
 	Terminal,
 } from "lucide-react";
@@ -18,7 +19,11 @@ import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
 import { useGraphStore } from "../../store/useGraphStore";
-import { THEMES, type ThemeName } from "../../themes";
+import { THEME_CYCLE, THEMES, type ThemeName } from "../../themes";
+import {
+	PopupPicker,
+	type PopupPickerOption,
+} from "../Sidebar/PopupPicker";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
 import { CollapsedMenuButton } from "./CollapsedMenuButton";
@@ -55,13 +60,29 @@ const THEME_ICONS: Record<ThemeName, React.ReactNode> = {
 	unicorn: <UnicornHeadIcon size={24} />,
 };
 
-const THEME_LABELS: Record<ThemeName, string> = {
-	light: "Light Mode",
-	dark: "Dark Mode",
-	matrix: "Matrix Mode",
-	winnie: "Winnie Mode",
-	unicorn: "Unicorn Mode",
+const THEME_POPUP_ICONS: Record<ThemeName, React.ReactNode> = {
+	light: <Sun size={16} />,
+	dark: <Moon size={16} />,
+	matrix: <Terminal size={16} />,
+	winnie: <Cat size={16} />,
+	unicorn: <UnicornHeadIcon size={16} />,
 };
+
+const THEME_LABELS: Record<ThemeName, string> = {
+	light: "Light",
+	dark: "Dark",
+	matrix: "Matrix",
+	winnie: "Winnie",
+	unicorn: "Unicorn",
+};
+
+const THEME_PICKER_OPTIONS: PopupPickerOption<ThemeName>[] = THEME_CYCLE.map(
+	(t) => ({
+		value: t,
+		icon: THEME_POPUP_ICONS[t],
+		label: THEME_LABELS[t],
+	}),
+);
 
 const HeaderButton = ({
 	onClick,
@@ -102,7 +123,7 @@ export const Sidebar: React.FC = () => {
 	const setLegendVisible = useGraphStore((s) => s.setLegendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
-	const [themeName, cycleTheme] = useTheme();
+	const [themeName, , setTheme] = useTheme();
 	const t = THEMES[themeName];
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -194,15 +215,36 @@ export const Sidebar: React.FC = () => {
 							title="Load Demo Data"
 						/>
 						{hdrSep}
-						<HeaderButton
-							onClick={handleExportSVG}
-							icon={<FileImage size={24} />}
-							title="Export SVG"
-						/>
-						<HeaderButton
-							onClick={handleExportPNG}
-							icon={<Image size={24} />}
-							title="Export PNG"
+						<PopupPicker
+							options={[
+								{
+									value: "svg",
+									icon: <Spline size={16} />,
+									label: "Export as SVG (vector)",
+								},
+								{
+									value: "png",
+									icon: <Grid3x3 size={16} />,
+									label: "Export as PNG (pixel)",
+								},
+							]}
+							current={"" as "svg" | "png" | ""}
+							onChange={(v) => {
+								if (v === "svg") handleExportSVG();
+								else if (v === "png") handleExportPNG();
+							}}
+							popoverId="export-popover"
+							renderTrigger={({ onClick, ref }) => (
+								<button
+									ref={ref}
+									type="button"
+									onClick={onClick}
+									title="Export Image"
+									className="sb-hdr-btn"
+								>
+									<Image size={24} />
+								</button>
+							)}
 						/>
 						{hdrSep}
 						<span className="sb-spacer" />
@@ -229,10 +271,22 @@ export const Sidebar: React.FC = () => {
 							title={legendVisible ? "Hide Legend" : "Show Legend"}
 							off={!legendVisible}
 						/>
-						<HeaderButton
-							onClick={cycleTheme}
-							icon={THEME_ICONS[themeName] as React.ReactElement}
-							title={THEME_LABELS[themeName]}
+						<PopupPicker
+							options={THEME_PICKER_OPTIONS}
+							current={themeName}
+							onChange={setTheme}
+							popoverId="theme-popover"
+							renderTrigger={({ onClick, ref }) => (
+								<button
+									ref={ref}
+									type="button"
+									onClick={onClick}
+									title={THEME_LABELS[themeName]}
+									className="sb-hdr-btn"
+								>
+									{THEME_ICONS[themeName]}
+								</button>
+							)}
 						/>
 						{hdrSep}
 						<HeaderButton

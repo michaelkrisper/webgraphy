@@ -1,4 +1,4 @@
-import { AlertCircle, Calculator, Check } from "lucide-react";
+import { AlertCircle, Check } from "lucide-react";
 import type React from "react";
 import { useMemo, useRef, useState } from "react";
 import { useFormulaEditor } from "../../hooks/useFormulaEditor";
@@ -130,7 +130,6 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 
 	const title = (
 		<div className="modal-title-content">
-			<Calculator className="modal-title-icon" />
 			<h2 className="modal-title">
 				{isEditing ? "Edit Calculated Series" : "Add Calculated Series"}
 			</h2>

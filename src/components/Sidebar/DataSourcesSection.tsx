@@ -13,6 +13,19 @@ import { THEMES } from "../../themes";
 import { buildSeriesConfig } from "../../utils/series";
 import ErrorBoundary from "../ErrorBoundary";
 import { CalculatedColumnModal } from "../Layout/CalculatedColumnModal";
+import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
+
+const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
+	{ length: 9 },
+	(_, i) => {
+		const n = i + 1;
+		return {
+			value: n,
+			icon: <span style={{ fontWeight: "bold" }}>{n}</span>,
+			label: `X-Axis ${n}`,
+		};
+	},
+);
 
 interface DataSourcesSectionProps {
 	open: boolean;
@@ -190,56 +203,52 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 												alignItems: "center",
 											}}
 										>
-											<button
-												className="sb-xaxis-btn-mono"
-												onClick={() => {
-													const currentId = ds.xAxisId || "axis-1";
-													const currentNum =
-														parseInt(currentId.split("-")[1], 10) || 1;
-													const maxOthers = datasets
-														.filter((d) => d.id !== ds.id)
-														.reduce(
-															(m, d) =>
-																Math.max(
-																	m,
-																	parseInt(
-																		(d.xAxisId || "axis-1").split("-")[1],
-																		10,
-																	) || 1,
-																),
-															1,
-														);
-													const cap = Math.min(maxOthers + 1, 9);
-													const nextNum =
-														currentNum >= cap ? 1 : currentNum + 1;
-													updateDataset(ds.id, {
-														xAxisId: `axis-${nextNum}`,
-													});
-												}}
-												type="button"
-												title="Cycle X-Axis (1-9)"
-												disabled={datasets.length === 1}
-												style={{
-													padding: "0 5px",
-													height: "22px",
-													boxSizing: "border-box",
-													background: "none",
-													borderTop: `1px solid ${t.border}`,
-													borderBottom: `1px solid ${t.border}`,
-													borderLeft: `1px solid ${t.border}`,
-													borderRight: "none",
-													cursor: datasets.length === 1 ? "default" : "pointer",
-													color: t.accent,
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "center",
-													fontSize: "0.75rem",
-													fontWeight: "bold",
-													opacity: datasets.length === 1 ? 0.3 : 1,
-												}}
-											>
-												{(ds.xAxisId || "axis-1").split("-")[1]}
-											</button>
+											<PopupPicker
+												options={X_AXIS_OPTIONS}
+												current={
+													parseInt(
+														(ds.xAxisId || "axis-1").split("-")[1],
+														10,
+													) || 1
+												}
+												onChange={(n) =>
+													updateDataset(ds.id, { xAxisId: `axis-${n}` })
+												}
+												popoverId={`x-axis-popover-${ds.id}`}
+												renderTrigger={({ onClick, ref }) => (
+													<button
+														ref={ref}
+														className="sb-xaxis-btn-mono"
+														onClick={
+															datasets.length === 1 ? undefined : onClick
+														}
+														type="button"
+														title="Select X-Axis (1-9)"
+														disabled={datasets.length === 1}
+														style={{
+															padding: "0 5px",
+															height: "22px",
+															boxSizing: "border-box",
+															background: "none",
+															borderTop: `1px solid ${t.border}`,
+															borderBottom: `1px solid ${t.border}`,
+															borderLeft: `1px solid ${t.border}`,
+															borderRight: "none",
+															cursor:
+																datasets.length === 1 ? "default" : "pointer",
+															color: t.accent,
+															display: "flex",
+															alignItems: "center",
+															justifyContent: "center",
+															fontSize: "0.75rem",
+															fontWeight: "bold",
+															opacity: datasets.length === 1 ? 0.3 : 1,
+														}}
+													>
+														{(ds.xAxisId || "axis-1").split("-")[1]}
+													</button>
+												)}
+											/>
 											<select
 												value={ds.xAxisColumn}
 												onChange={(e) =>
@@ -370,8 +379,6 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 															onClick={() => createSeries(ds.id, col)}
 															style={{
 																fontSize: "0.7rem",
-																fontFamily: "var(--font-family-mono)",
-																letterSpacing: "-0.005em",
 																padding: "3px 8px",
 																borderRadius: "0",
 																border: "none",

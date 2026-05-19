@@ -26,8 +26,8 @@ describe("ImportSettingsDialog", () => {
 			/>,
 		);
 
-		// Verify it renders the base dialog title
-		expect(screen.getByText("Import Settings: test.json")).toBeDefined();
+		// Verify it renders the filename
+		expect(screen.getByText("test.json")).toBeDefined();
 
 		// Verify it doesn't crash and renders the fallback empty table headers
 		// When error occurs, previewData.headers is [] and previewData.rows is []
@@ -55,15 +55,15 @@ describe("ImportSettingsDialog", () => {
 		);
 
 		// Initial state: startRow=1, headers: "Comment Line"
-		expect(screen.getByLabelText(/Column 1 name/i)).toHaveValue("Comment Line");
+		expect(screen.getByText("Comment Line")).toBeInTheDocument();
 
 		// Change startRow to 2
 		const startRowInput = screen.getByLabelText(/Start Row/i);
 		fireEvent.change(startRowInput, { target: { value: "2" } });
 
 		// New state: startRow=2, headers: lines[1] split by "," -> ["Header1", "Header2"]
-		expect(screen.getByLabelText(/Column 1 name/i)).toHaveValue("Header1");
-		expect(screen.getByLabelText(/Column 2 name/i)).toHaveValue("Header2");
+		expect(screen.getByText("Header1")).toBeInTheDocument();
+		expect(screen.getByText("Header2")).toBeInTheDocument();
 		expect(screen.getByText("Data1")).toBeInTheDocument();
 		expect(screen.getByText("Data2")).toBeInTheDocument();
 	});

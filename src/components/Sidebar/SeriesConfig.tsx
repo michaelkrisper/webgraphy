@@ -3,12 +3,130 @@ import type React from "react";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import ColorPicker from "./ColorPicker";
+import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 
 interface Props {
 	series: SeriesConfig;
 	datasets: Dataset[];
 	onHandleMouseDown?: (e: React.MouseEvent) => void;
 }
+
+type LineStyle = "solid" | "dashed" | "dotted" | "none";
+type PointStyle = "circle" | "square" | "cross" | "none";
+
+const LINE_STYLE_LABELS: Record<LineStyle, string> = {
+	solid: "Solid",
+	dashed: "Dashed",
+	dotted: "Dotted",
+	none: "No Line",
+};
+
+const POINT_STYLE_LABELS: Record<PointStyle, string> = {
+	circle: "Circle",
+	square: "Square",
+	cross: "Cross",
+	none: "No Points",
+};
+
+function lineIcon(style: LineStyle) {
+	const color = "currentColor";
+	const common = { x1: 1, y1: 8, x2: 15, y2: 8, stroke: color };
+	return (
+		<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
+			<title>Line {style}</title>
+			{style === "solid" && <line {...common} strokeWidth="2.5" />}
+			{style === "dashed" && (
+				<line {...common} strokeWidth="2.5" strokeDasharray="4,3" />
+			)}
+			{style === "dotted" && (
+				<line
+					{...common}
+					strokeWidth="2.5"
+					strokeDasharray="1,3"
+					strokeLinecap="round"
+				/>
+			)}
+			{style === "none" && (
+				<>
+					<line {...common} strokeWidth="2.5" opacity="0.35" />
+					<line
+						x1="2"
+						y1="2"
+						x2="14"
+						y2="14"
+						stroke="#dc3545"
+						strokeWidth="1.5"
+					/>
+				</>
+			)}
+		</svg>
+	);
+}
+
+function pointIcon(style: PointStyle) {
+	const size = 12;
+	switch (style) {
+		case "circle":
+			return (
+				<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
+			);
+		case "square":
+			return (
+				<svg width={size} height={size} viewBox="0 0 24 24">
+					<title>Square</title>
+					<rect
+						x="3"
+						y="3"
+						width="18"
+						height="18"
+						rx="2"
+						ry="2"
+						fill="currentColor"
+						stroke="white"
+						strokeWidth="2"
+						paintOrder="stroke fill"
+					/>
+				</svg>
+			);
+		case "cross":
+			return <X size={size + 2} strokeWidth={3} />;
+		case "none":
+			return (
+				<svg width={size + 4} height={size + 4} viewBox="0 0 16 16">
+					<title>No Points</title>
+					<circle cx="8" cy="8" r="5" fill="currentColor" opacity="0.35" />
+					<line
+						x1="2"
+						y1="2"
+						x2="14"
+						y2="14"
+						stroke="#dc3545"
+						strokeWidth="1.5"
+					/>
+				</svg>
+			);
+	}
+}
+
+const LINE_OPTIONS: PopupPickerOption<LineStyle>[] = (
+	["solid", "dashed", "dotted", "none"] as const
+).map((v) => ({ value: v, icon: lineIcon(v), label: LINE_STYLE_LABELS[v] }));
+
+const POINT_OPTIONS: PopupPickerOption<PointStyle>[] = (
+	["circle", "square", "cross", "none"] as const
+).map((v) => ({ value: v, icon: pointIcon(v), label: POINT_STYLE_LABELS[v] }));
+
+const Y_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
+	{ length: 9 },
+	(_, i) => {
+		const n = i + 1;
+		return {
+			value: n,
+			icon: <span style={{ fontWeight: "bold" }}>{n}</span>,
+			label: `Y-Axis ${n}`,
+		};
+	},
+);
 
 export const SeriesConfigUI: React.FC<Props> = ({
 	series,
@@ -36,102 +154,12 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const currentYAxis = yAxes.find((a) => a.id === series.yAxisId);
 	const yAxisCycleDisabled = allSeries.length <= 1;
 
-	const cycleYAxis = () => {
-		const nextIndex = currentYAxisIndex >= 9 ? 1 : currentYAxisIndex + 1;
-		const nextAxisId = `axis-${nextIndex}`;
+	const selectYAxis = (n: number) => {
+		const nextAxisId = `axis-${n}`;
 		if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
 			updateYAxis(nextAxisId, { position: "left" });
 		}
 		handleUpdate({ yAxisId: nextAxisId });
-	};
-
-	const renderPointStyleIcon = () => {
-		const size = 12;
-		switch (series.pointStyle) {
-			case "circle":
-				return (
-					<Circle
-						size={size}
-						fill="currentColor"
-						stroke="white"
-						strokeWidth={1}
-					/>
-				);
-			case "square":
-				return (
-					<svg width={size} height={size} viewBox="0 0 24 24">
-						<title>Square Symbol</title>
-						<rect
-							x="3"
-							y="3"
-							width="18"
-							height="18"
-							rx="2"
-							ry="2"
-							fill="currentColor"
-							stroke="white"
-							strokeWidth="2"
-							paintOrder="stroke fill"
-						/>
-					</svg>
-				);
-			case "cross":
-				return <X size={size + 2} strokeWidth={3} />;
-			case "none":
-				return (
-					<svg width={size} height={size} viewBox="0 0 16 16">
-						<title>Circle Symbol</title>
-						<circle
-							cx="8"
-							cy="8"
-							r="6"
-							fill="currentColor"
-							stroke="white"
-							strokeWidth="1"
-						/>
-					</svg>
-				);
-			default:
-				return null;
-		}
-	};
-
-	const renderLineStyleIcon = () => {
-		const color = "currentColor";
-		return (
-			<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
-				<title>Line Style Icon</title>
-				{series.lineStyle === "solid" && (
-					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
-				)}
-				{series.lineStyle === "dashed" && (
-					<line
-						x1="1"
-						y1="8"
-						x2="15"
-						y2="8"
-						stroke={color}
-						strokeWidth="2.5"
-						strokeDasharray="4,3"
-					/>
-				)}
-				{series.lineStyle === "dotted" && (
-					<line
-						x1="1"
-						y1="8"
-						x2="15"
-						y2="8"
-						stroke={color}
-						strokeWidth="2.5"
-						strokeDasharray="1,3"
-						strokeLinecap="round"
-					/>
-				)}
-				{series.lineStyle === "none" && (
-					<line x1="1" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2.5" />
-				)}
-			</svg>
-		);
 	};
 
 	return (
@@ -152,24 +180,33 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				{series.hidden ? <EyeOff size={14} /> : <GripVertical size={14} />}
 			</button>
 
-			{/* Y Axis Cycle Button (1-9) */}
-			<button
-				onClick={cycleYAxis}
-				className="sc-btn"
-				disabled={yAxisCycleDisabled}
-				style={{
-					fontWeight: "bold",
-					opacity: yAxisCycleDisabled ? 0.3 : 1,
-					cursor: yAxisCycleDisabled ? "default" : "pointer",
-				}}
-				title="Cycle Y-Axis (1-9)"
-				type="button"
-				aria-label="Cycle Y-Axis"
-			>
-				{currentYAxisIndex}
-			</button>
+			{/* Y Axis Picker (1-9) */}
+			<PopupPicker
+				options={Y_AXIS_OPTIONS}
+				current={currentYAxisIndex}
+				onChange={selectYAxis}
+				popoverId={`y-axis-popover-${series.id}`}
+				renderTrigger={({ onClick, ref }) => (
+					<button
+						ref={ref}
+						onClick={yAxisCycleDisabled ? undefined : onClick}
+						className="sc-btn"
+						disabled={yAxisCycleDisabled}
+						style={{
+							fontWeight: "bold",
+							opacity: yAxisCycleDisabled ? 0.3 : 1,
+							cursor: yAxisCycleDisabled ? "default" : "pointer",
+						}}
+						title="Select Y-Axis (1-9)"
+						type="button"
+						aria-label="Select Y-Axis"
+					>
+						{currentYAxisIndex}
+					</button>
+				)}
+			/>
 
-			{/* L/R Side Toggle */}
+			{/* L/R Side Toggle (unchanged) */}
 			{currentYAxis ? (
 				<button
 					onClick={() =>
@@ -212,7 +249,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				<div className="sc-cell-placeholder" />
 			)}
 
-			{/* Grid Toggle */}
+			{/* Grid Toggle (binary, unchanged) */}
 			{currentYAxis ? (
 				<button
 					onClick={() =>
@@ -229,37 +266,45 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				<div className="sc-cell-placeholder" />
 			)}
 
-			{/* Line Style Cycle */}
-			<button
-				onClick={() => {
-					const styles = ["solid", "dashed", "dotted", "none"] as const;
-					const next =
-						styles[(styles.indexOf(series.lineStyle) + 1) % styles.length];
-					handleUpdate({ lineStyle: next });
-				}}
-				className={`sc-btn${series.lineStyle === "none" ? " sc-btn--off" : ""}`}
-				title={`Line Style: ${series.lineStyle}`}
-				type="button"
-				aria-label="Cycle Line Style"
-			>
-				{renderLineStyleIcon()}
-			</button>
+			{/* Line Style Picker */}
+			<PopupPicker
+				options={LINE_OPTIONS}
+				current={series.lineStyle as LineStyle}
+				onChange={(v) => handleUpdate({ lineStyle: v })}
+				popoverId={`line-style-popover-${series.id}`}
+				renderTrigger={({ onClick, ref }) => (
+					<button
+						ref={ref}
+						onClick={onClick}
+						className="sc-btn"
+						title={`Line Style: ${series.lineStyle}`}
+						type="button"
+						aria-label="Select Line Style"
+					>
+						{lineIcon(series.lineStyle as LineStyle)}
+					</button>
+				)}
+			/>
 
-			{/* Point Style Cycle */}
-			<button
-				onClick={() => {
-					const styles = ["circle", "square", "cross", "none"] as const;
-					const next =
-						styles[(styles.indexOf(series.pointStyle) + 1) % styles.length];
-					handleUpdate({ pointStyle: next });
-				}}
-				className={`sc-btn${series.pointStyle === "none" ? " sc-btn--off" : ""}`}
-				title="Point Style"
-				type="button"
-				aria-label="Cycle Point Style"
-			>
-				{renderPointStyleIcon()}
-			</button>
+			{/* Point Style Picker */}
+			<PopupPicker
+				options={POINT_OPTIONS}
+				current={series.pointStyle as PointStyle}
+				onChange={(v) => handleUpdate({ pointStyle: v })}
+				popoverId={`point-style-popover-${series.id}`}
+				renderTrigger={({ onClick, ref }) => (
+					<button
+						ref={ref}
+						onClick={onClick}
+						className="sc-btn"
+						title="Point Style"
+						type="button"
+						aria-label="Select Point Style"
+					>
+						{pointIcon(series.pointStyle as PointStyle)}
+					</button>
+				)}
+			/>
 
 			{/* Color Picker */}
 			<ColorPicker

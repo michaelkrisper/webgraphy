@@ -1,6 +1,13 @@
-import { Check, Clock, EyeOff, FileType, Hash, Tag } from "lucide-react";
-import type React from "react";
-import { useDeferredValue, useMemo, useState } from "react";
+import {
+	Check,
+	ChevronDown,
+	Clock,
+	EyeOff,
+	Hash,
+	Tag,
+	X,
+} from "lucide-react";
+import React, { useDeferredValue, useMemo, useState } from "react";
 import type {
 	ColumnConfig,
 	ColumnType,
@@ -8,7 +15,25 @@ import type {
 } from "../../types/import";
 import { splitCSVLine } from "../../utils/data-parser";
 import { secureJSONParse } from "../../utils/json";
+import {
+	PopupPicker,
+	type PopupPickerOption,
+} from "../Sidebar/PopupPicker";
 import { Modal } from "./Modal";
+
+const TYPE_OPTIONS_META = [
+	{ type: "numeric" as const, icon: Hash, label: "Numeric" },
+	{ type: "date" as const, icon: Clock, label: "Date/Time" },
+	{ type: "categorical" as const, icon: Tag, label: "Categorical" },
+	{ type: "ignore" as const, icon: EyeOff, label: "Ignore" },
+];
+
+const TYPE_PICKER_OPTIONS: PopupPickerOption<ColumnType>[] =
+	TYPE_OPTIONS_META.map((o) => ({
+		value: o.type,
+		icon: <o.icon size={14} />,
+		label: o.label,
+	}));
 
 interface ImportSettingsDialogProps {
 	fileName: string;
@@ -164,21 +189,45 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	const deferredCommentChar = useDeferredValue(commentChar);
 
 	const previewData = useMemo(() => {
+		const HEAD = 25;
+		const TAIL = 25;
+		const trim = <T,>(
+			arr: T[],
+		): { rows: T[]; gapStart: number | null; totalRows: number } => {
+			if (arr.length <= HEAD + TAIL) {
+				return { rows: arr, gapStart: null, totalRows: arr.length };
+			}
+			return {
+				rows: [...arr.slice(0, HEAD), ...arr.slice(-TAIL)],
+				gapStart: HEAD,
+				totalRows: arr.length,
+			};
+		};
+
 		if (fileType === "json") {
 			try {
 				const parsed = secureJSONParse(fileContent) as unknown;
-				const rows = Array.isArray(parsed) ? parsed : [parsed];
-				const headers = Object.keys((rows[0] as Record<string, unknown>) || {});
+				const allRows = (
+					Array.isArray(parsed) ? parsed : [parsed]
+				) as Record<string, string>[];
+				const headers = Object.keys(
+					(allRows[0] as Record<string, unknown>) || {},
+				);
+				const { rows, gapStart, totalRows } = trim(allRows);
 				return {
 					headers,
-					rows: (rows as Record<string, string>[]).slice(0, 50),
+					rows,
 					skippedLines: [] as string[],
+					gapStart,
+					totalRows,
 				};
 			} catch {
 				return {
 					headers: [],
 					rows: [] as Record<string, string>[],
 					skippedLines: [] as string[],
+					gapStart: null,
+					totalRows: 0,
 				};
 			}
 		}
@@ -195,6 +244,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 				headers: [],
 				rows: [] as string[][],
 				skippedLines: [] as string[],
+				gapStart: null,
+				totalRows: 0,
 			};
 
 		const headerRowIndex = Math.max(0, deferredStartRow - 1);
@@ -203,14 +254,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		const headers = splitCSVLine(headerLine, deferredDelimiter).map((h) =>
 			h.trim().replace(/^"|"$/g, ""),
 		);
-		const rows = lines
-			.slice(headerRowIndex + 1, headerRowIndex + 51)
-			.map((line) =>
-				splitCSVLine(line, deferredDelimiter).map((v) =>
-					v.trim().replace(/^"|"$/g, ""),
-				),
-			);
-		return { headers, rows, skippedLines };
+		const allDataLines = lines.slice(headerRowIndex + 1);
+		const { rows: keptLines, gapStart, totalRows } = trim(allDataLines);
+		const rows = keptLines.map((line) =>
+			splitCSVLine(line, deferredDelimiter).map((v) =>
+				v.trim().replace(/^"|"$/g, ""),
+			),
+		);
+		return { headers, rows, skippedLines, gapStart, totalRows };
 	}, [
 		fileContent,
 		fileType,
@@ -277,22 +328,23 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	return (
 		<Modal
 			onClose={onCancel}
-			title={
-				<div className="isd-title-row">
-					<FileType size={24} color="var(--accent)" />
-					<h2 className="modal-title">Import Settings: {fileName}</h2>
-				</div>
-			}
-			headerActions={null}
-			maxWidth="100%"
-			width="100%"
-			height="100%"
-			maxHeight="100vh"
-			borderRadius="0"
+			title=""
+			hideHeader
+			maxWidth="96vw"
+			width="96vw"
+			height="92vh"
+			maxHeight="92vh"
+			borderRadius="8px"
 			padding="0"
 		>
 			<div className="isd-body">
 				<div className="isd-general-fields">
+					<div className="isd-fields-main">
+						<div className="isd-filename">
+							<span className="isd-filename-text" title={fileName}>
+								{fileName}
+							</span>
+						</div>
 					{fileType === "excel" && sheets && sheets.length > 1 && (
 						<div className="isd-field-group-md">
 							<label htmlFor="import-sheet" className="isd-field-label">
@@ -381,6 +433,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							/>
 						</div>
 					)}
+					</div>
 					<button
 						type="button"
 						onClick={() =>
@@ -399,9 +452,17 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							})
 						}
 						className="isd-btn-confirm"
-						style={{ marginLeft: "auto" }}
 					>
 						<Check size={16} /> Import Data
+					</button>
+					<button
+						type="button"
+						onClick={onCancel}
+						className="isd-btn-cancel"
+						aria-label="Close dialog"
+						title="Cancel"
+					>
+						<X size={20} />
 					</button>
 				</div>
 
@@ -420,6 +481,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 						<table className="isd-table">
 							<thead>
 								<tr>
+									<th className="isd-col-header isd-rownum-col">#</th>
 									{columnConfigs.map((config, i) => (
 										<th
 											key={i}
@@ -431,56 +493,48 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 														: "none",
 											}}
 										>
-											<div className="isd-col-name-row">
-												<input
-													type="text"
-													maxLength={100}
-													value={config.name}
-													aria-label={`Column ${i + 1} name`}
-													onChange={(e) =>
-														handleUpdateColumn(i, { name: e.target.value })
-													}
-													className="isd-col-name-input"
-												/>
-												<input
-													type="radio"
-													name="xaxis-col"
-													title="Set as X-Axis"
-													checked={xAxisColumn === config.name}
-													onChange={() => setXAxisColumnOverride(config.name)}
-													className="isd-xaxis-radio"
-												/>
-											</div>
-											<div className="isd-type-btns">
-												{[
-													{ type: "numeric", icon: Hash, label: "Numeric" },
-													{ type: "date", icon: Clock, label: "Date/Time" },
-													{
-														type: "categorical",
-														icon: Tag,
-														label: "Categorical",
-													},
-													{ type: "ignore", icon: EyeOff, label: "Ignore" },
-												].map((opt) => (
+											<button
+												type="button"
+												onClick={() => setXAxisColumnOverride(config.name)}
+												title={
+													xAxisColumn === config.name
+														? `${config.name} (X-Axis)`
+														: `Click to use ${config.name} as X-Axis`
+												}
+												className={`isd-col-name-btn${xAxisColumn === config.name ? " isd-col-name-btn--xaxis" : ""}`}
+											>
+												{config.name}
+											</button>
+											{(() => {
+										const meta = TYPE_OPTIONS_META.find((o) => o.type === config.type) || TYPE_OPTIONS_META[0];
+										const Icon = meta.icon;
+										return (
+											<PopupPicker
+												options={TYPE_PICKER_OPTIONS}
+												current={config.type}
+												onChange={(v) => handleUpdateColumn(i, { type: v })}
+												popoverId={`col-type-popover-${i}`}
+												renderTrigger={({ onClick, ref }) => (
 													<button
+														ref={ref}
 														type="button"
-														key={opt.type}
-														title={`Type: ${opt.label}`}
-														onClick={() =>
-															handleUpdateColumn(i, {
-																type: opt.type as ColumnType,
-															})
-														}
-														className={
-															config.type === opt.type
-																? "isd-type-btn isd-type-btn--active"
-																: "isd-type-btn isd-type-btn--inactive"
-														}
+														onClick={onClick}
+														title={`Type: ${meta.label}`}
+														className="isd-type-btn-trigger"
 													>
-														<opt.icon size={12} />
+														<Icon size={12} />
+														<span className="isd-type-btn-label">
+															{meta.label}
+														</span>
+														<ChevronDown
+															size={12}
+															className="isd-type-btn-chevron"
+														/>
 													</button>
-												))}
-											</div>
+												)}
+											/>
+										);
+									})()}
 											{config.type === "date" && (
 												<input
 													type="text"
@@ -523,14 +577,32 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							</thead>
 							<tbody>
 								{previewData.rows.map((row, rowIndex) => (
+									<React.Fragment key={rowIndex}>
 									<tr
-										key={rowIndex}
-										className={
+										className={`${
 											rowIndex % 2 === 0
 												? "isd-data-row-even"
 												: "isd-data-row-odd"
-										}
+										}${
+											previewData.gapStart !== null &&
+											rowIndex === previewData.gapStart
+												? " isd-row--gap-first-tail"
+												: ""
+										}`}
 									>
+										<td
+											className="isd-td isd-rownum-cell"
+											data-gap-label={
+												previewData.gapStart !== null &&
+												rowIndex === previewData.gapStart
+													? `${previewData.totalRows - 50} more rows`
+													: undefined
+											}
+										>
+											{previewData.gapStart !== null && rowIndex >= previewData.gapStart
+												? previewData.totalRows - (previewData.rows.length - rowIndex) + 1
+												: rowIndex + 1}
+										</td>
 										{columnConfigs.map((config, colIndex) => (
 											<td
 												key={colIndex}
@@ -560,25 +632,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 											</td>
 										))}
 									</tr>
+									</React.Fragment>
 								))}
-								{previewData.rows.length >= 50 && (
-									<tr>
-										{columnConfigs.map((_, i) => (
-											<td
-												key={i}
-												className="isd-td isd-td--more"
-												style={{
-													borderRight:
-														i < columnConfigs.length - 1
-															? "1px solid var(--border-color)"
-															: "none",
-												}}
-											>
-												…
-											</td>
-										))}
-									</tr>
-								)}
 							</tbody>
 						</table>
 					</div>

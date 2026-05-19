@@ -94,11 +94,16 @@ function applyTheme(t: ThemeName) {
 	});
 }
 
-export function useTheme(): [ThemeName, () => void] {
+export function useTheme(): [
+	ThemeName,
+	() => void,
+	(t: ThemeName) => void,
+] {
 	const theme = useSyncExternalStore(subscribe, getSnapshot);
 	const cycle = () =>
 		applyTheme(
 			THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length],
 		);
-	return [theme, cycle];
+	const set = (t: ThemeName) => applyTheme(t);
+	return [theme, cycle, set];
 }

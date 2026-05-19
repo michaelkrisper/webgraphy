@@ -14,6 +14,7 @@ interface ModalProps {
 	borderRadius?: string;
 	padding?: string;
 	ariaLabel?: string;
+	hideHeader?: boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export const Modal: React.FC<ModalProps> = ({
 	borderRadius = "0",
 	padding = "24px",
 	ariaLabel,
+	hideHeader = false,
 }) => {
 	return (
 		<div className="modal-overlay">
@@ -39,22 +41,24 @@ export const Modal: React.FC<ModalProps> = ({
 				className="modal-card"
 				style={{ padding, borderRadius, maxWidth, width, height, maxHeight }}
 			>
-				<div className="modal-header">
-					{typeof title === "string" ? (
-						<h2 className="modal-title">{title}</h2>
-					) : (
-						title
-					)}
-					{headerActions}
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label={ariaLabel || "Close dialog"}
-						className="modal-close"
-					>
-						<X size={24} />
-					</button>
-				</div>
+				{!hideHeader && (
+					<div className="modal-header">
+						{typeof title === "string" ? (
+							<h2 className="modal-title">{title}</h2>
+						) : (
+							title
+						)}
+						{headerActions}
+						<button
+							type="button"
+							onClick={onClose}
+							aria-label={ariaLabel || "Close dialog"}
+							className="modal-close"
+						>
+							<X size={24} />
+						</button>
+					</div>
+				)}
 				<div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
 					{children}
 				</div>
