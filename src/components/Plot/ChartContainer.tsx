@@ -483,7 +483,10 @@ export default function ChartContainer() {
 			arr.push(d);
 			dssByX.set(xId, arr);
 		});
-		const xAxisById = new Map(xAxes.map((a) => [a.id, a]));
+		const xAxisById = new Map<string, (typeof xAxes)[0]>();
+		for (const a of xAxes) {
+			xAxisById.set(a.id, a);
+		}
 		dssByX.forEach((dss, axisId) => {
 			const cfg = xAxisById.get(axisId);
 			const forced = cfg?.xMode === "categorical";
