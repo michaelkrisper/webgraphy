@@ -22,9 +22,9 @@ function createMockFile(content: string, name: string, type: string) {
 describe("data-parser", () => {
 	it("should throw an error for unsupported file types", async () => {
 		const file = createMockFile("content", "test.xml", "application/xml");
-		await expect(
-			parseData(file, "unsupported"),
-		).rejects.toThrow("Unsupported file type: unsupported");
+		await expect(parseData(file, "unsupported")).rejects.toThrow(
+			"Unsupported file type: unsupported",
+		);
 	});
 
 	it("should handle native Error instances in catch block", async () => {
@@ -234,7 +234,9 @@ describe("data-parser", () => {
 		});
 
 		it("should throw error for invalid JSON format", async () => {
-			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
 			const file = createMockFile(
 				"[not json]",
 				"test.json",
@@ -248,19 +250,17 @@ describe("data-parser", () => {
 		});
 
 		it("should handle non-Error instances when parsing JSON", async () => {
-			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
 			const parseSpy = vi.spyOn(JSON, "parse").mockImplementation(() => {
 				throw "String error thrown";
 			});
 
-			const file = createMockFile(
-				'[{}]',
-				"test.json",
-				"application/json",
-			);
+			const file = createMockFile("[{}]", "test.json", "application/json");
 
 			await expect(parseData(file, "json", {})).rejects.toThrow(
-				"Invalid JSON format: String error thrown"
+				"Invalid JSON format: String error thrown",
 			);
 
 			parseSpy.mockRestore();

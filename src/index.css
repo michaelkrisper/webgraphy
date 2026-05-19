@@ -4,7 +4,8 @@
 	--sidebar-bg: #fafaf7;
 	--border-color: #e6e3dc;
 	--text-color: #1a1a17;
-	--font-family-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-family-mono:
+		"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 	--ui-size: 28px;
 	--ui-font-size: 11px;
 }

@@ -53,7 +53,8 @@ describe("useDataImport hook", () => {
 		// The hook now reads each field via a per-field selector; replicate that
 		// behaviour so the mock honours the selector function.
 		vi.mocked(useGraphStore).mockImplementation((selector?: unknown) => {
-			if (typeof selector === "function") return (selector as (s: typeof storeState) => unknown)(storeState);
+			if (typeof selector === "function")
+				return (selector as (s: typeof storeState) => unknown)(storeState);
 			return storeState;
 		});
 		vi.mocked(useGraphStore.getState).mockReturnValue({

@@ -15,7 +15,6 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
-import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import {
 	type DecimEntry,
 	drawOverlay,
@@ -23,6 +22,7 @@ import {
 	drawSeriesPoints,
 	type SeriesDrawBundle,
 } from "./drawSeries";
+import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 
 const VERTEX_SHADER_SOURCE = `
       // === VERTEX SHADER ===
@@ -323,12 +323,18 @@ export const WebGLRenderer = React.memo(
 						x1 = (pad.left + cw) * dpr,
 						y1 = (pad.top + ch) * dpr;
 					const bgStart = p / 2;
-					buf[p++] = x0; buf[p++] = y0;
-					buf[p++] = x1; buf[p++] = y0;
-					buf[p++] = x0; buf[p++] = y1;
-					buf[p++] = x1; buf[p++] = y0;
-					buf[p++] = x1; buf[p++] = y1;
-					buf[p++] = x0; buf[p++] = y1;
+					buf[p++] = x0;
+					buf[p++] = y0;
+					buf[p++] = x1;
+					buf[p++] = y0;
+					buf[p++] = x0;
+					buf[p++] = y1;
+					buf[p++] = x1;
+					buf[p++] = y0;
+					buf[p++] = x1;
+					buf[p++] = y1;
+					buf[p++] = x0;
+					buf[p++] = y1;
 					ov.groups.push({
 						topology: "TRIANGLES",
 						rgba: bgRgba,
@@ -349,8 +355,10 @@ export const WebGLRenderer = React.memo(
 								const norm = (t - ax.min) / range;
 								if (norm < 0 || norm > 1) continue;
 								const sx = (pad.left + norm * cw) * dpr;
-								buf[p++] = sx; buf[p++] = yTop;
-								buf[p++] = sx; buf[p++] = yBot;
+								buf[p++] = sx;
+								buf[p++] = yTop;
+								buf[p++] = sx;
+								buf[p++] = yBot;
 							}
 						}
 					}
@@ -363,8 +371,10 @@ export const WebGLRenderer = React.memo(
 							const norm = (t - ax.min) / range;
 							if (norm < 0 || norm > 1) continue;
 							const sy = (pad.top + (1 - norm) * ch) * dpr;
-							buf[p++] = xL; buf[p++] = sy;
-							buf[p++] = xR; buf[p++] = sy;
+							buf[p++] = xL;
+							buf[p++] = sy;
+							buf[p++] = xR;
+							buf[p++] = sy;
 						}
 					}
 					const gridCount = p / 2 - gridStart;
@@ -387,19 +397,29 @@ export const WebGLRenderer = React.memo(
 							const norm = (0 - ax.min) / range;
 							const sy = (pad.top + (1 - norm) * ch) * dpr;
 							const arrowTipX = (w - pad.right + 8) * dpr;
-							buf[p++] = pad.left * dpr; buf[p++] = sy;
-							buf[p++] = arrowTipX; buf[p++] = sy;
+							buf[p++] = pad.left * dpr;
+							buf[p++] = sy;
+							buf[p++] = arrowTipX;
+							buf[p++] = sy;
 						}
 					}
 					if (overlay.xAxes.length > 0) {
 						const ax = overlay.xAxes[0];
-						if (ax.showGrid && !ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+						if (
+							ax.showGrid &&
+							!ax.categoryLabels &&
+							ax.min <= 0 &&
+							ax.max >= 0 &&
+							ax.max > ax.min
+						) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
 							const sx = (pad.left + norm * cw) * dpr;
 							const tipY = (pad.top - 8) * dpr;
-							buf[p++] = sx; buf[p++] = (h - pad.bottom) * dpr;
-							buf[p++] = sx; buf[p++] = tipY;
+							buf[p++] = sx;
+							buf[p++] = (h - pad.bottom) * dpr;
+							buf[p++] = sx;
+							buf[p++] = tipY;
 						}
 					}
 					const zeroLineCount = p / 2 - zeroLineStart;
@@ -414,18 +434,26 @@ export const WebGLRenderer = React.memo(
 
 					// Axis lines: frame spines + x/y axis lines + tick marks.
 					const axisLineStart = p / 2;
-					buf[p++] = pad.left * dpr; buf[p++] = pad.top * dpr;
-					buf[p++] = pad.left * dpr; buf[p++] = (pad.top + ch) * dpr;
-					buf[p++] = pad.left * dpr; buf[p++] = pad.top * dpr;
-					buf[p++] = (w - pad.right) * dpr; buf[p++] = pad.top * dpr;
-					buf[p++] = (w - pad.right) * dpr; buf[p++] = pad.top * dpr;
-					buf[p++] = (w - pad.right) * dpr; buf[p++] = (pad.top + ch) * dpr;
+					buf[p++] = pad.left * dpr;
+					buf[p++] = pad.top * dpr;
+					buf[p++] = pad.left * dpr;
+					buf[p++] = (pad.top + ch) * dpr;
+					buf[p++] = pad.left * dpr;
+					buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr;
+					buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr;
+					buf[p++] = pad.top * dpr;
+					buf[p++] = (w - pad.right) * dpr;
+					buf[p++] = (pad.top + ch) * dpr;
 					overlay.xAxes.forEach((ax, idx) => {
 						const m = overlay.xAxesMetrics[idx];
 						if (!m) return;
 						const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
-						buf[p++] = pad.left * dpr; buf[p++] = yL;
-						buf[p++] = (w - pad.right + 8) * dpr; buf[p++] = yL;
+						buf[p++] = pad.left * dpr;
+						buf[p++] = yL;
+						buf[p++] = (w - pad.right + 8) * dpr;
+						buf[p++] = yL;
 						if (ax.max <= ax.min) return;
 						const range = ax.max - ax.min;
 						const tickEnd = yL + 6 * dpr;
@@ -433,20 +461,27 @@ export const WebGLRenderer = React.memo(
 							const norm = (t - ax.min) / range;
 							if (norm < 0 || norm > 1) continue;
 							const sx = (pad.left + norm * cw) * dpr;
-							buf[p++] = sx; buf[p++] = yL;
-							buf[p++] = sx; buf[p++] = tickEnd;
+							buf[p++] = sx;
+							buf[p++] = yL;
+							buf[p++] = sx;
+							buf[p++] = tickEnd;
 						}
 					});
 					for (const ax of overlay.yAxes) {
 						const isLeft = ax.position === "left";
-						const metrics = overlay.axisLayout[ax.id] || { total: 40, label: 30 };
+						const metrics = overlay.axisLayout[ax.id] || {
+							total: 40,
+							label: 30,
+						};
 						const xPos = isLeft
 							? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
 							: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
 						const lineX = isLeft ? xPos + metrics.total : xPos;
 						const tipY = (pad.top - 8) * dpr;
-						buf[p++] = lineX * dpr; buf[p++] = (h - pad.bottom) * dpr;
-						buf[p++] = lineX * dpr; buf[p++] = tipY;
+						buf[p++] = lineX * dpr;
+						buf[p++] = (h - pad.bottom) * dpr;
+						buf[p++] = lineX * dpr;
+						buf[p++] = tipY;
 						if (ax.max <= ax.min) continue;
 						const range = ax.max - ax.min;
 						const xa = (isLeft ? lineX - 5 : lineX) * dpr;
@@ -455,8 +490,10 @@ export const WebGLRenderer = React.memo(
 							const norm = (t - ax.min) / range;
 							if (norm < 0 || norm > 1) continue;
 							const sy = (pad.top + (1 - norm) * ch) * dpr;
-							buf[p++] = xa; buf[p++] = sy;
-							buf[p++] = xb; buf[p++] = sy;
+							buf[p++] = xa;
+							buf[p++] = sy;
+							buf[p++] = xb;
+							buf[p++] = sy;
 						}
 					}
 					const axisLineCount = p / 2 - axisLineStart;
@@ -480,22 +517,34 @@ export const WebGLRenderer = React.memo(
 							const sy = (pad.top + (1 - norm) * ch) * dpr;
 							const arrowTipX = (w - pad.right + 8) * dpr;
 							const aSize = 6 * dpr;
-							buf[p++] = arrowTipX; buf[p++] = sy;
-							buf[p++] = arrowTipX - aSize; buf[p++] = sy - aSize / 2;
-							buf[p++] = arrowTipX - aSize; buf[p++] = sy + aSize / 2;
+							buf[p++] = arrowTipX;
+							buf[p++] = sy;
+							buf[p++] = arrowTipX - aSize;
+							buf[p++] = sy - aSize / 2;
+							buf[p++] = arrowTipX - aSize;
+							buf[p++] = sy + aSize / 2;
 						}
 					}
 					if (overlay.xAxes.length > 0) {
 						const ax = overlay.xAxes[0];
-						if (ax.showGrid && !ax.categoryLabels && ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
+						if (
+							ax.showGrid &&
+							!ax.categoryLabels &&
+							ax.min <= 0 &&
+							ax.max >= 0 &&
+							ax.max > ax.min
+						) {
 							const range = ax.max - ax.min;
 							const norm = (0 - ax.min) / range;
 							const sx = (pad.left + norm * cw) * dpr;
 							const tipY = (pad.top - 8) * dpr;
 							const aSize = 6 * dpr;
-							buf[p++] = sx; buf[p++] = tipY;
-							buf[p++] = sx - aSize / 2; buf[p++] = tipY + aSize;
-							buf[p++] = sx + aSize / 2; buf[p++] = tipY + aSize;
+							buf[p++] = sx;
+							buf[p++] = tipY;
+							buf[p++] = sx - aSize / 2;
+							buf[p++] = tipY + aSize;
+							buf[p++] = sx + aSize / 2;
+							buf[p++] = tipY + aSize;
 						}
 					}
 					const zeroTriCount = p / 2 - zeroTriStart;
@@ -515,22 +564,31 @@ export const WebGLRenderer = React.memo(
 						if (!m) return;
 						const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
 						const aSize = 6 * dpr;
-						buf[p++] = (w - pad.right + 8) * dpr; buf[p++] = yL;
-						buf[p++] = (w - pad.right + 8 - 6) * dpr; buf[p++] = yL - aSize / 2;
-						buf[p++] = (w - pad.right + 8 - 6) * dpr; buf[p++] = yL + aSize / 2;
+						buf[p++] = (w - pad.right + 8) * dpr;
+						buf[p++] = yL;
+						buf[p++] = (w - pad.right + 8 - 6) * dpr;
+						buf[p++] = yL - aSize / 2;
+						buf[p++] = (w - pad.right + 8 - 6) * dpr;
+						buf[p++] = yL + aSize / 2;
 					});
 					for (const ax of overlay.yAxes) {
 						const isLeft = ax.position === "left";
-						const metrics = overlay.axisLayout[ax.id] || { total: 40, label: 30 };
+						const metrics = overlay.axisLayout[ax.id] || {
+							total: 40,
+							label: 30,
+						};
 						const xPos = isLeft
 							? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
 							: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
 						const lineX = isLeft ? xPos + metrics.total : xPos;
 						const tipY = (pad.top - 8) * dpr;
 						const aSize = 6 * dpr;
-						buf[p++] = lineX * dpr; buf[p++] = tipY;
-						buf[p++] = (lineX - 3) * dpr; buf[p++] = tipY + aSize;
-						buf[p++] = (lineX + 3) * dpr; buf[p++] = tipY + aSize;
+						buf[p++] = lineX * dpr;
+						buf[p++] = tipY;
+						buf[p++] = (lineX - 3) * dpr;
+						buf[p++] = tipY + aSize;
+						buf[p++] = (lineX + 3) * dpr;
+						buf[p++] = tipY + aSize;
 					}
 					const axisTriCount = p / 2 - axisTriStart;
 					if (axisTriCount > 0)
@@ -685,7 +743,13 @@ export const WebGLRenderer = React.memo(
 
 		useEffect(() => {
 			const gl = glRef.current;
-			if (!gl || !programRef.current || !locationsRef.current || !stateCacheRef.current) return;
+			if (
+				!gl ||
+				!programRef.current ||
+				!locationsRef.current ||
+				!stateCacheRef.current
+			)
+				return;
 
 			const drawFrame = (
 				currentXAxes: XAxisConfig[],
@@ -758,8 +822,14 @@ export const WebGLRenderer = React.memo(
 
 				const t0 = performance.now();
 				for (let idx = 0; idx < seriesMetadata.length; idx++) {
-					const { series: s, ds, xIdx, yIdx, lineColorRgba, pointColorRgba } =
-						seriesMetadata[idx];
+					const {
+						series: s,
+						ds,
+						xIdx,
+						yIdx,
+						lineColorRgba,
+						pointColorRgba,
+					} = seriesMetadata[idx];
 
 					const xAxis = xAxisById.get(ds.xAxisId || "axis-1");
 					const yAxis = yAxisById.get(s.yAxisId);
@@ -833,8 +903,7 @@ export const WebGLRenderer = React.memo(
 					const yScaleVal =
 						(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
 					const yOffsetVal =
-						(height - padding.bottom) * dpr -
-						(yAxis.min - yRef) * yScaleVal;
+						(height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
 
 					let xBuffer = columnBufferRef.current.get(xData);
 					if (!xBuffer) {

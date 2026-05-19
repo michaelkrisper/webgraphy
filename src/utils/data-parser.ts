@@ -199,8 +199,9 @@ function processCSVHeader(
 	columnConfigs: ColumnConfigEntry[],
 	capacity: number,
 ) {
-	const headers = splitCSVLine(line, delimiter)
-		.map((h) => h.trim().replace(/^"|"$/g, ""));
+	const headers = splitCSVLine(line, delimiter).map((h) =>
+		h.trim().replace(/^"|"$/g, ""),
+	);
 
 	const configMap = new Map<number, ColumnConfigEntry>();
 	for (let i = 0; i < columnConfigs.length; i++) {

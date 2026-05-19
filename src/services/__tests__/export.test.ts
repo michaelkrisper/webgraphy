@@ -573,9 +573,10 @@ describe("downloadFile", () => {
 	});
 
 	it("should throw an error for unsafe data URLs", () => {
-		const content = "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTs8L3NjcmlwdD4=";
+		const content =
+			"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTs8L3NjcmlwdD4=";
 		expect(() => downloadFile(content, "test.html", "text/html")).toThrow(
-			"Unsafe data URL scheme detected"
+			"Unsafe data URL scheme detected",
 		);
 	});
 

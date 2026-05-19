@@ -116,7 +116,7 @@ describe("colors", () => {
 			expect(lchToRgb(100, 0.01, 296.81)).toEqual({ r: 255, g: 255, b: 255 });
 
 			// Red
-			const red = lchToRgb(53.23, 104.58, 40.00);
+			const red = lchToRgb(53.23, 104.58, 40.0);
 			expect(red.r).toBeGreaterThanOrEqual(254);
 			expect(red.g).toBeLessThanOrEqual(1);
 			expect(red.b).toBeLessThanOrEqual(1);
@@ -128,7 +128,7 @@ describe("colors", () => {
 			expect(green.b).toBeLessThanOrEqual(1);
 
 			// Blue
-			const blue = lchToRgb(32.30, 133.82, 306.29);
+			const blue = lchToRgb(32.3, 133.82, 306.29);
 			expect(blue.r).toBeLessThanOrEqual(1);
 			expect(blue.g).toBeLessThanOrEqual(1);
 			expect(blue.b).toBeGreaterThanOrEqual(254);

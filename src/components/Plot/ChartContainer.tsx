@@ -46,7 +46,6 @@ import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 
-
 type OverlayXEntry = {
 	id: string;
 	min: number;
@@ -68,7 +67,7 @@ type OverlayYEntry = {
 function updateOverlayAxes(
 	scratch: { xAxes: OverlayXEntry[]; yAxes: OverlayYEntry[] },
 	xLayout: XAxisLayout[],
-	yLayout: YAxisLayout[]
+	yLayout: YAxisLayout[],
 ) {
 	const sx = scratch.xAxes;
 	sx.length = xLayout.length;
@@ -128,23 +127,16 @@ function updateOverlayAxes(
 	}
 }
 
-
 function syncStoreUpdates(
 	state: ReturnType<typeof useGraphStore.getState>,
 	xUpdates: Record<string, { min: number; max: number }>,
-	yUpdates: Record<string, { min: number; max: number }>
+	yUpdates: Record<string, { min: number; max: number }>,
 ) {
 	const currentX = state.xAxes;
 	const currentY = state.yAxes;
 
-	const filteredXUpdates: Record<
-		string,
-		{ min: number; max: number }
-	> = {};
-	const filteredYUpdates: Record<
-		string,
-		{ min: number; max: number }
-	> = {};
+	const filteredXUpdates: Record<string, { min: number; max: number }> = {};
+	const filteredYUpdates: Record<string, { min: number; max: number }> = {};
 
 	const EPSILON = 1e-10;
 	Object.entries(xUpdates).forEach(([id, upd]) => {
@@ -905,9 +897,9 @@ export default function ChartContainer() {
 					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
-						if (forceStoreUpdate || !isInteractingNow) {
-							syncStoreUpdates(state, xUpdates, yUpdates);
-						}
+					if (forceStoreUpdate || !isInteractingNow) {
+						syncStoreUpdates(state, xUpdates, yUpdates);
+					}
 				}
 				if (kbZoom || kbPan) {
 					syncViewportRef.current(false);

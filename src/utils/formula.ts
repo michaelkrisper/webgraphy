@@ -655,7 +655,8 @@ export function compileFormula(
 					} else if (type === "FUNC") {
 						const argCount = token.args !== undefined ? token.args : 1;
 						argsScratch.length = argCount;
-						for (let j = argCount - 1; j >= 0; j--) argsScratch[j] = stack[--sp];
+						for (let j = argCount - 1; j >= 0; j--)
+							argsScratch[j] = stack[--sp];
 						stack[sp++] = evaluateFuncToken(
 							token,
 							argsScratch,

@@ -4,12 +4,10 @@ import type {
 } from "../utils/formula";
 
 let worker: Worker | null = null;
-let currentResolver:
-	| {
-			resolve: (value: FormulaEvaluationResult) => void;
-			reject: (reason: unknown) => void;
-	  }
-	| null = null;
+let currentResolver: {
+	resolve: (value: FormulaEvaluationResult) => void;
+	reject: (reason: unknown) => void;
+} | null = null;
 
 function ensureWorker(): Worker {
 	if (worker) return worker;
@@ -24,7 +22,8 @@ function ensureWorker(): Worker {
 	worker.onerror = (ev) => {
 		const r = currentResolver;
 		currentResolver = null;
-		const err = ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
+		const err =
+			ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
 		r?.reject(err);
 	};
 	return worker;

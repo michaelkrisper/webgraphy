@@ -236,8 +236,16 @@ function drawDashedLines(
 	segBufferKey: string,
 ): void {
 	const { gl, locs } = st;
-	const { drawRanges, xData, yData, xRange, yRange, chartWidth, chartHeight, dpr } =
-		bundle;
+	const {
+		drawRanges,
+		xData,
+		yData,
+		xRange,
+		yRange,
+		chartWidth,
+		chartHeight,
+		dpr,
+	} = bundle;
 	const STEPS: number[] = [];
 	let totalLineSegs = 0;
 	for (const r of drawRanges) {
@@ -437,10 +445,7 @@ export function drawSeriesPoints(
 			const lowIdx = findLastLE(xArr, bundle.xAxisMin, bundle.xRef, 0);
 			const highIdx = findFirstGE(xArr, bundle.xAxisMax, bundle.xRef, cnt - 1);
 			const dStart = Math.max(0, lowIdx > 0 ? lowIdx - 1 : 0);
-			const dEnd = Math.min(
-				cnt - 1,
-				highIdx < cnt - 1 ? highIdx + 1 : highIdx,
-			);
+			const dEnd = Math.min(cnt - 1, highIdx < cnt - 1 ? highIdx + 1 : highIdx);
 			if (dEnd >= dStart) {
 				useDecim = true;
 				decimEntry = entry;

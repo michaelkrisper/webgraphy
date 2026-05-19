@@ -1,7 +1,7 @@
-import { renderHook, act } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useAutoScale } from "./useAutoScale";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset, SeriesConfig } from "../services/persistence";
+import { useAutoScale } from "./useAutoScale";
 
 vi.mock("../store/useGraphStore", () => ({
 	useGraphStore: {

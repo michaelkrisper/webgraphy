@@ -23,7 +23,8 @@ function ensureWorker(): Worker {
 		else entry.reject(new Error(error ?? "Parser worker error"));
 	};
 	worker.onerror = (ev) => {
-		const err = ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
+		const err =
+			ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
 		for (const entry of pending.values()) entry.reject(err);
 		pending.clear();
 	};

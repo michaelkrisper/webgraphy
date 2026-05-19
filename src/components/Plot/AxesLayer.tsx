@@ -282,7 +282,9 @@ const AxesLayer = React.memo(
 									color: s.lineColor ?? labelColor,
 								});
 							});
-							const widths = segments.map((seg) => ctx.measureText(seg.text).width);
+							const widths = segments.map(
+								(seg) => ctx.measureText(seg.text).width,
+							);
 							const totalW = widths.reduce((a, b) => a + b, 0);
 							const cx = titleX;
 							const cy = padding.top + chartHeight / 2;

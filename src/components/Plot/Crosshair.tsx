@@ -9,7 +9,6 @@ import type {
 import { findClosest } from "../../utils/binarySearch";
 import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
-import { escapeHTML } from "../../utils/dom";
 import { formatFullDate } from "../../utils/time";
 
 interface SeriesMetadata {

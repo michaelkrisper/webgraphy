@@ -6,8 +6,8 @@ import {
 	calcNumericStep,
 	calcNumericTicks,
 	calcYAxisTicks,
-	syncAxesWithTargets,
 	formatAxisLabel,
+	syncAxesWithTargets,
 } from "../axisCalculations";
 
 describe("calcNumericStep", () => {

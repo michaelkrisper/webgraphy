@@ -39,9 +39,7 @@ export const readExcelFile = async (file: File): Promise<PendingFile> => {
 				const workbook = XLSX.read(data, { type: "array" });
 				const sheets = workbook.SheetNames;
 				const selectedSheet = sheets[0];
-				const fullCsv = XLSX.utils.sheet_to_csv(
-					workbook.Sheets[selectedSheet],
-				);
+				const fullCsv = XLSX.utils.sheet_to_csv(workbook.Sheets[selectedSheet]);
 				const preview = fullCsv.split("\n").slice(0, 500).join("\n");
 
 				resolve({

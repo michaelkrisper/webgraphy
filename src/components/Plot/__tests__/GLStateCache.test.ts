@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GLStateCache, WebGLLocations } from '../GLStateCache';
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GLStateCache, type WebGLLocations } from "../GLStateCache";
 
-describe('GLStateCache', () => {
+describe("GLStateCache", () => {
 	let gl: WebGLRenderingContext;
 	let locs: WebGLLocations;
 	let cache: GLStateCache;
@@ -40,8 +40,8 @@ describe('GLStateCache', () => {
 		cache = new GLStateCache(gl, locs);
 	});
 
-	describe('setColor', () => {
-		it('sets color and caches it', () => {
+	describe("setColor", () => {
+		it("sets color and caches it", () => {
 			cache.setColor(1, 0, 0, 1);
 			expect(gl.uniform4f).toHaveBeenCalledWith(locs.colorLoc, 1, 0, 0, 1);
 			expect(gl.uniform4f).toHaveBeenCalledTimes(1);
@@ -55,8 +55,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setStyle', () => {
-		it('sets style and caches it', () => {
+	describe("setStyle", () => {
+		it("sets style and caches it", () => {
 			cache.setStyle(1);
 			expect(gl.uniform1i).toHaveBeenCalledWith(locs.styleLoc, 1);
 			expect(gl.uniform1i).toHaveBeenCalledTimes(1);
@@ -70,8 +70,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setLineStyle', () => {
-		it('sets line style and caches it', () => {
+	describe("setLineStyle", () => {
+		it("sets line style and caches it", () => {
 			cache.setLineStyle(1);
 			expect(gl.uniform1i).toHaveBeenCalledWith(locs.lineStyleLoc, 1);
 			expect(gl.uniform1i).toHaveBeenCalledTimes(1);
@@ -85,8 +85,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setScreenSpace', () => {
-		it('sets screen space and caches it', () => {
+	describe("setScreenSpace", () => {
+		it("sets screen space and caches it", () => {
 			cache.setScreenSpace(1);
 			expect(gl.uniform1i).toHaveBeenCalledWith(locs.screenSpaceLoc, 1);
 			expect(gl.uniform1i).toHaveBeenCalledTimes(1);
@@ -100,8 +100,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setPointSize', () => {
-		it('sets point size and caches it', () => {
+	describe("setPointSize", () => {
+		it("sets point size and caches it", () => {
 			cache.setPointSize(5);
 			expect(gl.uniform1f).toHaveBeenCalledWith(locs.sizeLoc, 5);
 			expect(gl.uniform1f).toHaveBeenCalledTimes(1);
@@ -115,8 +115,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setLineWidth', () => {
-		it('sets line width and caches it', () => {
+	describe("setLineWidth", () => {
+		it("sets line width and caches it", () => {
 			cache.setLineWidth(2);
 			expect(gl.lineWidth).toHaveBeenCalledWith(2);
 			expect(gl.lineWidth).toHaveBeenCalledTimes(1);
@@ -130,8 +130,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setXScaleOff', () => {
-		it('sets X scale/offset and caches it', () => {
+	describe("setXScaleOff", () => {
+		it("sets X scale/offset and caches it", () => {
 			cache.setXScaleOff(2, 5);
 			expect(gl.uniform2f).toHaveBeenCalledWith(locs.xScaleOffLoc, 2, 5);
 			expect(gl.uniform2f).toHaveBeenCalledTimes(1);
@@ -145,8 +145,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('setYScaleOff', () => {
-		it('sets Y scale/offset and caches it', () => {
+	describe("setYScaleOff", () => {
+		it("sets Y scale/offset and caches it", () => {
 			cache.setYScaleOff(2, 5);
 			expect(gl.uniform2f).toHaveBeenCalledWith(locs.yScaleOffLoc, 2, 5);
 			expect(gl.uniform2f).toHaveBeenCalledTimes(1);
@@ -160,8 +160,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('enableAttrib', () => {
-		it('enables vertex attrib array and caches it', () => {
+	describe("enableAttrib", () => {
+		it("enables vertex attrib array and caches it", () => {
 			cache.enableAttrib(locs.xLoc);
 			expect(gl.enableVertexAttribArray).toHaveBeenCalledWith(locs.xLoc);
 			expect(gl.enableVertexAttribArray).toHaveBeenCalledTimes(1);
@@ -171,8 +171,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('disableAttribConst1', () => {
-		it('disables vertex attrib array and sets const1, caching both', () => {
+	describe("disableAttribConst1", () => {
+		it("disables vertex attrib array and sets const1, caching both", () => {
 			cache.disableAttribConst1(locs.xLoc, 5);
 			expect(gl.disableVertexAttribArray).toHaveBeenCalledWith(locs.xLoc);
 			expect(gl.vertexAttrib1f).toHaveBeenCalledWith(locs.xLoc, 5);
@@ -189,7 +189,7 @@ describe('GLStateCache', () => {
 			expect(gl.vertexAttrib1f).toHaveBeenCalledTimes(2);
 		});
 
-		it('disables vertex attrib after being enabled', () => {
+		it("disables vertex attrib after being enabled", () => {
 			cache.enableAttrib(locs.xLoc);
 			cache.disableAttribConst1(locs.xLoc, 5);
 			expect(gl.disableVertexAttribArray).toHaveBeenCalledWith(locs.xLoc);
@@ -197,8 +197,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('disableAttribConst2', () => {
-		it('disables vertex attrib array and sets const2, caching both', () => {
+	describe("disableAttribConst2", () => {
+		it("disables vertex attrib array and sets const2, caching both", () => {
 			cache.disableAttribConst2(locs.xLoc, 5, 10);
 			expect(gl.disableVertexAttribArray).toHaveBeenCalledWith(locs.xLoc);
 			expect(gl.vertexAttrib2f).toHaveBeenCalledWith(locs.xLoc, 5, 10);
@@ -216,8 +216,8 @@ describe('GLStateCache', () => {
 		});
 	});
 
-	describe('reset', () => {
-		it('resets cache state', () => {
+	describe("reset", () => {
+		it("resets cache state", () => {
 			cache.setColor(1, 0, 0, 1);
 			expect(gl.uniform4f).toHaveBeenCalledTimes(1);
 

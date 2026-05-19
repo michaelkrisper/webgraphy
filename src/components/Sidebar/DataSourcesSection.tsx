@@ -381,7 +381,9 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 																fontWeight: "600",
 															}}
 															title={
-																isCalc ? `${label}\nFormula: ${colData.formula}` : label
+																isCalc
+																	? `${label}\nFormula: ${colData.formula}`
+																	: label
 															}
 														>
 															{isCalc ? `ƒ ${label}` : label}

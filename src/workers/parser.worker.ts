@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { Dataset } from "../services/persistence";
-import { parseData, type ParseSettings } from "../utils/data-parser";
+import { type ParseSettings, parseData } from "../utils/data-parser";
 
 export interface ParserRequest {
 	id: number;

@@ -42,7 +42,8 @@ export const THEMES: Record<ThemeName, Theme> = {
 	// Modern light — warm near-white, cobalt accent, hairline borders
 	light: {
 		fontFamily: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
-		fontFamilyMono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+		fontFamilyMono:
+			'"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 		bg: "#ffffff",
 		bg2: "#fafaf7",
 		bg3: "#f1efeb",
@@ -79,7 +80,8 @@ export const THEMES: Record<ThemeName, Theme> = {
 	// Modern dark — desaturated blue-black
 	dark: {
 		fontFamily: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
-		fontFamilyMono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+		fontFamilyMono:
+			'"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 		bg: "#15181f",
 		bg2: "#0f1115",
 		bg3: "#1c2028",
@@ -116,7 +118,8 @@ export const THEMES: Record<ThemeName, Theme> = {
 	// Matrix — phosphor green on near-black
 	matrix: {
 		fontFamily: '"JetBrains Mono", "Share Tech Mono", "Courier New", monospace',
-		fontFamilyMono: '"JetBrains Mono", "Share Tech Mono", "Courier New", monospace',
+		fontFamilyMono:
+			'"JetBrains Mono", "Share Tech Mono", "Courier New", monospace',
 		bg: "#081109",
 		bg2: "#040806",
 		bg3: "#0c1a0e",

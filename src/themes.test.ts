@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { THEMES, THEME_CYCLE, ThemeName } from "./themes";
+import { describe, expect, it } from "vitest";
+import { THEME_CYCLE, THEMES, type ThemeName } from "./themes";
 
 describe("THEMES configuration", () => {
 	it("should have all themes from THEMES included in THEME_CYCLE", () => {

@@ -20,7 +20,7 @@ describe("Coordinate Conversions", () => {
 
 			// Both should yield the identical result because of fallback p = view.padding || { top: 0, right: 0, bottom: 0, left: 0 }
 			expect(worldToScreen(50, 50, viewWithoutPadding)).toEqual(
-				worldToScreen(50, 50, viewWithZeroPadding)
+				worldToScreen(50, 50, viewWithZeroPadding),
 			);
 		});
 

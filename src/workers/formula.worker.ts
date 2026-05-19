@@ -11,7 +11,8 @@ self.onmessage = (ev: MessageEvent<FormulaWorkerParams>) => {
 	try {
 		const result = evaluateFormulaSync(params);
 		const transferables: ArrayBuffer[] = [];
-		if (result.newColumn) transferables.push(result.newColumn.data.buffer as ArrayBuffer);
+		if (result.newColumn)
+			transferables.push(result.newColumn.data.buffer as ArrayBuffer);
 		if (result.sparseXColumn)
 			transferables.push(result.sparseXColumn.data.buffer as ArrayBuffer);
 		(self as DedicatedWorkerGlobalScope).postMessage(result, transferables);

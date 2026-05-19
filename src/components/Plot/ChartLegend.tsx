@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { SeriesConfig } from "../../services/persistence";
 
 interface ChartLegendProps {
@@ -15,6 +15,9 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 	onHighlight,
 	padding,
 }) => {
+	const [position, setPosition] = useState<{ x: number; y: number } | null>(
+		null,
+	);
 	const positionRef = useRef<{ x: number; y: number } | null>(null);
 	const dragRef = useRef<{
 		startX: number;
@@ -66,6 +69,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 			};
 			const handleUp = () => {
 				dragRef.current = null;
+				if (positionRef.current) setPosition(positionRef.current);
 				window.removeEventListener("mousemove", handleMove);
 				window.removeEventListener("mouseup", handleUp);
 			};
@@ -86,7 +90,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 		return "none";
 	};
 
-	const pos = positionRef.current;
+	const pos = position;
 
 	return (
 		<section
