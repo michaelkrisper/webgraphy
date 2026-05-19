@@ -451,9 +451,10 @@
 .color-picker-grid-vertical {
 	display: grid;
 	grid-auto-flow: column;
-	/* 1 row main color, 1 row spacer (4px), 5 rows shades (22px each) */
-	grid-template-rows: 22px 4px repeat(5, 22px);
-	width: fit-content;
+	/* 1 row main color, 1 row spacer (4px), 5 rows shades (28px each) */
+	grid-template-rows: 28px 4px repeat(5, 28px);
+	grid-auto-columns: 1fr;
+	width: 100%;
 	gap: 0;
 	background: transparent;
 }
@@ -468,8 +469,8 @@
 }
 
 .color-picker-palette-btn {
-	width: 22px;
-	height: 6px;
+	width: 100%;
+	height: 28px;
 	cursor: pointer;
 	border: none;
 	flex-shrink: 0;
@@ -496,7 +497,8 @@
 .color-picker-label {
 	font-size: 9px;
 	color: var(--text-muted);
-	width: 22px;
+	width: 24px;
+	flex-shrink: 0;
 	text-transform: uppercase;
 }
 .color-picker-input {
