@@ -46,6 +46,137 @@ import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 
+
+type OverlayXEntry = {
+	id: string;
+	min: number;
+	max: number;
+	showGrid: boolean;
+	ticks: number[];
+	categoryLabels?: string[];
+};
+type OverlayYEntry = {
+	id: string;
+	min: number;
+	max: number;
+	showGrid: boolean;
+	ticks: number[];
+	position: "left" | "right";
+	categoryLabels?: string[];
+};
+
+function updateOverlayAxes(
+	scratch: { xAxes: OverlayXEntry[]; yAxes: OverlayYEntry[] },
+	xLayout: XAxisLayout[],
+	yLayout: YAxisLayout[]
+) {
+	const sx = scratch.xAxes;
+	sx.length = xLayout.length;
+	for (let i = 0; i < xLayout.length; i++) {
+		const a = xLayout[i];
+		let entry = sx[i];
+		if (!entry) {
+			entry = {
+				id: a.id,
+				min: a.min,
+				max: a.max,
+				showGrid: a.showGrid,
+				ticks: [],
+				categoryLabels: a.categoryLabels,
+			};
+			sx[i] = entry;
+		} else {
+			entry.id = a.id;
+			entry.min = a.min;
+			entry.max = a.max;
+			entry.showGrid = a.showGrid;
+			entry.categoryLabels = a.categoryLabels;
+		}
+		const src = a.ticks.result;
+		const dst = entry.ticks;
+		dst.length = src.length;
+		for (let j = 0; j < src.length; j++) {
+			const t = src[j];
+			dst[j] = typeof t === "number" ? t : t.timestamp;
+		}
+	}
+	const sy = scratch.yAxes;
+	sy.length = yLayout.length;
+	for (let i = 0; i < yLayout.length; i++) {
+		const a = yLayout[i];
+		let entry = sy[i];
+		if (!entry) {
+			entry = {
+				id: a.id,
+				min: a.min,
+				max: a.max,
+				showGrid: a.showGrid,
+				ticks: a.ticks,
+				position: a.position,
+				categoryLabels: a.categoryLabels,
+			};
+			sy[i] = entry;
+		} else {
+			entry.id = a.id;
+			entry.min = a.min;
+			entry.max = a.max;
+			entry.showGrid = a.showGrid;
+			entry.ticks = a.ticks;
+			entry.position = a.position;
+			entry.categoryLabels = a.categoryLabels;
+		}
+	}
+}
+
+
+function syncStoreUpdates(
+	state: ReturnType<typeof useGraphStore.getState>,
+	xUpdates: Record<string, { min: number; max: number }>,
+	yUpdates: Record<string, { min: number; max: number }>
+) {
+	const currentX = state.xAxes;
+	const currentY = state.yAxes;
+
+	const filteredXUpdates: Record<
+		string,
+		{ min: number; max: number }
+	> = {};
+	const filteredYUpdates: Record<
+		string,
+		{ min: number; max: number }
+	> = {};
+
+	const EPSILON = 1e-10;
+	Object.entries(xUpdates).forEach(([id, upd]) => {
+		const axis = currentX.find((a) => a.id === id);
+		if (
+			!axis ||
+			Math.abs(axis.min - upd.min) > EPSILON ||
+			Math.abs(axis.max - upd.max) > EPSILON
+		) {
+			filteredXUpdates[id] = upd;
+		}
+	});
+
+	Object.entries(yUpdates).forEach(([id, upd]) => {
+		const axis = currentY.find((a) => a.id === id);
+		if (
+			!axis ||
+			Math.abs(axis.min - upd.min) > EPSILON ||
+			Math.abs(axis.max - upd.max) > EPSILON
+		) {
+			filteredYUpdates[id] = upd;
+		}
+	});
+
+	if (
+		Object.keys(filteredXUpdates).length > 0 ||
+		Object.keys(filteredYUpdates).length > 0
+	) {
+		state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
+	}
+}
+
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
@@ -79,24 +210,6 @@ export default function ChartContainer() {
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
 	const axesLayerRef = useRef<AxesLayerHandle | null>(null);
 	const pressedKeysRef = useRef<Set<string>>(new Set());
-
-	type OverlayXEntry = {
-		id: string;
-		min: number;
-		max: number;
-		showGrid: boolean;
-		ticks: number[];
-		categoryLabels?: string[];
-	};
-	type OverlayYEntry = {
-		id: string;
-		min: number;
-		max: number;
-		showGrid: boolean;
-		ticks: number[];
-		position: "left" | "right";
-		categoryLabels?: string[];
-	};
 	const overlayScratchRef = useRef<{
 		xAxes: OverlayXEntry[];
 		yAxes: OverlayYEntry[];
@@ -760,62 +873,7 @@ export default function ChartContainer() {
 					const yLayout = computeYAxesLayout(liveY);
 
 					const scratch = overlayScratchRef.current;
-					const sx = scratch.xAxes;
-					sx.length = xLayout.length;
-					for (let i = 0; i < xLayout.length; i++) {
-						const a = xLayout[i];
-						let entry = sx[i];
-						if (!entry) {
-							entry = {
-								id: a.id,
-								min: a.min,
-								max: a.max,
-								showGrid: a.showGrid,
-								ticks: [],
-								categoryLabels: a.categoryLabels,
-							};
-							sx[i] = entry;
-						} else {
-							entry.id = a.id;
-							entry.min = a.min;
-							entry.max = a.max;
-							entry.showGrid = a.showGrid;
-							entry.categoryLabels = a.categoryLabels;
-						}
-						const src = a.ticks.result;
-						const dst = entry.ticks;
-						dst.length = src.length;
-						for (let j = 0; j < src.length; j++) {
-							const t = src[j];
-							dst[j] = typeof t === "number" ? t : t.timestamp;
-						}
-					}
-					const sy = scratch.yAxes;
-					sy.length = yLayout.length;
-					for (let i = 0; i < yLayout.length; i++) {
-						const a = yLayout[i];
-						let entry = sy[i];
-						if (!entry) {
-							entry = {
-								id: a.id,
-								min: a.min,
-								max: a.max,
-								showGrid: a.showGrid,
-								ticks: a.ticks,
-								position: a.position,
-								categoryLabels: a.categoryLabels,
-							};
-							sy[i] = entry;
-						} else {
-							entry.id = a.id;
-							entry.min = a.min;
-							entry.max = a.max;
-							entry.showGrid = a.showGrid;
-							entry.ticks = a.ticks;
-							entry.position = a.position;
-							entry.categoryLabels = a.categoryLabels;
-						}
-					}
+					updateOverlayAxes(scratch, xLayout, yLayout);
 					scratch.xAxesMetrics = xAxesMetrics;
 					scratch.axisLayout = axisLayout;
 					scratch.leftOffsets = leftOffsets;
@@ -829,49 +887,9 @@ export default function ChartContainer() {
 					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
-					if (forceStoreUpdate || !isInteractingNow) {
-						const currentX = state.xAxes;
-						const currentY = state.yAxes;
-
-						const filteredXUpdates: Record<
-							string,
-							{ min: number; max: number }
-						> = {};
-						const filteredYUpdates: Record<
-							string,
-							{ min: number; max: number }
-						> = {};
-
-						const EPSILON = 1e-10;
-						Object.entries(xUpdates).forEach(([id, upd]) => {
-							const axis = currentX.find((a) => a.id === id);
-							if (
-								!axis ||
-								Math.abs(axis.min - upd.min) > EPSILON ||
-								Math.abs(axis.max - upd.max) > EPSILON
-							) {
-								filteredXUpdates[id] = upd;
-							}
-						});
-
-						Object.entries(yUpdates).forEach(([id, upd]) => {
-							const axis = currentY.find((a) => a.id === id);
-							if (
-								!axis ||
-								Math.abs(axis.min - upd.min) > EPSILON ||
-								Math.abs(axis.max - upd.max) > EPSILON
-							) {
-								filteredYUpdates[id] = upd;
-							}
-						});
-
-						if (
-							Object.keys(filteredXUpdates).length > 0 ||
-							Object.keys(filteredYUpdates).length > 0
-						) {
-							state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
+						if (forceStoreUpdate || !isInteractingNow) {
+							syncStoreUpdates(state, xUpdates, yUpdates);
 						}
-					}
 				}
 				if (kbZoom || kbPan) {
 					syncViewportRef.current(false);
