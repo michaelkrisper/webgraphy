@@ -136,12 +136,11 @@ const Crosshair = React.memo(
 			const out: Record<string, string> = {};
 			for (const xId in dsByX) {
 				const dss = dsByX[xId];
-				const uniqueColumns = Array.from(
-					dss.reduce(
-						(acc, d: Dataset) => acc.add(d.xAxisColumn),
-						new Set<string>(),
-					),
-				);
+				const uniqueSet = new Set<string>();
+				for (const d of dss) {
+					uniqueSet.add(d.xAxisColumn);
+				}
+				const uniqueColumns = Array.from(uniqueSet);
 				out[xId] =
 					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
 			}
