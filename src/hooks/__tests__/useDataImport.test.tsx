@@ -88,8 +88,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		await act(async () => {
@@ -121,8 +121,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		await act(async () => {
@@ -137,7 +137,7 @@ describe("useDataImport hook", () => {
 		global.FileReader = originalFileReader;
 	});
 
-	it("should cancel import correctly", () => {
+	it("should cancel import correctly", async () => {
 		const { result } = renderHook(() => useDataImport());
 
 		const file = new File([""], "test.csv", { type: "text/csv" });
@@ -151,8 +151,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		expect(result.current.pendingFile).not.toBeNull();
@@ -195,8 +195,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		expect(result.current.pendingFile).not.toBeNull();
@@ -249,8 +249,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		const settings: ImportSettings = {
@@ -299,8 +299,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		const settings: ImportSettings = {
@@ -342,8 +342,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		await act(async () => {
@@ -371,8 +371,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		const settings: ImportSettings = {
@@ -421,8 +421,8 @@ describe("useDataImport hook", () => {
 		}
 		global.FileReader = MockFileReader as unknown as typeof FileReader;
 
-		act(() => {
-			result.current.importFile(file);
+		await act(async () => {
+			await result.current.importFile(file);
 		});
 
 		const settings: ImportSettings = {

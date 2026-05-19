@@ -19,68 +19,124 @@ const processImportedDataset = (ds: Dataset, currentDatasetsLength: number) => {
 	return ds;
 };
 
+export type PendingFile = {
+	file: File;
+	preview: string;
+	fullCsv?: string; // full CSV for Excel import (preview is truncated)
+	type: "csv" | "json" | "excel";
+	sheets?: string[];
+	selectedSheet?: string;
+	workbook?: WorkBook;
+};
+
+export const readExcelFile = async (file: File): Promise<PendingFile> => {
+	const XLSX = await import("xlsx");
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const data = new Uint8Array(e.target?.result as ArrayBuffer);
+				const workbook = XLSX.read(data, { type: "array" });
+				const sheets = workbook.SheetNames;
+				const selectedSheet = sheets[0];
+				const fullCsv = XLSX.utils.sheet_to_csv(
+					workbook.Sheets[selectedSheet],
+				);
+				const preview = fullCsv.split("\n").slice(0, 500).join("\n");
+
+				resolve({
+					file,
+					preview,
+					fullCsv,
+					type: "excel",
+					sheets,
+					selectedSheet,
+					workbook,
+				});
+			} catch {
+				reject(new Error("Failed to parse Excel file."));
+			}
+		};
+		reader.onerror = () => reject(new Error("Failed to read file."));
+		reader.readAsArrayBuffer(file);
+	});
+};
+
+export const readTextFile = (
+	file: File,
+	type: "csv" | "json",
+): Promise<PendingFile> => {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			const preview = e.target?.result as string;
+			resolve({ file, preview, type });
+		};
+		reader.onerror = () => reject(new Error("Failed to read file."));
+		reader.readAsText(file.slice(0, 25600));
+	});
+};
+
+export const processImportedDatasets = (
+	incoming: Dataset[],
+	addDataset: (ds: Dataset) => void,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	addSeries: (series: any) => void,
+) => {
+	const isSplitImport = incoming.length > 1;
+
+	for (const raw of incoming) {
+		const currentState = useGraphStore.getState();
+		const ds = processImportedDataset(raw, currentState.datasets.length);
+
+		addDataset(ds);
+
+		if (!isSplitImport && ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
+			const seriesBeforeAdd = useGraphStore.getState().series;
+			const nonXColumns = ds.columns
+				.filter((c) => c !== ds.xAxisColumn)
+				.slice(0, 4);
+			nonXColumns.forEach((col, i) => {
+				const colIdx = ds.columns.indexOf(col);
+				const isCategorical = colIdx >= 0 && !!ds.data[colIdx]?.categoryLabels;
+				addSeries(
+					buildSeriesConfig(
+						col,
+						ds.id,
+						seriesBeforeAdd.length + i,
+						isCategorical,
+					),
+				);
+			});
+		}
+	}
+};
+
 /**
  * Hook to manage data import logic without workers.
  */
 export const useDataImport = () => {
 	const [isImporting, setIsImporting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [pendingFile, setPendingFile] = useState<{
-		file: File;
-		preview: string;
-		fullCsv?: string; // full CSV for Excel import (preview is truncated)
-		type: "csv" | "json" | "excel";
-		sheets?: string[];
-		selectedSheet?: string;
-		workbook?: WorkBook;
-	} | null>(null);
+	const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
 	const addDataset = useGraphStore((s) => s.addDataset);
 	const addSeries = useGraphStore((s) => s.addSeries);
 
 	const initiateImport = useCallback(async (file: File) => {
 		setError(null);
 
-		if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-			const XLSX = await import("xlsx");
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				try {
-					const data = new Uint8Array(e.target?.result as ArrayBuffer);
-					const workbook = XLSX.read(data, { type: "array" });
-					const sheets = workbook.SheetNames;
-					const selectedSheet = sheets[0];
-					const fullCsv = XLSX.utils.sheet_to_csv(
-						workbook.Sheets[selectedSheet],
-					);
-					const preview = fullCsv.split("\n").slice(0, 500).join("\n");
-
-					setPendingFile({
-						file,
-						preview,
-						fullCsv,
-						type: "excel",
-						sheets,
-						selectedSheet,
-						workbook,
-					});
-				} catch {
-					setError("Failed to parse Excel file.");
-				}
-			};
-			reader.onerror = () => setError("Failed to read file.");
-			reader.readAsArrayBuffer(file);
-			return;
+		try {
+			if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+				const pendingFile = await readExcelFile(file);
+				setPendingFile(pendingFile);
+			} else {
+				const type = file.name.endsWith(".csv") ? "csv" : "json";
+				const pendingFile = await readTextFile(file, type);
+				setPendingFile(pendingFile);
+			}
+		} catch (err: unknown) {
+			setError(err instanceof Error ? err.message : String(err));
 		}
-
-		const type = file.name.endsWith(".csv") ? "csv" : "json";
-
-		// Read preview (first 10KB)
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const preview = e.target?.result as string;
-			setPendingFile({ file, preview, type });
-		};
-		reader.readAsText(file.slice(0, 25600));
 	}, []);
 
 	const changeSheet = useCallback(async (sheetName: string) => {
@@ -117,37 +173,8 @@ export const useDataImport = () => {
 					settings,
 				);
 				const incoming = (datasets as Dataset[]) || [];
-				const isSplitImport = incoming.length > 1;
 
-				for (const raw of incoming) {
-					const currentState = useGraphStore.getState();
-					const ds = processImportedDataset(raw, currentState.datasets.length);
-
-					addDataset(ds);
-
-					if (
-						!isSplitImport &&
-						ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD
-					) {
-						const seriesBeforeAdd = useGraphStore.getState().series;
-						const nonXColumns = ds.columns
-							.filter((c) => c !== ds.xAxisColumn)
-							.slice(0, 4);
-						nonXColumns.forEach((col, i) => {
-							const colIdx = ds.columns.indexOf(col);
-							const isCategorical =
-								colIdx >= 0 && !!ds.data[colIdx]?.categoryLabels;
-							addSeries(
-								buildSeriesConfig(
-									col,
-									ds.id,
-									seriesBeforeAdd.length + i,
-									isCategorical,
-								),
-							);
-						});
-					}
-				}
+				processImportedDatasets(incoming, addDataset, addSeries);
 
 				setIsImporting(false);
 				setPendingFile(null);
