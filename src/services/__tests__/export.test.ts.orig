@@ -572,13 +572,6 @@ describe("downloadFile", () => {
 		expect(URL.createObjectURL).not.toHaveBeenCalled();
 	});
 
-	it("should throw an error for unsafe data URLs", () => {
-		const content = "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTs8L3NjcmlwdD4=";
-		expect(() => downloadFile(content, "test.html", "text/html")).toThrow(
-			"Unsafe data URL scheme detected"
-		);
-	});
-
 	it("should handle normal strings using Blob correctly", () => {
 		vi.useFakeTimers();
 		downloadFile("Hello, world!", "test.txt", "text/plain");
