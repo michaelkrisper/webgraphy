@@ -367,17 +367,32 @@ const Crosshair = React.memo(
 				tooltip.style.top = `${pos.y + 15}px`;
 
 				const multi = snap.entries.length > 1;
-				let html = "";
+				tooltip.replaceChildren();
+
 				snap.entries.forEach((group, gIdx) => {
-					const sepStyle =
-						gIdx > 0
-							? `border-top:1px solid ${escapeHTML(tooltipDividerColor)};padding-top:4px;margin-top:4px;`
-							: "";
-					html += `<div style="color:${escapeHTML(tooltipSubColor)};font-size:9px;${sepStyle}">`;
-					html += `<span class="chart-tooltip-x-label" style="color:${escapeHTML(tooltipColor)}">`;
-					if (multi) html += `${escapeHTML(group.xAxisName)}: `;
-					html += `${escapeHTML(group.xLabel)}</span></div>`;
-					html += `<div class="chart-tooltip-items">`;
+					const groupDiv = document.createElement("div");
+					groupDiv.style.color = tooltipSubColor;
+					groupDiv.style.fontSize = "9px";
+					if (gIdx > 0) {
+						groupDiv.style.borderTop = `1px solid ${tooltipDividerColor}`;
+						groupDiv.style.paddingTop = "4px";
+						groupDiv.style.marginTop = "4px";
+					}
+
+					const labelSpan = document.createElement("span");
+					labelSpan.className = "chart-tooltip-x-label";
+					labelSpan.style.color = tooltipColor;
+
+					let labelText = "";
+					if (multi) labelText += `${group.xAxisName}: `;
+					labelText += group.xLabel;
+					labelSpan.textContent = labelText;
+					groupDiv.appendChild(labelSpan);
+					tooltip.appendChild(groupDiv);
+
+					const itemsDiv = document.createElement("div");
+					itemsDiv.className = "chart-tooltip-items";
+
 					for (const item of group.items) {
 						const formatted =
 							item.valueLabel ??
@@ -386,13 +401,27 @@ const Crosshair = React.memo(
 						const intPart =
 							sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);
 						const decPart = sepIdx === -1 ? "" : formatted.slice(sepIdx);
-						html += `<span class="chart-tooltip-item-label" style="color:${escapeHTML(item.color)}">${escapeHTML(item.label)}:</span>`;
-						html += `<span class="chart-tooltip-value-int" style="color:${escapeHTML(tooltipColor)}">${escapeHTML(intPart)}</span>`;
-						html += `<span class="chart-tooltip-value-dec" style="color:${escapeHTML(tooltipColor)}">${escapeHTML(decPart)}</span>`;
+
+						const itemLabelSpan = document.createElement("span");
+						itemLabelSpan.className = "chart-tooltip-item-label";
+						itemLabelSpan.style.color = item.color;
+						itemLabelSpan.textContent = `${item.label}:`;
+						itemsDiv.appendChild(itemLabelSpan);
+
+						const intPartSpan = document.createElement("span");
+						intPartSpan.className = "chart-tooltip-value-int";
+						intPartSpan.style.color = tooltipColor;
+						intPartSpan.textContent = intPart;
+						itemsDiv.appendChild(intPartSpan);
+
+						const decPartSpan = document.createElement("span");
+						decPartSpan.className = "chart-tooltip-value-dec";
+						decPartSpan.style.color = tooltipColor;
+						decPartSpan.textContent = decPart;
+						itemsDiv.appendChild(decPartSpan);
 					}
-					html += `</div>`;
+					tooltip.appendChild(itemsDiv);
 				});
-				tooltip.innerHTML = html;
 			},
 			[isPanning, tooltipColor, tooltipDividerColor, tooltipSubColor],
 		);
