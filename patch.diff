@@ -1,0 +1,13 @@
+--- src/services/export.ts
++++ src/services/export.ts
+@@ -522,6 +522,10 @@
+	const a = document.createElement("a");
+	const isDataUrl = content.startsWith("data:");
+	if (isDataUrl) {
++		// Ensure the data URL has a safe MIME type to prevent XSS
++		if (!/^data:(image|application)\//i.test(content)) {
++			throw new Error("Unsafe data URL scheme detected");
++		}
+		a.href = content;
+	} else {
+		const file = new Blob([content], { type: contentType });
