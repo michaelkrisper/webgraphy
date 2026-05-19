@@ -11,6 +11,16 @@ import { getColumnIndex } from "../utils/columns";
 import { compileFormula } from "../utils/formula";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
 
+const columnSetCache = new WeakMap<string[], Set<string>>();
+function getColumnSet(columns: string[]): Set<string> {
+	let set = columnSetCache.get(columns);
+	if (!set) {
+		set = new Set(columns);
+		columnSetCache.set(columns, set);
+	}
+	return set;
+}
+
 interface GraphState {
 	datasets: Dataset[];
 	series: SeriesConfig[];
@@ -121,7 +131,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const trimmedName = name.trim();
 		if (!trimmedName)
 			return { success: false, error: "Column name cannot be empty" };
-		if (dataset.columns.includes(trimmedName)) {
+		if (getColumnSet(dataset.columns).has(trimmedName)) {
 			return {
 				success: false,
 				error: `Column "${trimmedName}" already exists`,
@@ -313,7 +323,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			if (dataset.columns.includes(trimmed) && trimmed !== oldName)
+			if (getColumnSet(dataset.columns).has(trimmed) && trimmed !== oldName)
 				return state;
 			const updatedDataset = {
 				...dataset,
