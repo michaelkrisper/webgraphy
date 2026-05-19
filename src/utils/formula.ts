@@ -112,7 +112,11 @@ function evaluateFuncToken(
 				}
 				return s;
 			}
-			return args.reduce((s, v) => s + v, 0);
+			let s = 0;
+			for (let i = 0; i < argCount; i++) {
+				s += args[i];
+			}
+			return s;
 		}
 		case "avg": {
 			if (argCount === 0) {
@@ -124,7 +128,11 @@ function evaluateFuncToken(
 					? s / finalDataColumnIndices.length
 					: 0;
 			}
-			return args.reduce((s, v) => s + v, 0) / argCount;
+			let s = 0;
+			for (let i = 0; i < argCount; i++) {
+				s += args[i];
+			}
+			return s / argCount;
 		}
 		case "filter":
 			return ctx && token.id ? ctx.filter(token.id, a) : a;
