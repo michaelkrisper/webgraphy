@@ -1,64 +1,84 @@
-# Webgraphy: High-Performance Data Visualization
+# Webgraphy — Agent Notes
 
-`webgraphy` is a precision-focused, high-performance data visualization application designed to handle extremely large datasets (millions of points) with smooth interaction and visual integrity. It leverages custom WebGL rendering and advanced data management strategies to provide a responsive charting experience.
+High-performance, precision-focused data visualization. Custom WebGL renderer,
+worker-based ingestion, IndexedDB persistence. Designed for datasets in the
+millions of points.
 
-## Core Technologies
+## Stack
 
-- **Frontend:** React 19, TypeScript, Vite 8.
-- **Rendering:** Raw WebGL with custom shaders for ultra-precision and high-throughput drawing.
-- **State Management:** Zustand for application state (series configuration, viewport, axes).
-- **Persistence:** 
-    - **IndexedDB (`idb`):** Stores large datasets for fast retrieval across sessions.
-    - **LocalStorage:** Stores UI state and application configuration.
-- **Optimization:** Direct raw data rendering path optimized for massive datasets.
+- **Frontend:** React 19, TypeScript, Vite 8 (Node ≥ 24, pnpm).
+- **Rendering:** Raw WebGL with custom precision shaders. Per-frame updates
+  bypass React and Zustand for responsiveness.
+- **State:** Zustand (`src/store/`) for series, viewport, axes, themes.
+- **Persistence:** `idb` for datasets, LocalStorage for UI state and config.
+- **Concurrency:** Web Workers (`src/workers/`) for CSV/JSON parsing and
+  formula evaluation.
+- **PWA:** `vite-plugin-pwa` (auto-update, installable).
 
-## Architecture & Data Flow
+## Data Flow
 
-1.  **Data Import:** Files (CSV/JSON) are read and parsed by `src/utils/data-parser.ts`.
-2.  **Processing:** The parser calculates bounds, and transforms values to relative offsets (`refPoint`) for high-precision rendering.
-3.  **Persistence:** The processed dataset is stored in IndexedDB.
-4.  **State Sync:** `useGraphStore` (Zustand) manages the active datasets and series configurations.
-5.  **Rendering:** `WebGLRenderer` consumes datasets and series configs and renders raw data to a canvas using specialized shaders. To ensure high responsiveness during interaction, the renderer bypasses the global store and React render cycle for per-frame updates.
+1. `useDataImport` accepts CSV / JSON / XLSX (sheet selection for Excel).
+2. `src/utils/data-parser.ts` parses and computes bounds; values are stored as
+   relative offsets to a `refPoint` to keep WebGL coords inside f32 precision.
+3. Processed datasets land in IndexedDB; series and viewport config in
+   LocalStorage.
+4. `useGraphStore` (Zustand) is the single source of truth for active datasets
+   and series configuration.
+5. `WebGLRenderer` consumes datasets + series configs and draws via custom
+   shaders. Pan/zoom mutate the viewport directly and re-render without going
+   through React.
 
 ## Key Directories
 
-- `src/components/Plot/`: Core rendering components, including `WebGLRenderer` and `ChartContainer`.
-- `src/store/`: Zustand stores for application state.
-- `src/services/`: Persistence logic and data interfaces.
-- `src/utils/`: Helper functions for coordinates and data algorithms.
+- `src/components/Plot/` — `WebGLRenderer`, `ChartContainer`, crosshair,
+  legend, axis interactions.
+- `src/components/Layout/` — Sidebar shell, modals (Help, Calculated Column,
+  Import Settings, Export).
+- `src/components/Sidebar/` — Data sources, series config, color picker.
+- `src/store/` — Zustand stores.
+- `src/services/` — Persistence (`idb`), export (SVG + PNG).
+- `src/utils/` — Data parser, formula compiler/evaluator, coordinate math.
+- `src/workers/` — Off-main-thread parsing and formula workers.
 
-## Building and Running
+## Scripts
 
-### Development
 ```bash
-pnpm run dev
+pnpm install
+pnpm run dev       # Vite dev server
+pnpm run build     # tsc -b && vite build
+pnpm run preview   # serve dist/
+pnpm run lint      # ESLint
+pnpm run test      # Vitest
 ```
 
-### Build
-```bash
-pnpm run build
-```
+Deployment is automatic via `.github/workflows/deploy.yml` on push to `master`.
 
-### Linting
-```bash
-pnpm run lint
-```
+## Conventions
 
-### Deployment
-The project is configured for deployment to GitHub Pages.
-```bash
-pnpm run deploy
-```
+- **Performance first.** WebGL is the only data-rendering path. Avoid
+  full-store updates on per-frame interactions.
+- **Precision.** Use `refPoint` offsets in shaders; never feed raw absolute
+  timestamps or large coords directly into f32 attributes.
+- **Type safety.** Strict TypeScript; no `any` unless unavoidable at FFI
+  boundaries.
+- **Persistence awareness.** Any `GraphState` change that should survive a
+  refresh must flow through the `persistence` service.
+- **Package manager.** Use `pnpm`. After any `package.json` change (deps,
+  overrides) run `pnpm install` and commit `pnpm-lock.yaml`.
 
-## Development Conventions
+## Formula Engine (`src/utils/formula.ts`)
 
-- **Performance First:** WebGL is the primary rendering path for data.
-- **Precision:** Shaders are designed for ultra-precision, using relative offsets (`refPoint`) to handle large coordinate values without floating-point artifacts.
-- **Type Safety:** Strict TypeScript usage is encouraged across the codebase.
-- **Persistence Awareness:** Any changes to the `GraphState` that should survive a refresh must be persisted via the `persistence` service.
-- **Package Manager:** This project uses `pnpm`. Whenever you modify `package.json` (e.g., adding/updating dependencies or overrides), you MUST run `pnpm install` and ensure `pnpm-lock.yaml` is staged and committed alongside `package.json`.
+Reference columns as `[Column Name]`. Operators `+ - * / ^`; constants `pi`,
+`e`.
 
-## Agent Optimization & Efficiency
-- **Caveman Mode:** Adopt extreme token efficiency ("Why use many token when few do trick"). Eliminate all conversational filler, preambles, and postambles. Prioritize direct action, maximum brevity, and high-signal output.
-- **Conductor Orchestration:** Use `conductor` for complex, multi-agent task orchestration when kanban-style management or sub-agent delegation is required.
-- **Ripgrep & System Tools:** Utilize `rg` (Ripgrep), `fd`, and `bat` in shell commands for lightning-fast codebase navigation and exploration instead of standard slow fallbacks.
+- Math: `sqrt`, `abs`, `exp`, `log` (base 10), `ln`, `round`, `floor`, `ceil`.
+- Trig: `sin`, `cos`, `tan`, `asin`, `acos`, `atan` (radians).
+- Aggregations: `min`, `max`, `sum`, `avg` (no args ⇒ across all numeric
+  columns in the row).
+- Rolling: `avgN` over rows; `avgNs|m|h|d` over time windows. Alignment
+  suffix `c` (central, default) / `l` / `r`.
+- Time-bucketed cumulative: `avgDay`, `avgHour`, `avgMinute`, `avgSecond` and
+  the `sum…` variants.
+- Smoothing: `filter` (adaptive Kalman).
+- Regression fits: `linreg`, `polyreg([col], degree)`, `expreg`, `logreg`,
+  `kde([col], bandwidth?)`.

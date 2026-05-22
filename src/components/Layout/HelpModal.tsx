@@ -46,15 +46,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>CTRL + C:</strong> Copy current tooltip data to clipboard
 				</li>
 				<li>
-					<strong>Hover:</strong> Show tooltips for nearest data points
-					(decimal-aligned)
+					<strong>Hover:</strong> Snap crosshair and tooltip to the nearest data
+					point
 				</li>
 				<li>
 					<strong>Double Click:</strong> Auto-scale to fit all data
 				</li>
 				<li>
-					<strong>Drag & Drop file:</strong> Drop a CSV/JSON onto the chart to
-					import
+					<strong>Drag & Drop file:</strong> Drop a CSV, JSON, or XLSX file onto
+					the chart to import
 				</li>
 			</Section>
 
@@ -69,8 +69,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Double Click:</strong> Auto-scale this axis
 				</li>
 				<li>
-					<strong>CTRL + Dbl Click (Y):</strong> Auto-scale to top or bottom
-					half
+					<strong>CTRL + Dbl Click (Y):</strong> Auto-scale to the upper or
+					lower half (based on click position)
 				</li>
 				<li>
 					<strong>Click on title:</strong> Rename the axis
@@ -100,18 +100,24 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
 			<Section title="Sidebar — Data">
 				<li>
-					<strong>Import:</strong> Load CSV or JSON files (large files handled
-					in a worker)
+					<strong>Import:</strong> Load CSV, JSON, or Excel (XLSX/XLS) files.
+					Large files stream through a worker; pick a sheet for Excel
 				</li>
 				<li>
 					<strong>Skipped Rows Preview:</strong> Inspect rows skipped during
 					import
 				</li>
 				<li>
-					<strong>Calculated Columns:</strong> Add, edit, or delete formula
-					columns; reference other columns via <code>[Column Name]</code>.
-					Supports math, <code>avgN</code>, <code>avgTime</code>,{" "}
-					<code>avgGroup</code>, <code>avgDay</code>, Kalman <code>filter</code>
+					<strong>Calculated Columns:</strong> Reference columns with{" "}
+					<code>[Column Name]</code>. Supports math/trig, rolling averages{" "}
+					<code>avgN</code> / <code>avgNs|m|h|d</code> with{" "}
+					<code>c</code>/<code>l</code>/<code>r</code> alignment,
+					per-bucket{" "}
+					<code>avgDay</code>/<code>avgHour</code>/<code>avgMinute</code>/
+					<code>avgSecond</code> (and <code>sum…</code> variants), Kalman{" "}
+					<code>filter</code>, and regressions <code>linreg</code>,{" "}
+					<code>polyreg</code>, <code>expreg</code>, <code>logreg</code>,{" "}
+					<code>kde</code>
 				</li>
 				<li>
 					<strong>X-Axis per Dataset:</strong> Cycle the dataset's X-axis (1–9)
@@ -126,29 +132,30 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				</li>
 				<li>
 					<strong>Multiple Y-Axes:</strong> Up to 9 Y-axes, each with
-					independent scale, position (L/R), and color
+					independent scale, position (left/right), and color
 				</li>
 				<li>
 					<strong>Style:</strong> Line style (solid/dashed/dotted), point
 					markers (circle/square/cross), color
 				</li>
 				<li>
-					<strong>Regression:</strong> Add linear, polynomial, exponential, log,
-					or KDE fits
+					<strong>Regression:</strong> Add linear, polynomial, exponential,
+					logistic, or KDE fits
 				</li>
 				<li>
-					<strong>Visibility:</strong> Toggle per-series visibility; hover row
-					to highlight on chart
+					<strong>Visibility:</strong> Toggle per-series visibility; hover a row
+					to highlight it on the chart
 				</li>
 			</Section>
 
 			<Section title="Export">
 				<li>
-					<strong>Export Chart:</strong> Save current view as SVG or PNG
+					<strong>Export Chart:</strong> Save the current view as SVG or PNG
+					(theme-aware, device-pixel scaled)
 				</li>
 				<li>
-					<strong>Auto-Save:</strong> State persists to IndexedDB/localStorage
-					between visits
+					<strong>Auto-Save:</strong> Datasets persist in IndexedDB; UI and
+					series state in LocalStorage — restored on next visit
 				</li>
 			</Section>
 
@@ -158,14 +165,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					via the theme button
 				</li>
 				<li>
-					<strong>Sidebar Collapse:</strong> Click the logo to collapse/expand
-					the sidebar
+					<strong>Sidebar Collapse:</strong> Click the logo to collapse or
+					expand the sidebar
 				</li>
 				<li>
 					<strong>Legend:</strong> Toggle the top-right legend overlay
 				</li>
 				<li>
-					<strong>Views:</strong> Save and restore zoom/pan snapshots
+					<strong>Install as App:</strong> Webgraphy is a PWA — install it from
+					the browser for offline access
 				</li>
 			</Section>
 		</Modal>
