@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as jsonUtils from "../json";
 import { parseData } from "../data-parser";
 
 function createMockFile(content: string, name: string, type: string) {
@@ -243,7 +244,11 @@ describe("data-parser", () => {
 				"application/json",
 			);
 			await expect(parseData(file, "json", {})).rejects.toThrow(
-				"Invalid JSON format",
+				/^Invalid JSON format: /
+			);
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to parse JSON data:",
+				expect.any(Error)
 			);
 
 			consoleSpy.mockRestore();
@@ -253,7 +258,7 @@ describe("data-parser", () => {
 			const consoleSpy = vi
 				.spyOn(console, "error")
 				.mockImplementation(() => {});
-			const parseSpy = vi.spyOn(JSON, "parse").mockImplementation(() => {
+			const parseSpy = vi.spyOn(jsonUtils, "secureJSONParse").mockImplementation(() => {
 				throw "String error thrown";
 			});
 
@@ -261,6 +266,10 @@ describe("data-parser", () => {
 
 			await expect(parseData(file, "json", {})).rejects.toThrow(
 				"Invalid JSON format: String error thrown",
+			);
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to parse JSON data:",
+				"String error thrown"
 			);
 
 			parseSpy.mockRestore();
