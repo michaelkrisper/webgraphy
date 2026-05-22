@@ -98,7 +98,7 @@ describe("useFormulaEditor", () => {
 	});
 
 	it("updates formula and suggestions on change for functions", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
@@ -122,7 +122,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("updates formula and suggestions on change for columns", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
@@ -146,7 +146,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("returns empty suggestions if function partial is less than 2 characters", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
@@ -206,7 +206,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("handles auto-pairing brackets on keydown", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
@@ -233,7 +233,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("skips closing bracket if it already exists", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ initialFormula: "sin()", columns, textareaRef }),
 		);
@@ -259,7 +259,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("navigates suggestions via arrow keys and escape", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
@@ -334,7 +334,7 @@ describe("useFormulaEditor", () => {
 
 
 	it("applies suggestion via enter/tab key", () => {
-		const { mockTextarea, textareaRef } = createMockTextarea();
+		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
