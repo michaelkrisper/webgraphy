@@ -26,32 +26,24 @@ interface ParseConfig {
 	dateFormat?: string;
 }
 
-export async function parseData(
-	file: File,
-	type: string,
-	settings?: ParseSettings,
-) {
-	let result: Awaited<ReturnType<typeof parseCSV>>;
-	if (type === "csv") result = await parseCSV(file, settings);
-	else if (type === "json") result = await parseJSON(file, settings);
-	else throw new Error(`Unsupported file type: ${type}`);
+interface DataGroup {
+	name: string;
+	rowIdxs: number[] | null;
+}
 
-	const allColumns: string[] = result.columns;
-	const allData: Float64Array[] = result.data;
-	const totalRows: number = result.rowCount;
-	const categoricalMaps: Map<string, number>[] = result.categoricalMaps;
-
-	const configByName = new Map<string, ColumnConfigEntry>();
-	if (settings?.columnConfigs) {
-		for (let i = 0; i < settings.columnConfigs.length; i++) {
-			const config = settings.columnConfigs[i];
-			if (config.name) configByName.set(config.name, config);
-		}
-	}
-
+function groupDataRows(
+	allColumns: string[],
+	allData: Float64Array[],
+	totalRows: number,
+	categoricalMaps: Map<string, number>[],
+	configByName: Map<string, ColumnConfigEntry>,
+	splitColNames: string[],
+): {
+	groups: DataGroup[];
+	splitColIdxSet: Set<number>;
+} {
 	// Group row indices by combined values across all split columns. Each
 	// active split column must be categorical and present in active columns.
-	const splitColNames = settings?.splitByColumns ?? [];
 	const splitColIdxs: number[] = [];
 	const splitColIdxSet = new Set<number>();
 	for (const name of splitColNames) {
@@ -66,7 +58,7 @@ export async function parseData(
 
 	// rowIdxs === null means "identity mapping" — every row index maps to itself.
 	// Keeps the non-split fast path from allocating a redundant index array.
-	const groups: { name: string; rowIdxs: number[] | null }[] = [];
+	const groups: DataGroup[] = [];
 	if (doSplit) {
 		const valueToNames = splitColIdxs.map((idx) => {
 			const m = new Map<number, string>();
@@ -104,6 +96,21 @@ export async function parseData(
 		groups.push({ name: "", rowIdxs: null });
 	}
 
+	return { groups, splitColIdxSet };
+}
+
+function buildDatasets(
+	groups: DataGroup[],
+	file: File,
+	allColumns: string[],
+	allData: Float64Array[],
+	totalRows: number,
+	categoricalMaps: Map<string, number>[],
+	configByName: Map<string, ColumnConfigEntry>,
+	splitColIdxSet: Set<number>,
+	settings?: ParseSettings,
+) {
+	const doSplit = splitColIdxSet.size > 0;
 	// Output columns exclude the split columns themselves
 	const outputColIdxs: number[] = [];
 	const outputColumns: string[] = [];
@@ -167,6 +174,51 @@ export async function parseData(
 	});
 
 	return datasets;
+}
+
+export async function parseData(
+	file: File,
+	type: string,
+	settings?: ParseSettings,
+) {
+	let result: Awaited<ReturnType<typeof parseCSV>>;
+	if (type === "csv") result = await parseCSV(file, settings);
+	else if (type === "json") result = await parseJSON(file, settings);
+	else throw new Error(`Unsupported file type: ${type}`);
+
+	const allColumns: string[] = result.columns;
+	const allData: Float64Array[] = result.data;
+	const totalRows: number = result.rowCount;
+	const categoricalMaps: Map<string, number>[] = result.categoricalMaps;
+
+	const configByName = new Map<string, ColumnConfigEntry>();
+	if (settings?.columnConfigs) {
+		for (let i = 0; i < settings.columnConfigs.length; i++) {
+			const config = settings.columnConfigs[i];
+			if (config.name) configByName.set(config.name, config);
+		}
+	}
+
+	const { groups, splitColIdxSet } = groupDataRows(
+		allColumns,
+		allData,
+		totalRows,
+		categoricalMaps,
+		configByName,
+		settings?.splitByColumns ?? [],
+	);
+
+	return buildDatasets(
+		groups,
+		file,
+		allColumns,
+		allData,
+		totalRows,
+		categoricalMaps,
+		configByName,
+		splitColIdxSet,
+		settings,
+	);
 }
 
 export function splitCSVLine(line: string, delimiter: string): string[] {
