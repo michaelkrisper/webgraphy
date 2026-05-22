@@ -132,39 +132,40 @@ function syncStoreUpdates(
 	xUpdates: Record<string, { min: number; max: number }>,
 	yUpdates: Record<string, { min: number; max: number }>,
 ) {
-	const currentX = state.xAxes;
-	const currentY = state.yAxes;
+	const EPSILON = 1e-10;
+	const xById = new Map(state.xAxes.map((a) => [a.id, a]));
+	const yById = new Map(state.yAxes.map((a) => [a.id, a]));
 
 	const filteredXUpdates: Record<string, { min: number; max: number }> = {};
 	const filteredYUpdates: Record<string, { min: number; max: number }> = {};
+	let hasX = false;
+	let hasY = false;
 
-	const EPSILON = 1e-10;
-	Object.entries(xUpdates).forEach(([id, upd]) => {
-		const axis = currentX.find((a) => a.id === id);
+	for (const [id, upd] of Object.entries(xUpdates)) {
+		const axis = xById.get(id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > EPSILON ||
 			Math.abs(axis.max - upd.max) > EPSILON
 		) {
 			filteredXUpdates[id] = upd;
+			hasX = true;
 		}
-	});
+	}
 
-	Object.entries(yUpdates).forEach(([id, upd]) => {
-		const axis = currentY.find((a) => a.id === id);
+	for (const [id, upd] of Object.entries(yUpdates)) {
+		const axis = yById.get(id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > EPSILON ||
 			Math.abs(axis.max - upd.max) > EPSILON
 		) {
 			filteredYUpdates[id] = upd;
+			hasY = true;
 		}
-	});
+	}
 
-	if (
-		Object.keys(filteredXUpdates).length > 0 ||
-		Object.keys(filteredYUpdates).length > 0
-	) {
+	if (hasX || hasY) {
 		state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
 	}
 }

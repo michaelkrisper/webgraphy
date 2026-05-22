@@ -50,6 +50,12 @@ describe("colors", () => {
 			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
 		});
 
+		it("should accept mixed-case hex digits", () => {
+			// Mixed case should parse identically to lowercase
+			expect(hexToRgb("#AaBbCc")).toEqual(hexToRgb("#aabbcc"));
+			expect(hexToRgb("#FF0080")).toEqual({ r: 255, g: 0, b: 128 });
+		});
+
 		it("should handle invalid types at runtime", () => {
 			// @ts-expect-error testing runtime invalid type
 			expect(hexToRgb(null)).toEqual({ r: 0, g: 0, b: 0 });

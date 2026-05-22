@@ -1,23 +1,20 @@
 // src/utils/colors.ts
 
+const HEX_RE = /^#([0-9a-f]{6})$/i;
+
+function parseHexChannels(
+	hex: string,
+): { r: number; g: number; b: number } | null {
+	if (typeof hex !== "string") return null;
+	const m = HEX_RE.exec(hex);
+	if (!m) return null;
+	const n = parseInt(m[1], 16);
+	return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+}
+
 export const hexToRgba = (hex: string): number[] => {
-	if (
-		!hex ||
-		typeof hex !== "string" ||
-		!hex.startsWith("#") ||
-		hex.length !== 7
-	)
-		return [0, 0, 0];
-
-	const r = parseInt(hex.slice(1, 3), 16) / 255;
-	const g = parseInt(hex.slice(3, 5), 16) / 255;
-	const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-	return [
-		Number.isNaN(r) ? 0 : r,
-		Number.isNaN(g) ? 0 : g,
-		Number.isNaN(b) ? 0 : b,
-	];
+	const c = parseHexChannels(hex);
+	return c ? [c.r / 255, c.g / 255, c.b / 255] : [0, 0, 0];
 };
 
 export const rgbToHex = (r: number, g: number, b: number): string => {
@@ -29,23 +26,7 @@ export const rgbToHex = (r: number, g: number, b: number): string => {
 };
 
 export function hexToRgb(hex: string) {
-	if (
-		!hex ||
-		typeof hex !== "string" ||
-		!hex.startsWith("#") ||
-		hex.length !== 7
-	)
-		return { r: 0, g: 0, b: 0 };
-
-	const r = parseInt(hex.slice(1, 3), 16);
-	const g = parseInt(hex.slice(3, 5), 16);
-	const b = parseInt(hex.slice(5, 7), 16);
-
-	return {
-		r: Number.isNaN(r) ? 0 : r,
-		g: Number.isNaN(g) ? 0 : g,
-		b: Number.isNaN(b) ? 0 : b,
-	};
+	return parseHexChannels(hex) ?? { r: 0, g: 0, b: 0 };
 }
 
 /**

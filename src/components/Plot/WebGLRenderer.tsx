@@ -21,6 +21,7 @@ import {
 	drawSeriesLines,
 	drawSeriesPoints,
 	type OverlayState,
+	type SegParams,
 	type SeriesDrawBundle,
 } from "./drawSeries";
 import { GLStateCache, type WebGLLocations } from "./GLStateCache";
@@ -690,7 +691,7 @@ export const WebGLRenderer = React.memo(
 		const locationsRef = useRef<WebGLLocations | null>(null);
 		const stateCacheRef = useRef<GLStateCache | null>(null);
 		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
-		const segParamsRef = useRef<Map<string, string>>(new Map());
+		const segParamsRef = useRef<Map<string, SegParams>>(new Map());
 		const segmentCacheRef = useRef<
 			WeakMap<Float32Array, { start: number; end: number }[]>
 		>(new WeakMap());

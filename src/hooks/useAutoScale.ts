@@ -294,21 +294,15 @@ export function useAutoScale({
 }: UseAutoScaleOptions): UseAutoScaleResult {
 	const wasEmptyRef = useRef(true);
 
-	const datasetsById = useMemo(() => {
-		const map = new Map<string, Dataset>();
-		datasets.forEach((d) => {
-			map.set(d.id, d);
-		});
-		return map;
-	}, [datasets]);
+	const datasetsById = useMemo(
+		() => new Map<string, Dataset>(datasets.map((d) => [d.id, d])),
+		[datasets],
+	);
 
-	const xAxesById = useMemo(() => {
-		const map = new Map<string, XAxisConfig>();
-		xAxes.forEach((a) => {
-			map.set(a.id, a);
-		});
-		return map;
-	}, [xAxes]);
+	const xAxesById = useMemo(
+		() => new Map<string, XAxisConfig>(xAxes.map((a) => [a.id, a])),
+		[xAxes],
+	);
 
 	const activeDatasetIdsSet = useMemo(() => {
 		const set = new Set<string>();
@@ -425,6 +419,8 @@ export function useAutoScale({
 
 			const xUpdates: Record<string, { min: number; max: number }> = {};
 			const yUpdates: Record<string, { min: number; max: number }> = {};
+			let hasXUpdates = false;
+			let hasYUpdates = false;
 
 			// Calculate X bounds per axis
 			const xBounds = new Map<string, { min: number; max: number }>();
@@ -454,6 +450,7 @@ export function useAutoScale({
 					if (!Number.isNaN(nextX.min) && !Number.isNaN(nextX.max)) {
 						xs[id] = nextX;
 						xUpdates[id] = nextX;
+						hasXUpdates = true;
 					}
 				}
 			});
@@ -481,14 +478,12 @@ export function useAutoScale({
 					if (!Number.isNaN(nextY.min) && !Number.isNaN(nextY.max)) {
 						ys[axis.id] = nextY;
 						yUpdates[axis.id] = nextY;
+						hasYUpdates = true;
 					}
 				}
 			});
 
-			if (
-				Object.keys(xUpdates).length > 0 ||
-				Object.keys(yUpdates).length > 0
-			) {
+			if (hasXUpdates || hasYUpdates) {
 				state.batchUpdateAxes(xUpdates, yUpdates);
 				syncViewport();
 			}
