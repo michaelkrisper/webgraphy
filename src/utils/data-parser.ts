@@ -243,6 +243,49 @@ function processCSVHeader(
 	};
 }
 
+function findNextDelimiterIndex(
+	line: string,
+	start: number,
+	lineLen: number,
+	delimChar: number,
+): number {
+	let inQuote = false;
+	let end = start;
+	while (end < lineLen) {
+		const c = line.charCodeAt(end);
+		if (c === 34) {
+			inQuote = !inQuote;
+		} else if (c === delimChar && !inQuote) {
+			break;
+		}
+		end++;
+	}
+	return end;
+}
+
+function extractCSVValue(line: string, start: number, end: number): string {
+	let vStart = start;
+	let vEnd = end - 1;
+
+	// Inline trim() logic
+	while (vStart <= vEnd && line.charCodeAt(vStart) <= 32) vStart++;
+	while (vEnd >= vStart && line.charCodeAt(vEnd) <= 32) vEnd--;
+
+	if (vStart <= vEnd) {
+		// Handle surrounding quotes
+		if (
+			line.charCodeAt(vStart) === 34 &&
+			line.charCodeAt(vEnd) === 34 &&
+			vEnd > vStart
+		) {
+			vStart++;
+			vEnd--;
+		}
+		return line.substring(vStart, vEnd + 1);
+	}
+	return "";
+}
+
 function processCSVRow(
 	line: string,
 	delimiter: string,
@@ -270,16 +313,7 @@ function processCSVRow(
 
 			// Fast forward to target column
 			while (currentCol < targetCol && start < lineLen) {
-				let inQuote = false;
-				while (start < lineLen) {
-					const c = line.charCodeAt(start);
-					if (c === 34) {
-						inQuote = !inQuote;
-					} else if (c === delimChar && !inQuote) {
-						break;
-					}
-					start++;
-				}
+					start = findNextDelimiterIndex(line, start, lineLen, delimChar);
 				if (start < lineLen) {
 					start++;
 					currentCol++;
@@ -288,38 +322,8 @@ function processCSVRow(
 
 			let val = "";
 			if (start < lineLen) {
-				let end = start;
-				let inQuote = false;
-				while (end < lineLen) {
-					const c = line.charCodeAt(end);
-					if (c === 34) {
-						inQuote = !inQuote;
-					} else if (c === delimChar && !inQuote) {
-						break;
-					}
-					end++;
-				}
-
-				let vStart = start;
-				let vEnd = end - 1;
-
-				// Inline trim() logic
-				while (vStart <= vEnd && line.charCodeAt(vStart) <= 32) vStart++;
-				while (vEnd >= vStart && line.charCodeAt(vEnd) <= 32) vEnd--;
-
-				if (vStart <= vEnd) {
-					// Handle surrounding quotes
-					if (
-						line.charCodeAt(vStart) === 34 &&
-						line.charCodeAt(vEnd) === 34 &&
-						vEnd > vStart
-					) {
-						vStart++;
-						vEnd--;
-					}
-					val = line.substring(vStart, vEnd + 1);
-				}
-
+					const end = findNextDelimiterIndex(line, start, lineLen, delimChar);
+					val = extractCSVValue(line, start, end);
 				start = end + 1;
 				currentCol++;
 			} else if (start === lineLen) {
