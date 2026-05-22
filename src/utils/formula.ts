@@ -60,6 +60,119 @@ type Token =
 
 const columnMapCache = new WeakMap<string[], Map<string, number>>();
 
+const MATH_FUNCTIONS: Record<string, (a: number) => number> = {
+	sin: Math.sin,
+	cos: Math.cos,
+	tan: Math.tan,
+	asin: Math.asin,
+	acos: Math.acos,
+	atan: Math.atan,
+	sqrt: Math.sqrt,
+	abs: Math.abs,
+	exp: Math.exp,
+	log: Math.log10,
+	ln: Math.log,
+	round: Math.round,
+	floor: Math.floor,
+	ceil: Math.ceil,
+};
+
+function evaluateSum(
+	args: number[],
+	rowValues: number[],
+	finalDataColumnIndices: number[],
+): number {
+	const argCount = args.length;
+	if (argCount === 0) {
+		let s = 0;
+		for (let j = 0; j < finalDataColumnIndices.length; j++) {
+			s += rowValues[finalDataColumnIndices[j]];
+		}
+		return s;
+	}
+	let s = 0;
+	for (let i = 0; i < argCount; i++) {
+		s += args[i];
+	}
+	return s;
+}
+
+function evaluateAvg(
+	args: number[],
+	rowValues: number[],
+	finalDataColumnIndices: number[],
+): number {
+	const argCount = args.length;
+	if (argCount === 0) {
+		let s = 0;
+		for (let j = 0; j < finalDataColumnIndices.length; j++) {
+			s += rowValues[finalDataColumnIndices[j]];
+		}
+		return finalDataColumnIndices.length > 0
+			? s / finalDataColumnIndices.length
+			: 0;
+	}
+	let s = 0;
+	for (let i = 0; i < argCount; i++) {
+		s += args[i];
+	}
+	return s / argCount;
+}
+
+function evaluateTimeGroup(
+	token: Extract<Token, { type: "FUNC" }>,
+	a: number,
+	rowValues: number[],
+	timeVarIdx: number,
+	ctx?: FormulaContext,
+): number {
+	if (!ctx) return a;
+	const t = rowValues[timeVarIdx];
+	const date = new Date(t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000);
+	let key: string;
+	const v = token.value;
+	if (v.endsWith("day")) {
+		key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+	} else if (v.endsWith("hour")) {
+		key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+	} else if (v.endsWith("minute")) {
+		key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}`;
+	} else {
+		key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
+	}
+	if (token.id) {
+		if (v.startsWith("avg")) return ctx.avgGroup(token.id, a, key);
+		return ctx.sumGroup(token.id, a, key);
+	}
+	return a;
+}
+
+function evaluateDynamicAvg(
+	token: Extract<Token, { type: "FUNC" }>,
+	a: number,
+	rowValues: number[],
+	timeVarIdx: number,
+	ctx?: FormulaContext,
+): number {
+	if (!ctx) return a;
+	const m = token.value.match(/^avg(\d+)(s|m|h|d)?[lcr]?$/);
+	if (m) {
+		const num = parseInt(m[1], 10);
+		const unit = m[2];
+		if (token.id) {
+			if (unit) {
+				let w = num;
+				if (unit === "m") w = num * 60;
+				else if (unit === "h") w = num * 3600;
+				else if (unit === "d") w = num * 86400;
+				return ctx.avgTime(token.id, a, rowValues[timeVarIdx], w);
+			}
+			return ctx.avgN(token.id, a, num);
+		}
+	}
+	return a;
+}
+
 function evaluateFuncToken(
 	token: Extract<Token, { type: "FUNC" }>,
 	args: number[],
@@ -68,72 +181,21 @@ function evaluateFuncToken(
 	timeVarIdx: number,
 	ctx?: FormulaContext,
 ): number {
-	const argCount = args.length;
 	const a = args[0];
 
+	if (MATH_FUNCTIONS[token.value]) {
+		return MATH_FUNCTIONS[token.value](a);
+	}
+
 	switch (token.value) {
-		case "sin":
-			return Math.sin(a);
-		case "cos":
-			return Math.cos(a);
-		case "tan":
-			return Math.tan(a);
-		case "asin":
-			return Math.asin(a);
-		case "acos":
-			return Math.acos(a);
-		case "atan":
-			return Math.atan(a);
-		case "sqrt":
-			return Math.sqrt(a);
-		case "abs":
-			return Math.abs(a);
-		case "exp":
-			return Math.exp(a);
-		case "log":
-			return Math.log10(a);
-		case "ln":
-			return Math.log(a);
-		case "round":
-			return Math.round(a);
-		case "floor":
-			return Math.floor(a);
-		case "ceil":
-			return Math.ceil(a);
 		case "min":
 			return Math.min(...args);
 		case "max":
 			return Math.max(...args);
-		case "sum": {
-			if (argCount === 0) {
-				let s = 0;
-				for (let j = 0; j < finalDataColumnIndices.length; j++) {
-					s += rowValues[finalDataColumnIndices[j]];
-				}
-				return s;
-			}
-			let s = 0;
-			for (let i = 0; i < argCount; i++) {
-				s += args[i];
-			}
-			return s;
-		}
-		case "avg": {
-			if (argCount === 0) {
-				let s = 0;
-				for (let j = 0; j < finalDataColumnIndices.length; j++) {
-					s += rowValues[finalDataColumnIndices[j]];
-				}
-				return finalDataColumnIndices.length > 0
-					? s / finalDataColumnIndices.length
-					: 0;
-			}
-			let s = 0;
-			for (let i = 0; i < argCount; i++) {
-				s += args[i];
-			}
-			return s / argCount;
-		}
+		case "sum":
+			return evaluateSum(args, rowValues, finalDataColumnIndices);
+		case "avg":
+			return evaluateAvg(args, rowValues, finalDataColumnIndices);
 		case "filter":
 			return ctx && token.id ? ctx.filter(token.id, a) : a;
 		case "avgday":
@@ -143,47 +205,10 @@ function evaluateFuncToken(
 		case "avgminute":
 		case "summinute":
 		case "avgsecond":
-		case "sumsecond": {
-			if (ctx) {
-				const t = rowValues[timeVarIdx];
-				const date = new Date(t > 1e14 ? t / 1000 : t > 1e11 ? t : t * 1000);
-				let key: string;
-				const v = token.value;
-				if (v.endsWith("day")) {
-					key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-				} else if (v.endsWith("hour")) {
-					key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
-				} else if (v.endsWith("minute")) {
-					key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}`;
-				} else {
-					key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
-				}
-				if (token.id) {
-					if (v.startsWith("avg")) return ctx.avgGroup(token.id, a, key);
-					return ctx.sumGroup(token.id, a, key);
-				}
-			}
-			return a;
-		}
+		case "sumsecond":
+			return evaluateTimeGroup(token, a, rowValues, timeVarIdx, ctx);
 		default:
-			if (ctx) {
-				const m = token.value.match(/^avg(\d+)(s|m|h|d)?[lcr]?$/);
-				if (m) {
-					const num = parseInt(m[1], 10);
-					const unit = m[2];
-					if (token.id) {
-						if (unit) {
-							let w = num;
-							if (unit === "m") w = num * 60;
-							else if (unit === "h") w = num * 3600;
-							else if (unit === "d") w = num * 86400;
-							return ctx.avgTime(token.id, a, rowValues[timeVarIdx], w);
-						}
-						return ctx.avgN(token.id, a, num);
-					}
-				}
-			}
-			return a; // Fallback
+			return evaluateDynamicAvg(token, a, rowValues, timeVarIdx, ctx);
 	}
 }
 
