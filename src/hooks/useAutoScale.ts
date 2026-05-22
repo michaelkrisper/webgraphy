@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability */
 // src/hooks/useAutoScale.ts
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type {
@@ -43,6 +42,235 @@ interface UseAutoScaleOptions {
 		Record<string, { min: number; max: number }>
 	>;
 	syncViewport: (force?: boolean, immediate?: boolean) => void;
+}
+
+interface AutoScaleDeps {
+	padding: { top: number; right: number; bottom: number; left: number };
+	chartHeight: number;
+	activeXAxesUsed: XAxisConfig[];
+	activeYAxes: YAxisConfig[];
+	syncViewport: (force?: boolean, immediate?: boolean) => void;
+	datasets: Dataset[];
+	xAxes: XAxisConfig[];
+	series: SeriesConfig[];
+	datasetsById: Map<string, Dataset>;
+	xAxesById: Map<string, XAxisConfig>;
+	activeDatasetIdsSet: Set<string>;
+	seriesByYAxisId: Map<string, SeriesConfig[]>;
+}
+
+export function computeAutoScaleY(
+	axisId: string,
+	mouseY: number | undefined,
+	deps: AutoScaleDeps,
+	targetYsRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+): void {
+	const targetYs = targetYsRef.current;
+	const {
+		padding: p,
+		chartHeight: ch,
+		syncViewport: sv,
+		datasetsById: dsById,
+		xAxesById: xaById,
+		seriesByYAxisId: sByY,
+	} = deps;
+
+	const axisSeries = sByY.get(axisId);
+	if (!axisSeries || axisSeries.length === 0) return;
+
+	let yMin = Infinity,
+		yMax = -Infinity;
+
+	axisSeries.forEach((s) => {
+		const ds = dsById.get(s.sourceId);
+		if (!ds) return;
+		const yIdx = getColumnIndex(ds, s.yColumn);
+		if (yIdx === -1) return;
+		const colY = ds.data[yIdx];
+		if (!colY) return;
+
+		if (mouseY === undefined) {
+			if (colY.bounds) {
+				if (colY.bounds.min < yMin) yMin = colY.bounds.min;
+				if (colY.bounds.max > yMax) yMax = colY.bounds.max;
+			}
+		} else {
+			const xAxis = xaById.get(ds?.xAxisId || "axis-1");
+			if (!xAxis) return;
+			const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+			if (xIdx === -1) return;
+			const colX = ds.data[xIdx];
+			if (!colX?.data || !colY.data) return;
+			const xData = colX.data,
+				yData = colY.data,
+				refX = colX.refPoint,
+				refY = colY.refPoint;
+			const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
+			if (range) {
+				for (let i = range.startIdx; i <= range.endIdx; i++) {
+					const v = yData[i] + refY;
+					if (v < yMin) yMin = v;
+					if (v > yMax) yMax = v;
+				}
+			}
+		}
+	});
+
+	if (yMin !== Infinity) {
+		let nMin: number, nMax: number;
+		const r = yMax - yMin || 1,
+			pad = r * 0.05;
+		if (mouseY !== undefined) {
+			if (mouseY < p.top + ch / 3) {
+				nMin = yMin - r - 3 * pad;
+				nMax = yMax + pad;
+			} else if (mouseY > p.top + (2 * ch) / 3) {
+				nMin = yMin - pad;
+				nMax = yMax + r + 3 * pad;
+			} else {
+				nMin = yMin - pad;
+				nMax = yMax + pad;
+			}
+		} else {
+			nMin = yMin - pad;
+			nMax = yMax + pad;
+		}
+
+		const professionalPad = (nMax - nMin || 1) * 0.05;
+		targetYs[axisId] = {
+			min: nMin - professionalPad,
+			max: nMax + professionalPad,
+		};
+		sv();
+	}
+}
+
+export function computeAutoScaleX(
+	xAxisId: string | undefined,
+	deps: AutoScaleDeps,
+	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+): void {
+	const targetXAxes = targetXAxesRef.current;
+	const {
+		activeXAxesUsed: axUsed,
+		syncViewport: sv,
+		datasets: allDs,
+		activeDatasetIdsSet: activeDsIds,
+	} = deps;
+
+	if (allDs.length === 0) return;
+
+	const axesToScale = xAxisId ? [xAxisId] : axUsed.map((a) => a.id);
+
+	axesToScale.forEach((id) => {
+		const activeDs = allDs.filter(
+			(d) => (d.xAxisId || "axis-1") === id && activeDsIds.has(d.id),
+		);
+		if (activeDs.length === 0) return;
+		let xMin = Infinity,
+			xMax = -Infinity;
+		activeDs.forEach((ds) => {
+			const xIdx = getColumnIndex(ds, ds.xAxisColumn),
+				col = ds.data[xIdx];
+			if (col?.bounds) {
+				if (col.bounds.min < xMin) xMin = col.bounds.min;
+				if (col.bounds.max > xMax) xMax = col.bounds.max;
+			}
+		});
+		if (xMin !== Infinity) {
+			const range = xMax - xMin || 1;
+			const pad = range * 0.05; // 5% padding
+			targetXAxes[id] = { min: xMin - pad, max: xMax + pad };
+		}
+	});
+	sv();
+}
+
+export function computeStackedFit(
+	deps: AutoScaleDeps,
+	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>,
+	targetYsRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+): void {
+	const targetXAxes = targetXAxesRef.current;
+	const targetYs = targetYsRef.current;
+	const {
+		chartHeight: ch,
+		syncViewport: sv,
+		datasetsById: dsById,
+		xAxesById: xaById,
+		seriesByYAxisId: sByY,
+		activeYAxes: ayAxes,
+		series: allSeries,
+	} = deps;
+
+	const orderedAxisIds: string[] = [];
+	const seenAxes = new Set<string>();
+	for (const s of allSeries) {
+		if (!seenAxes.has(s.yAxisId) && ayAxes.some((a) => a.id === s.yAxisId)) {
+			seenAxes.add(s.yAxisId);
+			orderedAxisIds.push(s.yAxisId);
+		}
+	}
+
+	const n = orderedAxisIds.length;
+	if (n === 0) return;
+
+	const sliceH = ch / n;
+
+	orderedAxisIds.forEach((axisId, i) => {
+		const axisSeries = sByY.get(axisId);
+		if (!axisSeries || axisSeries.length === 0) return;
+
+		let yMin = Infinity,
+			yMax = -Infinity;
+		axisSeries.forEach((s) => {
+			const ds = dsById.get(s.sourceId);
+			if (!ds) return;
+			const yIdx = getColumnIndex(ds, s.yColumn);
+			if (yIdx === -1) return;
+			const colY = ds.data[yIdx];
+			if (!colY?.data) return;
+			const xAxisId = ds.xAxisId || "axis-1";
+			const storeXAxis = xaById.get(xAxisId);
+			const liveRange = targetXAxes[xAxisId];
+			const xMin = liveRange?.min ?? storeXAxis?.min;
+			const xMax = liveRange?.max ?? storeXAxis?.max;
+			if (xMin === undefined || xMax === undefined) return;
+			const xIdx = getColumnIndex(ds, ds.xAxisColumn);
+			if (xIdx === -1) return;
+			const colX = ds.data[xIdx];
+			if (!colX?.data) return;
+			const xData = colX.data,
+				yData = colY.data;
+			const refX = colX.refPoint,
+				refY = colY.refPoint;
+			const range = visibleIndexRange(xData, refX, xMin, xMax);
+			if (range) {
+				for (let j = range.startIdx; j <= range.endIdx; j++) {
+					const v = yData[j] + refY;
+					if (v < yMin) yMin = v;
+					if (v > yMax) yMax = v;
+				}
+			}
+		});
+
+		if (yMin === Infinity) return;
+
+		const dataRange = yMax - yMin || 1;
+		const pad = dataRange * 0.05;
+		const dMin = yMin - pad;
+		const dMax = yMax + pad;
+		const paddedRange = dMax - dMin;
+
+		const sliceBot = (i + 1) * sliceH;
+		const totalRange = (paddedRange * ch) / sliceH;
+		const targetMin = dMin - (totalRange * (ch - sliceBot)) / ch;
+		const targetMax = targetMin + totalRange;
+
+		targetYs[axisId] = { min: targetMin, max: targetMax };
+	});
+
+	sv();
 }
 
 interface UseAutoScaleResult {
@@ -134,126 +362,14 @@ export function useAutoScale({
 
 	const handleAutoScaleY = useCallback(
 		(axisId: string, mouseY?: number) => {
-			const {
-				padding: p,
-				chartHeight: ch,
-				syncViewport: sv,
-				datasetsById: dsById,
-				xAxesById: xaById,
-				seriesByYAxisId: sByY,
-			} = depsRef.current;
-
-			const axisSeries = sByY.get(axisId);
-			if (!axisSeries || axisSeries.length === 0) return;
-
-			let yMin = Infinity,
-				yMax = -Infinity;
-
-			axisSeries.forEach((s) => {
-				const ds = dsById.get(s.sourceId);
-				if (!ds) return;
-				const yIdx = getColumnIndex(ds, s.yColumn);
-				if (yIdx === -1) return;
-				const colY = ds.data[yIdx];
-				if (!colY) return;
-
-				if (mouseY === undefined) {
-					// Full fit: use precomputed bounds (no viewport filtering needed)
-					if (colY.bounds) {
-						if (colY.bounds.min < yMin) yMin = colY.bounds.min;
-						if (colY.bounds.max > yMax) yMax = colY.bounds.max;
-					}
-				} else {
-					// Viewport-filtered fit (scroll wheel double-tap)
-					const xAxis = xaById.get(ds?.xAxisId || "axis-1");
-					if (!xAxis) return;
-					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
-					if (xIdx === -1) return;
-					const colX = ds.data[xIdx];
-					if (!colX?.data || !colY.data) return;
-					const xData = colX.data,
-						yData = colY.data,
-						refX = colX.refPoint,
-						refY = colY.refPoint;
-					const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
-					if (range) {
-						for (let i = range.startIdx; i <= range.endIdx; i++) {
-							const v = yData[i] + refY;
-							if (v < yMin) yMin = v;
-							if (v > yMax) yMax = v;
-						}
-					}
-				}
-			});
-
-			if (yMin !== Infinity) {
-				let nMin: number, nMax: number;
-				const r = yMax - yMin || 1,
-					pad = r * 0.05;
-				if (mouseY !== undefined) {
-					if (mouseY < p.top + ch / 3) {
-						nMin = yMin - r - 3 * pad;
-						nMax = yMax + pad;
-					} else if (mouseY > p.top + (2 * ch) / 3) {
-						nMin = yMin - pad;
-						nMax = yMax + r + 3 * pad;
-					} else {
-						nMin = yMin - pad;
-						nMax = yMax + pad;
-					}
-				} else {
-					nMin = yMin - pad;
-					nMax = yMax + pad;
-				}
-
-				// Revert to 5% padding for better fit
-				const professionalPad = (nMax - nMin || 1) * 0.05;
-				targetYs.current[axisId] = {
-					min: nMin - professionalPad,
-					max: nMax + professionalPad,
-				};
-				sv();
-			}
+						computeAutoScaleY(axisId, mouseY, depsRef.current, targetYs);
 		},
 		[targetYs],
 	);
 
 	const handleAutoScaleX = useCallback(
 		(xAxisId?: string) => {
-			const {
-				activeXAxesUsed: axUsed,
-				syncViewport: sv,
-				datasets: allDs,
-				activeDatasetIdsSet: activeDsIds,
-			} = depsRef.current;
-
-			if (allDs.length === 0) return;
-
-			const axesToScale = xAxisId ? [xAxisId] : axUsed.map((a) => a.id);
-			const xs = targetXAxes.current;
-
-			axesToScale.forEach((id) => {
-				const activeDs = allDs.filter(
-					(d) => (d.xAxisId || "axis-1") === id && activeDsIds.has(d.id),
-				);
-				if (activeDs.length === 0) return;
-				let xMin = Infinity,
-					xMax = -Infinity;
-				activeDs.forEach((ds) => {
-					const xIdx = getColumnIndex(ds, ds.xAxisColumn),
-						col = ds.data[xIdx];
-					if (col?.bounds) {
-						if (col.bounds.min < xMin) xMin = col.bounds.min;
-						if (col.bounds.max > xMax) xMax = col.bounds.max;
-					}
-				});
-				if (xMin !== Infinity) {
-					const range = xMax - xMin || 1;
-					const pad = range * 0.05; // 5% padding
-					xs[id] = { min: xMin - pad, max: xMax + pad };
-				}
-			});
-			sv();
+						computeAutoScaleX(xAxisId, depsRef.current, targetXAxes);
 		},
 		[targetXAxes],
 	);
@@ -411,87 +527,7 @@ export function useAutoScale({
 	}, [series, isLoaded, handleAutoScaleY]);
 
 	const handleStackedFit = useCallback(() => {
-		const {
-			chartHeight: ch,
-			syncViewport: sv,
-			datasetsById: dsById,
-			xAxesById: xaById,
-			seriesByYAxisId: sByY,
-			activeYAxes: ayAxes,
-			series: allSeries,
-		} = depsRef.current;
-		const liveX = targetXAxes.current;
-
-		// Axis order = first appearance in series array
-		const orderedAxisIds: string[] = [];
-		const seenAxes = new Set<string>();
-		for (const s of allSeries) {
-			if (!seenAxes.has(s.yAxisId) && ayAxes.some((a) => a.id === s.yAxisId)) {
-				seenAxes.add(s.yAxisId);
-				orderedAxisIds.push(s.yAxisId);
-			}
-		}
-
-		const n = orderedAxisIds.length;
-		if (n === 0) return;
-
-		const sliceH = ch / n;
-
-		orderedAxisIds.forEach((axisId, i) => {
-			const axisSeries = sByY.get(axisId);
-			if (!axisSeries || axisSeries.length === 0) return;
-
-			let yMin = Infinity,
-				yMax = -Infinity;
-			axisSeries.forEach((s) => {
-				const ds = dsById.get(s.sourceId);
-				if (!ds) return;
-				const yIdx = getColumnIndex(ds, s.yColumn);
-				if (yIdx === -1) return;
-				const colY = ds.data[yIdx];
-				if (!colY?.data) return;
-				const xAxisId = ds.xAxisId || "axis-1";
-				const storeXAxis = xaById.get(xAxisId);
-				const liveRange = liveX[xAxisId];
-				const xMin = liveRange?.min ?? storeXAxis?.min;
-				const xMax = liveRange?.max ?? storeXAxis?.max;
-				if (xMin === undefined || xMax === undefined) return;
-				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
-				if (xIdx === -1) return;
-				const colX = ds.data[xIdx];
-				if (!colX?.data) return;
-				const xData = colX.data,
-					yData = colY.data;
-				const refX = colX.refPoint,
-					refY = colY.refPoint;
-				const range = visibleIndexRange(xData, refX, xMin, xMax);
-				if (range) {
-					for (let j = range.startIdx; j <= range.endIdx; j++) {
-						const v = yData[j] + refY;
-						if (v < yMin) yMin = v;
-						if (v > yMax) yMax = v;
-					}
-				}
-			});
-
-			if (yMin === Infinity) return;
-
-			const dataRange = yMax - yMin || 1;
-			const pad = dataRange * 0.05;
-			const dMin = yMin - pad;
-			const dMax = yMax + pad;
-			const paddedRange = dMax - dMin;
-
-			// Slice i=0 → top of chart, i=n-1 → bottom
-			const sliceBot = (i + 1) * sliceH;
-			const totalRange = (paddedRange * ch) / sliceH;
-			const targetMin = dMin - (totalRange * (ch - sliceBot)) / ch;
-			const targetMax = targetMin + totalRange;
-
-			targetYs.current[axisId] = { min: targetMin, max: targetMax };
-		});
-
-		sv();
+		computeStackedFit(depsRef.current, targetXAxes, targetYs);
 	}, [targetYs, targetXAxes]);
 
 	return { handleAutoScaleY, handleAutoScaleX, handleStackedFit };
