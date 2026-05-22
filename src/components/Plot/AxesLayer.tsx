@@ -37,6 +37,223 @@ interface AxesLayerProps {
 	isInteracting?: boolean;
 }
 
+
+export interface DrawXAxisOptions {
+	ctx: CanvasRenderingContext2D;
+	axis: XAxisLayout;
+	metrics?: XAxisMetrics;
+	height: number;
+	width: number;
+	padding: { top: number; right: number; bottom: number; left: number };
+	labelColor: string;
+	fontFamily: string;
+	chartWidth: number;
+	getLabel: (axisKey: string, precision: number, value: number) => string;
+	secLabelBg: string;
+	seriesByXAxisId: Record<string, SeriesConfig[]>;
+}
+
+export interface DrawYAxisOptions {
+	ctx: CanvasRenderingContext2D;
+	axis: YAxisLayout;
+	axisLayout: Record<string, { total: number; label: number }>;
+	padding: { top: number; right: number; bottom: number; left: number };
+	leftOffsets: Record<string, number>;
+	rightOffsets: Record<string, number>;
+	width: number;
+	fontFamily: string;
+	labelColor: string;
+	chartHeight: number;
+	getLabel: (axisKey: string, precision: number, value: number) => string;
+	seriesByYAxisId: Record<string, SeriesConfig[]>;
+}
+
+function drawXAxis({
+	ctx,
+	axis,
+	metrics,
+	height,
+	width,
+	padding,
+	labelColor,
+	fontFamily,
+	chartWidth,
+	getLabel,
+	secLabelBg,
+	seriesByXAxisId,
+}: DrawXAxisOptions) {
+	if (!metrics) return;
+	const baseY = height - padding.bottom + metrics.cumulativeOffset;
+	const lblColor = axis.color || labelColor;
+
+	// Primary Labels
+	ctx.font = `9px ${fontFamily}`;
+	ctx.fillStyle = lblColor;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "alphabetic";
+	const primaryY = baseY + metrics.labelBottom;
+	axis.ticks.result.forEach((t) => {
+		const timestamp = typeof t === "number" ? t : t.timestamp;
+		const normX = (timestamp - axis.min) / (axis.max - axis.min);
+		if (normX < 0 || normX > 1) return;
+		const x = padding.left + normX * chartWidth;
+		let label: string;
+		if (axis.categoryLabels) {
+			const v = typeof t === "number" ? t : t.timestamp;
+			const idx = axis.categoryTicks
+				? axis.categoryTicks.indexOf(v)
+				: Math.round(v);
+			const name = idx >= 0 ? axis.categoryLabels[idx] : undefined;
+			if (name === undefined) return;
+			label = name;
+		} else {
+			label =
+				typeof t === "number"
+					? getLabel(`x:${axis.id}`, axis.ticks.precision ?? 0, t)
+					: t.label;
+		}
+		ctx.fillText(label, x, primaryY);
+	});
+
+	// Secondary Labels
+	if (axis.ticks.secondaryLabels) {
+		ctx.font = `bold 10px ${fontFamily}`;
+		ctx.textAlign = "left";
+		const rectY = baseY + metrics.secLabelBottom - 14;
+		const secList = axis.ticks.secondaryLabels;
+		secList.forEach((sl: SecondaryLabel, i: number) => {
+			const nextSl = secList[i + 1];
+			const normX = (sl.timestamp - axis.min) / (axis.max - axis.min);
+			const nextNormX = nextSl
+				? (nextSl.timestamp - axis.min) / (axis.max - axis.min)
+				: 1.5;
+
+			const currentX = padding.left + normX * chartWidth;
+			const nextX = padding.left + nextNormX * chartWidth;
+
+			if (currentX > width - padding.right || nextX < padding.left)
+				return;
+
+			const x = Math.max(currentX + 5, padding.left + 5);
+
+			const textWidth = ctx.measureText(sl.label).width;
+			ctx.fillStyle = secLabelBg;
+			ctx.fillRect(x - 2, rectY, textWidth + 4, 14);
+
+			if (currentX > padding.left) {
+				ctx.strokeStyle = lblColor;
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo(currentX, rectY);
+				ctx.lineTo(currentX, rectY + 14);
+				ctx.stroke();
+			}
+
+			ctx.fillStyle = lblColor;
+			ctx.fillText(sl.label, x, baseY + metrics.secLabelBottom - 2);
+		});
+	}
+
+	// Axis Title (canvas)
+	const axisSeries = seriesByXAxisId[axis.id] || [];
+	const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
+	const titleColor =
+		uniqueColors.size === 1
+			? (axisSeries[0].lineColor ?? labelColor)
+			: lblColor;
+	ctx.font = `bold 12px ${fontFamily}`;
+	ctx.fillStyle = titleColor;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "alphabetic";
+	ctx.fillText(
+		axis.title,
+		padding.left + chartWidth / 2,
+		baseY + metrics.titleBottom,
+	);
+}
+
+function drawYAxis({
+	ctx,
+	axis,
+	axisLayout,
+	padding,
+	leftOffsets,
+	rightOffsets,
+	width,
+	fontFamily,
+	labelColor,
+	chartHeight,
+	getLabel,
+	seriesByYAxisId,
+}: DrawYAxisOptions) {
+	const isLeft = axis.position === "left";
+	const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
+
+	const xPos = isLeft
+		? padding.left - (leftOffsets[axis.id] ?? 0) - metrics.total
+		: width - padding.right + (rightOffsets[axis.id] ?? 0);
+
+	const spineX = isLeft ? xPos + metrics.total : xPos;
+	const labelX = isLeft ? spineX - 7 : spineX + 7;
+	const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
+
+	ctx.font = `9px ${fontFamily}`;
+	ctx.fillStyle = labelColor;
+	ctx.textAlign = isLeft ? "right" : "left";
+	ctx.textBaseline = "middle";
+	axis.ticks.forEach((t) => {
+		const normY = (t - axis.min) / (axis.max - axis.min);
+		if (normY < 0 || normY > 1) return;
+		const y = padding.top + (1 - normY) * chartHeight;
+		let label: string;
+		if (axis.categoryLabels) {
+			const idx = Math.round(t);
+			const name = axis.categoryLabels[idx];
+			if (name === undefined) return;
+			label = name;
+		} else {
+			label = getLabel(`y:${axis.id}`, axis.precision, t);
+		}
+		ctx.fillText(label, labelX, y);
+	});
+
+	// Y Axis Title (canvas — multicolor segments, rotated)
+	const axisSeries = seriesByYAxisId[axis.id] || [];
+	if (axisSeries.length > 0) {
+		ctx.save();
+		ctx.font = `bold 12px ${fontFamily}`;
+		ctx.textBaseline = "middle";
+		ctx.textAlign = "center";
+		const sep = " / ";
+		const segments: { text: string; color: string }[] = [];
+		axisSeries.forEach((s, i) => {
+			if (i > 0 && axisSeries.length > 1) {
+				segments.push({ text: sep, color: labelColor });
+			}
+			segments.push({
+				text: s.name || s.yColumn,
+				color: s.lineColor ?? labelColor,
+			});
+		});
+		const widths = segments.map(
+			(seg) => ctx.measureText(seg.text).width,
+		);
+		const totalW = widths.reduce((a, b) => a + b, 0);
+		const cx = titleX;
+		const cy = padding.top + chartHeight / 2;
+		ctx.translate(cx, cy);
+		ctx.rotate(isLeft ? -Math.PI / 2 : Math.PI / 2);
+		ctx.textAlign = "left";
+		let x = -totalW / 2;
+		for (let i = 0; i < segments.length; i++) {
+			ctx.fillStyle = segments[i].color;
+			ctx.fillText(segments[i].text, x, 0);
+			x += widths[i];
+		}
+		ctx.restore();
+	}
+}
+
 const AxesLayer = React.memo(
 	forwardRef<AxesLayerHandle, AxesLayerProps>(
 		(
@@ -140,165 +357,38 @@ const AxesLayer = React.memo(
 
 					// X Axes Labels (canvas)
 					xAxes.forEach((axis, axisIdx) => {
-						const metrics = xAxesMetrics[axisIdx];
-						if (!metrics) return;
-						const baseY = height - padding.bottom + metrics.cumulativeOffset;
-						const lblColor = axis.color || labelColor;
-
-						// Primary Labels
-						ctx.font = `9px ${fontFamily}`;
-						ctx.fillStyle = lblColor;
-						ctx.textAlign = "center";
-						ctx.textBaseline = "alphabetic";
-						const primaryY = baseY + metrics.labelBottom;
-						axis.ticks.result.forEach((t) => {
-							const timestamp = typeof t === "number" ? t : t.timestamp;
-							const normX = (timestamp - axis.min) / (axis.max - axis.min);
-							if (normX < 0 || normX > 1) return;
-							const x = padding.left + normX * chartWidth;
-							let label: string;
-							if (axis.categoryLabels) {
-								const v = typeof t === "number" ? t : t.timestamp;
-								const idx = axis.categoryTicks
-									? axis.categoryTicks.indexOf(v)
-									: Math.round(v);
-								const name = idx >= 0 ? axis.categoryLabels[idx] : undefined;
-								if (name === undefined) return;
-								label = name;
-							} else {
-								label =
-									typeof t === "number"
-										? getLabel(`x:${axis.id}`, axis.ticks.precision ?? 0, t)
-										: t.label;
-							}
-							ctx.fillText(label, x, primaryY);
+						drawXAxis({
+							ctx,
+							axis,
+							metrics: xAxesMetrics[axisIdx],
+							height,
+							width,
+							padding,
+							labelColor,
+							fontFamily,
+							chartWidth,
+							getLabel,
+							secLabelBg,
+							seriesByXAxisId,
 						});
-
-						// Secondary Labels
-						if (axis.ticks.secondaryLabels) {
-							ctx.font = `bold 10px ${fontFamily}`;
-							ctx.textAlign = "left";
-							const rectY = baseY + metrics.secLabelBottom - 14;
-							const secList = axis.ticks.secondaryLabels;
-							secList.forEach((sl: SecondaryLabel, i: number) => {
-								const nextSl = secList[i + 1];
-								const normX = (sl.timestamp - axis.min) / (axis.max - axis.min);
-								const nextNormX = nextSl
-									? (nextSl.timestamp - axis.min) / (axis.max - axis.min)
-									: 1.5;
-
-								const currentX = padding.left + normX * chartWidth;
-								const nextX = padding.left + nextNormX * chartWidth;
-
-								if (currentX > width - padding.right || nextX < padding.left)
-									return;
-
-								const x = Math.max(currentX + 5, padding.left + 5);
-
-								const textWidth = ctx.measureText(sl.label).width;
-								ctx.fillStyle = secLabelBg;
-								ctx.fillRect(x - 2, rectY, textWidth + 4, 14);
-
-								if (currentX > padding.left) {
-									ctx.strokeStyle = lblColor;
-									ctx.lineWidth = 2;
-									ctx.beginPath();
-									ctx.moveTo(currentX, rectY);
-									ctx.lineTo(currentX, rectY + 14);
-									ctx.stroke();
-								}
-
-								ctx.fillStyle = lblColor;
-								ctx.fillText(sl.label, x, baseY + metrics.secLabelBottom - 2);
-							});
-						}
-
-						// Axis Title (canvas)
-						const axisSeries = seriesByXAxisId[axis.id] || [];
-						const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
-						const titleColor =
-							uniqueColors.size === 1
-								? (axisSeries[0].lineColor ?? labelColor)
-								: lblColor;
-						ctx.font = `bold 12px ${fontFamily}`;
-						ctx.fillStyle = titleColor;
-						ctx.textAlign = "center";
-						ctx.textBaseline = "alphabetic";
-						ctx.fillText(
-							axis.title,
-							padding.left + chartWidth / 2,
-							baseY + metrics.titleBottom,
-						);
 					});
 
 					// Y Axes Labels (canvas)
 					yAxes.forEach((axis) => {
-						const isLeft = axis.position === "left";
-						const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
-
-						const xPos = isLeft
-							? padding.left - (leftOffsets[axis.id] ?? 0) - metrics.total
-							: width - padding.right + (rightOffsets[axis.id] ?? 0);
-
-						const spineX = isLeft ? xPos + metrics.total : xPos;
-						const labelX = isLeft ? spineX - 7 : spineX + 7;
-						const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
-
-						ctx.font = `9px ${fontFamily}`;
-						ctx.fillStyle = labelColor;
-						ctx.textAlign = isLeft ? "right" : "left";
-						ctx.textBaseline = "middle";
-						axis.ticks.forEach((t) => {
-							const normY = (t - axis.min) / (axis.max - axis.min);
-							if (normY < 0 || normY > 1) return;
-							const y = padding.top + (1 - normY) * chartHeight;
-							let label: string;
-							if (axis.categoryLabels) {
-								const idx = Math.round(t);
-								const name = axis.categoryLabels[idx];
-								if (name === undefined) return;
-								label = name;
-							} else {
-								label = getLabel(`y:${axis.id}`, axis.precision, t);
-							}
-							ctx.fillText(label, labelX, y);
+						drawYAxis({
+							ctx,
+							axis,
+							axisLayout,
+							padding,
+							leftOffsets,
+							rightOffsets,
+							width,
+							fontFamily,
+							labelColor,
+							chartHeight,
+							getLabel,
+							seriesByYAxisId,
 						});
-
-						// Y Axis Title (canvas — multicolor segments, rotated)
-						const axisSeries = seriesByYAxisId[axis.id] || [];
-						if (axisSeries.length > 0) {
-							ctx.save();
-							ctx.font = `bold 12px ${fontFamily}`;
-							ctx.textBaseline = "middle";
-							ctx.textAlign = "center";
-							const sep = " / ";
-							const segments: { text: string; color: string }[] = [];
-							axisSeries.forEach((s, i) => {
-								if (i > 0 && axisSeries.length > 1) {
-									segments.push({ text: sep, color: labelColor });
-								}
-								segments.push({
-									text: s.name || s.yColumn,
-									color: s.lineColor ?? labelColor,
-								});
-							});
-							const widths = segments.map(
-								(seg) => ctx.measureText(seg.text).width,
-							);
-							const totalW = widths.reduce((a, b) => a + b, 0);
-							const cx = titleX;
-							const cy = padding.top + chartHeight / 2;
-							ctx.translate(cx, cy);
-							ctx.rotate(isLeft ? -Math.PI / 2 : Math.PI / 2);
-							ctx.textAlign = "left";
-							let x = -totalW / 2;
-							for (let i = 0; i < segments.length; i++) {
-								ctx.fillStyle = segments[i].color;
-								ctx.fillText(segments[i].text, x, 0);
-								x += widths[i];
-							}
-							ctx.restore();
-						}
 					});
 
 					ctx.restore();
