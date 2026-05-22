@@ -369,6 +369,46 @@ function processCSVRow(
 	}
 }
 
+async function* readCSVChunks(file: File) {
+	const stream = file.stream();
+	const reader = stream.getReader();
+	const decoder = new TextDecoder("utf-8");
+
+	let buffer = "";
+	let isFirstChunk = true;
+
+	while (true) {
+		const { done, value } = await reader.read();
+
+		if (value) {
+			buffer += decoder.decode(value, { stream: true });
+		} else {
+			buffer += decoder.decode();
+		}
+
+		// Strip BOM if present at the very beginning
+		if (isFirstChunk && buffer.charCodeAt(0) === 0xfeff) {
+			buffer = buffer.slice(1);
+		}
+
+		const lines = buffer.split(/\r?\n/);
+
+		// Keep the last partial line in the buffer
+		if (!done) {
+			buffer = lines.pop() || "";
+		} else {
+			buffer = "";
+		}
+
+		yield { lines, done };
+		isFirstChunk = false;
+
+		if (done) {
+			break;
+		}
+	}
+}
+
 async function parseCSV(file: File, settings?: ParseSettings) {
 	const {
 		delimiter = ",",
@@ -378,11 +418,6 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 		columnConfigs = [],
 	} = settings || {};
 
-	const stream = file.stream();
-	const reader = stream.getReader();
-	const decoder = new TextDecoder("utf-8");
-
-	let buffer = "";
 	let lineCount = 0;
 	let actualRowCount = 0;
 
@@ -399,29 +434,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 
 	let isFirstLine = true;
 
-	while (true) {
-		const { done, value } = await reader.read();
-
-		if (value) {
-			buffer += decoder.decode(value, { stream: true });
-		} else {
-			buffer += decoder.decode();
-		}
-
-		// Strip BOM if present at the very beginning
-		if (isFirstLine && buffer.charCodeAt(0) === 0xfeff) {
-			buffer = buffer.slice(1);
-		}
-
-		const lines = buffer.split(/\r?\n/);
-
-		// Keep the last partial line in the buffer
-		if (!done) {
-			buffer = lines.pop() || "";
-		} else {
-			buffer = "";
-		}
-
+	for await (const { lines } of readCSVChunks(file)) {
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i].trim();
 
@@ -431,8 +444,8 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 			}
 
 			if (!line) {
-				if (!done || i < lines.length - 1) {
-					// Only increment lineCount if it's an actual empty line in the middle of the file
+				// Only increment lineCount if it's an actual empty line in the middle of the file
+				if (i < lines.length - 1) {
 					lineCount++;
 				}
 				continue;
@@ -479,10 +492,6 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 				actualRowCount++;
 			}
 			lineCount++;
-		}
-
-		if (done) {
-			break;
 		}
 	}
 
