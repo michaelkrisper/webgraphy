@@ -103,10 +103,19 @@ export function syncAxesWithTargets(
 		yUpdates: Record<string, { min: number; max: number }>;
 	},
 ): AxesFrame {
-	const xUpdates = scratch?.xUpdates ?? {};
-	const yUpdates = scratch?.yUpdates ?? {};
-	for (const k in xUpdates) delete xUpdates[k];
-	for (const k in yUpdates) delete yUpdates[k];
+	let xUpdates: Record<string, { min: number; max: number }>;
+	let yUpdates: Record<string, { min: number; max: number }>;
+
+	if (scratch) {
+		scratch.xUpdates = {};
+		scratch.yUpdates = {};
+		xUpdates = scratch.xUpdates;
+		yUpdates = scratch.yUpdates;
+	} else {
+		xUpdates = {};
+		yUpdates = {};
+	}
+
 	const EPSILON = 1e-10;
 	let hasUpdates = false;
 
