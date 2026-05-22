@@ -47,6 +47,182 @@ function ColorPaletteButton({
 	);
 }
 
+interface ColorPickerGridProps {
+	color: string;
+	onSelect: (color: string) => void;
+	onHoverColor: (color: string) => void;
+	onHoverLeave: () => void;
+}
+
+function ColorPickerGrid({
+	color,
+	onSelect,
+	onHoverColor,
+	onHoverLeave,
+}: ColorPickerGridProps) {
+	return (
+		<div className="color-picker-grid-vertical">
+			{/* Grayscale Column */}
+			<div className="color-picker-column">
+				<div className="color-picker-main-color">
+					<ColorPaletteButton
+						targetColor="#000000"
+						currentColor={color}
+						onSelect={onSelect}
+						onHoverColor={onHoverColor}
+						onHoverLeave={onHoverLeave}
+					/>
+				</div>
+				<div className="color-picker-grid-spacer" />
+				<div className="color-picker-shades">
+					{LCH_LIGHTNESS_STEPS.map((l) => {
+						const rgbVal = lchToRgb(l, 0, 0);
+						const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
+						return (
+							<ColorPaletteButton
+								key={hexVal}
+								targetColor={hexVal}
+								currentColor={color}
+								onSelect={onSelect}
+								onHoverColor={onHoverColor}
+								onHoverLeave={onHoverLeave}
+							/>
+						);
+					})}
+				</div>
+			</div>
+
+			{/* Theme Color Columns */}
+			{COLOR_PALETTE.map((themeColor) => {
+				const rgbTheme = hexToRgb(themeColor);
+				const lchTheme = rgbToLch(rgbTheme.r, rgbTheme.g, rgbTheme.b);
+				return (
+					<div key={themeColor} className="color-picker-column">
+						<div className="color-picker-main-color">
+							<ColorPaletteButton
+								targetColor={themeColor}
+								currentColor={color}
+								onSelect={onSelect}
+								onHoverColor={onHoverColor}
+								onHoverLeave={onHoverLeave}
+							/>
+						</div>
+						<div className="color-picker-grid-spacer" />
+						<div className="color-picker-shades">
+							{LCH_LIGHTNESS_STEPS.map((l) => {
+								const rgbVal = lchToRgb(l, lchTheme.C, lchTheme.h);
+								const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
+								return (
+									<ColorPaletteButton
+										key={hexVal}
+										targetColor={hexVal}
+										currentColor={color}
+										onSelect={onSelect}
+										onHoverColor={onHoverColor}
+										onHoverLeave={onHoverLeave}
+									/>
+								);
+							})}
+						</div>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+interface ColorPickerInputsProps {
+	color: string;
+	hoverColor: string | null;
+	localHex: string;
+	setLocalHex: (hex: string) => void;
+	onChange: (color: string) => void;
+}
+
+function ColorPickerInputs({
+	color,
+	hoverColor,
+	localHex,
+	setLocalHex,
+	onChange,
+}: ColorPickerInputsProps) {
+	const rgbInputsRef = useRef<HTMLDivElement>(null);
+	const displayColor = hoverColor ?? color;
+	const displayHex = hoverColor ?? localHex;
+	const { r, g, b } = hexToRgb(displayColor);
+
+	const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const val = e.target.value;
+		setLocalHex(val);
+		if (/^#[0-9A-F]{6}$/i.test(val)) onChange(val.toLowerCase());
+	};
+
+	const handleRgbChange = (part: "r" | "g" | "b", val: string) => {
+		let n = parseInt(val, 10);
+		if (Number.isNaN(n)) n = 0;
+		const currentRgb = { r, g, b };
+		const newRgb = { ...currentRgb, [part]: Math.min(255, Math.max(0, n)) };
+		onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
+	};
+
+	const rgbRef = useRef({ r, g, b });
+	// eslint-disable-next-line react-hooks/refs
+	rgbRef.current = { r, g, b };
+
+	useEffect(() => {
+		const el = rgbInputsRef.current;
+		if (!el) return;
+		const handler = (e: WheelEvent) => {
+			const input = (e.target as HTMLElement).closest("input");
+			if (!input) return;
+			const inputs = Array.from(el.querySelectorAll("input"));
+			const idx = inputs.indexOf(input as HTMLInputElement);
+			const parts = ["r", "g", "b"] as const;
+			if (idx === -1) return;
+			e.preventDefault();
+			const part = parts[idx];
+			const current = rgbRef.current;
+			const delta = e.deltaY < 0 ? 1 : -1;
+			const newVal = Math.min(255, Math.max(0, current[part] + delta));
+			const newRgb = { ...current, [part]: newVal };
+			onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
+		};
+		el.addEventListener("wheel", handler, { passive: false });
+		return () => el.removeEventListener("wheel", handler);
+	}, [onChange]);
+
+	return (
+		<div className="color-picker-inputs">
+			<div className="color-picker-input-group">
+				<span className="color-picker-label">Hex</span>
+				<input
+					type="text"
+					value={displayHex}
+					onChange={handleHexChange}
+					className="color-picker-input"
+					spellCheck={false}
+				/>
+			</div>
+			<div className="color-picker-input-group">
+				<span className="color-picker-label">RGB</span>
+				<div className="color-picker-rgb-inputs" ref={rgbInputsRef}>
+					{(["r", "g", "b"] as const).map((p) => (
+						<input
+							key={p}
+							type="number"
+							min={0}
+							max={255}
+							value={p === "r" ? r : p === "g" ? g : b}
+							onChange={(e) => handleRgbChange(p, e.target.value)}
+							className="color-picker-input"
+						/>
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function ColorPicker({
 	color,
 	onChange,
@@ -59,7 +235,6 @@ function ColorPicker({
 	const [prevColor, setPrevColor] = useState(color);
 	const [hoverColor, setHoverColor] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const rgbInputsRef = useRef<HTMLDivElement>(null);
 	const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: 0 });
 
 	if (color !== prevColor) {
@@ -119,48 +294,6 @@ function ColorPicker({
 		setHoverColor(null);
 	};
 
-	const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const val = e.target.value;
-		setLocalHex(val);
-		if (/^#[0-9A-F]{6}$/i.test(val)) onChange(val.toLowerCase());
-	};
-
-	const displayColor = hoverColor ?? color;
-	const displayHex = hoverColor ?? localHex;
-	const { r, g, b } = hexToRgb(displayColor);
-	const handleRgbChange = (part: "r" | "g" | "b", val: string) => {
-		let n = parseInt(val, 10);
-		if (Number.isNaN(n)) n = 0;
-		const currentRgb = { r, g, b };
-		const newRgb = { ...currentRgb, [part]: Math.min(255, Math.max(0, n)) };
-		onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
-	};
-	const rgbRef = useRef({ r, g, b });
-	// eslint-disable-next-line react-hooks/refs
-	rgbRef.current = { r, g, b };
-
-	useEffect(() => {
-		const el = rgbInputsRef.current;
-		if (!el) return;
-		const handler = (e: WheelEvent) => {
-			const input = (e.target as HTMLElement).closest("input");
-			if (!input) return;
-			const inputs = Array.from(el.querySelectorAll("input"));
-			const idx = inputs.indexOf(input as HTMLInputElement);
-			const parts = ["r", "g", "b"] as const;
-			if (idx === -1) return;
-			e.preventDefault();
-			const part = parts[idx];
-			const current = rgbRef.current;
-			const delta = e.deltaY < 0 ? 1 : -1;
-			const newVal = Math.min(255, Math.max(0, current[part] + delta));
-			const newRgb = { ...current, [part]: newVal };
-			onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
-		};
-		el.addEventListener("wheel", handler, { passive: false });
-		return () => el.removeEventListener("wheel", handler);
-	}, [onChange]);
-
 	return (
 		<div ref={containerRef} className="color-picker-wrapper">
 			<button
@@ -179,102 +312,19 @@ function ColorPicker({
 						className="color-picker-popover"
 						style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
 					>
-						<div className="color-picker-grid-vertical">
-							{/* Grayscale Column */}
-							<div className="color-picker-column">
-								<div className="color-picker-main-color">
-									<ColorPaletteButton
-										targetColor="#000000"
-										currentColor={color}
-										onSelect={handleColorSelect}
-										onHoverColor={handleColorHover}
-										onHoverLeave={handleColorHoverLeave}
-									/>
-								</div>
-								<div className="color-picker-grid-spacer" />
-								<div className="color-picker-shades">
-									{LCH_LIGHTNESS_STEPS.map((l) => {
-										const rgbVal = lchToRgb(l, 0, 0);
-										const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
-										return (
-											<ColorPaletteButton
-												key={hexVal}
-												targetColor={hexVal}
-												currentColor={color}
-												onSelect={handleColorSelect}
-												onHoverColor={handleColorHover}
-												onHoverLeave={handleColorHoverLeave}
-											/>
-										);
-									})}
-								</div>
-							</div>
-
-							{/* Theme Color Columns */}
-							{COLOR_PALETTE.map((themeColor) => {
-								const rgbTheme = hexToRgb(themeColor);
-								const lchTheme = rgbToLch(rgbTheme.r, rgbTheme.g, rgbTheme.b);
-								return (
-									<div key={themeColor} className="color-picker-column">
-										<div className="color-picker-main-color">
-											<ColorPaletteButton
-												targetColor={themeColor}
-												currentColor={color}
-												onSelect={handleColorSelect}
-												onHoverColor={handleColorHover}
-												onHoverLeave={handleColorHoverLeave}
-											/>
-										</div>
-										<div className="color-picker-grid-spacer" />
-										<div className="color-picker-shades">
-											{LCH_LIGHTNESS_STEPS.map((l) => {
-												const rgbVal = lchToRgb(l, lchTheme.C, lchTheme.h);
-												const hexVal = rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
-												return (
-													<ColorPaletteButton
-														key={hexVal}
-														targetColor={hexVal}
-														currentColor={color}
-														onSelect={handleColorSelect}
-														onHoverColor={handleColorHover}
-														onHoverLeave={handleColorHoverLeave}
-													/>
-												);
-											})}
-										</div>
-									</div>
-								);
-							})}
-						</div>
-
-						<div className="color-picker-inputs">
-							<div className="color-picker-input-group">
-								<span className="color-picker-label">Hex</span>
-								<input
-									type="text"
-									value={displayHex}
-									onChange={handleHexChange}
-									className="color-picker-input"
-									spellCheck={false}
-								/>
-							</div>
-							<div className="color-picker-input-group">
-								<span className="color-picker-label">RGB</span>
-								<div className="color-picker-rgb-inputs" ref={rgbInputsRef}>
-									{(["r", "g", "b"] as const).map((p) => (
-										<input
-											key={p}
-											type="number"
-											min={0}
-											max={255}
-											value={p === "r" ? r : p === "g" ? g : b}
-											onChange={(e) => handleRgbChange(p, e.target.value)}
-											className="color-picker-input"
-										/>
-									))}
-								</div>
-							</div>
-						</div>
+						<ColorPickerGrid
+							color={color}
+							onSelect={handleColorSelect}
+							onHoverColor={handleColorHover}
+							onHoverLeave={handleColorHoverLeave}
+						/>
+						<ColorPickerInputs
+							color={color}
+							hoverColor={hoverColor}
+							localHex={localHex}
+							setLocalHex={setLocalHex}
+							onChange={onChange}
+						/>
 					</div>,
 					document.body,
 				)}
