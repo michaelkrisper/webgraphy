@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SeriesDrawBundle } from "../drawSeries";
-import { drawSeriesLines } from "../drawSeries";
+import type { DecimEntry, SeriesDrawBundle } from "../drawSeries";
+import { drawSeriesLines, getOrComputeM4 } from "../drawSeries";
 import type { GLStateCache } from "../GLStateCache";
 
 type Mock = Record<string, unknown>;
@@ -139,5 +139,67 @@ describe("drawSeriesLines", () => {
 		);
 
 		expect(mockGLStateCache.setLineStyle).toHaveBeenCalledWith(2); // 2 = dotted
+	});
+});
+
+describe("getOrComputeM4", () => {
+	function makeMockGl() {
+		const createBuffer = vi.fn(() => ({}));
+		const bindBuffer = vi.fn();
+		const bufferData = vi.fn();
+		return {
+			gl: {
+				createBuffer,
+				bindBuffer,
+				bufferData,
+				ARRAY_BUFFER: 34962,
+				DYNAMIC_DRAW: 35048,
+			} as unknown as WebGLRenderingContext,
+			createBuffer,
+			bufferData,
+		};
+	}
+
+	it("returns the same cached entry when called with identical params (no string sig allocation)", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+
+		expect(e2).toBe(e1); // referential equality — cache hit returned the same object
+		expect(bufferData).toHaveBeenCalledTimes(2); // only on the first (miss) call: one for x, one for y
+	});
+
+	it("recomputes when bucketWidth changes (zoom)", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// Different xRange (zoom) → new bucketWidth → cache miss
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 5, 5, 8, 3);
+
+		expect(bufferData).toHaveBeenCalledTimes(4); // 2 calls × 2 buffers each
+	});
+
+	it("stores numeric signature fields on the entry", () => {
+		const { gl } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+
+		expect(typeof e.bucketWidth).toBe("number");
+		expect(typeof e.qMin).toBe("number");
+		expect(typeof e.qMax).toBe("number");
+		expect(e.xRef).toBe(0);
 	});
 });

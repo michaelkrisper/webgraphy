@@ -24,12 +24,28 @@ export interface OverlayState {
 }
 
 export interface DecimEntry {
-	sig: string;
+	// Numeric signature fields — compared directly to avoid per-frame string
+	// allocation on cache hits (hot path during pan/zoom).
+	bucketWidth: number;
+	qMin: number;
+	qMax: number;
+	xRef: number;
 	xArr: Float32Array;
 	yArr: Float32Array;
 	count: number;
 	xBuf: WebGLBuffer | null;
 	yBuf: WebGLBuffer | null;
+}
+
+export interface SegParams {
+	xRange: number;
+	yRange: number;
+	chartWidth: number;
+	chartHeight: number;
+	dpr: number;
+	totalLineSegs: number;
+	rangesLen: number;
+	firstStart: number;
 }
 
 export interface DrawRange {
@@ -95,10 +111,17 @@ export function getOrComputeM4(
 	const qMin = Math.floor(decimMin / q) * q;
 	const qMax = Math.ceil(decimMax / q) * q;
 	const bucketWidth = xRange / (numBuckets * bucketDivisor);
-	const sig = `${bucketWidth}|${qMin}|${qMax}|${xRef}`;
 
 	let entry = cache.get(yData);
-	if (entry && entry.sig === sig) return entry;
+	if (
+		entry &&
+		entry.bucketWidth === bucketWidth &&
+		entry.qMin === qMin &&
+		entry.qMax === qMax &&
+		entry.xRef === xRef
+	) {
+		return entry;
+	}
 
 	const { x: dx, y: dy } = m4ByXFloat32(
 		xData,
@@ -128,7 +151,17 @@ export function getOrComputeM4(
 		gl.bindBuffer(gl.ARRAY_BUFFER, yBuf);
 		gl.bufferData(gl.ARRAY_BUFFER, yArr, gl.DYNAMIC_DRAW);
 	}
-	entry = { sig, xArr, yArr, count: xArr.length, xBuf, yBuf };
+	entry = {
+		bucketWidth,
+		qMin,
+		qMax,
+		xRef,
+		xArr,
+		yArr,
+		count: xArr.length,
+		xBuf,
+		yBuf,
+	};
 	cache.set(yData, entry);
 	return entry;
 }
@@ -226,13 +259,17 @@ function drawPlainLines(
 	}
 }
 
+// Reusable scratch for per-range step counts. Cleared/resized in place each
+// call to avoid allocating a fresh array per dashed-line series per frame.
+const STEPS_SCRATCH: number[] = [];
+
 function drawDashedLines(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
 	lStyle: number,
 	baseLineWidth: number,
 	segBuffersRef: Map<string, WebGLBuffer>,
-	segParamsRef: Map<string, string>,
+	segParamsRef: Map<string, SegParams>,
 	segBufferKey: string,
 ): void {
 	const { gl, locs } = st;
@@ -246,20 +283,30 @@ function drawDashedLines(
 		chartHeight,
 		dpr,
 	} = bundle;
-	const STEPS: number[] = [];
+	STEPS_SCRATCH.length = drawRanges.length;
 	let totalLineSegs = 0;
-	for (const r of drawRanges) {
-		const n = Math.max(0, r.count - 1);
+	for (let i = 0; i < drawRanges.length; i++) {
+		const n = Math.max(0, drawRanges[i].count - 1);
 		const step = Math.max(1, Math.floor(n / 4000));
-		STEPS.push(step);
+		STEPS_SCRATCH[i] = step;
 		totalLineSegs += Math.ceil(n / step);
 	}
-	// Quantize float ranges so micro pan jitter hits cache.
-	// Pan = translation (xRange constant) so cache hits every frame.
-	// Zoom changes range slowly; rebuild cost amortized over many frames.
-	const qx = xRange.toPrecision(4);
-	const qy = yRange.toPrecision(4);
-	const paramKey = `${qx}-${qy}-${chartWidth}-${chartHeight}-${dpr}-${totalLineSegs}-${drawRanges.length}-${drawRanges[0]?.start ?? 0}`;
+	const rangesLen = drawRanges.length;
+	const firstStart = drawRanges[0]?.start ?? 0;
+	// Pan = translation (xRange/yRange constant) so cache hits every frame.
+	// Zoom changes them, miss is amortized over many frames. Exact === is
+	// fine because pan preserves range exactly in floating point.
+	const prev = segParamsRef.get(segBufferKey);
+	const needsRebuild =
+		!prev ||
+		prev.xRange !== xRange ||
+		prev.yRange !== yRange ||
+		prev.chartWidth !== chartWidth ||
+		prev.chartHeight !== chartHeight ||
+		prev.dpr !== dpr ||
+		prev.totalLineSegs !== totalLineSegs ||
+		prev.rangesLen !== rangesLen ||
+		prev.firstStart !== firstStart;
 
 	let segBuffer = segBuffersRef.get(segBufferKey);
 	if (!segBuffer) {
@@ -269,7 +316,7 @@ function drawDashedLines(
 		segBuffersRef.set(segBufferKey, segBuffer);
 	}
 
-	if (segParamsRef.get(segBufferKey) !== paramKey) {
+	if (needsRebuild) {
 		const sharedArr = new Float32Array(totalLineSegs * 12);
 		const scaleX = (chartWidth * dpr) / xRange;
 		const scaleY = (chartHeight * dpr) / yRange;
@@ -277,7 +324,7 @@ function drawDashedLines(
 		let outIdx = 0;
 		for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
 			const r = drawRanges[rIdx];
-			const step = STEPS[rIdx];
+			const step = STEPS_SCRATCH[rIdx];
 			let cumDist = 0;
 			const n = r.count - 1;
 			for (let i = 0; i < n; i += step) {
@@ -311,7 +358,16 @@ function drawDashedLines(
 		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
-		segParamsRef.set(segBufferKey, paramKey);
+		segParamsRef.set(segBufferKey, {
+			xRange,
+			yRange,
+			chartWidth,
+			chartHeight,
+			dpr,
+			totalLineSegs,
+			rangesLen,
+			firstStart,
+		});
 	} else {
 		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 	}
@@ -336,7 +392,7 @@ export function drawSeriesLines(
 	lineDecimCache: WeakMap<Float32Array, DecimEntry>,
 	lineDecimScratch: { x: Float32Array; y: Float32Array },
 	segBuffersRef: Map<string, WebGLBuffer>,
-	segParamsRef: Map<string, string>,
+	segParamsRef: Map<string, SegParams>,
 	segBufferKey: string,
 ): void {
 	if (bundle.lineStyle === "none") return;
