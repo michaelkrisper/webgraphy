@@ -10,5 +10,6 @@ export function escapeHTML(str: string | undefined | null): string {
 		.replace(/>/g, "&gt;")
 		.replace(/"/g, "&quot;")
 		.replace(/'/g, "&#039;")
-		.replace(/=/g, "&#061;");
+		.replace(/=/g, "&#061;")
+		.replace(/`/g, "&#x60;");
 }
