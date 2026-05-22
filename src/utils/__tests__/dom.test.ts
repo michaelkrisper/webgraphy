@@ -15,6 +15,12 @@ describe("escapeHTML", () => {
 		expect(escapeHTML(input)).toBe(expected);
 	});
 
+	it("should escape backticks", () => {
+		const input = "Template `literal` injection";
+		const expected = "Template &#x60;literal&#x60; injection";
+		expect(escapeHTML(input)).toBe(expected);
+	});
+
 	it("should handle strings without special characters", () => {
 		const input = "Normal string 123";
 		expect(escapeHTML(input)).toBe(input);
