@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { compileFormula } from "../formula";
+import { describe, expect, it, vi } from "vitest";
+import { compileFormula, evaluateFormulaSync } from "../formula";
 
 describe("compileFormula", () => {
 	const columns = ["Timestamp", "A: Temp", "A: Hum", "A: Press"];
@@ -326,5 +326,51 @@ describe("compileFormula", () => {
 		// earlier in the lexer as checked in 'should return error for invalid characters'
 		// but the token evaluation includes a fallback. This handles edge
 		// cases we cannot easily trigger through the string compiler directly without mock modifications.
+	});
+});
+
+describe("evaluateFormulaSync", () => {
+	it("should catch and return Error instances", () => {
+		const params = {
+			datasetId: "d1",
+			name: "test",
+			formula: "[A] + 1",
+			columns: ["A"],
+			rowCount: 1,
+			columnData: [], // Missing data will cause TypeError when accessed
+		};
+
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.error).toContain("Cannot read properties of undefined");
+		}
+	});
+
+	it("should catch and return non-Error primitives as strings", () => {
+		// Spy on String.prototype.match to throw a plain string instead of an Error
+		// This forces evaluateFormulaSync to handle a non-Error thrown value in its try/catch
+		const matchSpy = vi
+			.spyOn(String.prototype, "match")
+			.mockImplementationOnce(() => {
+				throw "A string error from mock";
+			});
+
+		const params = {
+			datasetId: "d1",
+			name: "test",
+			formula: "[A] + 1",
+			columns: ["A"],
+			rowCount: 1,
+			columnData: [{ data: new Float64Array([1]), refPoint: 0 }],
+		};
+
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.error).toBe("A string error from mock");
+		}
+
+		matchSpy.mockRestore();
 	});
 });
