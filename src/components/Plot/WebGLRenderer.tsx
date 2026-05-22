@@ -306,10 +306,11 @@ export const WebGLRenderer = React.memo(
 					let est = 12; // bg quad (6 verts * 2 floats)
 					if (overlay.xAxes[0]?.showGrid)
 						est += overlay.xAxes[0].ticks.length * 4;
-					for (const ax of overlay.yAxes)
-						if (ax.showGrid) est += ax.ticks.length * 4;
 					for (const ax of overlay.xAxes) est += (ax.ticks.length + 1) * 4 + 6;
-					for (const ax of overlay.yAxes) est += (ax.ticks.length + 1) * 4 + 6;
+					for (const ax of overlay.yAxes) {
+						if (ax.showGrid) est += ax.ticks.length * 4;
+						est += (ax.ticks.length + 1) * 4 + 6;
+					}
 					est += 12 + 32;
 					if (ov.packed.length < est)
 						ov.packed = new Float32Array(Math.max(est, ov.packed.length * 2));
