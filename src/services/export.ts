@@ -524,7 +524,27 @@ export const downloadFile = (
 	const isDataUrl = content.startsWith("data:");
 	if (isDataUrl) {
 		// Ensure the data URL has a safe MIME type to prevent XSS
-		if (!/^data:(image|application)\//i.test(content)) {
+		try {
+			const url = new URL(content);
+			if (url.protocol !== "data:") {
+				throw new Error();
+			}
+			const commaIndex = url.pathname.indexOf(",");
+			if (commaIndex === -1) {
+				throw new Error();
+			}
+			const mediaTypeAndParams = url.pathname.slice(0, commaIndex);
+			const parts = mediaTypeAndParams.split(";");
+			// If no media type is specified, it defaults to text/plain;charset=US-ASCII
+			const mimeType = parts[0].trim().toLowerCase() || "text/plain";
+
+			if (
+				!mimeType.startsWith("image/") &&
+				!mimeType.startsWith("application/")
+			) {
+				throw new Error();
+			}
+		} catch {
 			throw new Error("Unsafe data URL scheme detected");
 		}
 		a.href = content;

@@ -534,10 +534,12 @@ describe("downloadFile", () => {
 			}),
 		};
 		vi.stubGlobal("document", documentMock);
-		vi.stubGlobal("URL", {
-			createObjectURL: vi.fn(() => "blob:mock-url"),
-			revokeObjectURL: vi.fn(),
-		});
+		// We still need the original URL class to validate the URL syntax in the new logic
+		const OriginalURL = global.URL;
+		class MockURL extends OriginalURL {}
+		MockURL.createObjectURL = vi.fn(() => "blob:mock-url");
+		MockURL.revokeObjectURL = vi.fn();
+		vi.stubGlobal("URL", MockURL);
 		class MockBlob {
 			constructor(
 				public content: unknown[],
@@ -578,6 +580,24 @@ describe("downloadFile", () => {
 		expect(() => downloadFile(content, "test.html", "text/html")).toThrow(
 			"Unsafe data URL scheme detected",
 		);
+	});
+
+	it("should throw an error for implicit text/plain data URLs", () => {
+		expect(() => downloadFile("data:,1234", "test.html", "text/html")).toThrow(
+			"Unsafe data URL scheme detected",
+		);
+	});
+
+	it("should throw an error for empty data URLs", () => {
+		expect(() => downloadFile("data:", "test.html", "text/html")).toThrow(
+			"Unsafe data URL scheme detected",
+		);
+	});
+
+	it("should throw an error for malformed data URLs", () => {
+		expect(() =>
+			downloadFile("data:image/png", "test.html", "text/html"),
+		).toThrow("Unsafe data URL scheme detected");
 	});
 
 	it("should handle normal strings using Blob correctly", () => {
