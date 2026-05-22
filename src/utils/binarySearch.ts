@@ -71,3 +71,20 @@ export function findClosest(
 	}
 	return lo;
 }
+
+export function findSegmentStartIndex(
+	cachedSegments: { start: number; end: number }[],
+	sliceStart: number,
+): number {
+	let segLo = 0;
+	let segHi = cachedSegments.length - 1;
+	let startSegIdx = 0;
+	while (segLo <= segHi) {
+		const m = (segLo + segHi) >>> 1;
+		if (cachedSegments[m].end >= sliceStart) {
+			startSegIdx = m;
+			segHi = m - 1;
+		} else segLo = m + 1;
+	}
+	return startSegIdx;
+}

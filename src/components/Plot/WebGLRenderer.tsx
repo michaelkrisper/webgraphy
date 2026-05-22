@@ -12,7 +12,11 @@ import type {
 	YAxisConfig,
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import { findFirstGE, findLastLE } from "../../utils/binarySearch";
+import {
+	findFirstGE,
+	findLastLE,
+	findSegmentStartIndex,
+} from "../../utils/binarySearch";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import {
@@ -197,7 +201,10 @@ export interface WebGLRendererHandle {
  * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
  */
 
-function getOrComputeMonotonicity(xData: Float32Array, monoCache: WeakMap<Float32Array, boolean>): boolean {
+function getOrComputeMonotonicity(
+	xData: Float32Array,
+	monoCache: WeakMap<Float32Array, boolean>,
+): boolean {
 	let isMonotonic = monoCache.get(xData);
 	if (isMonotonic === undefined) {
 		isMonotonic = true;
@@ -215,7 +222,7 @@ function getOrComputeMonotonicity(xData: Float32Array, monoCache: WeakMap<Float3
 function getOrComputeSegments(
 	xData: Float32Array,
 	yData: Float32Array,
-	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>
+	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>,
 ): { start: number; end: number }[] {
 	let cachedSegments = segmentCache.get(yData);
 	if (!cachedSegments) {
@@ -242,7 +249,7 @@ function computeDataSlice(
 	xAxisMin: number,
 	xAxisMax: number,
 	xRef: number,
-	isMonotonic: boolean
+	isMonotonic: boolean,
 ): { sliceStart: number; sliceEnd: number } {
 	const xDataLen = xData.length;
 	let rawStart = 0;
@@ -265,7 +272,7 @@ function computeDataSlice(
 function getOrInitBuffer(
 	gl: WebGLRenderingContext,
 	data: Float32Array,
-	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>
+	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>,
 ): WebGLBuffer | null {
 	let buffer = columnBufferCache.get(data);
 	if (!buffer) {
@@ -284,7 +291,7 @@ function computeDrawRanges(
 	isMonotonic: boolean,
 	sliceStart: number,
 	sliceEnd: number,
-	drawRangesScratch: { start: number; count: number }[]
+	drawRangesScratch: { start: number; count: number }[],
 ): void {
 	let drCount = 0;
 	const pushRange = (start: number, count: number) => {
@@ -298,16 +305,7 @@ function computeDrawRanges(
 	};
 
 	if (isMonotonic) {
-		let segLo = 0;
-		let segHi = cachedSegments.length - 1;
-		let startSegIdx = 0;
-		while (segLo <= segHi) {
-			const m = (segLo + segHi) >>> 1;
-			if (cachedSegments[m].end >= sliceStart) {
-				startSegIdx = m;
-				segHi = m - 1;
-			} else segLo = m + 1;
-		}
+		const startSegIdx = findSegmentStartIndex(cachedSegments, sliceStart);
 		for (let i = startSegIdx; i < cachedSegments.length; i++) {
 			const seg = cachedSegments[i];
 			if (seg.start > sliceEnd) break;
@@ -327,7 +325,7 @@ function updatePixelBudget(
 	frameTime: number,
 	now: number,
 	lastBudgetUpdateRef: { current: number },
-	pixelBudgetMultRef: { current: number }
+	pixelBudgetMultRef: { current: number },
 ): void {
 	const TARGET_MS = 20;
 	const BUDGET_UPDATE_INTERVAL = 33;
@@ -336,12 +334,12 @@ function updatePixelBudget(
 		if (frameTime > TARGET_MS) {
 			pixelBudgetMultRef.current = Math.max(
 				32,
-				pixelBudgetMultRef.current * 0.8
+				pixelBudgetMultRef.current * 0.8,
 			);
 		} else if (frameTime < TARGET_MS * 0.5) {
 			pixelBudgetMultRef.current = Math.min(
 				64,
-				pixelBudgetMultRef.current * 1.2
+				pixelBudgetMultRef.current * 1.2,
 			);
 		}
 	}
@@ -1000,21 +998,43 @@ export const WebGLRenderer = React.memo(
 					const xRange = xAxis.max - xAxis.min || 1;
 					const yRange = yAxis.max - yAxis.min || 1;
 
-					const isMonotonic = getOrComputeMonotonicity(xData, monoCacheRef.current);
-					const cachedSegments = getOrComputeSegments(xData, yData, segmentCacheRef.current);
-					const { sliceStart, sliceEnd } = computeDataSlice(xData, xAxis.min, xAxis.max, xRef, isMonotonic);
+					const isMonotonic = getOrComputeMonotonicity(
+						xData,
+						monoCacheRef.current,
+					);
+					const cachedSegments = getOrComputeSegments(
+						xData,
+						yData,
+						segmentCacheRef.current,
+					);
+					const { sliceStart, sliceEnd } = computeDataSlice(
+						xData,
+						xAxis.min,
+						xAxis.max,
+						xRef,
+						isMonotonic,
+					);
 
 					const xScaleVal = (chartWidth * dpr) / xRange;
-					const xOffsetVal = padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
-					const yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-					const yOffsetVal = (height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
+					const xOffsetVal =
+						padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
+					const yScaleVal =
+						(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
+					const yOffsetVal =
+						(height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
 
 					const xBuffer = getOrInitBuffer(gl, xData, columnBufferRef.current);
 					const yBuffer = getOrInitBuffer(gl, yData, columnBufferRef.current);
 					if (!xBuffer || !yBuffer) return;
 
 					const drawRanges = drawRangesScratchRef.current;
-					computeDrawRanges(cachedSegments, isMonotonic, sliceStart, sliceEnd, drawRanges);
+					computeDrawRanges(
+						cachedSegments,
+						isMonotonic,
+						sliceStart,
+						sliceEnd,
+						drawRanges,
+					);
 
 					st.setXScaleOff(xScaleVal, xOffsetVal);
 					st.setYScaleOff(yScaleVal, yOffsetVal);
@@ -1071,7 +1091,12 @@ export const WebGLRenderer = React.memo(
 
 				const now = performance.now();
 				frameTimeRef.current = now - t0;
-				updatePixelBudget(frameTimeRef.current, now, lastBudgetUpdateRef, pixelBudgetMultRef);
+				updatePixelBudget(
+					frameTimeRef.current,
+					now,
+					lastBudgetUpdateRef,
+					pixelBudgetMultRef,
+				);
 			};
 
 			drawFrameRef.current = drawFrame;
