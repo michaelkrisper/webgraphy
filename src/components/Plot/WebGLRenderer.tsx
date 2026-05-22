@@ -196,6 +196,157 @@ export interface WebGLRendererHandle {
 /**
  * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
  */
+
+function getOrComputeMonotonicity(xData: Float32Array, monoCache: WeakMap<Float32Array, boolean>): boolean {
+	let isMonotonic = monoCache.get(xData);
+	if (isMonotonic === undefined) {
+		isMonotonic = true;
+		for (let i = 1; i < xData.length; i++) {
+			if (xData[i] < xData[i - 1]) {
+				isMonotonic = false;
+				break;
+			}
+		}
+		monoCache.set(xData, isMonotonic);
+	}
+	return isMonotonic;
+}
+
+function getOrComputeSegments(
+	xData: Float32Array,
+	yData: Float32Array,
+	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>
+): { start: number; end: number }[] {
+	let cachedSegments = segmentCache.get(yData);
+	if (!cachedSegments) {
+		cachedSegments = [];
+		let segStart = -1;
+		for (let i = 0; i <= yData.length; i++) {
+			const nan = i === yData.length || Number.isNaN(yData[i]);
+			const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
+			const break_ = nan || xDrop;
+			if (!break_ && segStart === -1) segStart = i;
+			else if (break_ && segStart !== -1) {
+				cachedSegments.push({ start: segStart, end: i - 1 });
+				segStart = -1;
+				if (xDrop && !nan) segStart = i;
+			}
+		}
+		segmentCache.set(yData, cachedSegments);
+	}
+	return cachedSegments;
+}
+
+function computeDataSlice(
+	xData: Float32Array,
+	xAxisMin: number,
+	xAxisMax: number,
+	xRef: number,
+	isMonotonic: boolean
+): { sliceStart: number; sliceEnd: number } {
+	const xDataLen = xData.length;
+	let rawStart = 0;
+	let rawEnd = xDataLen - 1;
+	if (isMonotonic) {
+		rawStart = findLastLE(xData, xAxisMin, xRef, 0);
+		rawEnd = findFirstGE(xData, xAxisMax, xRef, xDataLen - 1);
+	}
+
+	const sliceStart = isMonotonic
+		? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
+		: 0;
+	const sliceEnd = isMonotonic
+		? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
+		: xDataLen - 1;
+
+	return { sliceStart, sliceEnd };
+}
+
+function getOrInitBuffer(
+	gl: WebGLRenderingContext,
+	data: Float32Array,
+	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>
+): WebGLBuffer | null {
+	let buffer = columnBufferCache.get(data);
+	if (!buffer) {
+		const b = gl.createBuffer();
+		if (!b) return null;
+		buffer = b;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+		columnBufferCache.set(data, buffer);
+	}
+	return buffer;
+}
+
+function computeDrawRanges(
+	cachedSegments: { start: number; end: number }[],
+	isMonotonic: boolean,
+	sliceStart: number,
+	sliceEnd: number,
+	drawRangesScratch: { start: number; count: number }[]
+): void {
+	let drCount = 0;
+	const pushRange = (start: number, count: number) => {
+		if (drCount < drawRangesScratch.length) {
+			drawRangesScratch[drCount].start = start;
+			drawRangesScratch[drCount].count = count;
+		} else {
+			drawRangesScratch.push({ start, count });
+		}
+		drCount++;
+	};
+
+	if (isMonotonic) {
+		let segLo = 0;
+		let segHi = cachedSegments.length - 1;
+		let startSegIdx = 0;
+		while (segLo <= segHi) {
+			const m = (segLo + segHi) >>> 1;
+			if (cachedSegments[m].end >= sliceStart) {
+				startSegIdx = m;
+				segHi = m - 1;
+			} else segLo = m + 1;
+		}
+		for (let i = startSegIdx; i < cachedSegments.length; i++) {
+			const seg = cachedSegments[i];
+			if (seg.start > sliceEnd) break;
+			const segS = Math.max(seg.start, sliceStart);
+			const segE = Math.min(seg.end, sliceEnd);
+			if (segE >= segS) pushRange(segS, segE - segS + 1);
+		}
+	} else {
+		for (const seg of cachedSegments) {
+			pushRange(seg.start, seg.end - seg.start + 1);
+		}
+	}
+	drawRangesScratch.length = drCount;
+}
+
+function updatePixelBudget(
+	frameTime: number,
+	now: number,
+	lastBudgetUpdateRef: { current: number },
+	pixelBudgetMultRef: { current: number }
+): void {
+	const TARGET_MS = 20;
+	const BUDGET_UPDATE_INTERVAL = 33;
+	if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
+		lastBudgetUpdateRef.current = now;
+		if (frameTime > TARGET_MS) {
+			pixelBudgetMultRef.current = Math.max(
+				32,
+				pixelBudgetMultRef.current * 0.8
+			);
+		} else if (frameTime < TARGET_MS * 0.5) {
+			pixelBudgetMultRef.current = Math.min(
+				64,
+				pixelBudgetMultRef.current * 1.2
+			);
+		}
+	}
+}
+
 export const WebGLRenderer = React.memo(
 	forwardRef<WebGLRendererHandle, Props>((props, ref) => {
 		const {
@@ -849,119 +1000,21 @@ export const WebGLRenderer = React.memo(
 					const xRange = xAxis.max - xAxis.min || 1;
 					const yRange = yAxis.max - yAxis.min || 1;
 
-					let isMonotonic = monoCacheRef.current.get(xData);
-					if (isMonotonic === undefined) {
-						isMonotonic = true;
-						for (let i = 1; i < xData.length; i++) {
-							if (xData[i] < xData[i - 1]) {
-								isMonotonic = false;
-								break;
-							}
-						}
-						monoCacheRef.current.set(xData, isMonotonic);
-					}
-
-					let cachedSegments = segmentCacheRef.current.get(yData);
-					if (!cachedSegments) {
-						cachedSegments = [];
-						let segStart = -1;
-						for (let i = 0; i <= yData.length; i++) {
-							const nan = i === yData.length || Number.isNaN(yData[i]);
-							const xDrop =
-								!nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
-							const break_ = nan || xDrop;
-							if (!break_ && segStart === -1) segStart = i;
-							else if (break_ && segStart !== -1) {
-								cachedSegments.push({ start: segStart, end: i - 1 });
-								segStart = -1;
-								if (xDrop && !nan) segStart = i;
-							}
-						}
-						segmentCacheRef.current.set(yData, cachedSegments);
-					}
-
-					const xDataLen = xData.length;
-					let rawStart = 0;
-					let rawEnd = xDataLen - 1;
-					if (isMonotonic) {
-						rawStart = findLastLE(xData, xAxis.min, xRef, 0);
-						rawEnd = findFirstGE(xData, xAxis.max, xRef, xDataLen - 1);
-					}
-
-					const sliceStart = isMonotonic
-						? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
-						: 0;
-					const sliceEnd = isMonotonic
-						? Math.min(
-								xDataLen - 1,
-								rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd,
-							)
-						: xDataLen - 1;
+					const isMonotonic = getOrComputeMonotonicity(xData, monoCacheRef.current);
+					const cachedSegments = getOrComputeSegments(xData, yData, segmentCacheRef.current);
+					const { sliceStart, sliceEnd } = computeDataSlice(xData, xAxis.min, xAxis.max, xRef, isMonotonic);
 
 					const xScaleVal = (chartWidth * dpr) / xRange;
-					const xOffsetVal =
-						padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
-					const yScaleVal =
-						(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-					const yOffsetVal =
-						(height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
+					const xOffsetVal = padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
+					const yScaleVal = (padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
+					const yOffsetVal = (height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
 
-					let xBuffer = columnBufferRef.current.get(xData);
-					if (!xBuffer) {
-						const b = gl.createBuffer();
-						if (!b) return;
-						xBuffer = b;
-						gl.bindBuffer(gl.ARRAY_BUFFER, xBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, xData, gl.STATIC_DRAW);
-						columnBufferRef.current.set(xData, xBuffer);
-					}
-					let yBuffer = columnBufferRef.current.get(yData);
-					if (!yBuffer) {
-						const b = gl.createBuffer();
-						if (!b) return;
-						yBuffer = b;
-						gl.bindBuffer(gl.ARRAY_BUFFER, yBuffer);
-						gl.bufferData(gl.ARRAY_BUFFER, yData, gl.STATIC_DRAW);
-						columnBufferRef.current.set(yData, yBuffer);
-					}
+					const xBuffer = getOrInitBuffer(gl, xData, columnBufferRef.current);
+					const yBuffer = getOrInitBuffer(gl, yData, columnBufferRef.current);
+					if (!xBuffer || !yBuffer) return;
 
-					// Build draw ranges in original buffer indices using cachedSegments
-					// clipped to [sliceStart, sliceEnd]. Reuses scratch to avoid per-frame alloc.
 					const drawRanges = drawRangesScratchRef.current;
-					let drCount = 0;
-					const pushRange = (start: number, count: number) => {
-						if (drCount < drawRanges.length) {
-							drawRanges[drCount].start = start;
-							drawRanges[drCount].count = count;
-						} else {
-							drawRanges.push({ start, count });
-						}
-						drCount++;
-					};
-					if (isMonotonic) {
-						let segLo = 0;
-						let segHi = cachedSegments.length - 1;
-						let startSegIdx = 0;
-						while (segLo <= segHi) {
-							const m = (segLo + segHi) >>> 1;
-							if (cachedSegments[m].end >= sliceStart) {
-								startSegIdx = m;
-								segHi = m - 1;
-							} else segLo = m + 1;
-						}
-						for (let i = startSegIdx; i < cachedSegments.length; i++) {
-							const seg = cachedSegments[i];
-							if (seg.start > sliceEnd) break;
-							const segS = Math.max(seg.start, sliceStart);
-							const segE = Math.min(seg.end, sliceEnd);
-							if (segE >= segS) pushRange(segS, segE - segS + 1);
-						}
-					} else {
-						for (const seg of cachedSegments) {
-							pushRange(seg.start, seg.end - seg.start + 1);
-						}
-					}
-					drawRanges.length = drCount;
+					computeDrawRanges(cachedSegments, isMonotonic, sliceStart, sliceEnd, drawRanges);
 
 					st.setXScaleOff(xScaleVal, xOffsetVal);
 					st.setYScaleOff(yScaleVal, yOffsetVal);
@@ -1016,24 +1069,9 @@ export const WebGLRenderer = React.memo(
 				}
 				gl.disable(gl.SCISSOR_TEST);
 
-				const TARGET_MS = 20;
-				const BUDGET_UPDATE_INTERVAL = 33;
 				const now = performance.now();
 				frameTimeRef.current = now - t0;
-				if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
-					lastBudgetUpdateRef.current = now;
-					if (frameTimeRef.current > TARGET_MS) {
-						pixelBudgetMultRef.current = Math.max(
-							32,
-							pixelBudgetMultRef.current * 0.8,
-						);
-					} else if (frameTimeRef.current < TARGET_MS * 0.5) {
-						pixelBudgetMultRef.current = Math.min(
-							64,
-							pixelBudgetMultRef.current * 1.2,
-						);
-					}
-				}
+				updatePixelBudget(frameTimeRef.current, now, lastBudgetUpdateRef, pixelBudgetMultRef);
 			};
 
 			drawFrameRef.current = drawFrame;
