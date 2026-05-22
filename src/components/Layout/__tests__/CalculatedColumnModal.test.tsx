@@ -196,4 +196,112 @@ describe("CalculatedColumnModal", () => {
 			"[A] + [B]"
 		);
 	});
+
+	it("shows validation error for empty name", () => {
+		render(
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
+		);
+
+		fireEvent.click(screen.getByText("Create Series"));
+
+		expect(screen.getByText("Please enter a column name.")).toBeDefined();
+		expect(mockAddCalculatedColumn).not.toHaveBeenCalled();
+	});
+
+	it("shows validation error for empty formula", () => {
+		render(
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
+		);
+
+		fireEvent.change(screen.getByLabelText("Column Name"), {
+			target: { value: "New Calc" },
+		});
+
+		fireEvent.click(screen.getByText("Create Series"));
+
+		expect(screen.getByText("Please enter a formula.")).toBeDefined();
+		expect(mockAddCalculatedColumn).not.toHaveBeenCalled();
+	});
+
+	it("calls removeCalculatedColumn before addCalculatedColumn in edit mode", async () => {
+		mockAddCalculatedColumn.mockResolvedValueOnce({ success: true });
+
+		render(
+			<CalculatedColumnModal
+				dataset={mockDataset}
+				onClose={mockOnClose}
+				initialName="Original Name"
+				initialFormula="[A] * 2"
+			/>
+		);
+
+		fireEvent.change(screen.getByLabelText("Column Name"), {
+			target: { value: "Updated Name" },
+		});
+
+		fireEvent.click(screen.getByText("Create Series"));
+
+		await waitFor(() => {
+			expect(mockRemoveCalculatedColumn).toHaveBeenCalledWith(
+				"dataset-1",
+				"Original Name"
+			);
+			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
+				"dataset-1",
+				"Updated Name",
+				"[A] * 2"
+			);
+			expect(mockOnClose).toHaveBeenCalled();
+		});
+	});
+
+	it("auto-closes unbalanced brackets on submit", async () => {
+		mockAddCalculatedColumn.mockResolvedValueOnce({ success: true });
+
+		render(
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
+		);
+
+		fireEvent.change(screen.getByLabelText("Column Name"), {
+			target: { value: "Auto Close" },
+		});
+		fireEvent.change(screen.getByLabelText("Formula"), {
+			target: { value: "([A] * 2" },
+		});
+
+		fireEvent.click(screen.getByText("Create Series"));
+
+		await waitFor(() => {
+			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
+				"dataset-1",
+				"Auto Close",
+				"([A] * 2)"
+			);
+		});
+	});
+
+	it("auto-closes multiple nested unbalanced brackets on submit", async () => {
+		mockAddCalculatedColumn.mockResolvedValueOnce({ success: true });
+
+		render(
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
+		);
+
+		fireEvent.change(screen.getByLabelText("Column Name"), {
+			target: { value: "Nested Auto Close" },
+		});
+		fireEvent.change(screen.getByLabelText("Formula"), {
+			target: { value: "((([A" },
+		});
+
+		fireEvent.click(screen.getByText("Create Series"));
+
+		await waitFor(() => {
+			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
+				"dataset-1",
+				"Nested Auto Close",
+				"((([A])))"
+			);
+		});
+	});
 });
