@@ -577,14 +577,18 @@ export default function ChartContainer() {
 		return layout;
 	}, [activeYAxes, height, yAxisCategoryLabels]);
 
-	const leftAxes = useMemo(
-		() => activeYAxes.filter((a) => a.position === "left"),
-		[activeYAxes],
-	);
-	const rightAxes = useMemo(
-		() => activeYAxes.filter((a) => a.position === "right"),
-		[activeYAxes],
-	);
+	const { leftAxes, rightAxes } = useMemo(() => {
+		const left: typeof activeYAxes = [];
+		const right: typeof activeYAxes = [];
+		for (const a of activeYAxes) {
+			if (a.position === "left") {
+				left.push(a);
+			} else {
+				right.push(a);
+			}
+		}
+		return { leftAxes: left, rightAxes: right };
+	}, [activeYAxes]);
 
 	const { leftOffsets, rightOffsets } = useMemo(() => {
 		const leftOffsets: Record<string, number> = {};
