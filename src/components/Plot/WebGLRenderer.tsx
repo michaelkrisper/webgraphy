@@ -188,255 +188,27 @@ export interface OverlayInput {
 	plotBg: string;
 }
 
-export interface WebGLRendererHandle {
-	redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
-	setOverlay: (overlay: OverlayInput) => void;
+
+export interface OverlayState {
+	packed: Float32Array;
+	packedLen: number;
+	groups: Array<{
+		topology: "TRIANGLES" | "LINES";
+		rgba: [number, number, number, number];
+		width: number;
+		offset: number;
+		count: number;
+	}>;
 }
 
-/**
- * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
- */
-
-function getOrComputeMonotonicity(xData: Float32Array, monoCache: WeakMap<Float32Array, boolean>): boolean {
-	let isMonotonic = monoCache.get(xData);
-	if (isMonotonic === undefined) {
-		isMonotonic = true;
-		for (let i = 1; i < xData.length; i++) {
-			if (xData[i] < xData[i - 1]) {
-				isMonotonic = false;
-				break;
-			}
-		}
-		monoCache.set(xData, isMonotonic);
-	}
-	return isMonotonic;
-}
-
-function getOrComputeSegments(
-	xData: Float32Array,
-	yData: Float32Array,
-	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>
-): { start: number; end: number }[] {
-	let cachedSegments = segmentCache.get(yData);
-	if (!cachedSegments) {
-		cachedSegments = [];
-		let segStart = -1;
-		for (let i = 0; i <= yData.length; i++) {
-			const nan = i === yData.length || Number.isNaN(yData[i]);
-			const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
-			const break_ = nan || xDrop;
-			if (!break_ && segStart === -1) segStart = i;
-			else if (break_ && segStart !== -1) {
-				cachedSegments.push({ start: segStart, end: i - 1 });
-				segStart = -1;
-				if (xDrop && !nan) segStart = i;
-			}
-		}
-		segmentCache.set(yData, cachedSegments);
-	}
-	return cachedSegments;
-}
-
-function computeDataSlice(
-	xData: Float32Array,
-	xAxisMin: number,
-	xAxisMax: number,
-	xRef: number,
-	isMonotonic: boolean
-): { sliceStart: number; sliceEnd: number } {
-	const xDataLen = xData.length;
-	let rawStart = 0;
-	let rawEnd = xDataLen - 1;
-	if (isMonotonic) {
-		rawStart = findLastLE(xData, xAxisMin, xRef, 0);
-		rawEnd = findFirstGE(xData, xAxisMax, xRef, xDataLen - 1);
-	}
-
-	const sliceStart = isMonotonic
-		? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
-		: 0;
-	const sliceEnd = isMonotonic
-		? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
-		: xDataLen - 1;
-
-	return { sliceStart, sliceEnd };
-}
-
-function getOrInitBuffer(
-	gl: WebGLRenderingContext,
-	data: Float32Array,
-	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>
-): WebGLBuffer | null {
-	let buffer = columnBufferCache.get(data);
-	if (!buffer) {
-		const b = gl.createBuffer();
-		if (!b) return null;
-		buffer = b;
-		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-		gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-		columnBufferCache.set(data, buffer);
-	}
-	return buffer;
-}
-
-function computeDrawRanges(
-	cachedSegments: { start: number; end: number }[],
-	isMonotonic: boolean,
-	sliceStart: number,
-	sliceEnd: number,
-	drawRangesScratch: { start: number; count: number }[]
-): void {
-	let drCount = 0;
-	const pushRange = (start: number, count: number) => {
-		if (drCount < drawRangesScratch.length) {
-			drawRangesScratch[drCount].start = start;
-			drawRangesScratch[drCount].count = count;
-		} else {
-			drawRangesScratch.push({ start, count });
-		}
-		drCount++;
-	};
-
-	if (isMonotonic) {
-		let segLo = 0;
-		let segHi = cachedSegments.length - 1;
-		let startSegIdx = 0;
-		while (segLo <= segHi) {
-			const m = (segLo + segHi) >>> 1;
-			if (cachedSegments[m].end >= sliceStart) {
-				startSegIdx = m;
-				segHi = m - 1;
-			} else segLo = m + 1;
-		}
-		for (let i = startSegIdx; i < cachedSegments.length; i++) {
-			const seg = cachedSegments[i];
-			if (seg.start > sliceEnd) break;
-			const segS = Math.max(seg.start, sliceStart);
-			const segE = Math.min(seg.end, sliceEnd);
-			if (segE >= segS) pushRange(segS, segE - segS + 1);
-		}
-	} else {
-		for (const seg of cachedSegments) {
-			pushRange(seg.start, seg.end - seg.start + 1);
-		}
-	}
-	drawRangesScratch.length = drCount;
-}
-
-function updatePixelBudget(
-	frameTime: number,
-	now: number,
-	lastBudgetUpdateRef: { current: number },
-	pixelBudgetMultRef: { current: number }
-): void {
-	const TARGET_MS = 20;
-	const BUDGET_UPDATE_INTERVAL = 33;
-	if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
-		lastBudgetUpdateRef.current = now;
-		if (frameTime > TARGET_MS) {
-			pixelBudgetMultRef.current = Math.max(
-				32,
-				pixelBudgetMultRef.current * 0.8
-			);
-		} else if (frameTime < TARGET_MS * 0.5) {
-			pixelBudgetMultRef.current = Math.min(
-				64,
-				pixelBudgetMultRef.current * 1.2
-			);
-		}
-	}
-}
-
-export const WebGLRenderer = React.memo(
-	forwardRef<WebGLRendererHandle, Props>((props, ref) => {
-		const {
-			datasets,
-			series,
-			xAxes,
-			yAxes,
-			width,
-			height,
-			isInteracting = false,
-			plotBg,
-		} = props;
-		const canvasRef = useRef<HTMLCanvasElement>(null);
-		const glRef = useRef<WebGLRenderingContext | null>(null);
-		const programRef = useRef<WebGLProgram | null>(null);
-		const locationsRef = useRef<WebGLLocations | null>(null);
-		const stateCacheRef = useRef<GLStateCache | null>(null);
-		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
-		const segParamsRef = useRef<Map<string, string>>(new Map());
-		const segmentCacheRef = useRef<
-			WeakMap<Float32Array, { start: number; end: number }[]>
-		>(new WeakMap());
-		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
-		// Cache GPU buffers keyed by source Float32Array identity (raw column data).
-		// Pan/zoom reuses these without re-uploading.
-		const columnBufferRef = useRef<WeakMap<Float32Array, WebGLBuffer>>(
-			new WeakMap(),
-		);
-		const decimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
-			new WeakMap(),
-		);
-		const decimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
-			x: new Float32Array(0),
-			y: new Float32Array(0),
-		});
-		const pointDecimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
-			new WeakMap(),
-		);
-		const pointDecimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
-			x: new Float32Array(0),
-			y: new Float32Array(0),
-		});
-		// Overlay screen-space: one packed Float32Array (x,y pairs) for all primitives.
-		// Groups reference offsets/counts into this buffer.
-		const overlayRef = useRef<{
-			packed: Float32Array;
-			packedLen: number;
-			groups: Array<{
-				topology: "LINES" | "TRIANGLES";
-				rgba: [number, number, number, number];
-				width: number;
-				offset: number;
-				count: number;
-			}>;
-		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
-
-		const drawRangesScratchRef = useRef<{ start: number; count: number }[]>([]);
-		const xAxisByIdRef = useRef<Map<string, XAxisConfig>>(new Map());
-		const yAxisByIdRef = useRef<Map<string, YAxisConfig>>(new Map());
-		const plotBgRgbaRef = useRef<number[]>(hexToRgba(plotBg ?? "#ffffff"));
-		useEffect(() => {
-			plotBgRgbaRef.current = hexToRgba(plotBg ?? "#ffffff");
-		}, [plotBg]);
-		const pixelBudgetMultRef = useRef<number>(64);
-		const frameTimeRef = useRef<number>(0);
-		const lastBudgetUpdateRef = useRef<number>(0);
-		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
-		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
-		const drawFrameRef = useRef<
-			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
-		>(null);
-
-		const propsRef = useRef(props);
-		useEffect(() => {
-			propsRef.current = props;
-		}, [props]);
-
-		const previewColor = useGraphStore((state) => state.previewColor);
-
-		useImperativeHandle(
-			ref,
-			() => ({
-				redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
-					liveXAxesRef.current = xAxes;
-					liveYAxesRef.current = yAxes;
-					drawFrameRef.current?.(xAxes, yAxes);
-				},
-				setOverlay: (overlay: OverlayInput) => {
-					const { width: w, height: h, padding: pad } = propsRef.current;
-					const dpr = window.devicePixelRatio || 1;
+function packOverlayState(
+	overlay: OverlayInput,
+	ov: OverlayState,
+	w: number,
+	h: number,
+	pad: { top: number; right: number; bottom: number; left: number },
+	dpr: number
+) {
 					const cw = w - pad.left - pad.right;
 					const ch = h - pad.top - pad.bottom;
 
@@ -452,7 +224,6 @@ export const WebGLRenderer = React.memo(
 					const zeroRgba = hexRgba(overlay.zeroLineColor, 1);
 					const bgRgba = hexRgba(overlay.plotBg, 1);
 
-					const ov = overlayRef.current;
 					// Estimate vertex count and grow packed buffer as needed.
 					let est = 12; // bg quad (6 verts * 2 floats)
 					if (overlay.xAxes[0]?.showGrid)
@@ -753,6 +524,258 @@ export const WebGLRenderer = React.memo(
 						});
 
 					ov.packedLen = p;
+				}
+
+export interface WebGLRendererHandle {
+	redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
+	setOverlay: (overlay: OverlayInput) => void;
+}
+
+/**
+ * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
+ */
+
+function getOrComputeMonotonicity(xData: Float32Array, monoCache: WeakMap<Float32Array, boolean>): boolean {
+	let isMonotonic = monoCache.get(xData);
+	if (isMonotonic === undefined) {
+		isMonotonic = true;
+		for (let i = 1; i < xData.length; i++) {
+			if (xData[i] < xData[i - 1]) {
+				isMonotonic = false;
+				break;
+			}
+		}
+		monoCache.set(xData, isMonotonic);
+	}
+	return isMonotonic;
+}
+
+function getOrComputeSegments(
+	xData: Float32Array,
+	yData: Float32Array,
+	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>
+): { start: number; end: number }[] {
+	let cachedSegments = segmentCache.get(yData);
+	if (!cachedSegments) {
+		cachedSegments = [];
+		let segStart = -1;
+		for (let i = 0; i <= yData.length; i++) {
+			const nan = i === yData.length || Number.isNaN(yData[i]);
+			const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
+			const break_ = nan || xDrop;
+			if (!break_ && segStart === -1) segStart = i;
+			else if (break_ && segStart !== -1) {
+				cachedSegments.push({ start: segStart, end: i - 1 });
+				segStart = -1;
+				if (xDrop && !nan) segStart = i;
+			}
+		}
+		segmentCache.set(yData, cachedSegments);
+	}
+	return cachedSegments;
+}
+
+function computeDataSlice(
+	xData: Float32Array,
+	xAxisMin: number,
+	xAxisMax: number,
+	xRef: number,
+	isMonotonic: boolean
+): { sliceStart: number; sliceEnd: number } {
+	const xDataLen = xData.length;
+	let rawStart = 0;
+	let rawEnd = xDataLen - 1;
+	if (isMonotonic) {
+		rawStart = findLastLE(xData, xAxisMin, xRef, 0);
+		rawEnd = findFirstGE(xData, xAxisMax, xRef, xDataLen - 1);
+	}
+
+	const sliceStart = isMonotonic
+		? Math.max(0, rawStart > 0 ? rawStart - 1 : 0)
+		: 0;
+	const sliceEnd = isMonotonic
+		? Math.min(xDataLen - 1, rawEnd < xDataLen - 1 ? rawEnd + 1 : rawEnd)
+		: xDataLen - 1;
+
+	return { sliceStart, sliceEnd };
+}
+
+function getOrInitBuffer(
+	gl: WebGLRenderingContext,
+	data: Float32Array,
+	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>
+): WebGLBuffer | null {
+	let buffer = columnBufferCache.get(data);
+	if (!buffer) {
+		const b = gl.createBuffer();
+		if (!b) return null;
+		buffer = b;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+		columnBufferCache.set(data, buffer);
+	}
+	return buffer;
+}
+
+function computeDrawRanges(
+	cachedSegments: { start: number; end: number }[],
+	isMonotonic: boolean,
+	sliceStart: number,
+	sliceEnd: number,
+	drawRangesScratch: { start: number; count: number }[]
+): void {
+	let drCount = 0;
+	const pushRange = (start: number, count: number) => {
+		if (drCount < drawRangesScratch.length) {
+			drawRangesScratch[drCount].start = start;
+			drawRangesScratch[drCount].count = count;
+		} else {
+			drawRangesScratch.push({ start, count });
+		}
+		drCount++;
+	};
+
+	if (isMonotonic) {
+		let segLo = 0;
+		let segHi = cachedSegments.length - 1;
+		let startSegIdx = 0;
+		while (segLo <= segHi) {
+			const m = (segLo + segHi) >>> 1;
+			if (cachedSegments[m].end >= sliceStart) {
+				startSegIdx = m;
+				segHi = m - 1;
+			} else segLo = m + 1;
+		}
+		for (let i = startSegIdx; i < cachedSegments.length; i++) {
+			const seg = cachedSegments[i];
+			if (seg.start > sliceEnd) break;
+			const segS = Math.max(seg.start, sliceStart);
+			const segE = Math.min(seg.end, sliceEnd);
+			if (segE >= segS) pushRange(segS, segE - segS + 1);
+		}
+	} else {
+		for (const seg of cachedSegments) {
+			pushRange(seg.start, seg.end - seg.start + 1);
+		}
+	}
+	drawRangesScratch.length = drCount;
+}
+
+function updatePixelBudget(
+	frameTime: number,
+	now: number,
+	lastBudgetUpdateRef: { current: number },
+	pixelBudgetMultRef: { current: number }
+): void {
+	const TARGET_MS = 20;
+	const BUDGET_UPDATE_INTERVAL = 33;
+	if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
+		lastBudgetUpdateRef.current = now;
+		if (frameTime > TARGET_MS) {
+			pixelBudgetMultRef.current = Math.max(
+				32,
+				pixelBudgetMultRef.current * 0.8
+			);
+		} else if (frameTime < TARGET_MS * 0.5) {
+			pixelBudgetMultRef.current = Math.min(
+				64,
+				pixelBudgetMultRef.current * 1.2
+			);
+		}
+	}
+}
+
+export const WebGLRenderer = React.memo(
+	forwardRef<WebGLRendererHandle, Props>((props, ref) => {
+		const {
+			datasets,
+			series,
+			xAxes,
+			yAxes,
+			width,
+			height,
+			isInteracting = false,
+			plotBg,
+		} = props;
+		const canvasRef = useRef<HTMLCanvasElement>(null);
+		const glRef = useRef<WebGLRenderingContext | null>(null);
+		const programRef = useRef<WebGLProgram | null>(null);
+		const locationsRef = useRef<WebGLLocations | null>(null);
+		const stateCacheRef = useRef<GLStateCache | null>(null);
+		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
+		const segParamsRef = useRef<Map<string, string>>(new Map());
+		const segmentCacheRef = useRef<
+			WeakMap<Float32Array, { start: number; end: number }[]>
+		>(new WeakMap());
+		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
+		// Cache GPU buffers keyed by source Float32Array identity (raw column data).
+		// Pan/zoom reuses these without re-uploading.
+		const columnBufferRef = useRef<WeakMap<Float32Array, WebGLBuffer>>(
+			new WeakMap(),
+		);
+		const decimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
+			new WeakMap(),
+		);
+		const decimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
+			x: new Float32Array(0),
+			y: new Float32Array(0),
+		});
+		const pointDecimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
+			new WeakMap(),
+		);
+		const pointDecimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
+			x: new Float32Array(0),
+			y: new Float32Array(0),
+		});
+		// Overlay screen-space: one packed Float32Array (x,y pairs) for all primitives.
+		// Groups reference offsets/counts into this buffer.
+		const overlayRef = useRef<{
+			packed: Float32Array;
+			packedLen: number;
+			groups: Array<{
+				topology: "LINES" | "TRIANGLES";
+				rgba: [number, number, number, number];
+				width: number;
+				offset: number;
+				count: number;
+			}>;
+		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
+
+		const drawRangesScratchRef = useRef<{ start: number; count: number }[]>([]);
+		const xAxisByIdRef = useRef<Map<string, XAxisConfig>>(new Map());
+		const yAxisByIdRef = useRef<Map<string, YAxisConfig>>(new Map());
+		const plotBgRgbaRef = useRef<number[]>(hexToRgba(plotBg ?? "#ffffff"));
+		useEffect(() => {
+			plotBgRgbaRef.current = hexToRgba(plotBg ?? "#ffffff");
+		}, [plotBg]);
+		const pixelBudgetMultRef = useRef<number>(64);
+		const frameTimeRef = useRef<number>(0);
+		const lastBudgetUpdateRef = useRef<number>(0);
+		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
+		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
+		const drawFrameRef = useRef<
+			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
+		>(null);
+
+		const propsRef = useRef(props);
+		useEffect(() => {
+			propsRef.current = props;
+		}, [props]);
+
+		const previewColor = useGraphStore((state) => state.previewColor);
+
+		useImperativeHandle(
+			ref,
+			() => ({
+				redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
+					liveXAxesRef.current = xAxes;
+					liveYAxesRef.current = yAxes;
+					drawFrameRef.current?.(xAxes, yAxes);
+				},
+				setOverlay: (overlay: OverlayInput) => {
+					const { width: w, height: h, padding: pad } = propsRef.current;
+					const dpr = window.devicePixelRatio || 1;
+					packOverlayState(overlay, overlayRef.current, w, h, pad, dpr);
 				},
 			}),
 			[],
