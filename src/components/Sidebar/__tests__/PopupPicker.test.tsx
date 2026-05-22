@@ -39,7 +39,7 @@ describe("PopupPicker", () => {
 				options={mockOptions}
 				current="opt1"
 				onChange={vi.fn()}
-				renderTrigger={({ onClick, ref, isOpen }) => (
+				renderTrigger={({ onClick, ref }) => (
 					<button ref={ref} onClick={onClick} data-testid="trigger">
 						Trigger
 					</button>

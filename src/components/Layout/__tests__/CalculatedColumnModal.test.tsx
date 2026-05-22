@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Mock } from "vitest";
 import { CalculatedColumnModal } from "../CalculatedColumnModal";
 import { useGraphStore } from "../../../store/useGraphStore";
+import type { Dataset } from "../../../services/persistence";
 
 // Mock the graph store
 vi.mock("../../../store/useGraphStore", () => ({
@@ -19,7 +21,7 @@ describe("CalculatedColumnModal", () => {
 		name: "Test Dataset",
 		columns: ["A", "B"],
 		data: [[1, 2]],
-	};
+	} as unknown as Dataset;
 
 	const mockOnClose = vi.fn();
 	const mockAddCalculatedColumn = vi.fn();
@@ -29,18 +31,24 @@ describe("CalculatedColumnModal", () => {
 		vi.clearAllMocks();
 
 		// Setup useGraphStore mock implementation
-		(useGraphStore as any).mockImplementation((selector: any) => {
-			const state = {
-				addCalculatedColumn: mockAddCalculatedColumn,
-				removeCalculatedColumn: mockRemoveCalculatedColumn,
-			};
-			return selector(state);
-		});
+		type StoreState = {
+			addCalculatedColumn: typeof mockAddCalculatedColumn;
+			removeCalculatedColumn: typeof mockRemoveCalculatedColumn;
+		};
+		(useGraphStore as unknown as Mock).mockImplementation(
+			(selector: (state: StoreState) => unknown) => {
+				const state: StoreState = {
+					addCalculatedColumn: mockAddCalculatedColumn,
+					removeCalculatedColumn: mockRemoveCalculatedColumn,
+				};
+				return selector(state);
+			},
+		);
 	});
 
 	it("renders correctly for adding a new column", () => {
 		render(
-			<CalculatedColumnModal dataset={mockDataset as any} onClose={mockOnClose} />
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
 		);
 
 		expect(screen.getByText("Add Calculated Series")).toBeDefined();
@@ -51,7 +59,7 @@ describe("CalculatedColumnModal", () => {
 	it("renders correctly for editing an existing column", () => {
 		render(
 			<CalculatedColumnModal
-				dataset={mockDataset as any}
+				dataset={mockDataset}
 				onClose={mockOnClose}
 				initialName="Calc A"
 				initialFormula="[A] * 2"
@@ -70,7 +78,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		render(
-			<CalculatedColumnModal dataset={mockDataset as any} onClose={mockOnClose} />
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
 		);
 
 		// Fill inputs
@@ -101,7 +109,7 @@ describe("CalculatedColumnModal", () => {
 		mockAddCalculatedColumn.mockRejectedValueOnce(new Error("Network Error"));
 
 		render(
-			<CalculatedColumnModal dataset={mockDataset as any} onClose={mockOnClose} />
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
 		);
 
 		// Fill inputs
@@ -132,7 +140,7 @@ describe("CalculatedColumnModal", () => {
         mockAddCalculatedColumn.mockRejectedValueOnce("String error throw");
 
 		render(
-			<CalculatedColumnModal dataset={mockDataset as any} onClose={mockOnClose} />
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
 		);
 
 		// Fill inputs
@@ -163,7 +171,7 @@ describe("CalculatedColumnModal", () => {
 		mockAddCalculatedColumn.mockResolvedValueOnce({ success: true });
 
 		render(
-			<CalculatedColumnModal dataset={mockDataset as any} onClose={mockOnClose} />
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />
 		);
 
 		// Fill inputs

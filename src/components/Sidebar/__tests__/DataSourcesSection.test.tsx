@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { DataSourcesSection } from "../DataSourcesSection";
 import { useGraphStore } from "../../../store/useGraphStore";
@@ -21,7 +22,15 @@ vi.mock("../../ErrorBoundary", () => ({
 
 // Mock PopupPicker
 vi.mock("../PopupPicker", () => ({
-	PopupPicker: ({ renderTrigger }: any) => renderTrigger({ onClick: vi.fn(), ref: null })
+	PopupPicker: ({
+		renderTrigger,
+	}: {
+		renderTrigger: (args: {
+			onClick: () => void;
+			ref: null;
+			isOpen: boolean;
+		}) => ReactNode;
+	}) => renderTrigger({ onClick: vi.fn(), ref: null, isOpen: false }),
 }));
 
 // Mock hooks

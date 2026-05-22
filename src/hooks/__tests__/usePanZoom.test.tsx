@@ -1,6 +1,9 @@
+import type React from "react";
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { usePanZoom } from "../usePanZoom";
+
+type PanZoomOptions = Parameters<typeof usePanZoom>[0];
 
 describe("usePanZoom", () => {
 	const mockSyncViewport = vi.fn();
@@ -8,11 +11,14 @@ describe("usePanZoom", () => {
 	const mockHandleAutoScaleY = vi.fn();
 	const mockOnPanEnd = vi.fn();
 
-	let baseOptions: any;
+	let baseOptions: PanZoomOptions;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.stubGlobal("requestAnimationFrame", (cb: Function) => setTimeout(cb, 0));
+		vi.stubGlobal(
+			"requestAnimationFrame",
+			(cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0),
+		);
 		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
 
 		const containerRef = {
@@ -63,7 +69,7 @@ describe("usePanZoom", () => {
 					startTargetY: {},
 				},
 			},
-		};
+		} as unknown as PanZoomOptions;
 	});
 
 	afterEach(() => {
@@ -86,7 +92,7 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleMouseDown(
-				{ clientX: 100, clientY: 100, button: 0 } as any,
+				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
 				"all"
 			);
 		});
@@ -100,7 +106,7 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleMouseDown(
-				{ clientX: 100, clientY: 100, button: 0 } as any,
+				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
 				"all"
 			);
 		});
@@ -126,7 +132,7 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleMouseDown(
-				{ clientX: 100, clientY: 100, button: 0 } as any,
+				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
 				"all"
 			);
 		});
@@ -151,7 +157,7 @@ describe("usePanZoom", () => {
 					clientY: 300,
 					deltaY: 100,
 					preventDefault,
-				} as any,
+				} as unknown as React.WheelEvent,
 				"all"
 			);
 		});
@@ -171,7 +177,7 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as any,
+				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
 				"all"
 			);
 		});
@@ -184,7 +190,7 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as any,
+				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
 				"all"
 			);
 		});
@@ -192,7 +198,7 @@ describe("usePanZoom", () => {
 		// Trigger another touch immediately
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as any,
+				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
 				"all"
 			);
 		});
