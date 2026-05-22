@@ -1,110 +1,125 @@
 # Webgraphy
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://michaelkrisper.github.io/webgraphy/)
+[![Deploy](https://github.com/michaelkrisper/webgraphy/actions/workflows/deploy.yml/badge.svg)](https://github.com/michaelkrisper/webgraphy/actions/workflows/deploy.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Webgraphy is a precision-focused, high-performance data visualization application designed to handle extremely large datasets (millions of points) with smooth interaction and visual integrity. It leverages custom WebGL rendering and advanced data management strategies to provide a responsive charting experience.
+A precision-focused, high-performance data visualization application that handles datasets with millions of points while keeping interaction smooth. Webgraphy uses custom WebGL shaders and off-main-thread processing to render and explore data at scale, directly in the browser.
 
-**Live Demo:** [https://michaelkrisper.github.io/webgraphy/](https://michaelkrisper.github.io/webgraphy/)
+**Live demo:** <https://michaelkrisper.github.io/webgraphy/>
 
-## Key Features
+## Highlights
 
-- **Ultra High Performance:** Render millions of data points smoothly using raw WebGL with custom high-precision shaders.
-- **Advanced Data Handling:** CSV/JSON parsing and formula evaluation run in dedicated Web Workers, keeping the UI responsive even with very large datasets.
-- **Precision Rendering:** Raw data rendering using custom WebGL shaders for maximum visual integrity and accuracy, utilizing relative offsets (`refPoint`) to avoid floating-point artifacts.
-- **Rich Interaction:**
-  - **Interactive Axes:** Pan and zoom directly on individual X or Y axes.
-  - **Box Zoom:** `Ctrl + Drag` to precisely zoom into a specific region.
-  - **Smart Snapping:** Y-axis zero-lines automatically snap to each other during dragging for easy alignment.
-  - **Precision Crosshair:** High-performance data-snapping crosshair for accurate value inspection.
-  - **Quick Scaling:** Double-click axes to auto-scale; smart Y-scaling based on click position.
-- **Complex Visualizations:**
-  - Support for up to 9 independent X and Y axes.
-  - Flexible X-Axis modes (Numeric, Date/Time).
-  - View Snapshots to save and recall specific zoom/pan states.
-- **Formula Support:** Add calculated columns using a powerful formula engine. Supports math operations, moving averages (`avgN`, `avgTime`, `avgGroup`, `avgDay`), and Kalman filters.
-- **Regression Analysis:** Add linear, polynomial, exponential, logarithmic, or KDE fits to your data.
-- **Robust Persistence:** Automatic state recovery across browser sessions using IndexedDB for large datasets and LocalStorage for UI configurations.
-- **Professional Export:** High-quality export of charts to PNG or SVG formats.
+- **Millions of points, fluid interaction.** Custom WebGL shaders draw raw data with high-precision relative offsets (`refPoint`) to avoid floating-point artifacts at large coordinate values.
+- **Background data processing.** Import, parse, and formula evaluation run in Web Workers, so the UI stays responsive on multi-GB files.
+- **Rich interaction model.** Pan/zoom per axis, `Ctrl + Drag` box zoom, smart Y-axis zero-line snapping, a data-snapping crosshair, and double-click auto-scaling.
+- **Multi-axis charts.** Up to 9 independent X and Y axes, per-axis position and color, numeric or date/time X-axis modes.
+- **Formula engine.** Add calculated columns with math, trigonometry, rolling/time/group averages, Kalman filtering, and regression fits (linear, polynomial, exponential, logistic, KDE).
+- **PWA & offline.** Installable Progressive Web App with auto-update; opens previously imported data instantly via IndexedDB.
+- **Robust persistence.** Datasets live in IndexedDB; UI state, series configuration, and theme in LocalStorage — all restored on next visit.
+- **High-quality export.** SVG and PNG export of the current view, theme-aware.
 
-## Interactions & Shortcuts
+## Supported Inputs
 
-### Plot Area
-- **Mouse Wheel:** Zoom in and out.
-- **Click & Drag:** Pan the chart.
-- **Shift + Interaction:** Synchronize all X-axes (zoom/pan/keys).
-- **CTRL + Drag:** Draw a zoom selection box.
-- **CTRL + C:** Copy current tooltip data to clipboard.
-- **Hover:** Show tooltips for nearest data points.
-- **Double Click:** Auto-scale to fit all data.
-- **Drag & Drop:** Drop a CSV/JSON file onto the chart to import.
+Drag-and-drop or pick a file: **CSV**, **JSON**, **XLSX / XLS** (with sheet selection). Large files are streamed to a worker; skipped rows are reported in a preview panel.
+
+## Quick Start
+
+Webgraphy uses **pnpm** and requires **Node.js ≥ 24**.
+
+```bash
+pnpm install
+pnpm run dev      # start the dev server (http://localhost:5173)
+pnpm run build    # type-check and produce a production build in dist/
+pnpm run preview  # serve the production build locally
+pnpm run lint     # run ESLint
+pnpm run test     # run the Vitest suite
+```
+
+## Deployment
+
+Pushes to `master` are automatically built and published to GitHub Pages by the workflow in `.github/workflows/deploy.yml`. The production site is served from `https://michaelkrisper.github.io/webgraphy/`.
+
+## Interaction Reference
+
+### Plot area
+| Action | Effect |
+| --- | --- |
+| Mouse wheel | Zoom both axes |
+| Drag | Pan |
+| Shift + drag/wheel/keys | Synchronize all X-axes |
+| Ctrl + drag | Box zoom into a region |
+| Hover | Snap crosshair + tooltip to nearest point |
+| Ctrl + C | Copy tooltip values to clipboard |
+| Double-click | Auto-scale to fit |
+| Drop file | Import CSV / JSON / XLSX |
 
 ### Axes (X & Y)
-- **Mouse Wheel:** Zoom only this axis.
-- **Drag:** Pan only this axis.
-- **Double Click:** Auto-scale this axis.
-- **CTRL + Double Click (Y):** Auto-scale to top or bottom half.
-- **Click on Title:** Rename the axis.
+| Action | Effect |
+| --- | --- |
+| Wheel on axis | Zoom only that axis |
+| Drag on axis | Pan only that axis |
+| Double-click on axis | Auto-scale that axis |
+| Ctrl + double-click (Y) | Auto-scale to upper or lower half (based on click position) |
+| Click on title | Rename the axis |
 
 ### Keyboard
-- **← →:** Pan X axis (animated).
-- **↑ ↓:** Pan Y axis (hovered axis, or all).
-- **+ / =:** Zoom in (X and Y).
-- **- / _:** Zoom out (X and Y).
-- **Shift + ← →:** Pan all X-axes together.
-- **CTRL + + / -:** Zoom only X axis.
+| Key | Effect |
+| --- | --- |
+| ← → | Pan X axis (animated) |
+| ↑ ↓ | Pan Y axis (hovered, or all) |
+| `+` / `=` | Zoom in |
+| `-` / `_` | Zoom out |
+| Shift + ← → | Pan all X-axes together |
+| Ctrl + `+` / `-` | Zoom only the X axis |
 
-## Core Technologies
+## Formula Engine
 
-- **Frontend:** React 19, TypeScript, Vite 8
-- **Rendering:** Raw WebGL (Custom Shaders)
-- **State Management:** Zustand
-- **Persistence:** IndexedDB (`idb`), LocalStorage
-- **Concurrency:** Web Workers for data processing and formula calculation.
+Reference other columns with `[Column Name]`. Math operators: `+ - * / ^` with parentheses. Constants `pi`, `e`.
 
-## Development
+| Function | Purpose |
+| --- | --- |
+| `sqrt`, `abs`, `exp`, `log` (base 10), `ln`, `round`, `floor`, `ceil` | Math basics |
+| `sin`, `cos`, `tan`, `asin`, `acos`, `atan` | Trigonometry (radians) |
+| `min(...)`, `max(...)`, `sum(...)`, `avg(...)` | Aggregations (no args = across all numeric columns in the row) |
+| `avgN([col])` | Rolling average over N rows. Suffix: `avgNc` central (default), `avgNl` left/trailing, `avgNr` right/leading |
+| `avgNs / avgNm / avgNh / avgNd([col])` | Rolling average over N seconds/minutes/hours/days, with the same `c`/`l`/`r` alignment suffix |
+| `avgDay`, `avgHour`, `avgMinute`, `avgSecond([col])` | Per-bucket cumulative average (resets per calendar bucket) |
+| `sumDay`, `sumHour`, `sumMinute`, `sumSecond([col])` | Per-bucket cumulative sum |
+| `filter([col])` | Adaptive Kalman filter (noise smoothing) |
+| `linreg([col])` | Linear regression fit |
+| `polyreg([col], degree)` | Polynomial regression (default degree 3) |
+| `expreg([col])` | Exponential regression fit |
+| `logreg([col])` | Logistic regression fit |
+| `kde([col])` or `kde([col], bandwidth)` | KDE-smoothed fit |
 
-First, ensure you have Node.js installed. Clone the repository and install dependencies:
+## Architecture
 
-```bash
-npm install
+- **Frontend:** React 19 + TypeScript, bundled with Vite 8.
+- **Rendering:** Raw WebGL with custom precision shaders. Per-frame updates bypass the React render cycle and the global store for responsiveness.
+- **State:** [Zustand](https://github.com/pmndrs/zustand) stores in `src/store/`.
+- **Persistence:** [`idb`](https://github.com/jakearchibald/idb) for datasets (IndexedDB); LocalStorage for UI config and theme.
+- **Concurrency:** Parsing (CSV/JSON/Excel) and formula evaluation run in Web Workers (`src/workers/`).
+- **PWA:** Service worker via `vite-plugin-pwa` (auto-update).
+
+### Key directories
+
+```
+src/
+├── components/Plot/      # WebGL renderer, chart container, interactions
+├── components/Layout/    # Sidebar, modals, header/footer
+├── components/Sidebar/   # Data sources, series, color picker
+├── store/                # Zustand stores
+├── services/             # Persistence, export (SVG/PNG)
+├── utils/                # Data parser, formula engine, coordinate math
+├── workers/              # CSV/JSON parsing, formula workers
+└── themes.ts             # Light, Dark, Matrix, Winnie, Unicorn
 ```
 
-### Running Locally
+## Contributing
 
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
-npm run build
-```
-
-### Linting
-
-```bash
-npm run lint
-```
-
-### Testing
-
-```bash
-npm run test
-```
-
-### Deploy to GitHub Pages
-
-The application is configured for automatic deployment to GitHub Pages via GitHub Actions on every push to the `master` branch.
-
-To manually deploy from your local machine:
-```bash
-npm run deploy
-```
-
-The application will be available at `https://michaelkrisper.github.io/webgraphy/`.
+This project uses `pnpm`. When you modify `package.json` (dependencies, overrides), run `pnpm install` and commit the updated `pnpm-lock.yaml` alongside it. Run `pnpm run lint` and `pnpm run test` before opening a pull request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE) © Michael Krisper
