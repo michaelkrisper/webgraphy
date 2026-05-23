@@ -82,29 +82,20 @@ const Crosshair = React.memo(
 		const posRef = useRef<{ x: number; y: number } | null>(null);
 		const lastSnapRef = useRef<SnapResult | null>(null);
 
-		const datasetsById = useMemo(() => {
-			const map = new Map<string, Dataset>();
-			datasets.forEach((d) => {
-				map.set(d.id, d);
-			});
-			return map;
-		}, [datasets]);
+		const datasetsById = useMemo(
+			() => new Map(datasets.map((d) => [d.id, d])),
+			[datasets],
+		);
 
-		const yAxesById = useMemo(() => {
-			const map = new Map<string, YAxisConfig>();
-			yAxes.forEach((a) => {
-				map.set(a.id, a);
-			});
-			return map;
-		}, [yAxes]);
+		const yAxesById = useMemo(
+			() => new Map(yAxes.map((a) => [a.id, a])),
+			[yAxes],
+		);
 
-		const xAxesById = useMemo(() => {
-			const map = new Map<string, XAxisConfig>();
-			xAxes.forEach((a) => {
-				map.set(a.id, a);
-			});
-			return map;
-		}, [xAxes]);
+		const xAxesById = useMemo(
+			() => new Map(xAxes.map((a) => [a.id, a])),
+			[xAxes],
+		);
 
 		const seriesMetadata = useMemo(() => {
 			return series

@@ -396,20 +396,14 @@ export default function ChartContainer() {
 		return set;
 	}, [series]);
 
-	const xAxesById = useMemo(() => {
-		const m = new Map<string, XAxisConfig>();
-		xAxes.forEach((a) => {
-			m.set(a.id, a);
-		});
-		return m;
-	}, [xAxes]);
-	const yAxesById = useMemo(() => {
-		const m = new Map<string, YAxisConfig>();
-		yAxes.forEach((a) => {
-			m.set(a.id, a);
-		});
-		return m;
-	}, [yAxes]);
+	const xAxesById = useMemo(
+		() => new Map(xAxes.map((a) => [a.id, a])),
+		[xAxes],
+	);
+	const yAxesById = useMemo(
+		() => new Map(yAxes.map((a) => [a.id, a])),
+		[yAxes],
+	);
 
 	const activeYAxes = useMemo(() => {
 		return yAxes.filter((a) => usedYAxisIdsSet.has(a.id));
@@ -418,10 +412,7 @@ export default function ChartContainer() {
 	// Per-axis categorical labels: only when ALL series on the axis bind to a column
 	// that has categoryLabels, and they all share the same label set.
 	const yAxisCategoryLabels = useMemo(() => {
-		const dsById = new Map<string, Dataset>();
-		datasets.forEach((d) => {
-			dsById.set(d.id, d);
-		});
+		const dsById = new Map(datasets.map((d) => [d.id, d]));
 		const out = new Map<string, string[] | undefined>();
 		const seriesByAxis = new Map<string, typeof series>();
 		series.forEach((s) => {
