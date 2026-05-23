@@ -629,6 +629,415 @@ const UNARY_PREC = 8;
 
 // ── Compile ────────────────────────────────────────────────────────────────
 
+function resolveBracketedReferences(
+	formula: string,
+	map1: Map<string, number>,
+	columnMap: Map<string, number>,
+	usedColumnIndices: number[],
+): FormulaResult | null {
+	let scanPos = 0;
+	while (scanPos < formula.length) {
+		const start = formula.indexOf("[", scanPos);
+		if (start === -1) break;
+		let bestEnd = -1;
+		let searchFrom = start + 1;
+		while (true) {
+			const end = formula.indexOf("]", searchFrom);
+			if (end === -1) break;
+			const candidate = formula.substring(start + 1, end);
+			if (map1.has(candidate)) bestEnd = end;
+			searchFrom = end + 1;
+		}
+		if (bestEnd === -1) {
+			const end = formula.indexOf("]", start + 1);
+			if (end === -1) {
+				scanPos = start + 1;
+				continue;
+			}
+			const colName = formula.substring(start + 1, end);
+			const fullMatch = formula.substring(start, end + 1);
+			if (!columnMap.has(fullMatch)) {
+				return {
+					evaluate: () => NaN,
+					usedColumnIndices: [],
+					error: `Column not found: ${colName}`,
+					errorPos: start,
+				};
+			}
+			scanPos = end + 1;
+		} else {
+			const fullMatch = formula.substring(start, bestEnd + 1);
+			if (!columnMap.has(fullMatch)) {
+				const colName = formula.substring(start + 1, bestEnd);
+				const colIndex = map1.get(colName)!;
+				columnMap.set(fullMatch, usedColumnIndices.length);
+				usedColumnIndices.push(colIndex);
+			}
+			scanPos = bestEnd + 1;
+		}
+	}
+	return null;
+}
+
+function tokenizeFormula(
+	formula: string,
+	columnMap: Map<string, number>,
+	ensureTimeColumn: () => void,
+	nextFuncId: () => number,
+): Token[] {
+	const tokens: Token[] = [];
+	let i = 0;
+	while (i < formula.length) {
+		const char = formula[i];
+		const prevToken = tokens.length > 0 ? tokens[tokens.length - 1] : null;
+		const startPos = i;
+
+		if (/\s/.test(char)) {
+			i++;
+			continue;
+		}
+
+		// Column reference [Foo]
+		if (char === "[") {
+			let bestEnd = -1;
+			let searchFrom = i + 1;
+			while (true) {
+				const end = formula.indexOf("]", searchFrom);
+				if (end === -1) break;
+				if (columnMap.has(formula.substring(i, end + 1))) bestEnd = end;
+				searchFrom = end + 1;
+			}
+			if (bestEnd === -1) {
+				const end = formula.indexOf("]", i + 1);
+				if (end === -1) throw new FormulaError("Missing closing bracket ]", i);
+				throw new FormulaError(
+					`Unknown column: ${formula.substring(i + 1, end)}`,
+					i,
+				);
+			}
+			const fullMatch = formula.substring(i, bestEnd + 1);
+			tokens.push({
+				type: "VAR",
+				index: columnMap.get(fullMatch)!,
+				pos: startPos,
+			});
+			i = bestEnd + 1;
+			continue;
+		}
+
+		// Numeric literal with optional scientific notation
+		if (/[0-9.]/.test(char)) {
+			const start = i;
+			let sawDot = char === ".";
+			i++;
+			while (i < formula.length) {
+				const c = formula[i];
+				if (c >= "0" && c <= "9") {
+					i++;
+				} else if (c === "." && !sawDot) {
+					sawDot = true;
+					i++;
+				} else {
+					break;
+				}
+			}
+			// Scientific notation: e[+-]?digits  — only if preceded by digits
+			if (
+				i < formula.length &&
+				(formula[i] === "e" || formula[i] === "E") &&
+				/[0-9.]/.test(formula[start])
+			) {
+				const eStart = i;
+				let j = i + 1;
+				if (j < formula.length && (formula[j] === "+" || formula[j] === "-")) {
+					j++;
+				}
+				let digits = 0;
+				while (j < formula.length && formula[j] >= "0" && formula[j] <= "9") {
+					j++;
+					digits++;
+				}
+				if (digits > 0) i = j;
+				else i = eStart; // bare 'e' is a constant
+			}
+			const numStr = formula.substring(start, i);
+			const value = parseFloat(numStr);
+			if (Number.isNaN(value)) {
+				throw new FormulaError(`Invalid number: ${numStr}`, start);
+			}
+			tokens.push({ type: "NUMBER", value, pos: startPos });
+			continue;
+		}
+
+		// Identifier (function, constant, alias)
+		if (/[a-zA-Z_]/.test(char)) {
+			let name = "";
+			while (i < formula.length && /[a-zA-Z0-9_]/.test(formula[i])) {
+				name += formula[i++];
+			}
+			const lower = name.toLowerCase();
+
+			if (lower === "pi") {
+				tokens.push({ type: "CONST", value: Math.PI, pos: startPos });
+				continue;
+			}
+			if (lower === "e") {
+				tokens.push({ type: "CONST", value: Math.E, pos: startPos });
+				continue;
+			}
+
+			// Legacy alias resolution (avg5, avgday, avg1hc, …)
+			const alias = resolveLegacyName(lower);
+			if (alias) {
+				const canonical = alias.canonical;
+				const meta = FUNCTION_BY_NAME.get(canonical);
+				if (meta?.needsTime) ensureTimeColumn();
+				tokens.push({
+					type: "FUNC",
+					value: canonical,
+					id: nextFuncId(),
+					constN: alias.constArg,
+					pos: startPos,
+				});
+				continue;
+			}
+
+			if (KNOWN_FUNCTION_NAMES.has(lower)) {
+				const meta = FUNCTION_BY_NAME.get(lower)!;
+				if (meta.needsTime) ensureTimeColumn();
+				tokens.push({
+					type: "FUNC",
+					value: lower,
+					id: nextFuncId(),
+					pos: startPos,
+				});
+				continue;
+			}
+
+			throw new FormulaError(`Unknown function or constant: ${name}`, startPos);
+		}
+
+		// Multi-char and single-char operators
+		const two = formula.substring(i, i + 2);
+		if (
+			two === "==" ||
+			two === "!=" ||
+			two === "<=" ||
+			two === ">=" ||
+			two === "&&" ||
+			two === "||"
+		) {
+			tokens.push({
+				type: "OP",
+				value: two,
+				prec: OP_PRECEDENCE[two].prec,
+				assoc: OP_PRECEDENCE[two].assoc,
+				pos: startPos,
+			});
+			i += 2;
+			continue;
+		}
+
+		if (char === "(") {
+			tokens.push({ type: "LPAREN", pos: startPos });
+			i++;
+			continue;
+		}
+		if (char === ")") {
+			tokens.push({ type: "RPAREN", pos: startPos });
+			i++;
+			continue;
+		}
+		if (char === ",") {
+			tokens.push({ type: "COMMA", pos: startPos });
+			i++;
+			continue;
+		}
+
+		if (OP_PRECEDENCE[char]) {
+			// Unary minus and unary not
+			const isPrefixContext =
+				!prevToken ||
+				prevToken.type === "OP" ||
+				prevToken.type === "LPAREN" ||
+				prevToken.type === "FUNC" ||
+				prevToken.type === "COMMA";
+			if (char === "-" && isPrefixContext) {
+				tokens.push({
+					type: "OP",
+					value: "u-",
+					prec: UNARY_PREC,
+					assoc: "R",
+					unary: true,
+					pos: startPos,
+				});
+			} else {
+				const meta = OP_PRECEDENCE[char];
+				tokens.push({
+					type: "OP",
+					value: char,
+					prec: meta.prec,
+					assoc: meta.assoc,
+					pos: startPos,
+				});
+			}
+			i++;
+			continue;
+		}
+
+		if (char === "!") {
+			tokens.push({
+				type: "OP",
+				value: "!",
+				prec: UNARY_PREC,
+				assoc: "R",
+				unary: true,
+				pos: startPos,
+			});
+			i++;
+			continue;
+		}
+
+		throw new FormulaError(`Unexpected character: ${char}`, startPos);
+	}
+	return tokens;
+}
+
+function shuntingYard(tokens: Token[]): {
+	outputQueue: Token[];
+	setUsesAllColumns: boolean;
+} {
+	const outputQueue: Token[] = [];
+	const operatorStack: Token[] = [];
+	const argCountStack: number[] = [];
+	let usesAllColumns = false;
+
+	for (let j = 0; j < tokens.length; j++) {
+		const token = tokens[j];
+		if (
+			token.type === "NUMBER" ||
+			token.type === "VAR" ||
+			token.type === "CONST"
+		) {
+			outputQueue.push(token);
+		} else if (token.type === "FUNC") {
+			operatorStack.push(token);
+			argCountStack.push(0);
+		} else if (token.type === "COMMA") {
+			while (
+				operatorStack.length > 0 &&
+				operatorStack[operatorStack.length - 1].type !== "LPAREN"
+			) {
+				outputQueue.push(operatorStack.pop()!);
+			}
+			if (argCountStack.length > 0) {
+				argCountStack[argCountStack.length - 1]++;
+			} else {
+				throw new FormulaError("Unexpected comma", token.pos);
+			}
+		} else if (token.type === "OP") {
+			while (operatorStack.length > 0) {
+				const top = operatorStack[operatorStack.length - 1];
+				if (
+					top.type === "OP" &&
+					((token.assoc === "L" && token.prec <= top.prec) ||
+						(token.assoc === "R" && token.prec < top.prec))
+				) {
+					outputQueue.push(operatorStack.pop()!);
+				} else {
+					break;
+				}
+			}
+			operatorStack.push(token);
+		} else if (token.type === "LPAREN") {
+			operatorStack.push(token);
+		} else if (token.type === "RPAREN") {
+			while (
+				operatorStack.length > 0 &&
+				operatorStack[operatorStack.length - 1].type !== "LPAREN"
+			) {
+				outputQueue.push(operatorStack.pop()!);
+			}
+			if (operatorStack.length === 0)
+				throw new FormulaError("Mismatched parentheses", token.pos);
+			operatorStack.pop();
+
+			if (
+				operatorStack.length > 0 &&
+				operatorStack[operatorStack.length - 1].type === "FUNC"
+			) {
+				const func = operatorStack.pop()! as Extract<Token, { type: "FUNC" }>;
+				let args = argCountStack.pop()!;
+				const prevWasLparen = tokens[j - 1] && tokens[j - 1].type === "LPAREN";
+				if (!prevWasLparen) args++;
+
+				// If the function expects a constant N at constArgIndex and the
+				// user wrote it inline (e.g. rolling([col], 5)), lift that NUMBER
+				// off the output queue into the FUNC token.
+				const meta = FUNCTION_BY_NAME.get(func.value);
+				if (
+					meta?.constArgIndex !== undefined &&
+					func.constN === undefined &&
+					args === meta.constArgIndex + 1
+				) {
+					const lastOut = outputQueue[outputQueue.length - 1];
+					if (lastOut?.type !== "NUMBER") {
+						throw new FormulaError(
+							`${meta.signature}: argument #${meta.constArgIndex + 1} must be a constant number`,
+							func.pos,
+						);
+					}
+					func.constN = lastOut.value;
+					outputQueue.pop();
+					args--;
+				}
+
+				// Arity validation
+				if (meta) {
+					const provided = args + (func.constN !== undefined ? 1 : 0);
+					const min = meta.minArgs;
+					const max = meta.maxArgs;
+					if (provided < min || (max !== -1 && provided > max)) {
+						throw new FormulaError(
+							`${meta.signature}: expected ${
+								max === -1
+									? `at least ${min}`
+									: min === max
+										? `${min}`
+										: `${min}–${max}`
+							} argument(s), got ${provided}`,
+							func.pos,
+						);
+					}
+				}
+
+				func.args = args;
+				outputQueue.push(func);
+
+				if (
+					args === 0 &&
+					(func.value === "avg" ||
+						func.value === "sum" ||
+						func.value === "min" ||
+						func.value === "max" ||
+						func.value === "median" ||
+						func.value === "std" ||
+						func.value === "var")
+				) {
+					usesAllColumns = true;
+				}
+			}
+		}
+	}
+	while (operatorStack.length > 0) {
+		const top = operatorStack.pop()!;
+		if (top.type === "LPAREN")
+			throw new FormulaError("Mismatched parentheses", top.pos);
+		outputQueue.push(top);
+	}
+	return { outputQueue, setUsesAllColumns: usesAllColumns };
+}
+
 export function compileFormula(
 	formula: string,
 	availableColumns: string[],
@@ -663,48 +1072,13 @@ export function compileFormula(
 		};
 
 		// 1. Resolve bracketed column references (longest-match).
-		const map1 = ensureAvailableColumnsMap();
-		let scanPos = 0;
-		while (scanPos < formula.length) {
-			const start = formula.indexOf("[", scanPos);
-			if (start === -1) break;
-			let bestEnd = -1;
-			let searchFrom = start + 1;
-			while (true) {
-				const end = formula.indexOf("]", searchFrom);
-				if (end === -1) break;
-				const candidate = formula.substring(start + 1, end);
-				if (map1.has(candidate)) bestEnd = end;
-				searchFrom = end + 1;
-			}
-			if (bestEnd === -1) {
-				const end = formula.indexOf("]", start + 1);
-				if (end === -1) {
-					scanPos = start + 1;
-					continue;
-				}
-				const colName = formula.substring(start + 1, end);
-				const fullMatch = formula.substring(start, end + 1);
-				if (!columnMap.has(fullMatch)) {
-					return {
-						evaluate: () => NaN,
-						usedColumnIndices: [],
-						error: `Column not found: ${colName}`,
-						errorPos: start,
-					};
-				}
-				scanPos = end + 1;
-			} else {
-				const fullMatch = formula.substring(start, bestEnd + 1);
-				if (!columnMap.has(fullMatch)) {
-					const colName = formula.substring(start + 1, bestEnd);
-					const colIndex = map1.get(colName)!;
-					columnMap.set(fullMatch, usedColumnIndices.length);
-					usedColumnIndices.push(colIndex);
-				}
-				scanPos = bestEnd + 1;
-			}
-		}
+		const err = resolveBracketedReferences(
+			formula,
+			ensureAvailableColumnsMap(),
+			columnMap,
+			usedColumnIndices,
+		);
+		if (err) return err;
 
 		let timeVarIdx = -1;
 		const ensureTimeColumn = () => {
@@ -744,359 +1118,16 @@ export function compileFormula(
 			return dataColumnIndices;
 		};
 
-		// 2. Tokenize.
-		const tokens: Token[] = [];
-		let i = 0;
-		while (i < formula.length) {
-			const char = formula[i];
-			const prevToken = tokens.length > 0 ? tokens[tokens.length - 1] : null;
-			const startPos = i;
+		// 2 & 3. Tokenize and convert to RPN via shunting-yard.
+		const tokens = tokenizeFormula(
+			formula,
+			columnMap,
+			ensureTimeColumn,
+			() => funcIdCounter++,
+		);
 
-			if (/\s/.test(char)) {
-				i++;
-				continue;
-			}
-
-			// Column reference [Foo]
-			if (char === "[") {
-				let bestEnd = -1;
-				let searchFrom = i + 1;
-				while (true) {
-					const end = formula.indexOf("]", searchFrom);
-					if (end === -1) break;
-					if (columnMap.has(formula.substring(i, end + 1))) bestEnd = end;
-					searchFrom = end + 1;
-				}
-				if (bestEnd === -1) {
-					const end = formula.indexOf("]", i + 1);
-					if (end === -1)
-						throw new FormulaError("Missing closing bracket ]", i);
-					throw new FormulaError(
-						`Unknown column: ${formula.substring(i + 1, end)}`,
-						i,
-					);
-				}
-				const fullMatch = formula.substring(i, bestEnd + 1);
-				tokens.push({
-					type: "VAR",
-					index: columnMap.get(fullMatch)!,
-					pos: startPos,
-				});
-				i = bestEnd + 1;
-				continue;
-			}
-
-			// Numeric literal with optional scientific notation
-			if (/[0-9.]/.test(char)) {
-				const start = i;
-				let sawDot = char === ".";
-				i++;
-				while (i < formula.length) {
-					const c = formula[i];
-					if (c >= "0" && c <= "9") {
-						i++;
-					} else if (c === "." && !sawDot) {
-						sawDot = true;
-						i++;
-					} else {
-						break;
-					}
-				}
-				// Scientific notation: e[+-]?digits  — only if preceded by digits
-				if (
-					i < formula.length &&
-					(formula[i] === "e" || formula[i] === "E") &&
-					/[0-9.]/.test(formula[start])
-				) {
-					const eStart = i;
-					let j = i + 1;
-					if (
-						j < formula.length &&
-						(formula[j] === "+" || formula[j] === "-")
-					) {
-						j++;
-					}
-					let digits = 0;
-					while (j < formula.length && formula[j] >= "0" && formula[j] <= "9") {
-						j++;
-						digits++;
-					}
-					if (digits > 0) i = j;
-					else i = eStart; // bare 'e' is a constant
-				}
-				const numStr = formula.substring(start, i);
-				const value = parseFloat(numStr);
-				if (Number.isNaN(value)) {
-					throw new FormulaError(`Invalid number: ${numStr}`, start);
-				}
-				tokens.push({ type: "NUMBER", value, pos: startPos });
-				continue;
-			}
-
-			// Identifier (function, constant, alias)
-			if (/[a-zA-Z_]/.test(char)) {
-				let name = "";
-				while (i < formula.length && /[a-zA-Z0-9_]/.test(formula[i])) {
-					name += formula[i++];
-				}
-				const lower = name.toLowerCase();
-
-				if (lower === "pi") {
-					tokens.push({ type: "CONST", value: Math.PI, pos: startPos });
-					continue;
-				}
-				if (lower === "e") {
-					tokens.push({ type: "CONST", value: Math.E, pos: startPos });
-					continue;
-				}
-
-				// Legacy alias resolution (avg5, avgday, avg1hc, …)
-				const alias = resolveLegacyName(lower);
-				if (alias) {
-					const canonical = alias.canonical;
-					const meta = FUNCTION_BY_NAME.get(canonical);
-					if (meta?.needsTime) ensureTimeColumn();
-					tokens.push({
-						type: "FUNC",
-						value: canonical,
-						id: funcIdCounter++,
-						constN: alias.constArg,
-						pos: startPos,
-					});
-					continue;
-				}
-
-				if (KNOWN_FUNCTION_NAMES.has(lower)) {
-					const meta = FUNCTION_BY_NAME.get(lower)!;
-					if (meta.needsTime) ensureTimeColumn();
-					tokens.push({
-						type: "FUNC",
-						value: lower,
-						id: funcIdCounter++,
-						pos: startPos,
-					});
-					continue;
-				}
-
-				throw new FormulaError(
-					`Unknown function or constant: ${name}`,
-					startPos,
-				);
-			}
-
-			// Multi-char and single-char operators
-			const two = formula.substring(i, i + 2);
-			if (
-				two === "==" ||
-				two === "!=" ||
-				two === "<=" ||
-				two === ">=" ||
-				two === "&&" ||
-				two === "||"
-			) {
-				tokens.push({
-					type: "OP",
-					value: two,
-					prec: OP_PRECEDENCE[two].prec,
-					assoc: OP_PRECEDENCE[two].assoc,
-					pos: startPos,
-				});
-				i += 2;
-				continue;
-			}
-
-			if (char === "(") {
-				tokens.push({ type: "LPAREN", pos: startPos });
-				i++;
-				continue;
-			}
-			if (char === ")") {
-				tokens.push({ type: "RPAREN", pos: startPos });
-				i++;
-				continue;
-			}
-			if (char === ",") {
-				tokens.push({ type: "COMMA", pos: startPos });
-				i++;
-				continue;
-			}
-
-			if (OP_PRECEDENCE[char]) {
-				// Unary minus and unary not
-				const isPrefixContext =
-					!prevToken ||
-					prevToken.type === "OP" ||
-					prevToken.type === "LPAREN" ||
-					prevToken.type === "FUNC" ||
-					prevToken.type === "COMMA";
-				if (char === "-" && isPrefixContext) {
-					tokens.push({
-						type: "OP",
-						value: "u-",
-						prec: UNARY_PREC,
-						assoc: "R",
-						unary: true,
-						pos: startPos,
-					});
-				} else {
-					const meta = OP_PRECEDENCE[char];
-					tokens.push({
-						type: "OP",
-						value: char,
-						prec: meta.prec,
-						assoc: meta.assoc,
-						pos: startPos,
-					});
-				}
-				i++;
-				continue;
-			}
-
-			if (char === "!") {
-				tokens.push({
-					type: "OP",
-					value: "!",
-					prec: UNARY_PREC,
-					assoc: "R",
-					unary: true,
-					pos: startPos,
-				});
-				i++;
-				continue;
-			}
-
-			throw new FormulaError(`Unexpected character: ${char}`, startPos);
-		}
-
-		// 3. Shunting-yard → RPN.
-		const outputQueue: Token[] = [];
-		const operatorStack: Token[] = [];
-		const argCountStack: number[] = [];
-
-		for (let j = 0; j < tokens.length; j++) {
-			const token = tokens[j];
-			if (
-				token.type === "NUMBER" ||
-				token.type === "VAR" ||
-				token.type === "CONST"
-			) {
-				outputQueue.push(token);
-			} else if (token.type === "FUNC") {
-				operatorStack.push(token);
-				argCountStack.push(0);
-			} else if (token.type === "COMMA") {
-				while (
-					operatorStack.length > 0 &&
-					operatorStack[operatorStack.length - 1].type !== "LPAREN"
-				) {
-					outputQueue.push(operatorStack.pop()!);
-				}
-				if (argCountStack.length > 0) {
-					argCountStack[argCountStack.length - 1]++;
-				} else {
-					throw new FormulaError("Unexpected comma", token.pos);
-				}
-			} else if (token.type === "OP") {
-				while (operatorStack.length > 0) {
-					const top = operatorStack[operatorStack.length - 1];
-					if (
-						top.type === "OP" &&
-						((token.assoc === "L" && token.prec <= top.prec) ||
-							(token.assoc === "R" && token.prec < top.prec))
-					) {
-						outputQueue.push(operatorStack.pop()!);
-					} else {
-						break;
-					}
-				}
-				operatorStack.push(token);
-			} else if (token.type === "LPAREN") {
-				operatorStack.push(token);
-			} else if (token.type === "RPAREN") {
-				while (
-					operatorStack.length > 0 &&
-					operatorStack[operatorStack.length - 1].type !== "LPAREN"
-				) {
-					outputQueue.push(operatorStack.pop()!);
-				}
-				if (operatorStack.length === 0)
-					throw new FormulaError("Mismatched parentheses", token.pos);
-				operatorStack.pop();
-
-				if (
-					operatorStack.length > 0 &&
-					operatorStack[operatorStack.length - 1].type === "FUNC"
-				) {
-					const func = operatorStack.pop()! as Extract<Token, { type: "FUNC" }>;
-					let args = argCountStack.pop()!;
-					const prevWasLparen =
-						tokens[j - 1] && tokens[j - 1].type === "LPAREN";
-					if (!prevWasLparen) args++;
-
-					// If the function expects a constant N at constArgIndex and the
-					// user wrote it inline (e.g. rolling([col], 5)), lift that NUMBER
-					// off the output queue into the FUNC token.
-					const meta = FUNCTION_BY_NAME.get(func.value);
-					if (
-						meta?.constArgIndex !== undefined &&
-						func.constN === undefined &&
-						args === meta.constArgIndex + 1
-					) {
-						const lastOut = outputQueue[outputQueue.length - 1];
-						if (lastOut?.type !== "NUMBER") {
-							throw new FormulaError(
-								`${meta.signature}: argument #${meta.constArgIndex + 1} must be a constant number`,
-								func.pos,
-							);
-						}
-						func.constN = lastOut.value;
-						outputQueue.pop();
-						args--;
-					}
-
-					// Arity validation
-					if (meta) {
-						const provided = args + (func.constN !== undefined ? 1 : 0);
-						const min = meta.minArgs;
-						const max = meta.maxArgs;
-						if (provided < min || (max !== -1 && provided > max)) {
-							throw new FormulaError(
-								`${meta.signature}: expected ${
-									max === -1
-										? `at least ${min}`
-										: min === max
-											? `${min}`
-											: `${min}–${max}`
-								} argument(s), got ${provided}`,
-								func.pos,
-							);
-						}
-					}
-
-					func.args = args;
-					outputQueue.push(func);
-
-					if (
-						args === 0 &&
-						(func.value === "avg" ||
-							func.value === "sum" ||
-							func.value === "min" ||
-							func.value === "max" ||
-							func.value === "median" ||
-							func.value === "std" ||
-							func.value === "var")
-					) {
-						usesAllColumns = true;
-					}
-				}
-			}
-		}
-		while (operatorStack.length > 0) {
-			const top = operatorStack.pop()!;
-			if (top.type === "LPAREN")
-				throw new FormulaError("Mismatched parentheses", top.pos);
-			outputQueue.push(top);
-		}
+		const { outputQueue, setUsesAllColumns } = shuntingYard(tokens);
+		if (setUsesAllColumns) usesAllColumns = true;
 
 		const finalDataColumnIndices = usesAllColumns
 			? [...ensureAllDataColumns()]
