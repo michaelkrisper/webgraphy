@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { WorkBook } from "xlsx";
-import type { Dataset } from "../services/persistence";
+import type { Dataset, SeriesConfig } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
 import { buildSeriesConfig } from "../utils/series";
@@ -78,8 +78,7 @@ const readTextFile = (
 const processImportedDatasets = (
 	incoming: Dataset[],
 	addDataset: (ds: Dataset) => void,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	addSeries: (series: any) => void,
+	addSeries: (series: SeriesConfig) => void,
 ) => {
 	const isSplitImport = incoming.length > 1;
 
