@@ -329,6 +329,226 @@ describe("compileFormula", () => {
 	});
 });
 
+describe("compileFormula — new language features", () => {
+	const columns = ["Timestamp", "A: Temp", "A: Hum", "A: Press"];
+
+	it("parses scientific-notation numeric literals", () => {
+		expect(compileFormula("1e3", columns).evaluate([])).toBe(1000);
+		expect(compileFormula("1.5e-2", columns).evaluate([])).toBeCloseTo(0.015);
+		expect(compileFormula("2.5E+2 + 1", columns).evaluate([])).toBe(251);
+	});
+
+	it("evaluates comparison and logical operators", () => {
+		expect(compileFormula("1 < 2", columns).evaluate([])).toBe(1);
+		expect(compileFormula("1 > 2", columns).evaluate([])).toBe(0);
+		expect(compileFormula("3 == 3", columns).evaluate([])).toBe(1);
+		expect(compileFormula("3 != 3", columns).evaluate([])).toBe(0);
+		expect(compileFormula("2 <= 2", columns).evaluate([])).toBe(1);
+		expect(compileFormula("2 >= 3", columns).evaluate([])).toBe(0);
+		expect(compileFormula("1 && 0", columns).evaluate([])).toBe(0);
+		expect(compileFormula("1 || 0", columns).evaluate([])).toBe(1);
+		expect(compileFormula("!0", columns).evaluate([])).toBe(1);
+		expect(compileFormula("!5", columns).evaluate([])).toBe(0);
+	});
+
+	it("comparison precedence works with arithmetic", () => {
+		// 1 + 2 > 2 → 3 > 2 → 1
+		expect(compileFormula("1 + 2 > 2", columns).evaluate([])).toBe(1);
+		// && binds tighter than ||
+		expect(compileFormula("0 || 1 && 0", columns).evaluate([])).toBe(0);
+	});
+
+	it("evaluates if(cond, a, b)", () => {
+		const { evaluate, usedColumnIndices } = compileFormula(
+			"if([Temp] > 100, 1, 0)",
+			columns,
+		);
+		// Only [Temp] is referenced, so row is single-valued.
+		expect(usedColumnIndices).toEqual([1]);
+		expect(evaluate([50])).toBe(0);
+		expect(evaluate([150])).toBe(1);
+	});
+
+	it("rejects if with wrong arity", () => {
+		const { error } = compileFormula("if([Temp] > 0, 1)", columns);
+		expect(error).toContain("if");
+		expect(error).toContain("3 argument");
+	});
+
+	it("evaluates isnan and coalesce", () => {
+		expect(compileFormula("isnan(0/0)", columns).evaluate([])).toBe(1);
+		expect(compileFormula("isnan(1)", columns).evaluate([])).toBe(0);
+		expect(compileFormula("coalesce(0/0, 0/0, 7)", columns).evaluate([])).toBe(7);
+		expect(compileFormula("coalesce(0/0, 0/0)", columns).evaluate([])).toBeNaN();
+	});
+
+	it("evaluates new math functions", () => {
+		expect(compileFormula("mod(7, 3)", columns).evaluate([])).toBe(1);
+		expect(compileFormula("mod(-7, 3)", columns).evaluate([])).toBe(2);
+		expect(compileFormula("sign(-3)", columns).evaluate([])).toBe(-1);
+		expect(compileFormula("clamp(15, 0, 10)", columns).evaluate([])).toBe(10);
+		expect(compileFormula("clamp(-5, 0, 10)", columns).evaluate([])).toBe(0);
+		expect(compileFormula("atan2(1, 1)", columns).evaluate([])).toBeCloseTo(
+			Math.PI / 4,
+		);
+		expect(compileFormula("hypot(3, 4)", columns).evaluate([])).toBe(5);
+		expect(compileFormula("log2(8)", columns).evaluate([])).toBe(3);
+		expect(compileFormula("logn(3, 27)", columns).evaluate([])).toBeCloseTo(3);
+		expect(compileFormula("pow(2, 10)", columns).evaluate([])).toBe(1024);
+		expect(compileFormula("trunc(3.7)", columns).evaluate([])).toBe(3);
+		expect(compileFormula("trunc(-3.7)", columns).evaluate([])).toBe(-3);
+		expect(compileFormula("sinh(0)", columns).evaluate([])).toBe(0);
+		expect(compileFormula("cosh(0)", columns).evaluate([])).toBe(1);
+		expect(compileFormula("tanh(0)", columns).evaluate([])).toBe(0);
+	});
+
+	it("evaluates median, std, var over arguments", () => {
+		expect(compileFormula("median(1, 2, 3)", columns).evaluate([])).toBe(2);
+		expect(compileFormula("median(1, 2, 3, 4)", columns).evaluate([])).toBe(2.5);
+		// Sample (n-1) variance / std.
+		expect(compileFormula("var(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([])).toBeCloseTo(32 / 7);
+		expect(compileFormula("std(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([])).toBeCloseTo(Math.sqrt(32 / 7));
+	});
+
+	it("aggregates with no args fall back to all numeric row columns", () => {
+		expect(compileFormula("median()", columns).evaluate([10, 20, 30])).toBe(20);
+		expect(compileFormula("std()", columns).usedColumnIndices.length).toBe(3);
+	});
+
+	it("rolling(expr, n) is equivalent to legacy avgN", () => {
+		const cols = ["Timestamp", "Temp"];
+		const a = compileFormula("rolling([Temp], 3)", cols);
+		const b = compileFormula("avg3([Temp])", cols);
+		const ctxA = a.createContext?.();
+		const ctxB = b.createContext?.();
+		for (const v of [10, 20, 30, 40, 50]) {
+			expect(a.evaluate([v], ctxA)).toBe(b.evaluate([v], ctxB));
+		}
+	});
+
+	it("rollingMed/Std/Min/Max give correct running stats", () => {
+		const cols = ["Timestamp", "Temp"];
+
+		const med = compileFormula("rollingMed([Temp], 3)", cols);
+		const cMed = med.createContext?.();
+		expect(med.evaluate([10], cMed)).toBe(10);
+		expect(med.evaluate([20], cMed)).toBe(15);
+		expect(med.evaluate([30], cMed)).toBe(20);
+		expect(med.evaluate([100], cMed)).toBe(30);
+
+		const std = compileFormula("rollingStd([Temp], 3)", cols);
+		const cStd = std.createContext?.();
+		std.evaluate([2], cStd);
+		std.evaluate([4], cStd);
+		expect(std.evaluate([6], cStd)).toBeCloseTo(2);
+
+		const rmin = compileFormula("rollingMin([Temp], 3)", cols);
+		const cMin = rmin.createContext?.();
+		rmin.evaluate([5], cMin);
+		rmin.evaluate([3], cMin);
+		expect(rmin.evaluate([7], cMin)).toBe(3);
+
+		const rmax = compileFormula("rollingMax([Temp], 3)", cols);
+		const cMax = rmax.createContext?.();
+		rmax.evaluate([5], cMax);
+		rmax.evaluate([10], cMax);
+		expect(rmax.evaluate([7], cMax)).toBe(10);
+	});
+
+	it("rolling rejects non-constant window argument", () => {
+		const { error } = compileFormula("rolling([A: Temp], [A: Hum])", columns);
+		expect(error).toContain("constant number");
+	});
+
+	it("rollingTime(expr, seconds) matches avgNs", () => {
+		const cols = ["Timestamp", "Temp"];
+		const a = compileFormula("rollingTime([Temp], 2)", cols);
+		const b = compileFormula("avg2s([Temp])", cols);
+		const ctxA = a.createContext?.();
+		const ctxB = b.createContext?.();
+		expect(a.evaluate([10, 1000], ctxA)).toBe(b.evaluate([10, 1000], ctxB));
+		expect(a.evaluate([20, 1001], ctxA)).toBe(b.evaluate([20, 1001], ctxB));
+		expect(a.evaluate([30, 1002], ctxA)).toBe(b.evaluate([30, 1002], ctxB));
+	});
+
+	it("lag(expr, n)", () => {
+		const cols = ["Timestamp", "Temp"];
+		const { evaluate, createContext } = compileFormula(
+			"lag([Temp], 2)",
+			cols,
+		);
+		const ctx = createContext?.();
+		expect(evaluate([10], ctx)).toBeNaN();
+		expect(evaluate([20], ctx)).toBeNaN();
+		expect(evaluate([30], ctx)).toBe(10);
+		expect(evaluate([40], ctx)).toBe(20);
+	});
+
+	it("diff(expr)", () => {
+		const cols = ["Timestamp", "Temp"];
+		const { evaluate, createContext } = compileFormula("diff([Temp])", cols);
+		const ctx = createContext?.();
+		expect(evaluate([10], ctx)).toBeNaN();
+		expect(evaluate([13], ctx)).toBe(3);
+		expect(evaluate([20], ctx)).toBe(7);
+		expect(evaluate([19], ctx)).toBe(-1);
+	});
+
+	it("cumsum / cumprod / cummax / cummin", () => {
+		const cols = ["Timestamp", "Temp"];
+		const sum = compileFormula("cumsum([Temp])", cols);
+		const c1 = sum.createContext?.();
+		expect(sum.evaluate([1], c1)).toBe(1);
+		expect(sum.evaluate([2], c1)).toBe(3);
+		expect(sum.evaluate([3], c1)).toBe(6);
+
+		const prod = compileFormula("cumprod([Temp])", cols);
+		const c2 = prod.createContext?.();
+		expect(prod.evaluate([2], c2)).toBe(2);
+		expect(prod.evaluate([3], c2)).toBe(6);
+		expect(prod.evaluate([4], c2)).toBe(24);
+
+		const mx = compileFormula("cummax([Temp])", cols);
+		const c3 = mx.createContext?.();
+		mx.evaluate([5], c3);
+		mx.evaluate([3], c3);
+		expect(mx.evaluate([8], c3)).toBe(8);
+		expect(mx.evaluate([2], c3)).toBe(8);
+
+		const mn = compileFormula("cummin([Temp])", cols);
+		const c4 = mn.createContext?.();
+		mn.evaluate([5], c4);
+		mn.evaluate([3], c4);
+		expect(mn.evaluate([8], c4)).toBe(3);
+		expect(mn.evaluate([1], c4)).toBe(1);
+	});
+
+	it("filter(expr, processNoise) accepts tuning argument", () => {
+		const cols = ["Timestamp", "Temp"];
+		const slow = compileFormula("filter([Temp], 1e-6)", cols);
+		const fast = compileFormula("filter([Temp], 0.5)", cols);
+		const cS = slow.createContext?.();
+		const cF = fast.createContext?.();
+		slow.evaluate([0], cS);
+		fast.evaluate([0], cF);
+		const slowOut = slow.evaluate([100], cS);
+		const fastOut = fast.evaluate([100], cF);
+		// Fast filter should track the jump more aggressively.
+		expect(fastOut).toBeGreaterThan(slowOut);
+	});
+
+	it("error positions point at the offending character", () => {
+		const r = compileFormula("1 + $ + 2", columns);
+		expect(r.error).toContain("Unexpected character: $");
+		expect(r.errorPos).toBe(4);
+	});
+
+	it("modulo operator", () => {
+		expect(compileFormula("7 % 3", columns).evaluate([])).toBe(1);
+		expect(compileFormula("-7 % 3", columns).evaluate([])).toBe(2);
+	});
+});
+
 describe("evaluateFormulaSync", () => {
 	it("should catch and return Error instances", () => {
 		const params = {

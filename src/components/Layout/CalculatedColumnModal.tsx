@@ -1,11 +1,14 @@
 import { AlertCircle, Check } from "lucide-react";
 import type React from "react";
 import { useMemo, useRef, useState } from "react";
-import { useFormulaEditor } from "../../hooks/useFormulaEditor";
+import {
+	signatureContext,
+	useFormulaEditor,
+} from "../../hooks/useFormulaEditor";
 import type { Dataset } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { compileFormula } from "../../utils/formula";
-import { FormulaShortcuts } from "./FormulaShortcuts";
+import { FormulaReference } from "./FormulaReference";
 import { Modal } from "./Modal";
 
 interface CalculatedColumnModalProps {
@@ -28,6 +31,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	const [nameUserEdited, setNameUserEdited] = useState(isEditing);
 	const [error, setError] = useState<string | null>(null);
 	const [isCalculating, setIsCalculating] = useState(false);
+	const [showReference, setShowReference] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const {
@@ -35,8 +39,10 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 		setFormula,
 		suggestions,
 		selectedSuggestion,
+		cursorPos,
 		handleFormulaKeyDown,
 		handleFormulaChange,
+		handleFormulaClickOrSelect,
 		applySuggestion,
 		insertText,
 	} = useFormulaEditor({
@@ -47,10 +53,9 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 
 	const currentName = nameUserEdited ? manualName : formula;
 
-	// Live validation
-	const validationMsg = useMemo(() => {
-		if (!formula.trim()) return null;
-		// Skip validation for regression formulas (handled by worker)
+	// Live validation with positional info.
+	const validation = useMemo(() => {
+		if (!formula.trim()) return { msg: null as string | null, pos: -1 };
 		const isRegression = /^(?:linreg|polyreg|expreg|logreg|kde)\s*\(/i.test(
 			formula.trim(),
 		);
@@ -61,14 +66,21 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 				const found = dataset.columns.some(
 					(c) => c === colName || c.endsWith(`: ${colName}`),
 				);
-				return found ? null : `Column not found: ${colName}`;
-			} else {
-				return "Expected: function([column])";
+				return found
+					? { msg: null, pos: -1 }
+					: { msg: `Column not found: ${colName}`, pos: -1 };
 			}
+			return { msg: "Expected: function([column])", pos: -1 };
 		}
 		const result = compileFormula(formula, dataset.columns);
-		return result.error || null;
+		return { msg: result.error || null, pos: result.errorPos ?? -1 };
 	}, [formula, dataset.columns]);
+
+	// Signature hint following the cursor.
+	const hint = useMemo(() => {
+		if (!formula) return null;
+		return signatureContext(formula, cursorPos);
+	}, [formula, cursorPos]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -86,7 +98,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 			return;
 		}
 
-		// Auto-close trailing missing brackets
+		// Auto-close trailing missing brackets.
 		const autoCloseFormula = (f: string): string => {
 			const stack: string[] = [];
 			const pairs: Record<string, string> = { "(": ")", "[": "]" };
@@ -136,9 +148,19 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 		</div>
 	);
 
+	const renderSuggestionContent = (s: (typeof suggestions)[number]) => (
+		<>
+			<span className="calc-suggestion-label">{s.label}</span>
+			{s.kind === "function" && (
+				<span className="calc-suggestion-sig">{s.signature}</span>
+			)}
+			<span className="calc-suggestion-detail">{s.detail}</span>
+		</>
+	);
+
 	return (
-		<Modal onClose={onClose} title={title} maxWidth="700px" padding="0">
-			<form onSubmit={handleSubmit} style={{ padding: "24px" }}>
+		<Modal onClose={onClose} title={title} maxWidth="760px" padding="0">
+			<form onSubmit={handleSubmit} className="calc-form">
 				<div className="calc-field">
 					<label htmlFor="col-name" className="calc-label">
 						Column Name
@@ -158,45 +180,68 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 				</div>
 
 				<div className="calc-formula-wrapper">
-					<label htmlFor="formula" className="calc-label">
-						Formula
-					</label>
+					<div className="calc-formula-header">
+						<label htmlFor="formula" className="calc-label">
+							Formula
+						</label>
+						<button
+							type="button"
+							onClick={() => setShowReference((v) => !v)}
+							className="calc-ref-toggle"
+							aria-expanded={showReference}
+						>
+							{showReference ? "Hide reference" : "Function reference"}
+						</button>
+					</div>
 					<textarea
 						ref={textareaRef}
 						id="formula"
 						value={formula}
 						onChange={handleFormulaChange}
 						onKeyDown={handleFormulaKeyDown}
-						placeholder="e.g. [Temperature] * -1 + 273.15"
-						style={{
-							width: "100%",
-							height: "80px",
-							padding: "8px",
-							borderRadius: "0",
-							border: `1px solid ${validationMsg ? "#ef4444" : formula.trim() && !validationMsg ? "#22c55e" : "var(--border-color)"}`,
-							fontSize: "14px",
-							fontFamily: "monospace",
-							resize: "vertical",
-							boxSizing: "border-box",
-							transition: "border-color 0.2s",
-						}}
+						onClick={handleFormulaClickOrSelect}
+						onSelect={handleFormulaClickOrSelect}
+						placeholder="e.g. if([Temperature] > 100, [Temperature] - 273.15, 0)"
+						className={`calc-formula-input ${
+							validation.msg
+								? "calc-formula-input--error"
+								: formula.trim()
+									? "calc-formula-input--ok"
+									: ""
+						}`}
 					/>
-					{validationMsg && (
-						<div className="calc-formula-msg calc-formula-msg--error">
-							{validationMsg}
+
+					{hint && !validation.msg && (
+						<div className="calc-sig-hint">
+							<code className="calc-sig-hint-sig">{hint.fn.signature}</code>
+							<span className="calc-sig-hint-desc">{hint.fn.description}</span>
 						</div>
 					)}
-					{!validationMsg && formula.trim() && (
+
+					{validation.msg && (
+						<div className="calc-formula-msg calc-formula-msg--error">
+							{validation.pos >= 0 && (
+								<span className="calc-formula-msg-pos">
+									col {validation.pos + 1}:
+								</span>
+							)}{" "}
+							{validation.msg}
+						</div>
+					)}
+					{!validation.msg && formula.trim() && (
 						<div className="calc-formula-msg calc-formula-msg--ok">
 							✓ Valid formula
 						</div>
 					)}
+
 					{suggestions.length > 0 && (
 						<div className="calc-suggestions" role="listbox">
 							{suggestions.map((s, i) => (
-								<div
-									key={s}
-									onMouseDown={() => {
+								<button
+									key={`${s.kind}-${s.label}`}
+									type="button"
+									onMouseDown={(e) => {
+										e.preventDefault();
 										if (textareaRef.current) {
 											applySuggestion(
 												s,
@@ -205,17 +250,17 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 											);
 										}
 									}}
-									className="calc-suggestion-item"
-									style={{
-										background:
-											i === selectedSuggestion ? "#e0f2fe" : "var(--bg)",
-									}}
+									className={`calc-suggestion-item calc-suggestion-item--${s.kind} ${
+										i === selectedSuggestion
+											? "calc-suggestion-item--active"
+											: ""
+									}`}
 									role="option"
 									aria-selected={i === selectedSuggestion}
 									tabIndex={-1}
 								>
-									{s}
-								</div>
+									{renderSuggestionContent(s)}
+								</button>
 							))}
 						</div>
 					)}
@@ -232,6 +277,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 								type="button"
 								onClick={() => insertColumn(col)}
 								className="calc-col-btn"
+								title={col}
 							>
 								{col.includes(": ") ? col.split(": ")[1] : col}
 							</button>
@@ -239,7 +285,11 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 					</div>
 				</div>
 
-				<FormulaShortcuts onInsertOperator={(op) => insertText(op, true)} />
+				{showReference && (
+					<FormulaReference
+						onInsert={(text, isFunction) => insertText(text, isFunction)}
+					/>
+				)}
 
 				{error && (
 					<div className="calc-error">
@@ -263,11 +313,12 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 					</button>
 					<button
 						type="submit"
-						disabled={isCalculating}
+						disabled={isCalculating || !!validation.msg}
 						className="calc-btn-submit"
 						style={{
-							cursor: isCalculating ? "not-allowed" : "pointer",
-							opacity: isCalculating ? 0.8 : 1,
+							cursor:
+								isCalculating || validation.msg ? "not-allowed" : "pointer",
+							opacity: isCalculating ? 0.8 : validation.msg ? 0.6 : 1,
 						}}
 					>
 						{isCalculating ? (

@@ -1,8 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useFormulaEditor } from "../useFormulaEditor";
+import {
+	type Suggestion,
+	signatureContext,
+	useFormulaEditor,
+} from "../useFormulaEditor";
 
-// Mock requestAnimationFrame to execute synchronously
 const originalRequestAnimationFrame = global.requestAnimationFrame;
 
 beforeEach(() => {
@@ -12,13 +15,10 @@ beforeEach(() => {
 	});
 });
 
-
 afterEach(() => {
 	global.requestAnimationFrame = originalRequestAnimationFrame;
 	vi.clearAllMocks();
 });
-
-
 
 const createMockTextarea = () => {
 	const mockTextarea = {
@@ -35,6 +35,21 @@ const createMockTextarea = () => {
 	return { mockTextarea, textareaRef };
 };
 
+const fnSuggestion = (label: string, insert: string): Suggestion => ({
+	kind: "function",
+	label,
+	insert,
+	signature: `${label}(…)`,
+	detail: "",
+});
+
+const colSuggestion = (label: string, insert: string): Suggestion => ({
+	kind: "column",
+	label,
+	insert,
+	detail: "",
+});
+
 describe("useFormulaEditor", () => {
 	const columns = ["Dataset: Column A", "Column B", "Dataset: Another"];
 
@@ -46,15 +61,13 @@ describe("useFormulaEditor", () => {
 		expect(result.current.formula).toBe("sin(x)");
 	});
 
-
-	it("initializes with empty string if no initialFormula", () => {
+	it("initializes empty by default", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 		expect(result.current.formula).toBe("");
 	});
-
 
 	it("inserts plain text correctly", () => {
 		const { mockTextarea, textareaRef } = createMockTextarea();
@@ -69,13 +82,11 @@ describe("useFormulaEditor", () => {
 			result.current.insertText("b");
 		});
 
-
 		expect(result.current.formula).toBe("a + b");
 		expect(mockTextarea.selectionStart).toBe(5);
 		expect(mockTextarea.selectionEnd).toBe(5);
 		expect(mockTextarea.focus).toHaveBeenCalled();
 	});
-
 
 	it("inserts operator correctly and appends a parenthesis", () => {
 		const { mockTextarea, textareaRef } = createMockTextarea();
@@ -90,112 +101,83 @@ describe("useFormulaEditor", () => {
 			result.current.insertText("sin(", true);
 		});
 
-
 		expect(result.current.formula).toBe("sin()");
 		expect(mockTextarea.selectionStart).toBe(4);
 		expect(mockTextarea.selectionEnd).toBe(4);
 		expect(mockTextarea.focus).toHaveBeenCalled();
 	});
 
-	it("updates formula and suggestions on change for functions", () => {
+	it("function suggestions on partial identifier", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 
-		const mockEvent = {
-			target: {
-				value: "si",
-				selectionStart: 2,
-			},
-		} as React.ChangeEvent<HTMLTextAreaElement>;
-
 		act(() => {
-			result.current.handleFormulaChange(mockEvent);
+			result.current.handleFormulaChange({
+				target: { value: "si", selectionStart: 2 },
+			} as React.ChangeEvent<HTMLTextAreaElement>);
 		});
-
 
 		expect(result.current.formula).toBe("si");
-		expect(result.current.suggestions).toEqual(["sin("]);
+		const labels = result.current.suggestions.map((s) => s.label);
+		expect(labels).toContain("sin");
+		expect(labels).toContain("sinh");
+		expect(labels).toContain("sign");
 		expect(result.current.selectedSuggestion).toBe(0);
 	});
 
-
-	it("updates formula and suggestions on change for columns", () => {
+	it("column suggestions inside a bracket", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 
-		const mockEvent = {
-			target: {
-				value: "[c",
-				selectionStart: 2,
-			},
-		} as React.ChangeEvent<HTMLTextAreaElement>;
-
 		act(() => {
-			result.current.handleFormulaChange(mockEvent);
+			result.current.handleFormulaChange({
+				target: { value: "[c", selectionStart: 2 },
+			} as React.ChangeEvent<HTMLTextAreaElement>);
 		});
-
 
 		expect(result.current.formula).toBe("[c");
-		expect(result.current.suggestions).toEqual(["Column A]", "Column B]"]);
-		expect(result.current.selectedSuggestion).toBe(0);
+		const labels = result.current.suggestions.map((s) => s.label);
+		expect(labels).toContain("Column A");
+		expect(labels).toContain("Column B");
+		for (const s of result.current.suggestions) {
+			expect(s.kind).toBe("column");
+		}
 	});
 
-
-	it("returns empty suggestions if function partial is less than 2 characters", () => {
-		const { textareaRef } = createMockTextarea();
-		const { result } = renderHook(() =>
-			useFormulaEditor({ columns, textareaRef }),
-		);
-
-		const mockEvent = {
-			target: {
-				value: "s",
-				selectionStart: 1,
-			},
-		} as React.ChangeEvent<HTMLTextAreaElement>;
-
-		act(() => {
-			result.current.handleFormulaChange(mockEvent);
-		});
-
-
-		expect(result.current.suggestions).toEqual([]);
-	});
-
-
-	it("applies suggestion for functions correctly", () => {
+	it("applies a function suggestion and auto-closes the paren", () => {
 		const { mockTextarea, textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 
 		act(() => {
-			result.current.applySuggestion("sin(", "si", 2);
+			result.current.applySuggestion(fnSuggestion("sin", "sin("), "si", 2);
 		});
 
-
-		expect(result.current.formula).toBe("sin(");
+		expect(result.current.formula).toBe("sin()");
 		expect(result.current.suggestions).toEqual([]);
 		expect(mockTextarea.selectionStart).toBe(4);
 		expect(mockTextarea.selectionEnd).toBe(4);
 		expect(mockTextarea.focus).toHaveBeenCalled();
 	});
 
-
-	it("applies suggestion for columns correctly", () => {
+	it("applies a column suggestion correctly", () => {
 		const { mockTextarea, textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 
 		act(() => {
-			result.current.applySuggestion("Column A]", "1 + [c", 6);
+			result.current.applySuggestion(
+				colSuggestion("Column A", "Column A]"),
+				"1 + [c",
+				6,
+			);
 		});
-
 
 		expect(result.current.formula).toBe("1 + [Column A]");
 		expect(result.current.suggestions).toEqual([]);
@@ -204,8 +186,7 @@ describe("useFormulaEditor", () => {
 		expect(mockTextarea.focus).toHaveBeenCalled();
 	});
 
-
-	it("handles auto-pairing brackets on keydown", () => {
+	it("auto-pairs ( on keydown", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
@@ -225,14 +206,12 @@ describe("useFormulaEditor", () => {
 			result.current.handleFormulaKeyDown(mockEvent);
 		});
 
-
 		expect(mockEvent.preventDefault).toHaveBeenCalled();
 		expect(result.current.formula).toBe("sin()");
 		expect(mockEvent.currentTarget.selectionStart).toBe(4);
 	});
 
-
-	it("skips closing bracket if it already exists", () => {
+	it("skips a duplicate closing bracket on keydown", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ initialFormula: "sin()", columns, textareaRef }),
@@ -252,52 +231,21 @@ describe("useFormulaEditor", () => {
 			result.current.handleFormulaKeyDown(mockEvent);
 		});
 
-
 		expect(mockEvent.preventDefault).toHaveBeenCalled();
 		expect(mockEvent.currentTarget.selectionStart).toBe(5);
 	});
 
-
-	it("navigates suggestions via arrow keys and escape", () => {
+	it("navigates suggestions and escapes them", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
 		);
 
-		// First, populate suggestions
 		act(() => {
 			result.current.handleFormulaChange({
-				target: { value: "s", selectionStart: 1 }
+				target: { value: "av", selectionStart: 2 },
 			} as React.ChangeEvent<HTMLTextAreaElement>);
 		});
-
-
-		act(() => {
-			result.current.handleFormulaChange({
-				target: { value: "si", selectionStart: 2 }
-			} as React.ChangeEvent<HTMLTextAreaElement>);
-		});
-
-
-		// By default it selects index 0. We expect "sin(". Let's verify we got suggestions
-		expect(result.current.suggestions.length).toBeGreaterThan(0);
-
-		// Press arrow down
-		act(() => {
-			result.current.handleFormulaKeyDown({
-				key: "ArrowDown",
-				currentTarget: { value: "si", selectionStart: 2, selectionEnd: 2 },
-				preventDefault: vi.fn(),
-			} as unknown as React.KeyboardEvent<HTMLTextAreaElement>);
-		});
-
-
-		act(() => {
-			result.current.handleFormulaChange({
-				target: { value: "av", selectionStart: 2 }
-			} as React.ChangeEvent<HTMLTextAreaElement>);
-		});
-
 
 		expect(result.current.suggestions.length).toBeGreaterThan(1);
 
@@ -332,8 +280,7 @@ describe("useFormulaEditor", () => {
 		expect(result.current.suggestions).toEqual([]);
 	});
 
-
-	it("applies suggestion via enter/tab key", () => {
+	it("applies the selected suggestion via Enter", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
 			useFormulaEditor({ columns, textareaRef }),
@@ -341,21 +288,44 @@ describe("useFormulaEditor", () => {
 
 		act(() => {
 			result.current.handleFormulaChange({
-				target: { value: "si", selectionStart: 2 }
+				target: { value: "sin", selectionStart: 3 },
 			} as React.ChangeEvent<HTMLTextAreaElement>);
 		});
-
 
 		act(() => {
 			result.current.handleFormulaKeyDown({
 				key: "Enter",
-				currentTarget: { value: "si", selectionStart: 2, selectionEnd: 2 },
+				currentTarget: { value: "sin", selectionStart: 3, selectionEnd: 3 },
 				preventDefault: vi.fn(),
 			} as unknown as React.KeyboardEvent<HTMLTextAreaElement>);
 		});
 
+		// The first matching suggestion is "sin"; auto-closes paren.
+		expect(result.current.formula).toBe("sin()");
+	});
+});
 
-		expect(result.current.formula).toBe("sin(");
+describe("signatureContext", () => {
+	it("identifies the function the cursor is inside", () => {
+		const ctx = signatureContext("if([t] > 100, 1, 0)", 13);
+		expect(ctx?.fn.name).toBe("if");
+		expect(ctx?.argIndex).toBe(1);
 	});
 
+	it("returns null outside any function", () => {
+		expect(signatureContext("[t] + 1", 5)).toBeNull();
+	});
+
+	it("resolves legacy alias names back to canonical metadata", () => {
+		const ctx = signatureContext("avg5([t])", 5);
+		expect(ctx?.fn.name).toBe("rolling");
+	});
+
+	it("counts argument index across nested calls correctly", () => {
+		// Cursor at position 20 (sitting on the final "0") — third argument
+		// of the outer if(); commas inside the nested sin() must be ignored.
+		const ctx = signatureContext("if(sin([t]) > 0, 1, 0)", 20);
+		expect(ctx?.fn.name).toBe("if");
+		expect(ctx?.argIndex).toBe(2);
+	});
 });

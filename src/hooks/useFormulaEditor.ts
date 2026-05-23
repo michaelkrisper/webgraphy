@@ -1,76 +1,115 @@
 import { useCallback, useState } from "react";
+import {
+	CONSTANTS,
+	FUNCTIONS,
+	type FormulaFunctionMeta,
+} from "../utils/formulaFunctions";
 
 const BRACKET_PAIRS: Record<string, string> = { "(": ")", "[": "]" };
 const CLOSING_BRACKETS = new Set([")", "]"]);
 
-const ALL_FUNCTIONS = [
-	"sin(",
-	"cos(",
-	"tan(",
-	"asin(",
-	"acos(",
-	"atan(",
-	"sqrt(",
-	"abs(",
-	"exp(",
-	"log(",
-	"ln(",
-	"round(",
-	"floor(",
-	"ceil(",
-	"min(",
-	"max(",
-	"avg(",
-	"sum(",
-	"avg5(",
-	"avg5c(",
-	"avg5l(",
-	"avg5r(",
-	"avg10(",
-	"avg50(",
-	"avg100(",
-	"avg5s(",
-	"avg5sc(",
-	"avg5sl(",
-	"avg5sr(",
-	"avg5m(",
-	"avg1h(",
-	"avg1hc(",
-	"avg1hl(",
-	"avg1hr(",
-	"avg1d(",
-	"avgDay(",
-	"avgDayc(",
-	"avgDayl(",
-	"avgDayr(",
-	"avgHour(",
-	"avgHourc(",
-	"avgHourl(",
-	"avgHourr(",
-	"avgMinute(",
-	"avgMinutec(",
-	"avgMinutel(",
-	"avgMinuter(",
-	"avgSecond(",
-	"avgSecondc(",
-	"avgSecondl(",
-	"avgSecondr(",
-	"sumDay(",
-	"sumHour(",
-	"sumMinute(",
-	"sumSecond(",
-	"filter(",
-	"linreg(",
-	"polyreg(",
-	"expreg(",
-	"logreg(",
-	"kde(",
-];
+export type Suggestion =
+	| {
+			kind: "column";
+			label: string;
+			insert: string;
+			detail: string;
+	  }
+	| {
+			kind: "function";
+			label: string;
+			insert: string;
+			signature: string;
+			detail: string;
+	  }
+	| {
+			kind: "constant";
+			label: string;
+			insert: string;
+			detail: string;
+	  };
+
+/** Display-friendly insertion strings for the user-typed function names. */
+const FUNCTION_DISPLAY_NAMES: Record<string, string> = {
+	rolling: "rolling",
+	rollingc: "rollingC",
+	rollingr: "rollingR",
+	rollingtime: "rollingTime",
+	rollingtimec: "rollingTimeC",
+	rollingtimer: "rollingTimeR",
+	rollingmed: "rollingMed",
+	rollingstd: "rollingStd",
+	rollingmin: "rollingMin",
+	rollingmax: "rollingMax",
+	avgday: "avgDay",
+	avghour: "avgHour",
+	avgminute: "avgMinute",
+	avgsecond: "avgSecond",
+	sumday: "sumDay",
+	sumhour: "sumHour",
+	summinute: "sumMinute",
+	sumsecond: "sumSecond",
+};
+
+function displayName(meta: FormulaFunctionMeta): string {
+	return FUNCTION_DISPLAY_NAMES[meta.name] ?? meta.name;
+}
 
 interface UseFormulaEditorProps {
 	initialFormula?: string;
 	columns: string[];
 	textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+}
+
+/**
+ * Returns the function name and argument index the cursor is currently
+ * inside, by walking left through matched bracket pairs. Powers the
+ * Excel-style signature hint that floats below the cursor.
+ */
+export function signatureContext(
+	text: string,
+	cursorPos: number,
+): { fn: FormulaFunctionMeta; argIndex: number } | null {
+	let depth = 0;
+	let argIndex = 0;
+	for (let i = cursorPos - 1; i >= 0; i--) {
+		const c = text[i];
+		if (c === ")") depth++;
+		else if (c === "(") {
+			if (depth === 0) {
+				// Identifier ending at i — walk left to extract it.
+				let j = i - 1;
+				while (j >= 0 && /[a-zA-Z0-9_]/.test(text[j])) j--;
+				const name = text.substring(j + 1, i).toLowerCase();
+				if (!name) return null;
+				const meta =
+					FUNCTIONS.find((f) => f.name === name) ?? lookupLegacy(name);
+				if (!meta) return null;
+				return { fn: meta, argIndex };
+			}
+			depth--;
+		} else if (c === "," && depth === 0) {
+			argIndex++;
+		} else if (c === "[") {
+			// Skip column references entirely (no nested logic inside them).
+		}
+	}
+	return null;
+}
+
+/** Best-effort metadata lookup for legacy short forms (avgN, avg5s, …). */
+function lookupLegacy(name: string): FormulaFunctionMeta | null {
+	if (/^avg\d+[lcr]?$/.test(name)) {
+		return FUNCTIONS.find((f) => f.name === "rolling") ?? null;
+	}
+	if (/^avg\d+[smhd][lcr]?$/.test(name)) {
+		return FUNCTIONS.find((f) => f.name === "rollingtime") ?? null;
+	}
+	if (/^(avg|sum)(day|hour|minute|second)[lcr]?$/.test(name)) {
+		const root = name.replace(/[lcr]$/, "");
+		return FUNCTIONS.find((f) => f.name === root) ?? null;
+	}
+	return null;
 }
 
 export function useFormulaEditor({
@@ -79,53 +118,104 @@ export function useFormulaEditor({
 	textareaRef,
 }: UseFormulaEditorProps) {
 	const [formula, setFormula] = useState(initialFormula ?? "");
-	const [suggestions, setSuggestions] = useState<string[]>([]);
+	const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 	const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+	const [cursorPos, setCursorPos] = useState(0);
 
 	const getCompletions = useCallback(
-		(text: string, cursorPos: number) => {
-			const beforeCursor = text.slice(0, cursorPos);
+		(text: string, pos: number): Suggestion[] => {
+			const beforeCursor = text.slice(0, pos);
+
+			// Inside [Foo — complete column names.
 			const bracketMatch = beforeCursor.match(/\[([^\]]*)$/);
 			if (bracketMatch) {
 				const partial = bracketMatch[1].toLowerCase();
-				const cols = columns
-					.map((c) => (c.includes(": ") ? c.split(": ")[1] : c))
-					.filter((c) => c.toLowerCase().startsWith(partial))
-					.slice(0, 8);
-				return cols.map((c) => `${c}]`);
+				return columns
+					.filter((c) => {
+						const short = c.includes(": ") ? c.split(": ")[1] : c;
+						return (
+							short.toLowerCase().startsWith(partial) ||
+							c.toLowerCase().startsWith(partial)
+						);
+					})
+					.slice(0, 8)
+					.map((c) => {
+						const short = c.includes(": ") ? c.split(": ")[1] : c;
+						return {
+							kind: "column" as const,
+							label: short,
+							insert: `${short}]`,
+							detail: c !== short ? `from ${c.split(": ")[0]}` : "column",
+						};
+					});
 			}
-			const funcMatch = beforeCursor.match(/([a-zA-Z]\w*)$/);
-			if (funcMatch) {
-				const partial = funcMatch[1].toLowerCase();
-				if (partial.length < 2) return [];
-				return ALL_FUNCTIONS.filter((f) =>
-					f.toLowerCase().startsWith(partial),
-				).slice(0, 8);
+
+			// Otherwise — function or constant name.
+			const idMatch = beforeCursor.match(/([a-zA-Z_][a-zA-Z0-9_]*)$/);
+			if (idMatch) {
+				const partial = idMatch[1].toLowerCase();
+				if (partial.length < 1) return [];
+				const out: Suggestion[] = [];
+
+				for (const c of CONSTANTS) {
+					if (c.name.toLowerCase().startsWith(partial)) {
+						out.push({
+							kind: "constant",
+							label: c.name,
+							insert: c.name,
+							detail: c.description,
+						});
+					}
+				}
+				for (const f of FUNCTIONS) {
+					const display = displayName(f);
+					if (display.toLowerCase().startsWith(partial)) {
+						out.push({
+							kind: "function",
+							label: display,
+							insert: `${display}(`,
+							signature: f.signature,
+							detail: f.description,
+						});
+					}
+				}
+
+				return out.slice(0, 10);
 			}
+
 			return [];
 		},
 		[columns],
 	);
 
 	const applySuggestion = useCallback(
-		(suggestion: string, currentValue: string, cursorPos: number) => {
-			const before = currentValue.slice(0, cursorPos);
-			const after = currentValue.slice(cursorPos);
+		(suggestion: Suggestion, currentValue: string, pos: number) => {
+			const before = currentValue.slice(0, pos);
+			const after = currentValue.slice(pos);
 			const bracketMatch = before.match(/\[([^\]]*)$/);
-			const funcMatch = before.match(/([a-zA-Z]\w*)$/);
-			let replaceStart = cursorPos;
+			const idMatch = before.match(/([a-zA-Z_][a-zA-Z0-9_]*)$/);
+			let replaceStart = pos;
+			if (bracketMatch) replaceStart = pos - bracketMatch[1].length;
+			else if (idMatch) replaceStart = pos - idMatch[1].length;
 
-			if (bracketMatch) replaceStart = cursorPos - bracketMatch[1].length;
-			else if (funcMatch) replaceStart = cursorPos - funcMatch[1].length;
-			const newFormula = before.slice(0, replaceStart) + suggestion + after;
+			// Auto-close the function paren if there isn't one already.
+			let insert = suggestion.insert;
+			let cursorOffset = insert.length;
+			if (suggestion.kind === "function" && after[0] !== ")") {
+				insert = `${insert})`;
+				cursorOffset = suggestion.insert.length; // place cursor inside (
+			}
+
+			const newFormula = before.slice(0, replaceStart) + insert + after;
 			setFormula(newFormula);
 			setSuggestions([]);
-			const newPos = replaceStart + suggestion.length;
+			const newPos = replaceStart + cursorOffset;
 			requestAnimationFrame(() => {
 				if (textareaRef.current) {
 					textareaRef.current.selectionStart =
 						textareaRef.current.selectionEnd = newPos;
 					textareaRef.current.focus();
+					setCursorPos(newPos);
 				}
 			});
 		},
@@ -148,6 +238,7 @@ export function useFormulaEditor({
 				requestAnimationFrame(() => {
 					ta.selectionStart = ta.selectionEnd =
 						selectionStart + 1 + selected.length;
+					setCursorPos(selectionStart + 1 + selected.length);
 				});
 				return;
 			}
@@ -156,6 +247,7 @@ export function useFormulaEditor({
 				e.preventDefault();
 				requestAnimationFrame(() => {
 					ta.selectionStart = ta.selectionEnd = selectionStart + 1;
+					setCursorPos(selectionStart + 1);
 				});
 				return;
 			}
@@ -196,11 +288,20 @@ export function useFormulaEditor({
 		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
 			const newValue = e.target.value;
 			setFormula(newValue);
-			const completions = getCompletions(newValue, e.target.selectionStart);
+			const pos = e.target.selectionStart;
+			setCursorPos(pos);
+			const completions = getCompletions(newValue, pos);
 			setSuggestions(completions);
 			setSelectedSuggestion(0);
 		},
 		[getCompletions],
+	);
+
+	const handleFormulaClickOrSelect = useCallback(
+		(e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+			setCursorPos(e.currentTarget.selectionStart);
+		},
+		[],
 	);
 
 	const insertText = useCallback(
@@ -224,6 +325,7 @@ export function useFormulaEditor({
 						cursorOffset;
 					ta.selectionStart = ta.selectionEnd = newPos;
 					ta.focus();
+					setCursorPos(newPos);
 				}
 			});
 		},
@@ -235,8 +337,10 @@ export function useFormulaEditor({
 		setFormula,
 		suggestions,
 		selectedSuggestion,
+		cursorPos,
 		handleFormulaKeyDown,
 		handleFormulaChange,
+		handleFormulaClickOrSelect,
 		applySuggestion,
 		insertText,
 	};

@@ -75,23 +75,32 @@ Pushes to `master` are automatically built and published to GitHub Pages by the 
 
 ## Formula Engine
 
-Reference other columns with `[Column Name]`. Math operators: `+ - * / ^` with parentheses. Constants `pi`, `e`.
+Reference other columns with `[Column Name]`. Constants `pi`, `e`. Numeric literals accept scientific notation (`1.5e-3`).
+
+**Operators** — arithmetic `+ − × ÷ % ^`, comparison `< > <= >= == !=`, logical `&& || !`. Comparison results are `0` / `1` so they can be combined with arithmetic.
+
+The Add Calculated Series modal includes a searchable in-app function reference and live signature hints as you type — most of the table below is also browsable there.
 
 | Function | Purpose |
 | --- | --- |
-| `sqrt`, `abs`, `exp`, `log` (base 10), `ln`, `round`, `floor`, `ceil` | Math basics |
-| `sin`, `cos`, `tan`, `asin`, `acos`, `atan` | Trigonometry (radians) |
-| `min(...)`, `max(...)`, `sum(...)`, `avg(...)` | Aggregations (no args = across all numeric columns in the row) |
-| `avgN([col])` | Rolling average over N rows. Suffix: `avgNc` central (default), `avgNl` left/trailing, `avgNr` right/leading |
-| `avgNs / avgNm / avgNh / avgNd([col])` | Rolling average over N seconds/minutes/hours/days, with the same `c`/`l`/`r` alignment suffix |
+| `sqrt`, `abs`, `exp`, `log`, `log2`, `ln`, `logn(base,x)`, `pow`, `round`, `floor`, `ceil`, `trunc`, `sign`, `mod`, `clamp`, `hypot` | Math |
+| `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2(y,x)`, `sinh`, `cosh`, `tanh` | Trigonometry (radians) |
+| `min(...)`, `max(...)`, `sum(...)`, `avg(...)`, `median(...)`, `std(...)`, `var(...)` | Aggregates across arguments — no args means across all numeric columns in the row |
+| `if(cond, a, b)`, `isnan(x)`, `coalesce(a, b, …)` | Conditional logic & missing-value handling |
+| `rolling(expr, n)`, `rollingC`, `rollingR` | General rolling mean — left/central/right alignment. Legacy `avgN`/`avgNc`/`avgNl`/`avgNr` are aliased to these. |
+| `rollingTime(expr, seconds)`, `rollingTimeC`, `rollingTimeR` | Time-window rolling mean. Legacy `avgNs/m/h/d` and their `c`/`l`/`r` suffixes are aliased to these. |
+| `rollingMed`, `rollingStd`, `rollingMin`, `rollingMax(expr, n)` | Rolling stats over the last *n* rows |
+| `lag(expr, n)`, `diff(expr)`, `cumsum`, `cumprod`, `cummax`, `cummin` | Row-relative operators |
 | `avgDay`, `avgHour`, `avgMinute`, `avgSecond([col])` | Per-bucket cumulative average (resets per calendar bucket) |
 | `sumDay`, `sumHour`, `sumMinute`, `sumSecond([col])` | Per-bucket cumulative sum |
-| `filter([col])` | Adaptive Kalman filter (noise smoothing) |
+| `filter(expr [, processNoise])` | Adaptive Kalman filter (noise smoothing). Optional second arg tunes how aggressively it tracks the signal (default `1e-3`). |
 | `linreg([col])` | Linear regression fit |
 | `polyreg([col], degree)` | Polynomial regression (default degree 3) |
 | `expreg([col])` | Exponential regression fit |
 | `logreg([col])` | Logistic regression fit |
 | `kde([col])` or `kde([col], bandwidth)` | KDE-smoothed fit |
+
+The `rolling…` window size and `lag(…, n)` offset must be compile-time numeric literals so the engine can keep one ring buffer per call site. Comparison operators evaluate `NaN` as falsy.
 
 ## Architecture
 

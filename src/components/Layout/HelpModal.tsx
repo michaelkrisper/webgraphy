@@ -109,15 +109,18 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				</li>
 				<li>
 					<strong>Calculated Columns:</strong> Reference columns with{" "}
-					<code>[Column Name]</code>. Supports math/trig, rolling averages{" "}
-					<code>avgN</code> / <code>avgNs|m|h|d</code> with{" "}
-					<code>c</code>/<code>l</code>/<code>r</code> alignment,
-					per-bucket{" "}
-					<code>avgDay</code>/<code>avgHour</code>/<code>avgMinute</code>/
-					<code>avgSecond</code> (and <code>sum…</code> variants), Kalman{" "}
-					<code>filter</code>, and regressions <code>linreg</code>,{" "}
-					<code>polyreg</code>, <code>expreg</code>, <code>logreg</code>,{" "}
-					<code>kde</code>
+					<code>[Column Name]</code>. Math/trig, conditional{" "}
+					<code>if(cond, a, b)</code> with comparison (<code>&lt; &gt; ==</code>)
+					and logical (<code>&amp;&amp; ||</code>) operators, aggregates{" "}
+					<code>median/std/var</code>, NaN handling{" "}
+					<code>isnan/coalesce</code>; rolling windows{" "}
+					<code>rolling(expr, n)</code> / <code>rollingTime</code> /
+					<code>rollingMed/Std/Min/Max</code> (plus legacy <code>avgN</code>{" "}
+					aliases); row-relative <code>lag/diff/cumsum/cumprod</code>;
+					per-bucket <code>avgDay/Hour/Minute/Second</code> and{" "}
+					<code>sum…</code> variants; Kalman <code>filter</code>; regressions{" "}
+					<code>linreg/polyreg/expreg/logreg/kde</code>. The editor has a
+					searchable function reference and live signature hints.
 				</li>
 				<li>
 					<strong>X-Axis per Dataset:</strong> Cycle the dataset's X-axis (1–9)
