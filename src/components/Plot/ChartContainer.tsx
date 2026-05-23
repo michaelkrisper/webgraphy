@@ -522,7 +522,7 @@ export default function ChartContainer() {
 			if (forced) {
 				// Derive labels from unique values across bound datasets.
 				const uniq = new Set<number>();
-				for (const d of dss) {
+				outer: for (const d of dss) {
 					const colIdx = getColumnIndex(d, d.xAxisColumn);
 					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 					if (!col) continue;
@@ -530,8 +530,8 @@ export default function ChartContainer() {
 					const arr = col.data;
 					for (let i = 0; i < arr.length; i++) {
 						uniq.add(arr[i] + ref);
+						if (uniq.size > 1000) break outer;
 					}
-					if (uniq.size > 1000) break;
 				}
 				const sorted = Array.from(uniq).sort((a, b) => a - b);
 				out.set(axisId, {
