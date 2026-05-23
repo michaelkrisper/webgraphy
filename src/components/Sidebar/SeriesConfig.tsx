@@ -63,48 +63,57 @@ function lineIcon(style: LineStyle) {
 	);
 }
 
+function PointCircleIcon({ size }: { size: number }) {
+	return (
+		<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
+	);
+}
+
+function PointSquareIcon({ size }: { size: number }) {
+	return (
+		<svg width={size} height={size} viewBox="0 0 24 24">
+			<title>Square</title>
+			<rect
+				x="3"
+				y="3"
+				width="18"
+				height="18"
+				rx="2"
+				ry="2"
+				fill="currentColor"
+				stroke="white"
+				strokeWidth="2"
+				paintOrder="stroke fill"
+			/>
+		</svg>
+	);
+}
+
+function PointCrossIcon({ size }: { size: number }) {
+	return <X size={size + 2} strokeWidth={3} />;
+}
+
+function PointNoneIcon({ size }: { size: number }) {
+	return (
+		<svg width={size + 4} height={size + 4} viewBox="0 0 16 16">
+			<title>No Points</title>
+			<circle cx="8" cy="8" r="5" fill="currentColor" opacity="0.35" />
+			<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="1.5" />
+		</svg>
+	);
+}
+
 function pointIcon(style: PointStyle) {
 	const size = 12;
 	switch (style) {
 		case "circle":
-			return (
-				<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
-			);
+			return <PointCircleIcon size={size} />;
 		case "square":
-			return (
-				<svg width={size} height={size} viewBox="0 0 24 24">
-					<title>Square</title>
-					<rect
-						x="3"
-						y="3"
-						width="18"
-						height="18"
-						rx="2"
-						ry="2"
-						fill="currentColor"
-						stroke="white"
-						strokeWidth="2"
-						paintOrder="stroke fill"
-					/>
-				</svg>
-			);
+			return <PointSquareIcon size={size} />;
 		case "cross":
-			return <X size={size + 2} strokeWidth={3} />;
+			return <PointCrossIcon size={size} />;
 		case "none":
-			return (
-				<svg width={size + 4} height={size + 4} viewBox="0 0 16 16">
-					<title>No Points</title>
-					<circle cx="8" cy="8" r="5" fill="currentColor" opacity="0.35" />
-					<line
-						x1="2"
-						y1="2"
-						x2="14"
-						y2="14"
-						stroke="#dc3545"
-						strokeWidth="1.5"
-					/>
-				</svg>
-			);
+			return <PointNoneIcon size={size} />;
 	}
 }
 
