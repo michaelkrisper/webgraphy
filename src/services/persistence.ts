@@ -60,7 +60,7 @@ export interface SeriesConfig {
 	hidden?: boolean;
 }
 
-export interface ViewportState {
+interface ViewportState {
 	xAxes: XAxisConfig[];
 	yAxes: YAxisConfig[];
 }
