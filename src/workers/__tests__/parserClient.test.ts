@@ -5,13 +5,13 @@ class MockWorker {
   onerror: ((ev: ErrorEvent | Event) => void) | null = null;
   postMessage = vi.fn();
 
-  simulateMessage(data: any) {
+  simulateMessage(data: unknown) {
     if (this.onmessage) {
       this.onmessage({ data } as MessageEvent);
     }
   }
 
-  simulateError(error: any) {
+  simulateError(error: ErrorEvent | Event) {
     if (this.onerror) {
       this.onerror(error);
     }
