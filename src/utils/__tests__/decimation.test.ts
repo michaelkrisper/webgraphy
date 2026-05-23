@@ -180,6 +180,22 @@ describe("m4Float32", () => {
 });
 
 describe("m4ByXFloat32", () => {
+	it("preserves min, max, first, and last values when points exceed threshold", () => {
+		// All points fall into a single bucket [0, 10).
+		const x = new Float32Array([1, 2, 3, 4, 5, 6, 7]);
+		const y = new Float32Array([10, 5, 100, 20, -50, 15, 30]);
+
+		// First: y=10 (idx 0)
+		// Max: y=100 (idx 2)
+		// Min: y=-50 (idx 4)
+		// Last: y=30 (idx 6)
+		const r = m4ByXFloat32(x, y, 0, 0, 10, 10);
+
+		// Output indices should be sorted: 0, 2, 4, 6
+		expect(Array.from(r.x)).toEqual([1, 3, 5, 7]);
+		expect(Array.from(r.y)).toEqual([10, 100, -50, 30]);
+	});
+
 	it("returns empty for empty input", () => {
 		const x = new Float32Array([]);
 		const y = new Float32Array([]);
