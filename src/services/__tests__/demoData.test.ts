@@ -14,6 +14,12 @@ describe("demoData", () => {
 	});
 
 	describe("generateDemoDataset", () => {
+		it("should generate a dataset with correct structure and metadata using default rowCount", () => {
+			const dataset = generateDemoDataset();
+			expect(dataset.rowCount).toBe(10000);
+			expect(dataset.data[0].data.length).toBe(10000);
+		});
+
 		it("should generate a dataset with correct structure and metadata", () => {
 			const dataset = generateDemoDataset(100);
 
@@ -130,6 +136,47 @@ describe("demoData", () => {
 
 			vi.restoreAllMocks();
 		}, 10000);
+
+		it("should simulate daytime solar irradiance and cloud passing", () => {
+			// Instead of a complex alternating mock, let's run the function twice:
+			// Once with a mock that forces clear skies (random <= 0.95)
+			// Once with a mock that forces clouds (random > 0.95)
+
+			// 1. Clear sky (random = 0.5)
+			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
+			const clearDataset = generateDemoDataset(1440);
+			const clearSolarColIndex = clearDataset.columns.findIndex((c) =>
+				c.includes("Solar Irradiance"),
+			);
+			const clearSolarCol = clearDataset.data[clearSolarColIndex];
+			const noonIndex = 12 * 60; // 12:00 PM
+			const clearNoonVal =
+				clearSolarCol.refPoint + clearSolarCol.data[noonIndex];
+
+			// Verify it's greater than 0 at noon
+			expect(clearNoonVal).toBeGreaterThan(0);
+
+			// Verify nighttime is 0
+			const midnightIndex = 0; // 0:00 AM
+			expect(clearSolarCol.refPoint + clearSolarCol.data[midnightIndex]).toBe(
+				0,
+			);
+
+			// 2. Cloudy sky (random = 0.99)
+			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.99);
+			const cloudyDataset = generateDemoDataset(1440);
+			const cloudySolarColIndex = cloudyDataset.columns.findIndex((c) =>
+				c.includes("Solar Irradiance"),
+			);
+			const cloudySolarCol = cloudyDataset.data[cloudySolarColIndex];
+			const cloudyNoonVal =
+				cloudySolarCol.refPoint + cloudySolarCol.data[noonIndex];
+
+			// Verify the cloud passing reduced the solar irradiance to 30%
+			expect(cloudyNoonVal).toBeCloseTo(clearNoonVal * 0.3, 1);
+
+			vi.restoreAllMocks();
+		});
 	});
 
 	describe("getDemoAppState", () => {
