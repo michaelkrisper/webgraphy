@@ -523,8 +523,7 @@ export default function ChartContainer() {
 				// Derive labels from unique values across bound datasets.
 				const uniq = new Set<number>();
 				for (const d of dss) {
-					const dsMap = colIndexMaps.get(d.id);
-					const colIdx = dsMap?.get(d.xAxisColumn) ?? -1;
+					const colIdx = getColumnIndex(d, d.xAxisColumn);
 					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 					if (!col) continue;
 					const ref = col.refPoint;
