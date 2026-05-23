@@ -65,10 +65,16 @@ type OverlayYEntry = {
 };
 
 function updateOverlayAxes(
-	scratch: { xAxes: OverlayXEntry[]; yAxes: OverlayYEntry[] },
+	scratch: {
+		xAxes: OverlayXEntry[];
+		yAxes: OverlayYEntry[];
+		estVertexCount?: number;
+	},
 	xLayout: XAxisLayout[],
 	yLayout: YAxisLayout[],
 ) {
+	let est = 12 + 12 + 32;
+
 	const sx = scratch.xAxes;
 	sx.length = xLayout.length;
 	for (let i = 0; i < xLayout.length; i++) {
@@ -98,6 +104,11 @@ function updateOverlayAxes(
 			const t = src[j];
 			dst[j] = typeof t === "number" ? t : t.timestamp;
 		}
+
+		est += (src.length + 1) * 4 + 6;
+		if (i === 0 && a.showGrid) {
+			est += src.length * 4;
+		}
 	}
 	const sy = scratch.yAxes;
 	sy.length = yLayout.length;
@@ -124,7 +135,14 @@ function updateOverlayAxes(
 			entry.position = a.position;
 			entry.categoryLabels = a.categoryLabels;
 		}
+
+		est += (a.ticks.length + 1) * 4 + 6;
+		if (a.showGrid) {
+			est += a.ticks.length * 4;
+		}
 	}
+
+	scratch.estVertexCount = est;
 }
 
 function syncStoreUpdates(
@@ -322,6 +340,7 @@ export default function ChartContainer() {
 		zeroLineColor: string;
 		gridColor: string;
 		plotBg: string;
+		estVertexCount?: number;
 	}>({
 		xAxes: [],
 		yAxes: [],
