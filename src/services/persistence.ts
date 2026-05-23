@@ -65,7 +65,7 @@ interface ViewportState {
 	yAxes: YAxisConfig[];
 }
 
-export interface ConfigState {
+interface ConfigState {
 	series: SeriesConfig[];
 	axisTitles: { x: string; y: string };
 	legendVisible: boolean;
