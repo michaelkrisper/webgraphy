@@ -21,6 +21,7 @@ import type {
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
+import { getColumnIndex } from "../../utils/columns";
 import {
 	type AxesFrame,
 	calcCategoricalTicks,
@@ -414,16 +415,6 @@ export default function ChartContainer() {
 	const yAxisCategoryLabels = useMemo(() => {
 		const dsById = new Map(datasets.map((d) => [d.id, d]));
 
-		// Upfront mapping of column names to indices for each dataset
-		const colIndexMaps = new Map<string, Map<string, number>>();
-		for (const ds of datasets) {
-			const m = new Map<string, number>();
-			for (let i = 0; i < ds.columns.length; i++) {
-				m.set(ds.columns[i], i);
-			}
-			colIndexMaps.set(ds.id, m);
-		}
-
 		const out = new Map<string, string[] | undefined>();
 		const seriesByAxis = new Map<string, typeof series>();
 		series.forEach((s) => {
@@ -440,8 +431,7 @@ export default function ChartContainer() {
 					mismatch = true;
 					break;
 				}
-				const dsMap = colIndexMaps.get(s.sourceId);
-				const colIdx = dsMap?.get(s.yColumn) ?? -1;
+				const colIdx = getColumnIndex(ds, s.yColumn);
 				const col = colIdx >= 0 ? ds.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
@@ -473,23 +463,12 @@ export default function ChartContainer() {
 		>();
 		const dssByX = new Map<string, Dataset[]>();
 
-		// Upfront mapping of column names to indices for active datasets
-		const colIndexMaps = new Map<string, Map<string, number>>();
-
 		datasets.forEach((d) => {
 			if (!activeDsIdsSet.has(d.id)) return;
 			const xId = d.xAxisId || "axis-1";
 			const arr = dssByX.get(xId) || [];
 			arr.push(d);
 			dssByX.set(xId, arr);
-
-			if (!colIndexMaps.has(d.id)) {
-				const m = new Map<string, number>();
-				for (let i = 0; i < d.columns.length; i++) {
-					m.set(d.columns[i], i);
-				}
-				colIndexMaps.set(d.id, m);
-			}
 		});
 		const xAxisById = new Map<string, (typeof xAxes)[0]>();
 		for (const a of xAxes) {
@@ -501,8 +480,7 @@ export default function ChartContainer() {
 			let labels: string[] | undefined;
 			let mismatch = false;
 			for (const d of dss) {
-				const dsMap = colIndexMaps.get(d.id);
-				const colIdx = dsMap?.get(d.xAxisColumn) ?? -1;
+				const colIdx = getColumnIndex(d, d.xAxisColumn);
 				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
