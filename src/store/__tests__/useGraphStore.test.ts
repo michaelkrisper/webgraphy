@@ -74,8 +74,7 @@ describe("useGraphStore", () => {
 				color: "#475569",
 				showGrid: i === 0,
 			})),
-			views: [],
-			isLoaded: true, // Set to true to avoid loading demo data
+			isLoaded: true,
 		});
 	});
 

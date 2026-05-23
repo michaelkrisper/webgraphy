@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { generateDemoDataset, getDemoAppState } from "../services/demoData";
 import {
+	type DataColumn,
 	type Dataset,
 	persistence,
 	type SeriesConfig,
@@ -99,6 +100,17 @@ const createInitialYAxes = (): YAxisConfig[] => {
 		showGrid: i === 0,
 	}));
 };
+
+const xModeFor = (col?: DataColumn): XAxisConfig["xMode"] =>
+	col?.categoryLabels ? "categorical" : col?.isFloat64 ? "date" : "numeric";
+
+const createEmptyState = () => ({
+	datasets: [],
+	series: [],
+	xAxes: createInitialXAxes(),
+	yAxes: createInitialYAxes(),
+	axisTitles: { x: "X-Axis", y: "Y-Axis" },
+});
 
 export const useGraphStore = create<GraphState>((set, get) => ({
 	datasets: [],
@@ -288,13 +300,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
 			const col = dataset.data[xColIdx];
 			const bounds = col?.bounds || { min: 0, max: 100 };
-
-			let xMode: "date" | "numeric" | "categorical" = "numeric";
-			if (col?.categoryLabels) {
-				xMode = "categorical";
-			} else if (col?.isFloat64) {
-				xMode = "date";
-			}
+			const xMode = xModeFor(col);
 
 			const nextXAxes = state.xAxes.map((a) =>
 				a.id === dataset.xAxisId
@@ -370,13 +376,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
 					const bounds = col.bounds || { min: 0, max: 100 };
-
-					let xMode: "date" | "numeric" | "categorical" = "numeric";
-					if (col.categoryLabels) {
-						xMode = "categorical";
-					} else if (col.isFloat64) {
-						xMode = "date";
-					}
+					const xMode = xModeFor(col);
 
 					nextXAxes = state.xAxes.map((a) =>
 						a.id === updatedDataset.xAxisId
@@ -408,14 +408,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const newSeries = state.series.filter((s) => s.sourceId !== id);
 			if (newDatasets.length === 0 && newSeries.length === 0) {
 				persistence.clearAppState();
-				return {
-					datasets: [],
-					series: [],
-					xAxes: createInitialXAxes(),
-					yAxes: createInitialYAxes(),
-					axisTitles: { x: "X-Axis", y: "Y-Axis" },
-					views: [],
-				};
+				return createEmptyState();
 			}
 			return { datasets: newDatasets, series: newSeries };
 		});
@@ -461,14 +454,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const newSeries = state.series.filter((s) => s.id !== id);
 			if (newSeries.length === 0 && state.datasets.length === 0) {
 				persistence.clearAppState();
-				return {
-					datasets: [],
-					series: [],
-					xAxes: createInitialXAxes(),
-					yAxes: createInitialYAxes(),
-					axisTitles: { x: "X-Axis", y: "Y-Axis" },
-					views: [],
-				};
+				return createEmptyState();
 			}
 			return { series: newSeries };
 		});
