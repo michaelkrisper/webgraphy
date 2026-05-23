@@ -38,7 +38,7 @@ interface AxesLayerProps {
 }
 
 
-export interface DrawXAxisOptions {
+interface DrawXAxisOptions {
 	ctx: CanvasRenderingContext2D;
 	axis: XAxisLayout;
 	metrics?: XAxisMetrics;
@@ -53,7 +53,7 @@ export interface DrawXAxisOptions {
 	seriesByXAxisId: Record<string, SeriesConfig[]>;
 }
 
-export interface DrawYAxisOptions {
+interface DrawYAxisOptions {
 	ctx: CanvasRenderingContext2D;
 	axis: YAxisLayout;
 	axisLayout: Record<string, { total: number; label: number }>;

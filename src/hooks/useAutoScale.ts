@@ -59,7 +59,7 @@ interface AutoScaleDeps {
 	seriesByYAxisId: Map<string, SeriesConfig[]>;
 }
 
-export function computeAutoScaleY(
+function computeAutoScaleY(
 	axisId: string,
 	mouseY: number | undefined,
 	deps: AutoScaleDeps,
@@ -145,7 +145,7 @@ export function computeAutoScaleY(
 	}
 }
 
-export function computeAutoScaleX(
+function computeAutoScaleX(
 	xAxisId: string | undefined,
 	deps: AutoScaleDeps,
 	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
@@ -186,7 +186,7 @@ export function computeAutoScaleX(
 	sv();
 }
 
-export function computeStackedFit(
+function computeStackedFit(
 	deps: AutoScaleDeps,
 	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>,
 	targetYsRef: React.MutableRefObject<Record<string, { min: number; max: number }>>

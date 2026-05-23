@@ -442,17 +442,25 @@ function statefulSumGroup(
 	return ctx.groupSums[id];
 }
 
+function pushBoundedQueue(
+	ctx: FormulaContext,
+	id: number,
+	val: number,
+	n: number,
+): number[] {
+	const q = (ctx.queues[id] ??= []);
+	q.push(val);
+	while (q.length > n) q.shift();
+	return q;
+}
+
 function statefulRollingMed(
 	ctx: FormulaContext,
 	id: number,
 	val: number,
 	n: number,
 ): number {
-	if (!ctx.queues[id]) ctx.queues[id] = [];
-	const q = ctx.queues[id];
-	q.push(val);
-	while (q.length > n) q.shift();
-	return median(q);
+	return median(pushBoundedQueue(ctx, id, val, n));
 }
 
 function statefulRollingStd(
@@ -488,10 +496,7 @@ function statefulRollingMin(
 	val: number,
 	n: number,
 ): number {
-	if (!ctx.queues[id]) ctx.queues[id] = [];
-	const q = ctx.queues[id];
-	q.push(val);
-	while (q.length > n) q.shift();
+	const q = pushBoundedQueue(ctx, id, val, n);
 	let m = Infinity;
 	for (let i = 0; i < q.length; i++) if (q[i] < m) m = q[i];
 	return m;
@@ -503,10 +508,7 @@ function statefulRollingMax(
 	val: number,
 	n: number,
 ): number {
-	if (!ctx.queues[id]) ctx.queues[id] = [];
-	const q = ctx.queues[id];
-	q.push(val);
-	while (q.length > n) q.shift();
+	const q = pushBoundedQueue(ctx, id, val, n);
 	let m = -Infinity;
 	for (let i = 0; i < q.length; i++) if (q[i] > m) m = q[i];
 	return m;
@@ -537,43 +539,29 @@ function statefulDiff(ctx: FormulaContext, id: number, val: number): number {
 	return val - prev;
 }
 
-function statefulCumsum(ctx: FormulaContext, id: number, val: number): number {
+function cumReduce(
+	ctx: FormulaContext,
+	id: number,
+	val: number,
+	identity: number,
+	op: (acc: number, v: number) => number,
+): number {
 	if (!ctx.cumHas[id]) {
-		ctx.cumState[id] = 0;
+		ctx.cumState[id] = identity;
 		ctx.cumHas[id] = true;
 	}
-	ctx.cumState[id] += val;
+	ctx.cumState[id] = op(ctx.cumState[id], val);
 	return ctx.cumState[id];
 }
 
-function statefulCumprod(ctx: FormulaContext, id: number, val: number): number {
-	if (!ctx.cumHas[id]) {
-		ctx.cumState[id] = 1;
-		ctx.cumHas[id] = true;
-	}
-	ctx.cumState[id] *= val;
-	return ctx.cumState[id];
-}
-
-function statefulCummax(ctx: FormulaContext, id: number, val: number): number {
-	if (!ctx.cumHas[id]) {
-		ctx.cumState[id] = val;
-		ctx.cumHas[id] = true;
-		return val;
-	}
-	if (val > ctx.cumState[id]) ctx.cumState[id] = val;
-	return ctx.cumState[id];
-}
-
-function statefulCummin(ctx: FormulaContext, id: number, val: number): number {
-	if (!ctx.cumHas[id]) {
-		ctx.cumState[id] = val;
-		ctx.cumHas[id] = true;
-		return val;
-	}
-	if (val < ctx.cumState[id]) ctx.cumState[id] = val;
-	return ctx.cumState[id];
-}
+const statefulCumsum = (ctx: FormulaContext, id: number, val: number) =>
+	cumReduce(ctx, id, val, 0, (a, v) => a + v);
+const statefulCumprod = (ctx: FormulaContext, id: number, val: number) =>
+	cumReduce(ctx, id, val, 1, (a, v) => a * v);
+const statefulCummax = (ctx: FormulaContext, id: number, val: number) =>
+	cumReduce(ctx, id, val, -Infinity, Math.max);
+const statefulCummin = (ctx: FormulaContext, id: number, val: number) =>
+	cumReduce(ctx, id, val, Infinity, Math.min);
 
 function statefulFilter(
 	ctx: FormulaContext,

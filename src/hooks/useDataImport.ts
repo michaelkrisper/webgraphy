@@ -29,7 +29,7 @@ export type PendingFile = {
 	workbook?: WorkBook;
 };
 
-export const readExcelFile = async (file: File): Promise<PendingFile> => {
+const readExcelFile = async (file: File): Promise<PendingFile> => {
 	const XLSX = await import("xlsx");
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -60,7 +60,7 @@ export const readExcelFile = async (file: File): Promise<PendingFile> => {
 	});
 };
 
-export const readTextFile = (
+const readTextFile = (
 	file: File,
 	type: "csv" | "json",
 ): Promise<PendingFile> => {
@@ -75,7 +75,7 @@ export const readTextFile = (
 	});
 };
 
-export const processImportedDatasets = (
+const processImportedDatasets = (
 	incoming: Dataset[],
 	addDataset: (ds: Dataset) => void,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
