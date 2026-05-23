@@ -420,6 +420,14 @@ export default function ChartContainer() {
 			arr.push(s);
 			seriesByAxis.set(s.yAxisId, arr);
 		});
+			const colIdxCache = new Map<string, Record<string, number>>();
+			for (const d of datasets) {
+				const m: Record<string, number> = {};
+				for (let i = 0; i < d.columns.length; i++) {
+					m[d.columns[i]] = i;
+				}
+				colIdxCache.set(d.id, m);
+			}
 		seriesByAxis.forEach((axisSeries, axisId) => {
 			let labels: string[] | undefined;
 			let mismatch = false;
@@ -429,7 +437,7 @@ export default function ChartContainer() {
 					mismatch = true;
 					break;
 				}
-				const colIdx = ds.columns.indexOf(s.yColumn);
+				const colIdx = colIdxCache.get(ds.id)?.[s.yColumn] ?? -1;
 				const col = colIdx >= 0 ? ds.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
@@ -471,13 +479,21 @@ export default function ChartContainer() {
 		for (const a of xAxes) {
 			xAxisById.set(a.id, a);
 		}
+			const colIdxCache = new Map<string, Record<string, number>>();
+			for (const d of datasets) {
+				const m: Record<string, number> = {};
+				for (let i = 0; i < d.columns.length; i++) {
+					m[d.columns[i]] = i;
+				}
+				colIdxCache.set(d.id, m);
+			}
 		dssByX.forEach((dss, axisId) => {
 			const cfg = xAxisById.get(axisId);
 			const forced = cfg?.xMode === "categorical";
 			let labels: string[] | undefined;
 			let mismatch = false;
 			for (const d of dss) {
-				const colIdx = d.columns.indexOf(d.xAxisColumn);
+				const colIdx = colIdxCache.get(d.id)?.[d.xAxisColumn] ?? -1;
 				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
@@ -501,7 +517,7 @@ export default function ChartContainer() {
 				// Derive labels from unique values across bound datasets.
 				const uniq = new Set<number>();
 				for (const d of dss) {
-					const colIdx = d.columns.indexOf(d.xAxisColumn);
+					const colIdx = colIdxCache.get(d.id)?.[d.xAxisColumn] ?? -1;
 					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 					if (!col) continue;
 					const ref = col.refPoint;
