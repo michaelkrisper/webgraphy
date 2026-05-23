@@ -1,5 +1,11 @@
 // src/utils/axisCalculations.ts
 
+/** Tolerance for floating-point axis bounds comparisons. */
+export const AXIS_EPSILON = 1e-10;
+
+/** Identifier of the implicit default x-axis (used when a dataset has no explicit xAxisId). */
+export const DEFAULT_X_AXIS_ID = "axis-1";
+
 /** Round a raw step size to a nice human-readable step. */
 export function calcNumericStep(range: number, maxTicks: number): number {
 	if (range <= 0) return 1;
@@ -116,7 +122,6 @@ export function syncAxesWithTargets(
 		yUpdates = {};
 	}
 
-	const EPSILON = 1e-10;
 	let hasUpdates = false;
 
 	for (let i = 0; i < state.xAxes.length; i++) {
@@ -124,8 +129,8 @@ export function syncAxesWithTargets(
 		const target = targetXAxes[axis.id];
 		if (
 			target &&
-			(Math.abs(axis.min - target.min) > EPSILON ||
-				Math.abs(axis.max - target.max) > EPSILON)
+			(Math.abs(axis.min - target.min) > AXIS_EPSILON ||
+				Math.abs(axis.max - target.max) > AXIS_EPSILON)
 		) {
 			xUpdates[axis.id] = { min: target.min, max: target.max };
 			hasUpdates = true;
@@ -137,8 +142,8 @@ export function syncAxesWithTargets(
 		const target = targetYs[axis.id];
 		if (
 			target &&
-			(Math.abs(axis.min - target.min) > EPSILON ||
-				Math.abs(axis.max - target.max) > EPSILON)
+			(Math.abs(axis.min - target.min) > AXIS_EPSILON ||
+				Math.abs(axis.max - target.max) > AXIS_EPSILON)
 		) {
 			yUpdates[axis.id] = { min: target.min, max: target.max };
 			hasUpdates = true;

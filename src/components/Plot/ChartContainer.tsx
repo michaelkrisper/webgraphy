@@ -23,7 +23,9 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { getColumnIndex } from "../../utils/columns";
 import {
+	AXIS_EPSILON,
 	type AxesFrame,
+	DEFAULT_X_AXIS_ID,
 	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
@@ -151,7 +153,6 @@ function syncStoreUpdates(
 	xUpdates: Record<string, { min: number; max: number }>,
 	yUpdates: Record<string, { min: number; max: number }>,
 ) {
-	const EPSILON = 1e-10;
 	const xById = new Map(state.xAxes.map((a) => [a.id, a]));
 	const yById = new Map(state.yAxes.map((a) => [a.id, a]));
 
@@ -164,8 +165,8 @@ function syncStoreUpdates(
 		const axis = xById.get(id);
 		if (
 			!axis ||
-			Math.abs(axis.min - upd.min) > EPSILON ||
-			Math.abs(axis.max - upd.max) > EPSILON
+			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
+			Math.abs(axis.max - upd.max) > AXIS_EPSILON
 		) {
 			filteredXUpdates[id] = upd;
 			hasX = true;
@@ -176,8 +177,8 @@ function syncStoreUpdates(
 		const axis = yById.get(id);
 		if (
 			!axis ||
-			Math.abs(axis.min - upd.min) > EPSILON ||
-			Math.abs(axis.max - upd.max) > EPSILON
+			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
+			Math.abs(axis.max - upd.max) > AXIS_EPSILON
 		) {
 			filteredYUpdates[id] = upd;
 			hasY = true;
@@ -484,7 +485,7 @@ export default function ChartContainer() {
 
 		datasets.forEach((d) => {
 			if (!activeDsIdsSet.has(d.id)) return;
-			const xId = d.xAxisId || "axis-1";
+			const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
 			const arr = dssByX.get(xId) || [];
 			arr.push(d);
 			dssByX.set(xId, arr);
@@ -549,7 +550,7 @@ export default function ChartContainer() {
 		const axisToMinDsIdx = new Map<string, number>();
 		datasets.forEach((d, dsIdx) => {
 			if (activeDsIdsSet.has(d.id)) {
-				const xId = d.xAxisId || "axis-1";
+				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
 				const currentMin = axisToMinDsIdx.get(xId);
 				if (currentMin === undefined || dsIdx < currentMin) {
 					axisToMinDsIdx.set(xId, dsIdx);
@@ -703,7 +704,7 @@ export default function ChartContainer() {
 			const dsByX: DatasetsByAxisId = {};
 			datasets.forEach((d) => {
 				if (activeDsIdsSet.has(d.id)) {
-					const xId = d.xAxisId || "axis-1";
+					const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
 					if (!dsByX[xId]) dsByX[xId] = [];
 					dsByX[xId].push(d);
 				}
@@ -984,7 +985,7 @@ export default function ChartContainer() {
 		const dsByX: DatasetsByAxisId = {};
 		datasets.forEach((d) => {
 			if (activeDsIdsSet.has(d.id)) {
-				const xId = d.xAxisId || "axis-1";
+				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
 				if (!dsByX[xId]) dsByX[xId] = [];
 				dsByX[xId].push(d);
 			}

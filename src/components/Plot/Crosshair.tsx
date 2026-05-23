@@ -6,6 +6,7 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../../services/persistence";
+import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
 import { findClosest } from "../../utils/binarySearch";
 import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
@@ -103,7 +104,7 @@ const Crosshair = React.memo(
 				.map((s) => {
 					const ds = datasetsById.get(s.sourceId);
 					const axis = yAxesById.get(s.yAxisId);
-					const xAxis = xAxesById.get(ds?.xAxisId || "axis-1");
+					const xAxis = xAxesById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
 					if (!ds || !axis || !xAxis) return null;
 					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 					const yIdx = getColumnIndex(ds, s.yColumn);
@@ -119,7 +120,7 @@ const Crosshair = React.memo(
 		const xAxisNameById = useMemo(() => {
 			const dsByX: Record<string, Dataset[]> = {};
 			datasets.forEach((d) => {
-				const xId = d.xAxisId || "axis-1";
+				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
 				if (!dsByX[xId]) dsByX[xId] = [];
 				dsByX[xId].push(d);
 			});
