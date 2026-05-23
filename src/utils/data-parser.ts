@@ -575,7 +575,7 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 	const text = await file.text();
 	let raw: unknown;
 	try {
-		// 🔒 Security Note: Using secureJSONParse instead of native JSON.parse to prevent Prototype Pollution vulnerabilities.
+		// secureJSONParse strips __proto__/constructor keys to prevent prototype pollution.
 		raw = secureJSONParse(text);
 	} catch (error) {
 		console.error("Failed to parse JSON data:", error);
@@ -594,7 +594,6 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 	const allHeaders = Object.keys(raw[0]);
 	const rowCount = raw.length;
 
-	// ⚡ Bolt Optimization: Pre-calculate column configurations
 	const configMap = new Map<number, ColumnConfigEntry>();
 	for (let i = 0; i < columnConfigs.length; i++) {
 		configMap.set(columnConfigs[i].index, columnConfigs[i]);
@@ -605,7 +604,6 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 		configsByIndex[j] = configMap.get(j);
 	}
 
-	// ⚡ Bolt Optimization: Determine active columns upfront
 	const activeCols: number[] = [];
 	const finalHeaders: string[] = [];
 	for (let j = 0; j < allHeaders.length; j++) {
@@ -616,7 +614,7 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 	}
 	const numActive = activeCols.length;
 
-	// ⚡ Bolt Optimization: Column-major storage
+	// Column-major: data[col][row]. Lets us hand Float64Array slices to WebGL without per-row copies.
 	const data: Float64Array[] = new Array(numActive);
 	for (let k = 0; k < numActive; k++) {
 		data[k] = new Float64Array(rowCount);
@@ -667,8 +665,6 @@ function parseValue(
 		}
 		return categoricalMap.get(val) ?? 0;
 	}
-	// Default: numeric
-	// ⚡ Bolt Optimization: Fast path for parseValue
 	const p = parseFloat(isComma ? val.replace(",", ".") : val);
 	return Number.isNaN(p) ? NaN : p;
 }

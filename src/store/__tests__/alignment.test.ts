@@ -39,7 +39,6 @@ describe("useGraphStore Alignment", () => {
 				color: "#475569",
 				showGrid: i === 0,
 			})),
-			views: [],
 			isLoaded: true,
 		});
 	});

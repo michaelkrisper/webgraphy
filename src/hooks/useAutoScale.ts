@@ -10,6 +10,12 @@ import { useGraphStore } from "../store/useGraphStore";
 import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
 
+const AXIS_PADDING_RATIO = 0.05;
+const DEFAULT_X_AXIS_ID = "axis-1";
+
+const axisPadding = (min: number, max: number): number =>
+	(max - min || 1) * AXIS_PADDING_RATIO;
+
 /**
  * Find inclusive index range of xData (offset by refX) within [xMin, xMax]
  * via binary search. Returns null if no points fall in range.
@@ -95,7 +101,7 @@ function computeAutoScaleY(
 				if (colY.bounds.max > yMax) yMax = colY.bounds.max;
 			}
 		} else {
-			const xAxis = xaById.get(ds?.xAxisId || "axis-1");
+			const xAxis = xaById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
 			if (!xAxis) return;
 			const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 			if (xIdx === -1) return;
@@ -118,8 +124,8 @@ function computeAutoScaleY(
 
 	if (yMin !== Infinity) {
 		let nMin: number, nMax: number;
-		const r = yMax - yMin || 1,
-			pad = r * 0.05;
+		const r = yMax - yMin || 1;
+		const pad = r * AXIS_PADDING_RATIO;
 		if (mouseY !== undefined) {
 			if (mouseY < p.top + ch / 3) {
 				nMin = yMin - r - 3 * pad;
@@ -136,7 +142,7 @@ function computeAutoScaleY(
 			nMax = yMax + pad;
 		}
 
-		const professionalPad = (nMax - nMin || 1) * 0.05;
+		const professionalPad = axisPadding(nMin, nMax);
 		targetYs[axisId] = {
 			min: nMin - professionalPad,
 			max: nMax + professionalPad,
@@ -164,7 +170,7 @@ function computeAutoScaleX(
 
 	axesToScale.forEach((id) => {
 		const activeDs = allDs.filter(
-			(d) => (d.xAxisId || "axis-1") === id && activeDsIds.has(d.id),
+			(d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === id && activeDsIds.has(d.id),
 		);
 		if (activeDs.length === 0) return;
 		let xMin = Infinity,
@@ -178,8 +184,7 @@ function computeAutoScaleX(
 			}
 		});
 		if (xMin !== Infinity) {
-			const range = xMax - xMin || 1;
-			const pad = range * 0.05; // 5% padding
+			const pad = axisPadding(xMin, xMax);
 			targetXAxes[id] = { min: xMin - pad, max: xMax + pad };
 		}
 	});
@@ -230,7 +235,7 @@ function computeStackedFit(
 			if (yIdx === -1) return;
 			const colY = ds.data[yIdx];
 			if (!colY?.data) return;
-			const xAxisId = ds.xAxisId || "axis-1";
+			const xAxisId = ds.xAxisId || DEFAULT_X_AXIS_ID;
 			const storeXAxis = xaById.get(xAxisId);
 			const liveRange = targetXAxes[xAxisId];
 			const xMin = liveRange?.min ?? storeXAxis?.min;
@@ -256,8 +261,7 @@ function computeStackedFit(
 
 		if (yMin === Infinity) return;
 
-		const dataRange = yMax - yMin || 1;
-		const pad = dataRange * 0.05;
+		const pad = axisPadding(yMin, yMax);
 		const dMin = yMin - pad;
 		const dMax = yMax + pad;
 		const paddedRange = dMax - dMin;
@@ -390,7 +394,7 @@ export function useAutoScale({
 			const EPSILON = 1e-10;
 			series.forEach((s) => {
 				const ds = datasetsById.get(s.sourceId);
-				const xAxis = xAxesById.get(ds?.xAxisId || "axis-1");
+				const xAxis = xAxesById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
 				if (!ds || !xAxis) return;
 				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 				const xCol = ds.data[xIdx];
@@ -430,7 +434,7 @@ export function useAutoScale({
 				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 				const col = ds.data[xIdx];
 				if (!col?.bounds || !Number.isFinite(col.bounds.min)) return;
-				const xId = ds.xAxisId || "axis-1";
+				const xId = ds.xAxisId || DEFAULT_X_AXIS_ID;
 				const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity };
 				xBounds.set(xId, {
 					min: Math.min(cur.min, col.bounds.min),
@@ -445,7 +449,7 @@ export function useAutoScale({
 					!Number.isNaN(bounds.min) &&
 					!Number.isNaN(bounds.max)
 				) {
-					const pad = (bounds.max - bounds.min || 1) * 0.05;
+					const pad = axisPadding(bounds.min, bounds.max);
 					const nextX = { min: bounds.min - pad, max: bounds.max + pad };
 					if (!Number.isNaN(nextX.min) && !Number.isNaN(nextX.max)) {
 						xs[id] = nextX;
@@ -473,7 +477,7 @@ export function useAutoScale({
 				});
 
 				if (yMin !== Infinity && !Number.isNaN(yMin) && !Number.isNaN(yMax)) {
-					const pad = (yMax - yMin || 1) * 0.05;
+					const pad = axisPadding(yMin, yMax);
 					const nextY = { min: yMin - pad, max: yMax + pad };
 					if (!Number.isNaN(nextY.min) && !Number.isNaN(nextY.max)) {
 						ys[axis.id] = nextY;
