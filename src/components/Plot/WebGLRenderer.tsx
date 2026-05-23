@@ -12,7 +12,11 @@ import type {
 	YAxisConfig,
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import { findFirstGE, findLastLE } from "../../utils/binarySearch";
+import {
+	findFirstGE,
+	findLastLE,
+	findSegmentStartIndex,
+} from "../../utils/binarySearch";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import {
@@ -624,16 +628,7 @@ function computeDrawRanges(
 	};
 
 	if (isMonotonic) {
-		let segLo = 0;
-		let segHi = cachedSegments.length - 1;
-		let startSegIdx = 0;
-		while (segLo <= segHi) {
-			const m = (segLo + segHi) >>> 1;
-			if (cachedSegments[m].end >= sliceStart) {
-				startSegIdx = m;
-				segHi = m - 1;
-			} else segLo = m + 1;
-		}
+		const startSegIdx = findSegmentStartIndex(cachedSegments, sliceStart);
 		for (let i = startSegIdx; i < cachedSegments.length; i++) {
 			const seg = cachedSegments[i];
 			if (seg.start > sliceEnd) break;
