@@ -588,6 +588,18 @@ describe("downloadFile", () => {
 		);
 	});
 
+	it("should throw an error for unsafe MIME types (svg/xml/html)", () => {
+		expect(() => downloadFile("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", "test.svg", "image/svg+xml")).toThrow(
+			"Unsafe data URL scheme detected",
+		);
+		expect(() => downloadFile("data:application/xhtml+xml;base64,PGh0bWw+PC9odG1sPg==", "test.html", "application/xhtml+xml")).toThrow(
+			"Unsafe data URL scheme detected",
+		);
+		expect(() => downloadFile("data:image/SVG+XML;base64,PHN2Zz48L3N2Zz4=", "test.svg", "image/SVG+XML")).toThrow(
+			"Unsafe data URL scheme detected",
+		);
+	});
+
 	it("should throw an error for empty data URLs", () => {
 		expect(() => downloadFile("data:", "test.html", "text/html")).toThrow(
 			"Unsafe data URL scheme detected",

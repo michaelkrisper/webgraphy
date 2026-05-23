@@ -544,6 +544,14 @@ export const downloadFile = (
 			) {
 				throw new Error();
 			}
+			const lowerMimeType = mimeType.toLowerCase();
+			if (
+				lowerMimeType.includes("svg") ||
+				lowerMimeType.includes("xml") ||
+				lowerMimeType.includes("html")
+			) {
+				throw new Error();
+			}
 		} catch {
 			throw new Error("Unsafe data URL scheme detected");
 		}
