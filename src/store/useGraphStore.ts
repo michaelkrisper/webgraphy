@@ -8,6 +8,7 @@ import {
 	type XAxisConfig,
 	type YAxisConfig,
 } from "../services/persistence";
+import { AXIS_EPSILON } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { compileFormula } from "../utils/formula";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
@@ -38,8 +39,6 @@ interface GraphState {
 	setPreviewColor: (
 		preview: { seriesId: string; color: string } | null,
 	) => void;
-	needsReset: boolean;
-	setNeedsReset: (needsReset: boolean) => void;
 
 	// Actions
 	addDataset: (dataset: Dataset) => void;
@@ -120,8 +119,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	axisTitles: { x: "X-Axis", y: "Y-Axis" },
 	isLoaded: false,
 	highlightedSeriesId: null,
-	needsReset: false,
-	setNeedsReset: (needsReset) => set({ needsReset }),
 	legendVisible: true,
 	setLegendVisible: (visible) => {
 		set({ legendVisible: visible });
@@ -496,13 +493,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	batchUpdateAxes: (xUpdates, yUpdates) => {
 		set((state) => {
 			let changed = false;
-			const EPSILON = 1e-10;
 			const nextX = state.xAxes.map((a) => {
 				const upd = xUpdates[a.id];
 				if (
 					upd &&
-					(Math.abs(upd.min - a.min) > EPSILON ||
-						Math.abs(upd.max - a.max) > EPSILON)
+					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
+						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
 					changed = true;
 					return { ...a, ...upd };
@@ -513,8 +509,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const upd = yUpdates[a.id];
 				if (
 					upd &&
-					(Math.abs(upd.min - a.min) > EPSILON ||
-						Math.abs(upd.max - a.max) > EPSILON)
+					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
+						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
 					changed = true;
 					return { ...a, ...upd };

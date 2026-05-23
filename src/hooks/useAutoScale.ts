@@ -7,11 +7,11 @@ import type {
 	YAxisConfig,
 } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
+import { AXIS_EPSILON, DEFAULT_X_AXIS_ID } from "../utils/axisCalculations";
 import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
 
 const AXIS_PADDING_RATIO = 0.05;
-const DEFAULT_X_AXIS_ID = "axis-1";
 
 const axisPadding = (min: number, max: number): number =>
 	(max - min || 1) * AXIS_PADDING_RATIO;
@@ -391,7 +391,6 @@ export function useAutoScale({
 			let hasValidData = false;
 			let anyDataVisible = false;
 
-			const EPSILON = 1e-10;
 			series.forEach((s) => {
 				const ds = datasetsById.get(s.sourceId);
 				const xAxis = xAxesById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
@@ -405,10 +404,10 @@ export function useAutoScale({
 				) {
 					hasValidData = true;
 					// Robust intersection check: overlap if (min1 <= max2 && max1 >= min2)
-					// Uses EPSILON to prevent infinite loops from tiny precision differences
+					// AXIS_EPSILON prevents infinite loops from tiny precision differences.
 					if (
-						xAxis.min <= xCol.bounds.max + EPSILON &&
-						xAxis.max >= xCol.bounds.min - EPSILON
+						xAxis.min <= xCol.bounds.max + AXIS_EPSILON &&
+						xAxis.max >= xCol.bounds.min - AXIS_EPSILON
 					) {
 						anyDataVisible = true;
 					}

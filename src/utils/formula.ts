@@ -1291,13 +1291,13 @@ function tryRegressionFormula(
 		if (!match) continue;
 
 		const colName = match[1];
-		let yColIdx = columns.indexOf(colName);
-		if (yColIdx === -1) {
-			yColIdx = columns.findIndex(
-				(c) => c.endsWith(`: ${colName}`) || c === colName,
-			);
-		}
-		if (yColIdx === -1) return null;
+		// Callers (useGraphStore.addCalculatedColumn) pass columnData as [x, y]
+		// in fixed order. We only need to validate the column name exists in
+		// the dataset; the positional contract supplies the data.
+		const colExists = columns.some(
+			(c) => c === colName || c.endsWith(`: ${colName}`),
+		);
+		if (!colExists) return null;
 
 		const xArr = new Float64Array(rowCount);
 		const yArr = new Float64Array(rowCount);
@@ -1379,11 +1379,12 @@ function evaluateGroupAverage(
 		return { type: "error", error: compiled.error };
 	}
 
-	const timeGlobalIdx =
-		columns.findIndex(
-			(c) =>
-				c.toLowerCase().includes("time") || c.toLowerCase().includes("date"),
-		) ?? 0;
+	const timeColIdx = columns.findIndex(
+		(c) => c.toLowerCase().includes("time") || c.toLowerCase().includes("date"),
+	);
+	// Mirror compileFormula's ensureTimeColumn fallback: column 0 stands in
+	// when no explicit time/date column exists.
+	const timeGlobalIdx = timeColIdx === -1 ? 0 : timeColIdx;
 	const valueGlobalIdx = (() => {
 		let idx = columns.indexOf(colName);
 		if (idx === -1)

@@ -17,6 +17,7 @@ import {
 	findLastLE,
 	findSegmentStartIndex,
 } from "../../utils/binarySearch";
+import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import {
@@ -835,16 +836,6 @@ export const WebGLRenderer = React.memo(
 			}
 		}, []);
 
-		useEffect(() => {
-			const gl = glRef.current;
-			if (!gl) return;
-			buffersRef.current.forEach((buf) => {
-				gl.deleteBuffer(buf);
-			});
-			buffersRef.current.clear();
-			segParamsRef.current.clear();
-		}, []);
-
 		const seriesMetadata = useMemo(() => {
 			const datasetsById: Record<string, Dataset> = {};
 			for (let i = 0; i < datasets.length; i++) {
@@ -993,7 +984,7 @@ export const WebGLRenderer = React.memo(
 						pointColorRgba,
 					} = seriesMetadata[idx];
 
-					const xAxis = xAxisById.get(ds.xAxisId || "axis-1");
+					const xAxis = xAxisById.get(ds.xAxisId || DEFAULT_X_AXIS_ID);
 					const yAxis = yAxisById.get(s.yAxisId);
 					if (!xAxis || !yAxis) continue;
 					if (s.hidden) continue;
