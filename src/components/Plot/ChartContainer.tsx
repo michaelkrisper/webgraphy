@@ -413,6 +413,17 @@ export default function ChartContainer() {
 	// that has categoryLabels, and they all share the same label set.
 	const yAxisCategoryLabels = useMemo(() => {
 		const dsById = new Map(datasets.map((d) => [d.id, d]));
+
+		// Upfront mapping of column names to indices for each dataset
+		const colIndexMaps = new Map<string, Map<string, number>>();
+		for (const ds of datasets) {
+			const m = new Map<string, number>();
+			for (let i = 0; i < ds.columns.length; i++) {
+				m.set(ds.columns[i], i);
+			}
+			colIndexMaps.set(ds.id, m);
+		}
+
 		const out = new Map<string, string[] | undefined>();
 		const seriesByAxis = new Map<string, typeof series>();
 		series.forEach((s) => {
@@ -429,7 +440,8 @@ export default function ChartContainer() {
 					mismatch = true;
 					break;
 				}
-				const colIdx = ds.columns.indexOf(s.yColumn);
+				const dsMap = colIndexMaps.get(s.sourceId);
+				const colIdx = dsMap?.get(s.yColumn) ?? -1;
 				const col = colIdx >= 0 ? ds.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
@@ -460,12 +472,24 @@ export default function ChartContainer() {
 			{ labels: string[]; ticks?: number[] } | undefined
 		>();
 		const dssByX = new Map<string, Dataset[]>();
+
+		// Upfront mapping of column names to indices for active datasets
+		const colIndexMaps = new Map<string, Map<string, number>>();
+
 		datasets.forEach((d) => {
 			if (!activeDsIdsSet.has(d.id)) return;
 			const xId = d.xAxisId || "axis-1";
 			const arr = dssByX.get(xId) || [];
 			arr.push(d);
 			dssByX.set(xId, arr);
+
+			if (!colIndexMaps.has(d.id)) {
+				const m = new Map<string, number>();
+				for (let i = 0; i < d.columns.length; i++) {
+					m.set(d.columns[i], i);
+				}
+				colIndexMaps.set(d.id, m);
+			}
 		});
 		const xAxisById = new Map<string, (typeof xAxes)[0]>();
 		for (const a of xAxes) {
@@ -477,7 +501,8 @@ export default function ChartContainer() {
 			let labels: string[] | undefined;
 			let mismatch = false;
 			for (const d of dss) {
-				const colIdx = d.columns.indexOf(d.xAxisColumn);
+				const dsMap = colIndexMaps.get(d.id);
+				const colIdx = dsMap?.get(d.xAxisColumn) ?? -1;
 				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 				const cl = col?.categoryLabels;
 				if (!cl) {
@@ -501,7 +526,8 @@ export default function ChartContainer() {
 				// Derive labels from unique values across bound datasets.
 				const uniq = new Set<number>();
 				for (const d of dss) {
-					const colIdx = d.columns.indexOf(d.xAxisColumn);
+					const dsMap = colIndexMaps.get(d.id);
+					const colIdx = dsMap?.get(d.xAxisColumn) ?? -1;
 					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 					if (!col) continue;
 					const ref = col.refPoint;
