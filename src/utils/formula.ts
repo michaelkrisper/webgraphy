@@ -189,7 +189,8 @@ function evaluateBucketFunc(
 	const t = rowValues[timeVarIdx];
 	_scratchDate.setTime(toMillis(t));
 	const key = dateKey(_scratchDate, granularityOf(token.value));
-	if (token.value.startsWith("avg")) return statefulAvgGroup(ctx, token.id, a, key);
+	if (token.value.startsWith("avg"))
+		return statefulAvgGroup(ctx, token.id, a, key);
 	return statefulSumGroup(ctx, token.id, a, key);
 }
 
@@ -237,7 +238,12 @@ function evaluateRowRelative(
 	const val = args[0];
 	switch (token.value) {
 		case "lag":
-			return statefulLag(ctx, id, val, Math.max(1, Math.round(token.constN ?? args[1] ?? 1)));
+			return statefulLag(
+				ctx,
+				id,
+				val,
+				Math.max(1, Math.round(token.constN ?? args[1] ?? 1)),
+			);
 		case "diff":
 			return statefulDiff(ctx, id, val);
 		case "cumsum":
@@ -719,12 +725,18 @@ export function compileFormula(
 		const dataColumnIndices: number[] = [];
 		const ensureAllDataColumns = () => {
 			dataColumnIndices.length = 0;
+			const existingIndices = new Int32Array(availableColumns.length).fill(-1);
+			for (let idx = 0; idx < usedColumnIndices.length; idx++) {
+				existingIndices[usedColumnIndices[idx]] = idx;
+			}
 			for (let i = 0; i < availableColumns.length; i++) {
 				const lower = availableColumns[i].toLowerCase();
 				if (lower.includes("time") || lower.includes("date")) continue;
-				let varIdx = usedColumnIndices.indexOf(i);
+
+				let varIdx = existingIndices[i];
 				if (varIdx === -1) {
 					varIdx = usedColumnIndices.length;
+					existingIndices[i] = varIdx;
 					usedColumnIndices.push(i);
 				}
 				dataColumnIndices.push(varIdx);
@@ -757,7 +769,8 @@ export function compileFormula(
 				}
 				if (bestEnd === -1) {
 					const end = formula.indexOf("]", i + 1);
-					if (end === -1) throw new FormulaError("Missing closing bracket ]", i);
+					if (end === -1)
+						throw new FormulaError("Missing closing bracket ]", i);
 					throw new FormulaError(
 						`Unknown column: ${formula.substring(i + 1, end)}`,
 						i,
@@ -797,7 +810,10 @@ export function compileFormula(
 				) {
 					const eStart = i;
 					let j = i + 1;
-					if (j < formula.length && (formula[j] === "+" || formula[j] === "-")) {
+					if (
+						j < formula.length &&
+						(formula[j] === "+" || formula[j] === "-")
+					) {
 						j++;
 					}
 					let digits = 0;
@@ -1040,8 +1056,7 @@ export function compileFormula(
 
 					// Arity validation
 					if (meta) {
-						const provided =
-							args + (func.constN !== undefined ? 1 : 0);
+						const provided = args + (func.constN !== undefined ? 1 : 0);
 						const min = meta.minArgs;
 						const max = meta.maxArgs;
 						if (provided < min || (max !== -1 && provided > max)) {
