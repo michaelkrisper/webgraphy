@@ -98,5 +98,3 @@ export function PopupPicker<T extends string | number>({
 		</>
 	);
 }
-
-export default PopupPicker;

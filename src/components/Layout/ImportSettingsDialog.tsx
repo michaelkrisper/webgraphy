@@ -136,7 +136,7 @@ function detectColumnTypeAndFormat(
 	return { type, dateFormat };
 }
 
-export interface PreviewData {
+interface PreviewData {
 	headers: string[];
 	rows: Record<string, string>[] | string[][];
 	skippedLines: string[];

@@ -9,7 +9,7 @@
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
 import { m4ByXFloat32 } from "../../utils/decimation";
-import type { GLStateCache, WebGLLocations } from "./GLStateCache";
+import type { GLStateCache } from "./GLStateCache";
 
 export interface OverlayState {
 	packed: Float32Array;
@@ -48,7 +48,7 @@ export interface SegParams {
 	firstStart: number;
 }
 
-export interface DrawRange {
+interface DrawRange {
 	start: number;
 	count: number;
 }
@@ -548,5 +548,3 @@ export function drawSeriesPoints(
 		}
 	}
 }
-
-export type { WebGLLocations };
