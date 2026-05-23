@@ -462,6 +462,14 @@ export function usePanZoom({
 			clientY: number;
 			shiftKey: boolean;
 		} | null = null;
+		const snapshotAxesToPanState = (ps: typeof panStateRef.current) => {
+			activeXAxes.forEach((a) => {
+				ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] };
+			});
+			activeYAxes.forEach((a) => {
+				ps.startTargetY[a.id] = { ...targetYs.current[a.id] };
+			});
+		};
 		const handleSingleTouchPan = (e: TouchEvent, target: PanTarget) => {
 			if (e.cancelable) e.preventDefault();
 			const t = e.touches[0];
@@ -473,12 +481,7 @@ export function usePanZoom({
 					ps.startY = lastTouchPos.current.y;
 				}
 				ps.target = target;
-				activeXAxes.forEach((a) => {
-					ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] };
-				});
-				activeYAxes.forEach((a) => {
-					ps.startTargetY[a.id] = { ...targetYs.current[a.id] };
-				});
+				snapshotAxesToPanState(ps);
 			}
 			ps.currentX = t.clientX;
 			ps.currentY = t.clientY;
@@ -618,12 +621,7 @@ export function usePanZoom({
 				ps.startX = lastMousePos.current.x;
 				ps.startY = lastMousePos.current.y;
 				ps.target = target;
-				activeXAxes.forEach((a) => {
-					ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] };
-				});
-				activeYAxes.forEach((a) => {
-					ps.startTargetY[a.id] = { ...targetYs.current[a.id] };
-				});
+				snapshotAxesToPanState(ps);
 			}
 			ps.currentX = e.clientX;
 			ps.currentY = e.clientY;

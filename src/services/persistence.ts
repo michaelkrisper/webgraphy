@@ -167,6 +167,19 @@ const DATASET_DEBOUNCE_MS = 300;
 const pendingDatasets = new Map<string, Dataset>();
 const datasetTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+async function putAppState(
+	key: string,
+	state: unknown,
+	label: string,
+): Promise<void> {
+	try {
+		const db = await getDB();
+		await db.put(APP_STATE_STORE, state, key);
+	} catch (error) {
+		console.error(`Failed to save ${label}:`, error);
+	}
+}
+
 function flushDataset(id: string) {
 	const ds = pendingDatasets.get(id);
 	datasetTimers.delete(id);
@@ -212,21 +225,11 @@ export const persistence = {
 		const db = await getDB();
 		await db.delete(DATASET_STORE, id);
 	},
-	async saveViewport(state: ViewportState): Promise<void> {
-		try {
-			const db = await getDB();
-			await db.put(APP_STATE_STORE, state, VIEWPORT_KEY);
-		} catch (error) {
-			console.error("Failed to save viewport:", error);
-		}
+	saveViewport(state: ViewportState): Promise<void> {
+		return putAppState(VIEWPORT_KEY, state, "viewport");
 	},
-	async saveConfig(state: ConfigState): Promise<void> {
-		try {
-			const db = await getDB();
-			await db.put(APP_STATE_STORE, state, CONFIG_KEY);
-		} catch (error) {
-			console.error("Failed to save config:", error);
-		}
+	saveConfig(state: ConfigState): Promise<void> {
+		return putAppState(CONFIG_KEY, state, "config");
 	},
 	async saveAppState(state: AppState): Promise<void> {
 		await Promise.all([
