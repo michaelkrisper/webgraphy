@@ -635,21 +635,23 @@ function resolveBracketedReferences(
 	columnMap: Map<string, number>,
 	usedColumnIndices: number[],
 ): FormulaResult | null {
+	let maxKeyLen = 0;
+	for (const key of map1.keys()) {
+		if (key.length > maxKeyLen) maxKeyLen = key.length;
+	}
 	let scanPos = 0;
 	while (scanPos < formula.length) {
 		const start = formula.indexOf("[", scanPos);
 		if (start === -1) break;
 		let bestEnd = -1;
-		let searchFrom = start + 1;
-		while (true) {
-			const end = formula.indexOf("]", searchFrom);
-			if (end === -1) break;
+		let end = start;
+		while ((end = formula.indexOf("]", end + 1)) !== -1) {
+			if (end - start - 1 > maxKeyLen) break;
 			const candidate = formula.substring(start + 1, end);
 			if (map1.has(candidate)) bestEnd = end;
-			searchFrom = end + 1;
 		}
 		if (bestEnd === -1) {
-			const end = formula.indexOf("]", start + 1);
+			end = formula.indexOf("]", start + 1);
 			if (end === -1) {
 				scanPos = start + 1;
 				continue;
@@ -685,6 +687,10 @@ function tokenizeFormula(
 	ensureTimeColumn: () => void,
 	nextFuncId: () => number,
 ): Token[] {
+	let maxKeyLen = 0;
+	for (const key of columnMap.keys()) {
+		if (key.length > maxKeyLen) maxKeyLen = key.length;
+	}
 	const tokens: Token[] = [];
 	let i = 0;
 	while (i < formula.length) {
@@ -700,15 +706,13 @@ function tokenizeFormula(
 		// Column reference [Foo]
 		if (char === "[") {
 			let bestEnd = -1;
-			let searchFrom = i + 1;
-			while (true) {
-				const end = formula.indexOf("]", searchFrom);
-				if (end === -1) break;
+			let end = i;
+			while ((end = formula.indexOf("]", end + 1)) !== -1) {
+				if (end - i + 1 > maxKeyLen) break;
 				if (columnMap.has(formula.substring(i, end + 1))) bestEnd = end;
-				searchFrom = end + 1;
 			}
 			if (bestEnd === -1) {
-				const end = formula.indexOf("]", i + 1);
+				end = formula.indexOf("]", i + 1);
 				if (end === -1) throw new FormulaError("Missing closing bracket ]", i);
 				throw new FormulaError(
 					`Unknown column: ${formula.substring(i + 1, end)}`,
