@@ -49,14 +49,21 @@ function subscribe(cb: () => void) {
 	return () => listeners.delete(cb);
 }
 
-function applyTheme(t: ThemeName) {
-	loadFont(t);
-	if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, t);
+function persistTheme(t: ThemeName) {
+	if (typeof localStorage !== "undefined") {
+		localStorage.setItem(STORAGE_KEY, t);
+	}
+}
+
+function updateThemeDOM(t: ThemeName) {
 	document.documentElement.dataset.theme = t;
 	document.documentElement.classList.toggle(
 		"dark",
 		t === "dark" || t === "matrix",
 	);
+}
+
+function updateThemeVariables(t: ThemeName) {
 	const theme = THEMES[t];
 	const s = document.documentElement.style;
 	s.setProperty("--font-family", theme.fontFamily);
@@ -89,16 +96,23 @@ function applyTheme(t: ThemeName) {
 	s.setProperty("--tooltip-divider-color", theme.tooltipDividerColor);
 	s.setProperty("--tooltip-sub-color", theme.tooltipSubColor);
 	s.setProperty("--no-data-color", theme.noDataColor);
+}
+
+function notifyListeners() {
 	listeners.forEach((cb) => {
 		cb();
 	});
 }
 
-export function useTheme(): [
-	ThemeName,
-	() => void,
-	(t: ThemeName) => void,
-] {
+function applyTheme(t: ThemeName) {
+	loadFont(t);
+	persistTheme(t);
+	updateThemeDOM(t);
+	updateThemeVariables(t);
+	notifyListeners();
+}
+
+export function useTheme(): [ThemeName, () => void, (t: ThemeName) => void] {
 	const theme = useSyncExternalStore(subscribe, getSnapshot);
 	const cycle = () =>
 		applyTheme(
