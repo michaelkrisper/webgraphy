@@ -21,6 +21,32 @@ describe("calcNumericStep", () => {
 	});
 });
 
+describe("calcNumericPrecision", () => {
+	it("returns 0 for integer steps", () => {
+		expect(calcNumericPrecision(1)).toBe(0);
+		expect(calcNumericPrecision(2)).toBe(0);
+		expect(calcNumericPrecision(10)).toBe(0);
+		expect(calcNumericPrecision(100)).toBe(0);
+	});
+
+	it("returns correct precision for fractional steps", () => {
+		expect(calcNumericPrecision(0.5)).toBe(1);
+		expect(calcNumericPrecision(0.1)).toBe(1);
+		expect(calcNumericPrecision(0.05)).toBe(2);
+		expect(calcNumericPrecision(0.01)).toBe(2);
+		expect(calcNumericPrecision(0.001)).toBe(3);
+	});
+
+	it("caps precision at 20 for very small steps", () => {
+		expect(calcNumericPrecision(1e-25)).toBe(20);
+		expect(calcNumericPrecision(1e-30)).toBe(20);
+	});
+
+	it("handles 0 by returning 0 (defaults to 1)", () => {
+		expect(calcNumericPrecision(0)).toBe(0);
+	});
+});
+
 describe("formatAxisLabel", () => {
 	it("returns '0' for values close to zero", () => {
 		expect(formatAxisLabel(0, 2)).toBe("0");
