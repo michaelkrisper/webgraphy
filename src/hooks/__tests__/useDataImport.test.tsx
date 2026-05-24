@@ -781,4 +781,27 @@ describe("useDataImport hook", () => {
 		expect(result.current.error).toBe("Failed to read file.");
 		global.FileReader = originalFileReader;
 	});
+
+	it("should handle file reading errors in initiateImport", async () => {
+		const { result } = renderHook(() => useDataImport());
+
+		const file = new File([""], "test.csv", { type: "text/csv" });
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onerror: (() => void) | null = null;
+			readAsText() {
+				this.onerror?.();
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		expect(result.current.error).toBe("Failed to read file.");
+
+		global.FileReader = originalFileReader;
+	});
 });
