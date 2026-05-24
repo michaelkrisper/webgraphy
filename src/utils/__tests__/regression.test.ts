@@ -83,7 +83,6 @@ describe("Regression Utilities", () => {
 		it("should cap degree at n-1", () => {
 			const x = new Float64Array([0, 1]);
 			const y = new Float64Array([1, 2]);
-			// Should cap at degree 1 even if 5 is requested
 			const result = polynomialRegression(x, y, 5);
 			expect(result[0]).toBeCloseTo(1);
 			expect(result[1]).toBeCloseTo(2);
