@@ -16,8 +16,52 @@ describe("calcNumericStep", () => {
 		expect(calcNumericStep(100, 5)).toBe(20);
 		expect(calcNumericStep(0.3, 3)).toBe(0.1);
 	});
-	it("returns 1 for zero range", () => {
+
+	it("returns 1 for zero or negative range", () => {
 		expect(calcNumericStep(0, 5)).toBe(1);
+		expect(calcNumericStep(-10, 5)).toBe(1);
+	});
+
+	it("handles maxTicks less than 1 by clamping to 1", () => {
+		// raw = 10 / Math.max(1, 0) = 10. mag = 10, norm = 1. Output: 1 * 10 = 10
+		expect(calcNumericStep(10, 0)).toBe(10);
+		// raw = 10 / Math.max(1, -5) = 10. mag = 10, norm = 1. Output: 1 * 10 = 10
+		expect(calcNumericStep(10, -5)).toBe(10);
+		expect(calcNumericStep(10, 0.5)).toBe(10);
+	});
+
+	it("calculates norm < 1.5 -> step 1", () => {
+		// raw = 1.2, mag = 1, norm = 1.2
+		expect(calcNumericStep(1.2 * 10, 10)).toBe(1);
+		// raw = 14, mag = 10, norm = 1.4 -> 1 * 10
+		expect(calcNumericStep(14, 1)).toBe(10);
+	});
+
+	it("calculates norm < 3 -> step 2", () => {
+		// raw = 2, mag = 1, norm = 2 -> 2 * 1
+		expect(calcNumericStep(2 * 10, 10)).toBe(2);
+		// raw = 28, mag = 10, norm = 2.8 -> 2 * 10
+		expect(calcNumericStep(28, 1)).toBe(20);
+	});
+
+	it("calculates norm < 7 -> step 5", () => {
+		// raw = 5, mag = 1, norm = 5 -> 5 * 1
+		expect(calcNumericStep(5 * 10, 10)).toBe(5);
+		// raw = 68, mag = 10, norm = 6.8 -> 5 * 10
+		expect(calcNumericStep(68, 1)).toBe(50);
+	});
+
+	it("calculates norm >= 7 -> step 10", () => {
+		// raw = 8, mag = 1, norm = 8 -> 10 * 1
+		expect(calcNumericStep(8 * 10, 10)).toBe(10);
+		// raw = 95, mag = 10, norm = 9.5 -> 10 * 10
+		expect(calcNumericStep(95, 1)).toBe(100);
+	});
+
+	it("handles very small positive raw values", () => {
+		// range = 1e-10, maxTicks = 2 -> raw = 5e-11
+		// mag = 1e-11, norm = 5 -> 5 * 1e-11 = 5e-11
+		expect(calcNumericStep(1e-10, 2)).toBeCloseTo(5e-11);
 	});
 });
 
