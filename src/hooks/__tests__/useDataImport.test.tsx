@@ -556,7 +556,9 @@ describe("useDataImport hook", () => {
 				Sheet2: {},
 			},
 		};
-		vi.mocked(xlsx.read).mockReturnValue(mockWorkbook as any);
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
 		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
 
 		await act(async () => {
@@ -602,7 +604,9 @@ describe("useDataImport hook", () => {
 				Sheet2: {},
 			},
 		};
-		vi.mocked(xlsx.read).mockReturnValue(mockWorkbook as any);
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
 		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
 
 		await act(async () => {
@@ -653,7 +657,9 @@ describe("useDataImport hook", () => {
 				Sheet2: {},
 			},
 		};
-		vi.mocked(xlsx.read).mockReturnValue(mockWorkbook as any);
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
 		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
 
 		await act(async () => {
