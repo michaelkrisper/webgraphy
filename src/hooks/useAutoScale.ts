@@ -7,7 +7,11 @@ import type {
 	YAxisConfig,
 } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
-import { AXIS_EPSILON, DEFAULT_X_AXIS_ID } from "../utils/axisCalculations";
+import {
+	AXIS_EPSILON,
+	DEFAULT_X_AXIS_ID,
+	getAxisById,
+} from "../utils/axisCalculations";
 import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
 
@@ -75,7 +79,6 @@ interface AutoScaleDeps {
 	xAxes: XAxisConfig[];
 	series: SeriesConfig[];
 	datasetsById: Map<string, Dataset>;
-	xAxesById: Map<string, XAxisConfig>;
 	activeDatasetIdsSet: Set<string>;
 	seriesByYAxisId: Map<string, SeriesConfig[]>;
 }
@@ -94,7 +97,7 @@ function computeAutoScaleY(
 		chartHeight: ch,
 		syncViewport: sv,
 		datasetsById: dsById,
-		xAxesById: xaById,
+		xAxes,
 		seriesByYAxisId: sByY,
 	} = deps;
 
@@ -118,7 +121,7 @@ function computeAutoScaleY(
 				if (colY.bounds.max > yMax) yMax = colY.bounds.max;
 			}
 		} else {
-			const xAxis = xaById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
+			const xAxis = getAxisById(xAxes, ds?.xAxisId || DEFAULT_X_AXIS_ID);
 			if (!xAxis) return;
 			const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 			if (xIdx === -1) return;
@@ -223,7 +226,7 @@ function computeStackedFit(
 		chartHeight: ch,
 		syncViewport: sv,
 		datasetsById: dsById,
-		xAxesById: xaById,
+		xAxes,
 		seriesByYAxisId: sByY,
 		activeYAxes: ayAxes,
 		series: allSeries,
@@ -257,7 +260,7 @@ function computeStackedFit(
 			const colY = ds.data[yIdx];
 			if (!colY?.data) return;
 			const xAxisId = ds.xAxisId || DEFAULT_X_AXIS_ID;
-			const storeXAxis = xaById.get(xAxisId);
+			const storeXAxis = getAxisById(xAxes, xAxisId);
 			const liveRange = targetXAxes[xAxisId];
 			const xMin = liveRange?.min ?? storeXAxis?.min;
 			const xMax = liveRange?.max ?? storeXAxis?.max;
@@ -322,11 +325,6 @@ export function useAutoScale({
 		[datasets],
 	);
 
-	const xAxesById = useMemo(
-		() => new Map<string, XAxisConfig>(xAxes.map((a) => [a.id, a])),
-		[xAxes],
-	);
-
 	const activeDatasetIdsSet = useMemo(() => {
 		const set = new Set<string>();
 		series.forEach((s) => {
@@ -355,7 +353,6 @@ export function useAutoScale({
 		xAxes,
 		series,
 		datasetsById,
-		xAxesById,
 		activeDatasetIdsSet,
 		seriesByYAxisId,
 	});
@@ -371,7 +368,6 @@ export function useAutoScale({
 			xAxes,
 			series,
 			datasetsById,
-			xAxesById,
 			activeDatasetIdsSet,
 			seriesByYAxisId,
 		};
@@ -412,7 +408,7 @@ export function useAutoScale({
 
 			series.forEach((s) => {
 				const ds = datasetsById.get(s.sourceId);
-				const xAxis = xAxesById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
+				const xAxis = getAxisById(xAxes, ds?.xAxisId || DEFAULT_X_AXIS_ID);
 				if (!ds || !xAxis) return;
 				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 				const xCol = ds.data[xIdx];
@@ -516,7 +512,7 @@ export function useAutoScale({
 		series,
 		datasets,
 		datasetsById,
-		xAxesById,
+		xAxes,
 		seriesByYAxisId,
 		activeYAxes,
 		targetXAxes,

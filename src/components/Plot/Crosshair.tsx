@@ -6,7 +6,7 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../../services/persistence";
-import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
+import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { findClosest } from "../../utils/binarySearch";
 import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
@@ -88,23 +88,13 @@ const Crosshair = React.memo(
 			[datasets],
 		);
 
-		const yAxesById = useMemo(
-			() => new Map(yAxes.map((a) => [a.id, a])),
-			[yAxes],
-		);
-
-		const xAxesById = useMemo(
-			() => new Map(xAxes.map((a) => [a.id, a])),
-			[xAxes],
-		);
-
 		const seriesMetadata = useMemo(() => {
 			return series
 				.filter((s) => !s.hidden)
 				.map((s) => {
 					const ds = datasetsById.get(s.sourceId);
-					const axis = yAxesById.get(s.yAxisId);
-					const xAxis = xAxesById.get(ds?.xAxisId || DEFAULT_X_AXIS_ID);
+					const axis = getAxisById(yAxes, s.yAxisId);
+					const xAxis = getAxisById(xAxes, ds?.xAxisId || DEFAULT_X_AXIS_ID);
 					if (!ds || !axis || !xAxis) return null;
 					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 					const yIdx = getColumnIndex(ds, s.yColumn);
@@ -115,7 +105,7 @@ const Crosshair = React.memo(
 					return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
 				})
 				.filter(Boolean) as SeriesMetadata[];
-		}, [datasetsById, yAxesById, xAxesById, series]);
+		}, [datasetsById, yAxes, xAxes, series]);
 
 		const xAxisNameById = useMemo(() => {
 			const dsByX: Record<string, Dataset[]> = {};

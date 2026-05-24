@@ -17,7 +17,7 @@ import {
 	findLastLE,
 	findSegmentStartIndex,
 } from "../../utils/binarySearch";
-import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
+import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import {
@@ -730,8 +730,6 @@ export const WebGLRenderer = React.memo(
 		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
 
 		const drawRangesScratchRef = useRef<{ start: number; count: number }[]>([]);
-		const xAxisByIdRef = useRef<Map<string, XAxisConfig>>(new Map());
-		const yAxisByIdRef = useRef<Map<string, YAxisConfig>>(new Map());
 		const plotBgRgbaRef = useRef<number[]>(hexToRgba(plotBg ?? "#ffffff"));
 		useEffect(() => {
 			plotBgRgbaRef.current = hexToRgba(plotBg ?? "#ffffff");
@@ -964,14 +962,6 @@ export const WebGLRenderer = React.memo(
 				);
 
 				const plotBgRgba = plotBgRgbaRef.current;
-				const xAxisById = xAxisByIdRef.current;
-				xAxisById.clear();
-				for (let i = 0; i < currentXAxes.length; i++)
-					xAxisById.set(currentXAxes[i].id, currentXAxes[i]);
-				const yAxisById = yAxisByIdRef.current;
-				yAxisById.clear();
-				for (let i = 0; i < currentYAxes.length; i++)
-					yAxisById.set(currentYAxes[i].id, currentYAxes[i]);
 
 				const t0 = performance.now();
 				for (let idx = 0; idx < seriesMetadata.length; idx++) {
@@ -984,8 +974,8 @@ export const WebGLRenderer = React.memo(
 						pointColorRgba,
 					} = seriesMetadata[idx];
 
-					const xAxis = xAxisById.get(ds.xAxisId || DEFAULT_X_AXIS_ID);
-					const yAxis = yAxisById.get(s.yAxisId);
+					const xAxis = getAxisById(currentXAxes, ds.xAxisId || DEFAULT_X_AXIS_ID);
+					const yAxis = getAxisById(currentYAxes, s.yAxisId);
 					if (!xAxis || !yAxis) continue;
 					if (s.hidden) continue;
 

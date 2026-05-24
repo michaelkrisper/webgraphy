@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PanTarget } from "../components/Plot/chartTypes";
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
+import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
 
 interface UsePanZoomOptions {
@@ -13,8 +14,8 @@ interface UsePanZoomOptions {
 	chartHeight: number;
 	activeXAxes: XAxisConfig[];
 	activeYAxes: YAxisConfig[];
-	xAxesById: Map<string, XAxisConfig>;
-	yAxesById: Map<string, YAxisConfig>;
+	xAxes: XAxisConfig[];
+	yAxes: YAxisConfig[];
 	targetXAxes: React.MutableRefObject<
 		Record<string, { min: number; max: number }>
 	>;
@@ -64,8 +65,8 @@ export function usePanZoom({
 	chartHeight,
 	activeXAxes,
 	activeYAxes,
-	xAxesById,
-	yAxesById,
+	xAxes,
+	yAxes,
 	targetXAxes,
 	targetYs,
 	syncViewport,
@@ -264,7 +265,7 @@ export function usePanZoom({
 					target === "all" || shiftKey
 						? activeXAxes
 						: (() => {
-								const a = xAxesById.get(target.xAxisId);
+								const a = getAxisById(xAxes, target.xAxisId);
 								return a ? [a] : [];
 							})();
 				axesToZoom.forEach((axis) => {
@@ -303,7 +304,7 @@ export function usePanZoom({
 					if (shiftKey) {
 						return leftAxes.some((a) => a.id === yId) ? leftAxes : rightAxes;
 					}
-					const a = yAxesById.get(yId);
+					const a = getAxisById(yAxes, yId);
 					return a ? [a] : [];
 				})();
 				axesToZoom.forEach((axis) => {
@@ -337,8 +338,8 @@ export function usePanZoom({
 		[
 			activeXAxes,
 			activeYAxes,
-			xAxesById,
-			yAxesById,
+			xAxes,
+			yAxes,
 			width,
 			height,
 			padding,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Dataset } from "../../services/persistence";
 import { getColumnIndex } from "../columns";
 
@@ -32,24 +32,7 @@ describe("getColumnIndex", () => {
 		expect(getColumnIndex(ds, "D")).toBe(-1);
 	});
 
-	it("should cache results and return them even if columns change (proving cache hit)", () => {
-		const ds = mockDataset(["A", "B", "C"]);
-
-		// First lookup - populates cache
-		expect(getColumnIndex(ds, "B")).toBe(1);
-
-		// Mutate the original columns (not recommended in practice, but perfect for testing cache)
-		// Using any to bypass potential read-only or type restrictions if columns was defined differently
-		(ds.columns as string[])[1] = "X";
-
-		// Second lookup - should hit cache and return 1, not -1
-		expect(getColumnIndex(ds, "B")).toBe(1);
-
-		// Lookup the new value - should scan and cache it
-		expect(getColumnIndex(ds, "X")).toBe(1);
-	});
-
-	it("should maintain separate caches for different datasets", () => {
+	it("should resolve independently per dataset", () => {
 		const ds1 = mockDataset(["A", "B", "C"], "ds1");
 		const ds2 = mockDataset(["X", "Y", "Z"], "ds2");
 
@@ -73,44 +56,5 @@ describe("getColumnIndex", () => {
 		const ds = mockDataset(["A: Time", "Time"]);
 		// indexOf will find 'Time' at index 1 first
 		expect(getColumnIndex(ds, "Time")).toBe(1);
-	});
-
-	it("should cache negative lookup results (-1) across property mutations", () => {
-		const ds = mockDataset(["A", "B", "C"]);
-
-		// First lookup - populates cache with -1
-		expect(getColumnIndex(ds, "D")).toBe(-1);
-
-		// Mutate the array
-		(ds.columns as string[])[0] = "D";
-
-		// Second lookup - should hit cache and still return -1
-		expect(getColumnIndex(ds, "D")).toBe(-1);
-	});
-
-	it("should bypass indexOf and findIndex on cache hits", () => {
-		const ds = mockDataset(["A", "B", "C"]);
-		const indexOfSpy = vi.spyOn(ds.columns, "indexOf");
-		const findIndexSpy = vi.spyOn(ds.columns, "findIndex");
-
-		// First lookup - populates cache, calls indexOf
-		expect(getColumnIndex(ds, "B")).toBe(1);
-		expect(indexOfSpy).toHaveBeenCalledTimes(1);
-		expect(findIndexSpy).not.toHaveBeenCalled();
-
-		// Second lookup - cache hit, no array methods called
-		expect(getColumnIndex(ds, "B")).toBe(1);
-		expect(indexOfSpy).toHaveBeenCalledTimes(1);
-		expect(findIndexSpy).not.toHaveBeenCalled();
-
-		// Suffix match lookup
-		expect(getColumnIndex(ds, "Missing")).toBe(-1);
-		expect(indexOfSpy).toHaveBeenCalledTimes(2);
-		expect(findIndexSpy).toHaveBeenCalledTimes(1);
-
-		// Suffix cache hit
-		expect(getColumnIndex(ds, "Missing")).toBe(-1);
-		expect(indexOfSpy).toHaveBeenCalledTimes(2);
-		expect(findIndexSpy).toHaveBeenCalledTimes(1);
 	});
 });

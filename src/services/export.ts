@@ -1,5 +1,5 @@
 import type { Theme } from "../themes";
-import { formatAxisLabel } from "../utils/axisCalculations";
+import { formatAxisLabel, getAxisById } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
@@ -193,16 +193,14 @@ export const exportToSVG = (
 
 	// 3. Draw Series Data
 	const datasetsMap = new Map(datasets.map((d) => [d.id, d]));
-	const xAxesMap = new Map(xAxes.map((a) => [a.id, a]));
-	const yAxesMap = new Map(yAxes.map((a) => [a.id, a]));
 
 	const m4Out = { x: new Float32Array(0), y: new Float32Array(0) };
 
 	series.forEach((s) => {
 		if (s.hidden) return;
 		const ds = datasetsMap.get(s.sourceId);
-		const xAxis = xAxesMap.get(ds?.xAxisId || "axis-1");
-		const yAxis = yAxesMap.get(s.yAxisId);
+		const xAxis = getAxisById(xAxes, ds?.xAxisId || "axis-1");
+		const yAxis = getAxisById(yAxes, s.yAxisId);
 		if (!ds || !xAxis || !yAxis) return;
 
 		const xIdx = getColumnIndex(ds, ds.xAxisColumn);
