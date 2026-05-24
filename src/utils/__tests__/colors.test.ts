@@ -23,6 +23,18 @@ describe("colors", () => {
 		it("should clamp out-of-bounds numbers to 0-255", () => {
 			expect(rgbToHex(-10, -100, -1)).toBe("#000000");
 			expect(rgbToHex(256, 1000, 300)).toBe("#ffffff");
+			expect(rgbToHex(-Infinity, -Infinity, -Infinity)).toBe("#000000");
+			expect(rgbToHex(Infinity, Infinity, Infinity)).toBe("#ffffff");
+		});
+
+		it("should handle invalid types and NaN gracefully", () => {
+			expect(rgbToHex(NaN, NaN, NaN)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex(null, null, null)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex(undefined, undefined, undefined)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex({}, [], "string")).toBe("#000000");
 		});
 	});
 
