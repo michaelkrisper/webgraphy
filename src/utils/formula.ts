@@ -424,14 +424,16 @@ function statefulAvgGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] !== key) {
-		ctx.groupSums[id] = 0;
-		ctx.groupCounts[id] = 0;
-		ctx.groupLastKey[id] = key;
+	if (ctx.groupLastKey[id] === key) {
+		ctx.groupSums[id] += val;
+		ctx.groupCounts[id] += 1;
+		return ctx.groupSums[id] / ctx.groupCounts[id];
 	}
-	ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
-	ctx.groupCounts[id] = (ctx.groupCounts[id] || 0) + 1;
-	return ctx.groupSums[id] / ctx.groupCounts[id];
+
+	ctx.groupSums[id] = val;
+	ctx.groupCounts[id] = 1;
+	ctx.groupLastKey[id] = key;
+	return val;
 }
 
 function statefulSumGroup(
@@ -440,12 +442,14 @@ function statefulSumGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] !== key) {
-		ctx.groupSums[id] = 0;
-		ctx.groupLastKey[id] = key;
+	if (ctx.groupLastKey[id] === key) {
+		ctx.groupSums[id] += val;
+		return ctx.groupSums[id];
 	}
-	ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
-	return ctx.groupSums[id];
+
+	ctx.groupSums[id] = val;
+	ctx.groupLastKey[id] = key;
+	return val;
 }
 
 function pushBoundedQueue(
