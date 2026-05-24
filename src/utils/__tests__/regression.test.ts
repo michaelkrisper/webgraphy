@@ -77,7 +77,6 @@ describe("Regression Utilities", () => {
 			const y = new Float64Array([1, 2, 3]);
 			const result = polynomialRegression(x, y, 2);
 			expect(result.length).toBe(3);
-			// Since it's singular, it will fall back to 0s for undefined terms
 		});
 
 		it("should cap degree at n-1", () => {
