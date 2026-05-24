@@ -18,7 +18,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 0, right: 0, bottom: 0, left: 0 },
 			};
 
-			// Both should yield the identical result because of fallback p = view.padding || { top: 0, right: 0, bottom: 0, left: 0 }
 			expect(worldToScreen(50, 50, viewWithoutPadding)).toEqual(
 				worldToScreen(50, 50, viewWithZeroPadding),
 			);
@@ -34,13 +33,9 @@ describe("Coordinate Conversions", () => {
 				height: 500,
 			};
 
-			// Bottom-left (y is inverted on screen)
 			expect(worldToScreen(0, 0, view)).toEqual({ x: 0, y: 500 });
-			// Top-right
 			expect(worldToScreen(100, 100, view)).toEqual({ x: 1000, y: 0 });
-			// Middle
 			expect(worldToScreen(50, 50, view)).toEqual({ x: 500, y: 250 });
-			// Out of bounds
 			expect(worldToScreen(-10, 110, view)).toEqual({ x: -100, y: -50 });
 		});
 
@@ -56,7 +51,6 @@ describe("Coordinate Conversions", () => {
 
 			const result = worldToScreen(100, 50, view);
 
-			// In JS, 0 / 0 is NaN
 			expect(Number.isNaN(result.x)).toBe(true);
 			expect(Number.isNaN(result.y)).toBe(true);
 		});
@@ -71,8 +65,6 @@ describe("Coordinate Conversions", () => {
 				height: 500,
 			};
 
-			// x: -50 -> 25% of 1000 = 250
-			// y: -50 -> 25% of 500 = 125, inverted -> 500 - 125 = 375
 			expect(worldToScreen(-50, -50, view)).toEqual({ x: 250, y: 375 });
 		});
 
@@ -87,7 +79,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 0, right: 0, bottom: 0, left: 0 },
 			};
 
-			// Since chartWidth and chartHeight are 0, sx and sy will be 0
 			expect(worldToScreen(50, 50, view)).toEqual({ x: 0, y: 0 });
 		});
 
@@ -102,13 +93,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: -10, right: -20, bottom: -30, left: -40 },
 			};
 
-			// chartWidth = 1000 - (-40) - (-20) = 1060
-			// p.left = -40
-			// sx for x=50: -40 + (50 / 100) * 1060 = -40 + 530 = 490
-
-			// chartHeight = 500 - (-10) - (-30) = 540
-			// p.bottom = -30
-			// sy for y=50: 500 - (-30) - (50 / 100) * 540 = 530 - 270 = 260
 			expect(worldToScreen(50, 50, view)).toEqual({ x: 490, y: 260 });
 		});
 
@@ -122,8 +106,6 @@ describe("Coordinate Conversions", () => {
 				height: 500,
 			};
 
-			// sx: -250 -> x: -100 + (-250 / 1000) * 200 = -150
-			// sy: -125 -> y: -100 + ((500 - (-125)) / 500) * 200 = 150
 			expect(screenToWorld(-250, -125, view)).toEqual({ x: -150, y: 150 });
 		});
 
@@ -138,7 +120,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: -10, right: -20, bottom: -30, left: -40 },
 			};
 
-			// From worldToScreen test: world (50, 50) maps to screen (490, 260)
 			expect(screenToWorld(490, 260, view)).toEqual({ x: 50, y: 50 });
 		});
 
@@ -154,8 +135,8 @@ describe("Coordinate Conversions", () => {
 			};
 
 			const result = screenToWorld(50, 50, view);
-			expect(result.x).toBe(Infinity); // (50 / 0) * 100
-			expect(result.y).toBe(-Infinity); // (-50 / 0) * 100
+			expect(result.x).toBe(Infinity);
+			expect(result.y).toBe(-Infinity);
 		});
 
 		it("converts correctly with padding", () => {
@@ -169,13 +150,10 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 10, right: 20, bottom: 30, left: 40 },
 			};
 
-			// Bottom-left: (x: 0, y: 0)
 			expect(worldToScreen(0, 0, view)).toEqual({ x: 40, y: 470 });
 
-			// Top-right: (x: 100, y: 100)
 			expect(worldToScreen(100, 100, view)).toEqual({ x: 980, y: 10 });
 
-			// Middle: (x: 50, y: 50)
 			expect(worldToScreen(50, 50, view)).toEqual({ x: 510, y: 240 });
 		});
 
@@ -234,7 +212,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 50, right: 50, bottom: 50, left: 50 },
 			};
 
-			// Chart area is 0x0 at (50, 50)
 			expect(worldToScreen(0, 0, view)).toEqual({ x: 50, y: 50 });
 			expect(worldToScreen(100, 100, view)).toEqual({ x: 50, y: 50 });
 		});
@@ -252,7 +229,6 @@ describe("Coordinate Conversions", () => {
 			expect(worldToScreen(NaN, 50, view)).toEqual({ x: NaN, y: 250 });
 			expect(worldToScreen(50, NaN, view)).toEqual({ x: 500, y: NaN });
 
-			// Infinity mapping -> Infinity for normal range
 			expect(worldToScreen(Infinity, 50, view)).toEqual({
 				x: Infinity,
 				y: 250,
@@ -260,7 +236,7 @@ describe("Coordinate Conversions", () => {
 			expect(worldToScreen(50, -Infinity, view)).toEqual({
 				x: 500,
 				y: Infinity,
-			}); // -(-Infinity) = Infinity
+			});
 		});
 	});
 
@@ -275,11 +251,8 @@ describe("Coordinate Conversions", () => {
 				height: 500,
 			};
 
-			// Bottom-left
 			expect(screenToWorld(0, 500, view)).toEqual({ x: 0, y: 0 });
-			// Top-right
 			expect(screenToWorld(1000, 0, view)).toEqual({ x: 100, y: 100 });
-			// Middle
 			expect(screenToWorld(500, 250, view)).toEqual({ x: 50, y: 50 });
 		});
 
@@ -294,7 +267,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 10, right: 20, bottom: 30, left: 40 },
 			};
 
-			// From previous test values
 			expect(screenToWorld(40, 470, view)).toEqual({ x: 0, y: 0 });
 			expect(screenToWorld(980, 10, view)).toEqual({ x: 100, y: 100 });
 			expect(screenToWorld(510, 240, view)).toEqual({ x: 50, y: 50 });
@@ -339,7 +311,6 @@ describe("Coordinate Conversions", () => {
 				height: 500,
 			};
 
-			// Even if range is zero, the min value is returned plus zero
 			const result = screenToWorld(500, 250, view);
 			expect(result.x).toBe(50);
 			expect(result.y).toBe(50);
@@ -356,7 +327,6 @@ describe("Coordinate Conversions", () => {
 				padding: { top: 50, right: 50, bottom: 50, left: 50 },
 			};
 
-			// When width/height is 0, division by zero occurs
 			const result = screenToWorld(50, 50, view);
 			expect(Number.isNaN(result.x)).toBe(true);
 			expect(Number.isNaN(result.y)).toBe(true);
@@ -375,7 +345,6 @@ describe("Coordinate Conversions", () => {
 			expect(screenToWorld(NaN, 250, view)).toEqual({ x: NaN, y: 50 });
 			expect(screenToWorld(500, NaN, view)).toEqual({ x: 50, y: NaN });
 
-			// Infinity mapping -> Infinity for normal range
 			expect(screenToWorld(Infinity, 250, view)).toEqual({
 				x: Infinity,
 				y: 50,
@@ -383,7 +352,7 @@ describe("Coordinate Conversions", () => {
 			expect(screenToWorld(500, -Infinity, view)).toEqual({
 				x: 50,
 				y: Infinity,
-			}); // -(-Infinity) = Infinity
+			});
 		});
 	});
 
@@ -404,7 +373,7 @@ describe("Coordinate Conversions", () => {
 				{ x: -50, y: -10 },
 				{ x: 150, y: 20 },
 				{ x: 50, y: 5 },
-				{ x: 200, y: 50 }, // out of bounds
+				{ x: 200, y: 50 },
 			];
 
 			for (const p of points) {
@@ -432,7 +401,7 @@ describe("Coordinate Conversions", () => {
 				{ x: 45, y: 565 },
 				{ x: 775, y: 15 },
 				{ x: 400, y: 300 },
-				{ x: -100, y: 800 }, // out of bounds
+				{ x: -100, y: 800 },
 			];
 
 			for (const p of points) {
@@ -458,7 +427,7 @@ describe("Coordinate Conversions", () => {
 			};
 
 			const result = worldToScreen(50, 50, view);
-			expect(result.x).toBe(5); // chartWidth is 0, so sx is p.left
+			expect(result.x).toBe(5);
 			expect(result.y).toBe(250);
 		});
 
@@ -475,7 +444,7 @@ describe("Coordinate Conversions", () => {
 
 			const result = worldToScreen(50, 50, view);
 			expect(result.x).toBe(500);
-			expect(result.y).toBe(10); // view.height - p.bottom - 0
+			expect(result.y).toBe(10);
 		});
 
 		it("handles zero chart width safely", () => {
@@ -486,12 +455,11 @@ describe("Coordinate Conversions", () => {
 				yMax: 100,
 				width: 10,
 				height: 500,
-				padding: { top: 0, right: 5, bottom: 0, left: 5 }, // width = 10 - 5 - 5 = 0
+				padding: { top: 0, right: 5, bottom: 0, left: 5 },
 			};
 
 			const result = screenToWorld(5, 250, view);
-			expect(result.x).toBeNaN(); // or Infinity/0 depending on exact logic, but we test it doesn't crash
-			// Since chartWidth is 0, (sx - p.left) / chartWidth is 0 / 0 which is NaN
+			expect(result.x).toBeNaN();
 		});
 
 		it("handles zero chart height safely", () => {
@@ -502,11 +470,11 @@ describe("Coordinate Conversions", () => {
 				yMax: 100,
 				width: 1000,
 				height: 20,
-				padding: { top: 10, right: 0, bottom: 10, left: 0 }, // height = 20 - 10 - 10 = 0
+				padding: { top: 10, right: 0, bottom: 10, left: 0 },
 			};
 
 			const result = screenToWorld(500, 10, view);
-			expect(result.y).toBeNaN(); // (view.height - p.bottom - sy) is 20 - 10 - 10 = 0. 0 / 0 is NaN
+			expect(result.y).toBeNaN();
 		});
 	});
 });
