@@ -27,6 +27,17 @@ describe("colors", () => {
 	});
 
 	describe("hexToRgb", () => {
+		it("should handle empty or whitespace-only strings", () => {
+			expect(hexToRgb("")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("   ")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("\n\t")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
+		it("should handle valid hex strings with surrounding whitespace", () => {
+			expect(hexToRgb("  #ff0000  ")).toEqual({ r: 0, g: 0, b: 0 }); // Note: HEX_RE expects exactly the hex string, no spaces allowed around it.
+			expect(hexToRgb(" \n#00ff00\t ")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
 		it("should correctly convert valid hex strings", () => {
 			expect(hexToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#ffffff")).toEqual({ r: 255, g: 255, b: 255 });
