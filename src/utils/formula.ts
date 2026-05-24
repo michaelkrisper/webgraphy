@@ -650,24 +650,7 @@ function resolveBracketedReferences(
 			const candidate = formula.substring(start + 1, end);
 			if (map1.has(candidate)) bestEnd = end;
 		}
-		if (bestEnd === -1) {
-			end = formula.indexOf("]", start + 1);
-			if (end === -1) {
-				scanPos = start + 1;
-				continue;
-			}
-			const colName = formula.substring(start + 1, end);
-			const fullMatch = formula.substring(start, end + 1);
-			if (!columnMap.has(fullMatch)) {
-				return {
-					evaluate: () => NaN,
-					usedColumnIndices: [],
-					error: `Column not found: ${colName}`,
-					errorPos: start,
-				};
-			}
-			scanPos = end + 1;
-		} else {
+		if (bestEnd !== -1) {
 			const fullMatch = formula.substring(start, bestEnd + 1);
 			if (!columnMap.has(fullMatch)) {
 				const colName = formula.substring(start + 1, bestEnd);
@@ -676,7 +659,26 @@ function resolveBracketedReferences(
 				usedColumnIndices.push(colIndex);
 			}
 			scanPos = bestEnd + 1;
+			continue;
 		}
+
+		end = formula.indexOf("]", start + 1);
+		if (end === -1) {
+			scanPos = start + 1;
+			continue;
+		}
+
+		const colName = formula.substring(start + 1, end);
+		const fullMatch = formula.substring(start, end + 1);
+		if (!columnMap.has(fullMatch)) {
+			return {
+				evaluate: () => NaN,
+				usedColumnIndices: [],
+				error: `Column not found: ${colName}`,
+				errorPos: start,
+			};
+		}
+		scanPos = end + 1;
 	}
 	return null;
 }
