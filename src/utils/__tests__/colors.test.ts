@@ -53,10 +53,12 @@ describe("colors", () => {
 		it("should handle invalid hex strings safely", () => {
 			// Missing #
 			expect(hexToRgb("ffffff")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("invalid")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Incorrect length
 			expect(hexToRgb("#fff")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#ffffffff")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("#zzz")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Invalid characters resulting in NaN
 			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
@@ -101,10 +103,12 @@ describe("colors", () => {
 		it("should handle invalid hex strings safely", () => {
 			// Missing #
 			expect(hexToRgba("ffffff")).toEqual([0, 0, 0]);
+			expect(hexToRgba("invalid")).toEqual([0, 0, 0]);
 
 			// Incorrect length
 			expect(hexToRgba("#fff")).toEqual([0, 0, 0]);
 			expect(hexToRgba("#ffffffff")).toEqual([0, 0, 0]);
+			expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 
 			// Invalid characters resulting in NaN
 			expect(hexToRgba("#zzxxxx")).toEqual([0, 0, 0]);
