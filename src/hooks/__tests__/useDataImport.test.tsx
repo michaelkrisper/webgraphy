@@ -29,6 +29,14 @@ vi.mock("../../services/persistence", () => ({
 	},
 }));
 
+// Mock xlsx
+vi.mock("xlsx", () => ({
+	read: vi.fn(),
+	utils: {
+		sheet_to_csv: vi.fn(),
+	},
+}));
+
 // Mock the parser worker client
 vi.mock("../../workers/parserClient", () => ({
 	parseDataInWorker: vi.fn(),
@@ -453,6 +461,346 @@ describe("useDataImport hook", () => {
 		});
 
 		expect(mockAddSeries).not.toHaveBeenCalled();
+
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle reader.onerror when reading an Excel file", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.xlsx", {
+			type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		});
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onerror: (() => void) | null = null;
+			readAsArrayBuffer() {
+				setTimeout(() => {
+					this.onerror?.();
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		expect(result.current.error).toBe("Failed to read file.");
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle error when reading an Excel file fails (e.g. XLSX.read throws)", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.xlsx", {
+			type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		});
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
+				null;
+			readAsArrayBuffer() {
+				setTimeout(() => {
+					// We just trigger onload; the actual hook calls XLSX.read which we will mock to throw
+					this.onload?.({ target: { result: new ArrayBuffer(8) } });
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		const xlsx = await import("xlsx");
+		vi.mocked(xlsx.read).mockImplementationOnce(() => {
+			throw new Error("Parse error");
+		});
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		expect(result.current.error).toBe("Failed to parse Excel file.");
+		global.FileReader = originalFileReader;
+	});
+
+	it("should successfully import an Excel file", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.xlsx", {
+			type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		});
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
+				null;
+			readAsArrayBuffer() {
+				setTimeout(() => {
+					this.onload?.({ target: { result: new ArrayBuffer(8) } });
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		const xlsx = await import("xlsx");
+		const mockWorkbook = {
+			SheetNames: ["Sheet1", "Sheet2"],
+			Sheets: {
+				Sheet1: {},
+				Sheet2: {},
+			},
+		};
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
+		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		expect(result.current.pendingFile).not.toBeNull();
+		expect(result.current.pendingFile?.type).toBe("excel");
+		expect(result.current.pendingFile?.sheets).toEqual(["Sheet1", "Sheet2"]);
+		expect(result.current.pendingFile?.selectedSheet).toBe("Sheet1");
+		expect(result.current.pendingFile?.preview).toBe("A,B\n1,2\n3,4");
+
+		global.FileReader = originalFileReader;
+	});
+
+	it("should successfully change sheet for an Excel file", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.xlsx", {
+			type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		});
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
+				null;
+			readAsArrayBuffer() {
+				setTimeout(() => {
+					this.onload?.({ target: { result: new ArrayBuffer(8) } });
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		const xlsx = await import("xlsx");
+		const mockWorkbook = {
+			SheetNames: ["Sheet1", "Sheet2"],
+			Sheets: {
+				Sheet1: {},
+				Sheet2: {},
+			},
+		};
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
+		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		expect(result.current.pendingFile?.selectedSheet).toBe("Sheet1");
+
+		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("C,D\n5,6\n7,8");
+
+		await act(async () => {
+			await result.current.changeSheet("Sheet2");
+		});
+
+		expect(result.current.pendingFile?.selectedSheet).toBe("Sheet2");
+		expect(result.current.pendingFile?.preview).toBe("C,D\n5,6\n7,8");
+
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle confirmImport for an Excel file", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.xlsx", {
+			type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		});
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
+				null;
+			readAsArrayBuffer() {
+				setTimeout(() => {
+					this.onload?.({ target: { result: new ArrayBuffer(8) } });
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		const xlsx = await import("xlsx");
+		const mockWorkbook = {
+			SheetNames: ["Sheet1", "Sheet2"],
+			Sheets: {
+				Sheet1: {},
+				Sheet2: {},
+			},
+		};
+		vi.mocked(xlsx.read).mockReturnValue(
+			mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+		);
+		vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2\n3,4");
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		const settings: ImportSettings = {
+			delimiter: ",",
+			decimalPoint: ".",
+			startRow: 1,
+			columnConfigs: [],
+		};
+
+		const mockDataset = {
+			id: "ds-3",
+			name: "test.xlsx",
+			columns: ["A", "B"],
+			rowCount: 2,
+			data: [],
+		};
+
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
+			mockDataset,
+		] as unknown as ReturnType<typeof parseDataInWorker>);
+
+		await act(async () => {
+			await result.current.confirmImport(settings);
+		});
+
+		expect(parseDataInWorker).toHaveBeenCalled();
+		// Worker is called with a file constructed from CSV and workerType 'csv'
+		expect(vi.mocked(parseDataInWorker).mock.calls[0][1]).toBe("csv");
+
+		expect(mockAddDataset).toHaveBeenCalled();
+		expect(result.current.isImporting).toBe(false);
+		expect(result.current.pendingFile).toBeNull();
+
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle confirmImport failing when addDataset throws or similar error happens", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.csv", { type: "text/csv" });
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onload: ((event: { target: { result: string } }) => void) | null = null;
+			readAsText() {
+				this.onload?.({ target: { result: "data" } });
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		const settings: ImportSettings = {
+			delimiter: ",",
+			decimalPoint: ".",
+			startRow: 1,
+			columnConfigs: [],
+		};
+
+		const mockDataset = {
+			id: "ds-err",
+			name: "err.csv",
+			columns: ["A"],
+			rowCount: 1,
+			data: [],
+		};
+
+		vi.mocked(parseDataInWorker).mockResolvedValueOnce([
+			mockDataset,
+		] as unknown as ReturnType<typeof parseDataInWorker>);
+
+		// Mock addDataset to throw
+		mockAddDataset.mockImplementationOnce(() => {
+			throw new Error("addDataset failed");
+		});
+
+		await act(async () => {
+			await result.current.confirmImport(settings);
+		});
+
+		expect(result.current.error).toBe("addDataset failed");
+		expect(result.current.isImporting).toBe(false);
+
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle reader.onerror when reading a text file", async () => {
+		const { result } = renderHook(() => useDataImport());
+		const file = new File(["dummy"], "test.csv", { type: "text/csv" });
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onerror: (() => void) | null = null;
+			readAsText() {
+				setTimeout(() => {
+					this.onerror?.();
+				}, 10);
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 20));
+		});
+
+		expect(result.current.error).toBe("Failed to read file.");
+		global.FileReader = originalFileReader;
+	});
+
+	it("should handle file reading errors in initiateImport", async () => {
+		const { result } = renderHook(() => useDataImport());
+
+		const file = new File([""], "test.csv", { type: "text/csv" });
+
+		const originalFileReader = global.FileReader;
+		class MockFileReader {
+			onerror: (() => void) | null = null;
+			readAsText() {
+				this.onerror?.();
+			}
+		}
+		global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+		await act(async () => {
+			await result.current.importFile(file);
+		});
+
+		expect(result.current.error).toBe("Failed to read file.");
 
 		global.FileReader = originalFileReader;
 	});

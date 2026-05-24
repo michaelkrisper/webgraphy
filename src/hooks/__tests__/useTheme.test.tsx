@@ -118,4 +118,21 @@ describe("useTheme", () => {
 
 		vi.unstubAllGlobals();
 	});
+
+	it("should allow setting a specific theme and handle existing fonts", async () => {
+		const { useTheme } = await import("../useTheme");
+		const { result } = renderHook(() => useTheme());
+
+		act(() => {
+			result.current[2]("winnie"); // set
+		});
+
+		expect(result.current[0]).toBe("winnie");
+		expect(localStorage.getItem("theme")).toBe("winnie");
+		expect(document.documentElement.dataset.theme).toBe("winnie");
+
+		act(() => {
+			result.current[2]("winnie"); // set again to test early return in loadFont
+		});
+	});
 });

@@ -23,10 +23,33 @@ describe("colors", () => {
 		it("should clamp out-of-bounds numbers to 0-255", () => {
 			expect(rgbToHex(-10, -100, -1)).toBe("#000000");
 			expect(rgbToHex(256, 1000, 300)).toBe("#ffffff");
+			expect(rgbToHex(-Infinity, -Infinity, -Infinity)).toBe("#000000");
+			expect(rgbToHex(Infinity, Infinity, Infinity)).toBe("#ffffff");
+		});
+
+		it("should handle invalid types and NaN gracefully", () => {
+			expect(rgbToHex(NaN, NaN, NaN)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex(null, null, null)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex(undefined, undefined, undefined)).toBe("#000000");
+			// @ts-expect-error testing runtime invalid type
+			expect(rgbToHex({}, [], "string")).toBe("#000000");
 		});
 	});
 
 	describe("hexToRgb", () => {
+		it("should handle empty or whitespace-only strings", () => {
+			expect(hexToRgb("")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("   ")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("\n\t")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
+		it("should handle valid hex strings with surrounding whitespace", () => {
+			expect(hexToRgb("  #ff0000  ")).toEqual({ r: 0, g: 0, b: 0 }); // Note: HEX_RE expects exactly the hex string, no spaces allowed around it.
+			expect(hexToRgb(" \n#00ff00\t ")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
 		it("should correctly convert valid hex strings", () => {
 			expect(hexToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#ffffff")).toEqual({ r: 255, g: 255, b: 255 });
@@ -41,9 +64,11 @@ describe("colors", () => {
 		it("should handle invalid hex strings safely", () => {
 			// Missing #
 			expect(hexToRgb("ffffff")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("invalid")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Incorrect length
 			expect(hexToRgb("#ffffffff")).toEqual({ r: 0, g: 0, b: 0 });
+			expect(hexToRgb("#zzz")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Invalid characters resulting in NaN
 			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
@@ -95,9 +120,11 @@ describe("colors", () => {
 		it("should handle invalid hex strings safely", () => {
 			// Missing #
 			expect(hexToRgba("ffffff")).toEqual([0, 0, 0]);
+			expect(hexToRgba("invalid")).toEqual([0, 0, 0]);
 
 			// Incorrect length
 			expect(hexToRgba("#ffffffff")).toEqual([0, 0, 0]);
+			expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 
 			// Invalid characters resulting in NaN
 			expect(hexToRgba("#zzxxxx")).toEqual([0, 0, 0]);
@@ -169,6 +196,20 @@ describe("colors", () => {
 			}
 		});
 
+		it("should be the inverse of rgbToLch for a wide color spectrum", () => {
+			for (let r = 0; r <= 255; r += 15) {
+				for (let g = 0; g <= 255; g += 15) {
+					for (let b = 0; b <= 255; b += 15) {
+						const lch = rgbToLch(r, g, b);
+						const rgb = lchToRgb(lch.L, lch.C, lch.h);
+						expect(Math.abs(rgb.r - r)).toBeLessThanOrEqual(1);
+						expect(Math.abs(rgb.g - g)).toBeLessThanOrEqual(1);
+						expect(Math.abs(rgb.b - b)).toBeLessThanOrEqual(1);
+					}
+				}
+			}
+		});
+
 		it("should clamp output to valid RGB ranges (0-255)", () => {
 			// Super high lightness/chroma
 			const overblown = lchToRgb(150, 200, 180);
@@ -216,70 +257,112 @@ describe("colors", () => {
 	});
 
 	describe("rgbToLch", () => {
-		it("should correctly convert black", () => {
-			const { L, C, h } = rgbToLch(0, 0, 0);
-			expect(L).toBeCloseTo(0, 1);
-			expect(C).toBeCloseTo(0, 1);
-			expect(h).toBeCloseTo(0, 1);
-		});
-
-		it("should correctly convert white", () => {
-			const { L, C } = rgbToLch(255, 255, 255);
-			expect(L).toBeCloseTo(100, 1);
-			expect(C).toBeCloseTo(0, 1);
-		});
-
-		it("should correctly convert red", () => {
-			const { L, C, h } = rgbToLch(255, 0, 0);
-			expect(L).toBeCloseTo(53.2, 1);
-			expect(C).toBeCloseTo(104.6, 1);
-			expect(h).toBeCloseTo(40.0, 1);
-		});
-
-		it("should correctly convert green", () => {
-			const { L, C, h } = rgbToLch(0, 255, 0);
-			expect(L).toBeCloseTo(87.7, 1);
-			expect(C).toBeCloseTo(119.8, 1);
-			expect(h).toBeCloseTo(136.0, 1);
-		});
-
-		it("should correctly convert blue", () => {
-			const { L, C, h } = rgbToLch(0, 0, 255);
-			expect(L).toBeCloseTo(32.3, 1);
-			expect(C).toBeCloseTo(133.8, 1);
-			expect(h).toBeCloseTo(306.3, 1);
-		});
-
-		it("should correctly convert arbitrary colors", () => {
-			// Cyan
-			const cyan = rgbToLch(0, 255, 255);
-			expect(cyan.L).toBeCloseTo(91.1, 1);
-			expect(cyan.C).toBeCloseTo(50.1, 1);
-			expect(cyan.h).toBeCloseTo(196.4, 1);
-
-			// Magenta
-			const magenta = rgbToLch(255, 0, 255);
-			expect(magenta.L).toBeCloseTo(60.3, 1);
-			expect(magenta.C).toBeCloseTo(115.6, 1);
-			expect(magenta.h).toBeCloseTo(328.2, 1);
-
-			// Yellow
-			const yellow = rgbToLch(255, 255, 0);
-			expect(yellow.L).toBeCloseTo(97.1, 1);
-			expect(yellow.C).toBeCloseTo(96.9, 1);
-			expect(yellow.h).toBeCloseTo(102.9, 1);
-
-			// Gray
-			const gray = rgbToLch(128, 128, 128);
-			expect(gray.L).toBeCloseTo(53.6, 1);
-			expect(gray.C).toBeCloseTo(0, 1);
-		});
-
-		it("should correctly handle linear sRGB conversion for very dark colors", () => {
-			// Values <= 0.04045
-			const dark = rgbToLch(10, 10, 10);
-			expect(dark.L).toBeCloseTo(2.7, 1);
-			expect(dark.C).toBeCloseTo(0, 1);
+		it.each([
+			{
+				r: 0,
+				g: 0,
+				b: 0,
+				expectedL: 0,
+				expectedC: 0,
+				expectedH: 0,
+				name: "black",
+			},
+			{
+				r: 255,
+				g: 255,
+				b: 255,
+				expectedL: 100,
+				expectedC: 0,
+				expectedH: 0,
+				name: "white",
+			},
+			{
+				r: 255,
+				g: 0,
+				b: 0,
+				expectedL: 53.2,
+				expectedC: 104.6,
+				expectedH: 40.0,
+				name: "red",
+			},
+			{
+				r: 0,
+				g: 255,
+				b: 0,
+				expectedL: 87.7,
+				expectedC: 119.8,
+				expectedH: 136.0,
+				name: "green",
+			},
+			{
+				r: 0,
+				g: 0,
+				b: 255,
+				expectedL: 32.3,
+				expectedC: 133.8,
+				expectedH: 306.3,
+				name: "blue",
+			},
+			{
+				r: 0,
+				g: 255,
+				b: 255,
+				expectedL: 91.1,
+				expectedC: 50.1,
+				expectedH: 196.4,
+				name: "cyan",
+			},
+			{
+				r: 255,
+				g: 0,
+				b: 255,
+				expectedL: 60.3,
+				expectedC: 115.6,
+				expectedH: 328.2,
+				name: "magenta",
+			},
+			{
+				r: 255,
+				g: 255,
+				b: 0,
+				expectedL: 97.1,
+				expectedC: 96.9,
+				expectedH: 102.9,
+				name: "yellow",
+			},
+			{
+				r: 128,
+				g: 128,
+				b: 128,
+				expectedL: 53.6,
+				expectedC: 0,
+				expectedH: 0,
+				name: "gray",
+			},
+			{
+				r: 10,
+				g: 10,
+				b: 10,
+				expectedL: 2.7,
+				expectedC: 0,
+				expectedH: 0,
+				name: "very dark color (linear sRGB)",
+			},
+		])("should correctly convert $name", ({
+			r,
+			g,
+			b,
+			expectedL,
+			expectedC,
+			expectedH,
+		}) => {
+			const { L, C, h } = rgbToLch(r, g, b);
+			expect(L).toBeCloseTo(expectedL, 1);
+			expect(C).toBeCloseTo(expectedC, 1);
+			if (expectedC > 0 || (r === 0 && g === 0 && b === 0)) {
+				// hue is only relevant if chroma > 0, except for black test case specifically checking it to be 0
+				expect(h).toBeCloseTo(expectedH, 1);
+			}
 		});
 
 		it("should wrap negative hue values", () => {

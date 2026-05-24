@@ -156,11 +156,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (regressionMatch) {
 			const yColName = regressionMatch[1];
 			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
-			let yColIdx = dataset.columns.indexOf(yColName);
-			if (yColIdx === -1)
-				yColIdx = dataset.columns.findIndex(
-					(c) => c.endsWith(`: ${yColName}`) || c === yColName,
-				);
+			const yColIdx = getColumnIndex(dataset, yColName);
 			if (xColIdx === -1 || yColIdx === -1)
 				return { success: false, error: `Column not found: ${yColName}` };
 
@@ -251,7 +247,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			const colIdx = dataset.columns.indexOf(columnName);
+			const colIdx = getColumnIndex(dataset, columnName);
 			if (colIdx === -1) return state;
 			const updatedDataset = {
 				...dataset,

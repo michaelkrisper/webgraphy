@@ -16,8 +16,78 @@ describe("calcNumericStep", () => {
 		expect(calcNumericStep(100, 5)).toBe(20);
 		expect(calcNumericStep(0.3, 3)).toBe(0.1);
 	});
-	it("returns 1 for zero range", () => {
+
+	it("returns 1 for zero or negative range", () => {
 		expect(calcNumericStep(0, 5)).toBe(1);
+		expect(calcNumericStep(-10, 5)).toBe(1);
+	});
+
+	it("handles maxTicks less than 1 by clamping to 1", () => {
+		// raw = 10 / Math.max(1, 0) = 10. mag = 10, norm = 1. Output: 1 * 10 = 10
+		expect(calcNumericStep(10, 0)).toBe(10);
+		// raw = 10 / Math.max(1, -5) = 10. mag = 10, norm = 1. Output: 1 * 10 = 10
+		expect(calcNumericStep(10, -5)).toBe(10);
+		expect(calcNumericStep(10, 0.5)).toBe(10);
+	});
+
+	it("calculates norm < 1.5 -> step 1", () => {
+		// raw = 1.2, mag = 1, norm = 1.2
+		expect(calcNumericStep(1.2 * 10, 10)).toBe(1);
+		// raw = 14, mag = 10, norm = 1.4 -> 1 * 10
+		expect(calcNumericStep(14, 1)).toBe(10);
+	});
+
+	it("calculates norm < 3 -> step 2", () => {
+		// raw = 2, mag = 1, norm = 2 -> 2 * 1
+		expect(calcNumericStep(2 * 10, 10)).toBe(2);
+		// raw = 28, mag = 10, norm = 2.8 -> 2 * 10
+		expect(calcNumericStep(28, 1)).toBe(20);
+	});
+
+	it("calculates norm < 7 -> step 5", () => {
+		// raw = 5, mag = 1, norm = 5 -> 5 * 1
+		expect(calcNumericStep(5 * 10, 10)).toBe(5);
+		// raw = 68, mag = 10, norm = 6.8 -> 5 * 10
+		expect(calcNumericStep(68, 1)).toBe(50);
+	});
+
+	it("calculates norm >= 7 -> step 10", () => {
+		// raw = 8, mag = 1, norm = 8 -> 10 * 1
+		expect(calcNumericStep(8 * 10, 10)).toBe(10);
+		// raw = 95, mag = 10, norm = 9.5 -> 10 * 10
+		expect(calcNumericStep(95, 1)).toBe(100);
+	});
+
+	it("handles very small positive raw values", () => {
+		// range = 1e-10, maxTicks = 2 -> raw = 5e-11
+		// mag = 1e-11, norm = 5 -> 5 * 1e-11 = 5e-11
+		expect(calcNumericStep(1e-10, 2)).toBeCloseTo(5e-11);
+	});
+});
+
+describe("calcNumericPrecision", () => {
+	it("returns 0 for integer steps", () => {
+		expect(calcNumericPrecision(1)).toBe(0);
+		expect(calcNumericPrecision(2)).toBe(0);
+		expect(calcNumericPrecision(10)).toBe(0);
+		expect(calcNumericPrecision(100)).toBe(0);
+	});
+
+	it("returns correct precision for fractional steps", () => {
+		expect(calcNumericPrecision(0.5)).toBe(1);
+		expect(calcNumericPrecision(0.1)).toBe(1);
+		expect(calcNumericPrecision(0.05)).toBe(2);
+		expect(calcNumericPrecision(0.01)).toBe(2);
+		expect(calcNumericPrecision(0.001)).toBe(3);
+	});
+
+	it("caps precision at 20 for very small steps", () => {
+		expect(calcNumericPrecision(1e-25)).toBe(20);
+		expect(calcNumericPrecision(1e-30)).toBe(20);
+	});
+
+	it("handles 0 by returning 0 (defaults to 1)", () => {
+		expect(calcNumericPrecision(0)).toBe(0);
 	});
 });
 
@@ -57,6 +127,14 @@ describe("calcNumericPrecision", () => {
 });
 
 describe("calcCategoricalTicks", () => {
+	it("handles cases where min and max are negative", () => {
+		expect(calcCategoricalTicks(-10, -5, 10)).toEqual([]);
+	});
+
+	it("handles cases where min is large and max is even larger", () => {
+		expect(calcCategoricalTicks(20, 30, 5)).toEqual([]);
+	});
+
 	it("generates integer ticks within bounds", () => {
 		expect(calcCategoricalTicks(0, 5, 10)).toEqual([0, 1, 2, 3, 4, 5]);
 	});
@@ -92,6 +170,12 @@ describe("calcNumericTicks", () => {
 });
 
 describe("calcYAxisTicks", () => {
+	it("uses calcCategoricalTicks if categoryCount is provided", () => {
+		const result = calcYAxisTicks(0, 5, 400, undefined, 10);
+		expect(result.ticks).toEqual([0, 1, 2, 3, 4, 5]);
+		expect(result.precision).toBe(0);
+		expect(result.actualStep).toBe(1);
+	});
 	it("returns ticks, precision, and actualStep", () => {
 		const result = calcYAxisTicks(0, 100, 400);
 		expect(result.ticks.length).toBeGreaterThan(0);
@@ -111,6 +195,24 @@ describe("calcYAxisTicks", () => {
 });
 
 describe("syncAxesWithTargets", () => {
+	it("uses scratch if provided", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const targetXAxes = { x1: { min: -10, max: 110 } };
+		const targetYs = { y1: { min: 10, max: 90 } };
+		const scratch = {
+			xUpdates: { dummy: { min: 0, max: 0 } },
+			yUpdates: { dummy: { min: 0, max: 0 } },
+		};
+
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs, scratch);
+		expect(updates.xUpdates).toBe(scratch.xUpdates);
+		expect(updates.yUpdates).toBe(scratch.yUpdates);
+		expect(scratch.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
+		expect(scratch.yUpdates).toEqual({ y1: { min: 10, max: 90 } });
+	});
 	it("returns empty updates if targets match state within EPSILON", () => {
 		const state = {
 			xAxes: [{ id: "x1", min: 0, max: 100 }],
