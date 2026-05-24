@@ -23,6 +23,7 @@ describe("hexToRgba", () => {
 	it("handles invalid inputs gracefully", () => {
 		// missing #
 		expect(hexToRgba("FFFFFF")).toEqual([0, 0, 0]);
+		expect(hexToRgba("invalid")).toEqual([0, 0, 0]);
 		// undefined
 		// @ts-expect-error testing invalid input
 		expect(hexToRgba(undefined)).toEqual([0, 0, 0]);
@@ -39,6 +40,7 @@ describe("hexToRgba", () => {
 	it("handles invalid hex formats gracefully", () => {
 		// too short, parses NaN
 		expect(hexToRgba("#FF")).toEqual([0, 0, 0]);
+		expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 		// too long
 		expect(hexToRgba("#FFFFFFFF")).toEqual([0, 0, 0]);
 		// nonsense characters

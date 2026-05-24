@@ -51,6 +51,58 @@ const colSuggestion = (label: string, insert: string): Suggestion => ({
 });
 
 describe("useFormulaEditor", () => {
+
+	it("suggests constants and returns empty on non-identifiers", () => {
+		const { textareaRef } = createMockTextarea();
+		const { result } = renderHook(() =>
+			useFormulaEditor({ columns, textareaRef }),
+		);
+
+		act(() => {
+			result.current.handleFormulaChange({
+				target: { value: "p", selectionStart: 1 },
+			} as React.ChangeEvent<HTMLTextAreaElement>);
+		});
+
+		const labels = result.current.suggestions.map((s) => s.label);
+		expect(labels).toContain("pi");
+
+		act(() => {
+			result.current.handleFormulaChange({
+				target: { value: "123", selectionStart: 3 },
+			} as React.ChangeEvent<HTMLTextAreaElement>);
+		});
+
+		expect(result.current.suggestions).toEqual([]);
+	});
+
+	it("handles formula click or select", () => {
+		const { textareaRef } = createMockTextarea();
+		const { result } = renderHook(() =>
+			useFormulaEditor({ columns, textareaRef }),
+		);
+
+		act(() => {
+			result.current.handleFormulaClickOrSelect({
+				currentTarget: { selectionStart: 5 },
+			} as React.SyntheticEvent<HTMLTextAreaElement>);
+		});
+
+		expect(result.current.cursorPos).toBe(5);
+	});
+
+	it("inserts text correctly when textareaRef is empty", () => {
+		const { result } = renderHook(() =>
+			useFormulaEditor({ initialFormula: "a + ", columns, textareaRef: { current: null } }),
+		);
+
+		act(() => {
+			result.current.insertText("b");
+		});
+
+		expect(result.current.formula).toBe("a + b");
+	});
+
 	const columns = ["Dataset: Column A", "Column B", "Dataset: Another"];
 
 	it("initializes with initialFormula", () => {
@@ -306,6 +358,33 @@ describe("useFormulaEditor", () => {
 });
 
 describe("signatureContext", () => {
+
+	it("resolves legacy suffix root aliases", () => {
+		const ctx = signatureContext("sumhourl([t])", 9);
+		expect(ctx?.fn.name).toBe("sumhour");
+	});
+
+
+	it("returns null when function name cannot be extracted", () => {
+		const ctx = signatureContext("([t])", 1);
+		expect(ctx).toBeNull();
+	});
+
+	it("returns null for unknown functions", () => {
+		const ctx = signatureContext("unknown([t])", 8);
+		expect(ctx).toBeNull();
+	});
+
+	it("resolves rollingtime legacy aliases", () => {
+		const ctx = signatureContext("avg5s([t])", 6);
+		expect(ctx?.fn.name).toBe("rollingtime");
+	});
+
+	it("resolves root legacy aliases", () => {
+		const ctx = signatureContext("avgday([t])", 7);
+		expect(ctx?.fn.name).toBe("avgday");
+	});
+
 	it("identifies the function the cursor is inside", () => {
 		const ctx = signatureContext("if([t] > 100, 1, 0)", 13);
 		expect(ctx?.fn.name).toBe("if");

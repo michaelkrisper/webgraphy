@@ -32,6 +32,21 @@ function visibleIndexRange(
 	return { startIdx, endIdx };
 }
 
+function getRangeBounds(
+	yData: Float32Array | Float64Array | number[],
+	refY: number,
+	range: { startIdx: number; endIdx: number },
+): { min: number; max: number } {
+	let min = Infinity;
+	let max = -Infinity;
+	for (let j = range.startIdx; j <= range.endIdx; j++) {
+		const v = yData[j] + refY;
+		if (v < min) min = v;
+		if (v > max) max = v;
+	}
+	return { min, max };
+}
+
 interface UseAutoScaleOptions {
 	isLoaded: boolean;
 	series: SeriesConfig[];
@@ -69,7 +84,9 @@ function computeAutoScaleY(
 	axisId: string,
 	mouseY: number | undefined,
 	deps: AutoScaleDeps,
-	targetYsRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+	targetYsRef: React.MutableRefObject<
+		Record<string, { min: number; max: number }>
+	>,
 ): void {
 	const targetYs = targetYsRef.current;
 	const {
@@ -113,11 +130,9 @@ function computeAutoScaleY(
 				refY = colY.refPoint;
 			const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
 			if (range) {
-				for (let i = range.startIdx; i <= range.endIdx; i++) {
-					const v = yData[i] + refY;
-					if (v < yMin) yMin = v;
-					if (v > yMax) yMax = v;
-				}
+				const bounds = getRangeBounds(yData, refY, range);
+				if (bounds.min < yMin) yMin = bounds.min;
+				if (bounds.max > yMax) yMax = bounds.max;
 			}
 		}
 	});
@@ -154,7 +169,9 @@ function computeAutoScaleY(
 function computeAutoScaleX(
 	xAxisId: string | undefined,
 	deps: AutoScaleDeps,
-	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+	targetXAxesRef: React.MutableRefObject<
+		Record<string, { min: number; max: number }>
+	>,
 ): void {
 	const targetXAxes = targetXAxesRef.current;
 	const {
@@ -193,8 +210,12 @@ function computeAutoScaleX(
 
 function computeStackedFit(
 	deps: AutoScaleDeps,
-	targetXAxesRef: React.MutableRefObject<Record<string, { min: number; max: number }>>,
-	targetYsRef: React.MutableRefObject<Record<string, { min: number; max: number }>>
+	targetXAxesRef: React.MutableRefObject<
+		Record<string, { min: number; max: number }>
+	>,
+	targetYsRef: React.MutableRefObject<
+		Record<string, { min: number; max: number }>
+	>,
 ): void {
 	const targetXAxes = targetXAxesRef.current;
 	const targetYs = targetYsRef.current;
@@ -251,11 +272,9 @@ function computeStackedFit(
 				refY = colY.refPoint;
 			const range = visibleIndexRange(xData, refX, xMin, xMax);
 			if (range) {
-				for (let j = range.startIdx; j <= range.endIdx; j++) {
-					const v = yData[j] + refY;
-					if (v < yMin) yMin = v;
-					if (v > yMax) yMax = v;
-				}
+				const bounds = getRangeBounds(yData, refY, range);
+				if (bounds.min < yMin) yMin = bounds.min;
+				if (bounds.max > yMax) yMax = bounds.max;
 			}
 		});
 
@@ -360,14 +379,14 @@ export function useAutoScale({
 
 	const handleAutoScaleY = useCallback(
 		(axisId: string, mouseY?: number) => {
-						computeAutoScaleY(axisId, mouseY, depsRef.current, targetYs);
+			computeAutoScaleY(axisId, mouseY, depsRef.current, targetYs);
 		},
 		[targetYs],
 	);
 
 	const handleAutoScaleX = useCallback(
 		(xAxisId?: string) => {
-						computeAutoScaleX(xAxisId, depsRef.current, targetXAxes);
+			computeAutoScaleX(xAxisId, depsRef.current, targetXAxes);
 		},
 		[targetXAxes],
 	);
@@ -512,8 +531,9 @@ export function useAutoScale({
 			const added = series[series.length - 1];
 			if (added) handleAutoScaleY(added.yAxisId);
 		} else {
+			const prevMap = new Map(prevSeriesRef.current.map((ps) => [ps.id, ps]));
 			series.forEach((s) => {
-				const prev = prevSeriesRef.current.find((ps) => ps.id === s.id);
+				const prev = prevMap.get(s.id);
 				if (
 					prev &&
 					(prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId)

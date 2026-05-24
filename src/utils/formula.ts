@@ -424,14 +424,16 @@ function statefulAvgGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] !== key) {
-		ctx.groupSums[id] = 0;
-		ctx.groupCounts[id] = 0;
-		ctx.groupLastKey[id] = key;
+	if (ctx.groupLastKey[id] === key) {
+		ctx.groupSums[id] += val;
+		ctx.groupCounts[id] += 1;
+		return ctx.groupSums[id] / ctx.groupCounts[id];
 	}
-	ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
-	ctx.groupCounts[id] = (ctx.groupCounts[id] || 0) + 1;
-	return ctx.groupSums[id] / ctx.groupCounts[id];
+
+	ctx.groupSums[id] = val;
+	ctx.groupCounts[id] = 1;
+	ctx.groupLastKey[id] = key;
+	return val;
 }
 
 function statefulSumGroup(
@@ -440,12 +442,14 @@ function statefulSumGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] !== key) {
-		ctx.groupSums[id] = 0;
-		ctx.groupLastKey[id] = key;
+	if (ctx.groupLastKey[id] === key) {
+		ctx.groupSums[id] += val;
+		return ctx.groupSums[id];
 	}
-	ctx.groupSums[id] = (ctx.groupSums[id] || 0) + val;
-	return ctx.groupSums[id];
+
+	ctx.groupSums[id] = val;
+	ctx.groupLastKey[id] = key;
+	return val;
 }
 
 function pushBoundedQueue(
@@ -650,24 +654,7 @@ function resolveBracketedReferences(
 			const candidate = formula.substring(start + 1, end);
 			if (map1.has(candidate)) bestEnd = end;
 		}
-		if (bestEnd === -1) {
-			end = formula.indexOf("]", start + 1);
-			if (end === -1) {
-				scanPos = start + 1;
-				continue;
-			}
-			const colName = formula.substring(start + 1, end);
-			const fullMatch = formula.substring(start, end + 1);
-			if (!columnMap.has(fullMatch)) {
-				return {
-					evaluate: () => NaN,
-					usedColumnIndices: [],
-					error: `Column not found: ${colName}`,
-					errorPos: start,
-				};
-			}
-			scanPos = end + 1;
-		} else {
+		if (bestEnd !== -1) {
 			const fullMatch = formula.substring(start, bestEnd + 1);
 			if (!columnMap.has(fullMatch)) {
 				const colName = formula.substring(start + 1, bestEnd);
@@ -676,7 +663,26 @@ function resolveBracketedReferences(
 				usedColumnIndices.push(colIndex);
 			}
 			scanPos = bestEnd + 1;
+			continue;
 		}
+
+		end = formula.indexOf("]", start + 1);
+		if (end === -1) {
+			scanPos = start + 1;
+			continue;
+		}
+
+		const colName = formula.substring(start + 1, end);
+		const fullMatch = formula.substring(start, end + 1);
+		if (!columnMap.has(fullMatch)) {
+			return {
+				evaluate: () => NaN,
+				usedColumnIndices: [],
+				error: `Column not found: ${colName}`,
+				errorPos: start,
+			};
+		}
+		scanPos = end + 1;
 	}
 	return null;
 }
@@ -745,7 +751,7 @@ function tokenizeFormula(
 					break;
 				}
 			}
-			// Scientific notation: e[+-]?digits  — only if preceded by digits
+			// Scientific notation — only if preceded by digits
 			if (
 				i < formula.length &&
 				(formula[i] === "e" || formula[i] === "E") &&

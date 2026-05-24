@@ -1223,86 +1223,96 @@ export default function ChartContainer() {
 					fontFamily={themeColors.fontFamily}
 					isInteracting={isInteracting}
 				/>
-				{xAxesMetrics.map((m) => {
-					const bY = padding.bottom - m.cumulativeOffset - m.height;
-					const title = xAxesLayout.find((a) => a.id === m.id)?.title || "";
-					return (
-						<Fragment key={`wheel-x-${m.id}`}>
-							<div
-								role="region"
-								aria-label={`X-Axis ${m.id} interaction area`}
-								onWheel={(e) => {
-									e.stopPropagation();
-									handleWheel(e, { xAxisId: m.id });
-								}}
-								onMouseDown={(e) => {
-									e.stopPropagation();
-									handleMouseDown(e, { xAxisId: m.id });
-								}}
-								onTouchStart={(e) => {
-									e.stopPropagation();
-									handleTouchStart(e, { xAxisId: m.id });
-								}}
-								onDoubleClick={(e) => {
-									e.stopPropagation();
-									const rect = e.currentTarget.getBoundingClientRect();
-									const yInside = e.clientY - rect.top;
-									// Check if double click is in the title area (roughly bottom 30px)
-									if (yInside >= m.titleBottom - 30) {
-										setEditingXAxisId(m.id);
-									} else {
-										handleAutoScaleX(m.id);
-									}
-								}}
-								style={{
-									position: "absolute",
-									bottom: bY,
-									left: padding.left,
-									right: padding.right,
-									height: m.height,
-									cursor: "ew-resize",
-									zIndex: 20,
-								}}
-							/>
-							{editingXAxisId === m.id && (
-								<input
-									defaultValue={title}
-									onBlur={(e) => {
-										const newName = e.target.value.trim();
-										useGraphStore
-											.getState()
-											.updateXAxis(m.id, { name: newName });
-										setEditingXAxisId(null);
+				{(() => {
+					const xAxesLayoutById = xAxesLayout.reduce(
+						(acc, a) => {
+							acc[a.id] = a;
+							return acc;
+						},
+						{} as Record<string, (typeof xAxesLayout)[0]>,
+					);
+
+					return xAxesMetrics.map((m) => {
+						const bY = padding.bottom - m.cumulativeOffset - m.height;
+						const title = xAxesLayoutById[m.id]?.title || "";
+						return (
+							<Fragment key={`wheel-x-${m.id}`}>
+								<div
+									role="region"
+									aria-label={`X-Axis ${m.id} interaction area`}
+									onWheel={(e) => {
+										e.stopPropagation();
+										handleWheel(e, { xAxisId: m.id });
 									}}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.currentTarget.blur();
-										} else if (e.key === "Escape") {
-											setEditingXAxisId(null);
+									onMouseDown={(e) => {
+										e.stopPropagation();
+										handleMouseDown(e, { xAxisId: m.id });
+									}}
+									onTouchStart={(e) => {
+										e.stopPropagation();
+										handleTouchStart(e, { xAxisId: m.id });
+									}}
+									onDoubleClick={(e) => {
+										e.stopPropagation();
+										const rect = e.currentTarget.getBoundingClientRect();
+										const yInside = e.clientY - rect.top;
+										// Check if double click is in the title area (roughly bottom 30px)
+										if (yInside >= m.titleBottom - 30) {
+											setEditingXAxisId(m.id);
+										} else {
+											handleAutoScaleX(m.id);
 										}
 									}}
 									style={{
 										position: "absolute",
-										bottom: bY + m.height - m.titleBottom + 2,
-										left: "50%",
-										transform: "translateX(-50%)",
-										zIndex: 30,
-										textAlign: "center",
-										font: `bold 12px ${themeColors.fontFamily}`,
-										color: themeColors.labelColor,
-										background: themeColors.plotBg,
-										border: `1px solid ${themeColors.gridColor}`,
-										borderRadius: "4px",
-										padding: "2px 4px",
-										outline: "none",
-										width: "80%",
-										maxWidth: "300px",
+										bottom: bY,
+										left: padding.left,
+										right: padding.right,
+										height: m.height,
+										cursor: "ew-resize",
+										zIndex: 20,
 									}}
 								/>
-							)}
-						</Fragment>
-					);
-				})}
+								{editingXAxisId === m.id && (
+									<input
+										defaultValue={title}
+										onBlur={(e) => {
+											const newName = e.target.value.trim();
+											useGraphStore
+												.getState()
+												.updateXAxis(m.id, { name: newName });
+											setEditingXAxisId(null);
+										}}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.currentTarget.blur();
+											} else if (e.key === "Escape") {
+												setEditingXAxisId(null);
+											}
+										}}
+										style={{
+											position: "absolute",
+											bottom: bY + m.height - m.titleBottom + 2,
+											left: "50%",
+											transform: "translateX(-50%)",
+											zIndex: 30,
+											textAlign: "center",
+											font: `bold 12px ${themeColors.fontFamily}`,
+											color: themeColors.labelColor,
+											background: themeColors.plotBg,
+											border: `1px solid ${themeColors.gridColor}`,
+											borderRadius: "4px",
+											padding: "2px 4px",
+											outline: "none",
+											width: "80%",
+											maxWidth: "300px",
+										}}
+									/>
+								)}
+							</Fragment>
+						);
+					});
+				})()}
 				{activeYAxes.map((a) => {
 					const isL = a.position === "left",
 						am = axisLayout[a.id] || { total: 40 };

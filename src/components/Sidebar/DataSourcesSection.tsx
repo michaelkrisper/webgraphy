@@ -14,6 +14,7 @@ import { buildSeriesConfig } from "../../utils/series";
 import ErrorBoundary from "../ErrorBoundary";
 import { CalculatedColumnModal } from "../Layout/CalculatedColumnModal";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
+import { getColumnIndex } from "../../utils/columns";
 
 const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 	{ length: 9 },
@@ -73,7 +74,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 		const dataset = datasets.find((d) => d.id === datasetId);
 		if (!dataset) return;
 
-		const colIdx = dataset.columns.indexOf(columnName);
+		const colIdx = getColumnIndex(dataset, columnName);
 		const isCategorical = colIdx >= 0 && !!dataset.data[colIdx]?.categoryLabels;
 		addSeries(
 			buildSeriesConfig(columnName, datasetId, series.length, isCategorical),

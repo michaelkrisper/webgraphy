@@ -350,7 +350,7 @@ export const exportToSVG = (
 				axis.xMode === "date"
 					? formatDate(t, xStep)
 					: formatAxisLabel(t, xPrecision);
-			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${theme.labelColor}">${label}</text>`;
+			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${theme.labelColor}">${escapeHTML(label)}</text>`;
 		}
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
@@ -402,7 +402,7 @@ export const exportToSVG = (
 			});
 			svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${theme.axisColor}" stroke-width="1" />`;
 			const labelX = xPos + axisWidth - 8;
-			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${formatAxisLabel(t, precision)}</text>`;
+			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
 		}
 
 		const axisSeries = seriesByYAxisId[axis.id] || [];
