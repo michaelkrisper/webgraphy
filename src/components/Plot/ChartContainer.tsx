@@ -32,6 +32,7 @@ import {
 	calcNumericTicks,
 	calcYAxisTicks,
 	formatAxisLabel,
+	getAxisById,
 	syncAxesWithTargets,
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
@@ -414,15 +415,6 @@ export default function ChartContainer() {
 		return set;
 	}, [series]);
 
-	const xAxesById = useMemo(
-		() => new Map(xAxes.map((a) => [a.id, a])),
-		[xAxes],
-	);
-	const yAxesById = useMemo(
-		() => new Map(yAxes.map((a) => [a.id, a])),
-		[yAxes],
-	);
-
 	const activeYAxes = useMemo(() => {
 		return yAxes.filter((a) => usedYAxisIdsSet.has(a.id));
 	}, [yAxes, usedYAxisIdsSet]);
@@ -487,12 +479,8 @@ export default function ChartContainer() {
 			arr.push(d);
 			dssByX.set(xId, arr);
 		});
-		const xAxisById = new Map<string, (typeof xAxes)[0]>();
-		for (const a of xAxes) {
-			xAxisById.set(a.id, a);
-		}
 		dssByX.forEach((dss, axisId) => {
-			const cfg = xAxisById.get(axisId);
+			const cfg = getAxisById(xAxes, axisId);
 			const forced = cfg?.xMode === "categorical";
 			let labels: string[] | undefined;
 			let mismatch = false;
@@ -836,8 +824,8 @@ export default function ChartContainer() {
 		chartHeight,
 		activeXAxes: activeXAxesUsed,
 		activeYAxes,
-		xAxesById,
-		yAxesById,
+		xAxes,
+		yAxes,
 		targetXAxes,
 		targetYs,
 		syncViewport: (force, immediate) =>
