@@ -232,16 +232,22 @@ function getOrComputeSegments(
 	if (!cachedSegments) {
 		cachedSegments = [];
 		let segStart = -1;
-		for (let i = 0; i <= yData.length; i++) {
-			const nan = i === yData.length || Number.isNaN(yData[i]);
-			const xDrop = !nan && i > 0 && segStart !== -1 && xData[i] < xData[i - 1];
-			const break_ = nan || xDrop;
-			if (!break_ && segStart === -1) segStart = i;
-			else if (break_ && segStart !== -1) {
+		const len = yData.length;
+		for (let i = 0; i < len; i++) {
+			if (Number.isNaN(yData[i])) {
+				if (segStart !== -1) {
+					cachedSegments.push({ start: segStart, end: i - 1 });
+					segStart = -1;
+				}
+			} else if (segStart === -1) {
+				segStart = i;
+			} else if (xData[i] < xData[i - 1]) {
 				cachedSegments.push({ start: segStart, end: i - 1 });
-				segStart = -1;
-				if (xDrop && !nan) segStart = i;
+				segStart = i;
 			}
+		}
+		if (segStart !== -1) {
+			cachedSegments.push({ start: segStart, end: len - 1 });
 		}
 		segmentCache.set(yData, cachedSegments);
 	}
