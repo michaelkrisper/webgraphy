@@ -515,7 +515,7 @@ export const downloadFile = (
 ) => {
 	const a = document.createElement("a");
 	const isDataUrl = content.startsWith("data:");
-	let urlToDownload = content;
+	let urlToDownload: string;
 
 	if (isDataUrl) {
 		// Ensure the data URL has a safe MIME type to prevent XSS
