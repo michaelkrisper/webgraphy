@@ -302,27 +302,26 @@ export const exportToSVG = (
 	// Pre-compute dataset and series relationships for O(1) lookups
 	const datasetsByXAxisId: Record<string, Dataset[]> = {};
 	const seriesByXAxisId: Record<string, SeriesConfig[]> = {};
+	const datasetXAxisMap = new Map<string, string>();
 
-	// Group datasets by xAxisId, only including those that have at least one series
-	datasets.forEach((d) => {
+	// Single pass over datasets replacing both datasets.forEach and datasets.map
+	for (const d of datasets) {
+		const xAxisId = d.xAxisId || "axis-1";
+		datasetXAxisMap.set(d.id, xAxisId);
 		if (activeDatasetIds.has(d.id)) {
-			const xAxisId = d.xAxisId || "axis-1";
 			if (!datasetsByXAxisId[xAxisId]) datasetsByXAxisId[xAxisId] = [];
 			datasetsByXAxisId[xAxisId].push(d);
 		}
-	});
+	}
 
 	// Group series by the xAxisId of their source dataset
-	const datasetXAxisMap = new Map(
-		datasets.map((d) => [d.id, d.xAxisId || "axis-1"]),
-	);
-	series.forEach((s) => {
+	for (const s of series) {
 		const xAxisId = datasetXAxisMap.get(s.sourceId);
 		if (xAxisId) {
 			if (!seriesByXAxisId[xAxisId]) seriesByXAxisId[xAxisId] = [];
 			seriesByXAxisId[xAxisId].push(s);
 		}
-	});
+	}
 
 	activeXAxes.forEach((axis, idx) => {
 		const xRange = axis.max - axis.min;
