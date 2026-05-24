@@ -191,6 +191,20 @@ describe("colors", () => {
 			}
 		});
 
+		it("should be the inverse of rgbToLch for a wide color spectrum", () => {
+			for (let r = 0; r <= 255; r += 15) {
+				for (let g = 0; g <= 255; g += 15) {
+					for (let b = 0; b <= 255; b += 15) {
+						const lch = rgbToLch(r, g, b);
+						const rgb = lchToRgb(lch.L, lch.C, lch.h);
+						expect(Math.abs(rgb.r - r)).toBeLessThanOrEqual(1);
+						expect(Math.abs(rgb.g - g)).toBeLessThanOrEqual(1);
+						expect(Math.abs(rgb.b - b)).toBeLessThanOrEqual(1);
+					}
+				}
+			}
+		});
+
 		it("should clamp output to valid RGB ranges (0-255)", () => {
 			// Super high lightness/chroma
 			const overblown = lchToRgb(150, 200, 180);
