@@ -32,6 +32,21 @@ function visibleIndexRange(
 	return { startIdx, endIdx };
 }
 
+function getRangeBounds(
+	yData: Float32Array | Float64Array | number[],
+	refY: number,
+	range: { startIdx: number; endIdx: number },
+): { min: number; max: number } {
+	let min = Infinity;
+	let max = -Infinity;
+	for (let j = range.startIdx; j <= range.endIdx; j++) {
+		const v = yData[j] + refY;
+		if (v < min) min = v;
+		if (v > max) max = v;
+	}
+	return { min, max };
+}
+
 interface UseAutoScaleOptions {
 	isLoaded: boolean;
 	series: SeriesConfig[];
@@ -115,11 +130,9 @@ function computeAutoScaleY(
 				refY = colY.refPoint;
 			const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
 			if (range) {
-				for (let i = range.startIdx; i <= range.endIdx; i++) {
-					const v = yData[i] + refY;
-					if (v < yMin) yMin = v;
-					if (v > yMax) yMax = v;
-				}
+				const bounds = getRangeBounds(yData, refY, range);
+				if (bounds.min < yMin) yMin = bounds.min;
+				if (bounds.max > yMax) yMax = bounds.max;
 			}
 		}
 	});
@@ -259,11 +272,9 @@ function computeStackedFit(
 				refY = colY.refPoint;
 			const range = visibleIndexRange(xData, refX, xMin, xMax);
 			if (range) {
-				for (let j = range.startIdx; j <= range.endIdx; j++) {
-					const v = yData[j] + refY;
-					if (v < yMin) yMin = v;
-					if (v > yMax) yMax = v;
-				}
+				const bounds = getRangeBounds(yData, refY, range);
+				if (bounds.min < yMin) yMin = bounds.min;
+				if (bounds.max > yMax) yMax = bounds.max;
 			}
 		});
 
