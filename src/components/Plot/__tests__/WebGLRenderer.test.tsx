@@ -38,8 +38,9 @@ describe("hexToRgba", () => {
 	});
 
 	it("handles invalid hex formats gracefully", () => {
-		// too short, parses NaN
-		expect(hexToRgba("#FF")).toEqual([0, 0, 0]);
+		// too short, parses as zero padded hex
+		expect(hexToRgba("#FF")).toEqual([0, 0, 255 / 255]);
+		// nonsense characters still fall back
 		expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 		// too long
 		expect(hexToRgba("#FFFFFFFF")).toEqual([0, 0, 0]);

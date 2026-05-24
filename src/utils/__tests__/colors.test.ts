@@ -67,12 +67,18 @@ describe("colors", () => {
 			expect(hexToRgb("invalid")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Incorrect length
-			expect(hexToRgb("#fff")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#ffffffff")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#zzz")).toEqual({ r: 0, g: 0, b: 0 });
 
 			// Invalid characters resulting in NaN
 			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
+		});
+
+		it("should handle zero padded hex color", () => {
+			expect(hexToRgb("#fff")).toEqual({ r: 0, g: 15, b: 255 });
+			expect(hexToRgb("#1")).toEqual({ r: 0, g: 0, b: 1 });
+			expect(hexToRgb("#0f0a05")).toEqual({ r: 15, g: 10, b: 5 });
+			expect(hexToRgb("#000102")).toEqual({ r: 0, g: 1, b: 2 });
 		});
 
 		it("should accept mixed-case hex digits", () => {
@@ -117,7 +123,6 @@ describe("colors", () => {
 			expect(hexToRgba("invalid")).toEqual([0, 0, 0]);
 
 			// Incorrect length
-			expect(hexToRgba("#fff")).toEqual([0, 0, 0]);
 			expect(hexToRgba("#ffffffff")).toEqual([0, 0, 0]);
 			expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 
