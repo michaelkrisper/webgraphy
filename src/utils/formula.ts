@@ -745,7 +745,7 @@ function tokenizeFormula(
 					break;
 				}
 			}
-			// Scientific notation: e[+-]?digits  — only if preceded by digits
+			// Scientific notation — only if preceded by digits
 			if (
 				i < formula.length &&
 				(formula[i] === "e" || formula[i] === "E") &&
