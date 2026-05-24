@@ -312,16 +312,21 @@ export const exportToSVG = (
 		}
 	});
 
-	// Group series by the xAxisId of their source dataset
+	// Group series by the xAxisId of their source dataset, and by yAxisId
 	const datasetXAxisMap = new Map(
 		datasets.map((d) => [d.id, d.xAxisId || "axis-1"]),
 	);
+	const seriesByYAxisId: Record<string, SeriesConfig[]> = {};
 	series.forEach((s) => {
 		const xAxisId = datasetXAxisMap.get(s.sourceId);
 		if (xAxisId) {
 			if (!seriesByXAxisId[xAxisId]) seriesByXAxisId[xAxisId] = [];
 			seriesByXAxisId[xAxisId].push(s);
 		}
+		if (!seriesByYAxisId[s.yAxisId]) {
+			seriesByYAxisId[s.yAxisId] = [];
+		}
+		seriesByYAxisId[s.yAxisId].push(s);
 	});
 
 	activeXAxes.forEach((axis, idx) => {
@@ -362,15 +367,6 @@ export const exportToSVG = (
 		).join(" / ");
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
-
-	const seriesByYAxisId: Record<string, SeriesConfig[]> = {};
-	for (let i = 0; i < series.length; i++) {
-		const s = series[i];
-		if (!seriesByYAxisId[s.yAxisId]) {
-			seriesByYAxisId[s.yAxisId] = [];
-		}
-		seriesByYAxisId[s.yAxisId].push(s);
-	}
 
 	activeYAxes.forEach((axis) => {
 		const isLeft = axis.position === "left";
