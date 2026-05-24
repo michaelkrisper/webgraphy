@@ -542,6 +542,7 @@ describe("downloadFile", () => {
 	});
 
 	it("should handle data URLs correctly", () => {
+		vi.useFakeTimers();
 		const content =
 			"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 		downloadFile(content, "test.png", "image/png");
@@ -555,10 +556,16 @@ describe("downloadFile", () => {
 			download: string;
 			click: () => void;
 		};
-		expect(a.href).toBe(content);
+		expect(URL.createObjectURL).toHaveBeenCalled();
+		expect(a.href).toBe("blob:mock-url");
 		expect(a.download).toBe("test.png");
 		expect(mockClick).toHaveBeenCalled();
-		expect(URL.createObjectURL).not.toHaveBeenCalled();
+
+		expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(100);
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+
+		vi.useRealTimers();
 	});
 
 	it("should throw an error for unsafe data URLs", () => {
@@ -576,15 +583,27 @@ describe("downloadFile", () => {
 	});
 
 	it("should throw an error for unsafe MIME types (svg/xml/html)", () => {
-		expect(() => downloadFile("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", "test.svg", "image/svg+xml")).toThrow(
-			"Unsafe data URL scheme detected",
-		);
-		expect(() => downloadFile("data:application/xhtml+xml;base64,PGh0bWw+PC9odG1sPg==", "test.html", "application/xhtml+xml")).toThrow(
-			"Unsafe data URL scheme detected",
-		);
-		expect(() => downloadFile("data:image/SVG+XML;base64,PHN2Zz48L3N2Zz4=", "test.svg", "image/SVG+XML")).toThrow(
-			"Unsafe data URL scheme detected",
-		);
+		expect(() =>
+			downloadFile(
+				"data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+				"test.svg",
+				"image/svg+xml",
+			),
+		).toThrow("Unsafe data URL scheme detected");
+		expect(() =>
+			downloadFile(
+				"data:application/xhtml+xml;base64,PGh0bWw+PC9odG1sPg==",
+				"test.html",
+				"application/xhtml+xml",
+			),
+		).toThrow("Unsafe data URL scheme detected");
+		expect(() =>
+			downloadFile(
+				"data:image/SVG+XML;base64,PHN2Zz48L3N2Zz4=",
+				"test.svg",
+				"image/SVG+XML",
+			),
+		).toThrow("Unsafe data URL scheme detected");
 	});
 
 	it("should throw an error for empty data URLs", () => {
@@ -824,15 +843,7 @@ describe("exportToSVG edge cases", () => {
 		const series: SeriesConfig[] = [];
 		const xAxes: XAxisConfig[] = [];
 		const yAxes: YAxisConfig[] = [];
-		const svg = exportToSVG(
-			datasets,
-			series,
-			xAxes,
-			yAxes,
-			0,
-			0,
-			THEMES.light,
-		);
+		const svg = exportToSVG(datasets, series, xAxes, yAxes, 0, 0, THEMES.light);
 		expect(svg).toContain('<svg width="0" height="0"');
 	});
 });
