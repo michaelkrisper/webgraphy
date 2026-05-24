@@ -77,8 +77,6 @@ type Token =
 	| { type: "RPAREN"; pos: number }
 	| { type: "COMMA"; pos: number };
 
-const columnMapCache = new WeakMap<string[], Map<string, number>>();
-
 class FormulaError extends Error {
 	pos: number;
 	constructor(message: string, pos: number) {
@@ -1058,7 +1056,7 @@ export function compileFormula(
 		let funcIdCounter = 1;
 		let usesAllColumns = false;
 
-		let availableColumnsMap = columnMapCache.get(availableColumns);
+		let availableColumnsMap: Map<string, number> | undefined;
 
 		const ensureAvailableColumnsMap = () => {
 			if (!availableColumnsMap) {
@@ -1076,7 +1074,6 @@ export function compileFormula(
 						}
 					}
 				}
-				columnMapCache.set(availableColumns, availableColumnsMap);
 			}
 			return availableColumnsMap;
 		};
