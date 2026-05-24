@@ -6,7 +6,17 @@ function parseHexChannels(
 	hex: string,
 ): { r: number; g: number; b: number } | null {
 	if (typeof hex !== "string") return null;
-	const m = HEX_RE.exec(hex);
+
+	let normalizedHex = hex;
+	if (
+		normalizedHex.startsWith("#") &&
+		normalizedHex.length > 1 &&
+		normalizedHex.length < 7
+	) {
+		normalizedHex = "#" + normalizedHex.slice(1).padStart(6, "0");
+	}
+
+	const m = HEX_RE.exec(normalizedHex);
 	if (!m) return null;
 	const n = parseInt(m[1], 16);
 	return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
