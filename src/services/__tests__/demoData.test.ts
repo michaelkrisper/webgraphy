@@ -185,11 +185,7 @@ describe("demoData", () => {
 		const baseDataset = generateDemoDataset(1000);
 
 		// Then generate another dataset with high randomness (0.99) to trigger edge cases.
-		let callCount = 0;
-		vi.spyOn(randomUtils, "secureRandom").mockImplementation(() => {
-			callCount++;
-			return 0.99;
-		});
+		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.99);
 		const edgeDataset = generateDemoDataset(1000);
 
 		// Verify solar irradiance reduction due to clouds (hour 12 is daytime)

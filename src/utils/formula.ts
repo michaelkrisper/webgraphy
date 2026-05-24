@@ -1333,6 +1333,8 @@ function tryRegressionFormula(
 }
 
 export interface FormulaWorkerParams {
+	/** Request id, assigned by the worker client to correlate responses. */
+	id?: number;
 	datasetId: string;
 	name: string;
 	formula: string;
@@ -1342,6 +1344,8 @@ export interface FormulaWorkerParams {
 }
 
 export interface FormulaEvaluationResult {
+	/** Echoes the originating request id so concurrent calls can be matched. */
+	id?: number;
 	type: "success" | "error";
 	newColumn?: {
 		isFloat64: boolean;

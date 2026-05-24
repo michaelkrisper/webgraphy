@@ -1,3 +1,4 @@
+import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -21,7 +22,18 @@ vi.mock("../../../hooks/useTheme", () => ({
 }));
 
 vi.mock("../../Sidebar/PopupPicker", () => ({
-	PopupPicker: ({ options, current, onChange, renderTrigger, popoverId }: any) => {
+	PopupPicker: ({
+		onChange,
+		renderTrigger,
+		popoverId,
+	}: {
+		onChange: (value: string) => void;
+		renderTrigger: (props: {
+			onClick: () => void;
+			ref: { current: null };
+		}) => React.ReactNode;
+		popoverId: string;
+	}) => {
 		return (
 			<div data-testid={`popup-picker-${popoverId}`}>
 				{renderTrigger({

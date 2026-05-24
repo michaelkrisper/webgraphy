@@ -6,6 +6,8 @@ vi.mock("../../utils/data-parser", () => ({
 	parseData: vi.fn(),
 }));
 
+type WorkerSelf = { onmessage?: (ev: MessageEvent) => unknown };
+
 describe("parser.worker", () => {
 	let postMessageMock: ReturnType<typeof vi.fn>;
 
@@ -23,7 +25,7 @@ describe("parser.worker", () => {
 	it("should process a file successfully and post transferables", async () => {
 		const mockFile = new File(["dummy"], "test.csv", { type: "text/csv" });
 		const mockArrayBuffer = new ArrayBuffer(8);
-		const mockDataset = [
+		const mockDataset: Dataset[] = [
 			{
 				id: "123",
 				name: "test.csv",
@@ -40,7 +42,7 @@ describe("parser.worker", () => {
 			},
 		];
 
-		vi.mocked(parseData).mockResolvedValue(mockDataset as any);
+		vi.mocked(parseData).mockResolvedValue(mockDataset);
 
 		const event = new MessageEvent("message", {
 			data: {
@@ -51,7 +53,7 @@ describe("parser.worker", () => {
 		});
 
 		// call self.onmessage
-		await (self as any).onmessage(event);
+		await (self as WorkerSelf).onmessage?.(event);
 
 		expect(parseData).toHaveBeenCalledWith(mockFile, "csv", undefined);
 		expect(postMessageMock).toHaveBeenCalledWith(
@@ -72,7 +74,7 @@ describe("parser.worker", () => {
 			},
 		});
 
-		await (self as any).onmessage(event);
+		await (self as WorkerSelf).onmessage?.(event);
 
 		expect(postMessageMock).toHaveBeenCalledWith({
 			id: 2,
@@ -93,7 +95,7 @@ describe("parser.worker", () => {
 			},
 		});
 
-		await (self as any).onmessage(event);
+		await (self as WorkerSelf).onmessage?.(event);
 
 		expect(postMessageMock).toHaveBeenCalledWith({
 			id: 3,

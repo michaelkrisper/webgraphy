@@ -90,7 +90,6 @@ describe("formula.worker", () => {
 		await import("../formula.worker");
 
 		evaluateFormulaSyncMock.mockImplementation(() => {
-			// eslint-disable-next-line no-throw-literal
 			throw "String Error";
 		});
 
