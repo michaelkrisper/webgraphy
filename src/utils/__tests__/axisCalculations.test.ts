@@ -127,6 +127,14 @@ describe("calcNumericPrecision", () => {
 });
 
 describe("calcCategoricalTicks", () => {
+	it("handles cases where min and max are negative", () => {
+		expect(calcCategoricalTicks(-10, -5, 10)).toEqual([]);
+	});
+
+	it("handles cases where min is large and max is even larger", () => {
+		expect(calcCategoricalTicks(20, 30, 5)).toEqual([]);
+	});
+
 	it("generates integer ticks within bounds", () => {
 		expect(calcCategoricalTicks(0, 5, 10)).toEqual([0, 1, 2, 3, 4, 5]);
 	});
@@ -162,6 +170,12 @@ describe("calcNumericTicks", () => {
 });
 
 describe("calcYAxisTicks", () => {
+	it("uses calcCategoricalTicks if categoryCount is provided", () => {
+		const result = calcYAxisTicks(0, 5, 400, undefined, 10);
+		expect(result.ticks).toEqual([0, 1, 2, 3, 4, 5]);
+		expect(result.precision).toBe(0);
+		expect(result.actualStep).toBe(1);
+	});
 	it("returns ticks, precision, and actualStep", () => {
 		const result = calcYAxisTicks(0, 100, 400);
 		expect(result.ticks.length).toBeGreaterThan(0);
@@ -181,6 +195,24 @@ describe("calcYAxisTicks", () => {
 });
 
 describe("syncAxesWithTargets", () => {
+	it("uses scratch if provided", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const targetXAxes = { x1: { min: -10, max: 110 } };
+		const targetYs = { y1: { min: 10, max: 90 } };
+		const scratch = {
+			xUpdates: { dummy: { min: 0, max: 0 } },
+			yUpdates: { dummy: { min: 0, max: 0 } },
+		};
+
+		const updates = syncAxesWithTargets(state, targetXAxes, targetYs, scratch);
+		expect(updates.xUpdates).toBe(scratch.xUpdates);
+		expect(updates.yUpdates).toBe(scratch.yUpdates);
+		expect(scratch.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
+		expect(scratch.yUpdates).toEqual({ y1: { min: 10, max: 90 } });
+	});
 	it("returns empty updates if targets match state within EPSILON", () => {
 		const state = {
 			xAxes: [{ id: "x1", min: 0, max: 100 }],
