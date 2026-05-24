@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { FormulaWorkerParams, FormulaEvaluationResult } from "../../utils/formula";
+import type {
+	FormulaEvaluationResult,
+	FormulaWorkerParams,
+} from "../../utils/formula";
 
 describe("evaluateFormulaInWorker", () => {
 	let mockWorker: {
@@ -11,6 +14,15 @@ describe("evaluateFormulaInWorker", () => {
 		removeEventListener: ReturnType<typeof vi.fn>;
 		dispatchEvent: ReturnType<typeof vi.fn>;
 	};
+
+	const makeParams = (name: string): FormulaWorkerParams => ({
+		datasetId: "ds1",
+		name,
+		formula: "[a] + 1",
+		columns: ["a"],
+		rowCount: 1,
+		columnData: [{ data: new Float32Array([1]), refPoint: 0 }],
+	});
 
 	beforeEach(() => {
 		mockWorker = {
@@ -30,8 +42,6 @@ describe("evaluateFormulaInWorker", () => {
 		}
 
 		vi.stubGlobal("Worker", MockWorker);
-
-		// Reset modules to clear cached worker state
 		vi.resetModules();
 	});
 
@@ -40,90 +50,85 @@ describe("evaluateFormulaInWorker", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("should send message to worker and resolve when worker responds", async () => {
+	it("tags each request with an id and resolves the matching response", async () => {
 		const { evaluateFormulaInWorker } = await import("../formulaClient");
 
-		const params: FormulaWorkerParams = {
-			formulaId: "1",
-			ast: { type: "NumberLiteral", value: 42 },
-			dataset: {
-				id: "ds1",
-				name: "test",
-				columns: [],
-				data: [],
-				originalData: [],
-				hiddenColumns: new Set(),
-				isDemo: false,
-			},
-		};
-
+		const params = makeParams("result");
 		const evaluationPromise = evaluateFormulaInWorker(params);
 
-		expect(mockWorker.postMessage).toHaveBeenCalledWith(params);
-		expect(mockWorker.onmessage).toBeDefined();
+		// The client assigns an id before posting.
+		const posted = mockWorker.postMessage.mock.calls[0][0] as FormulaWorkerParams;
+		expect(posted.id).toBeDefined();
+		expect(posted.name).toBe("result");
 
 		const result = {
+			id: posted.id,
 			type: "success",
-			newColumn: { id: "col1", name: "Result", type: "number" },
-		} as unknown as FormulaEvaluationResult;
-
+		} as FormulaEvaluationResult;
 		mockWorker.onmessage?.({ data: result });
 
-		const res = await evaluationPromise;
-		expect(res).toBe(result);
+		expect(await evaluationPromise).toBe(result);
 	});
 
-	it("should reject promise on worker error (Error object)", async () => {
+	it("resolves concurrent evaluations independently by id, even out of order", async () => {
 		const { evaluateFormulaInWorker } = await import("../formulaClient");
 
-		const params = {} as unknown as FormulaWorkerParams;
-		const evaluationPromise = evaluateFormulaInWorker(params);
+		const p1 = evaluateFormulaInWorker(makeParams("first"));
+		const p2 = evaluateFormulaInWorker(makeParams("second"));
 
-		expect(mockWorker.onerror).toBeDefined();
+		const id1 = (mockWorker.postMessage.mock.calls[0][0] as FormulaWorkerParams)
+			.id;
+		const id2 = (mockWorker.postMessage.mock.calls[1][0] as FormulaWorkerParams)
+			.id;
+		expect(id1).not.toBe(id2);
 
+		// Respond to the second request first to prove correlation by id.
+		mockWorker.onmessage?.({ data: { id: id2, type: "success", name: "second" } });
+		mockWorker.onmessage?.({ data: { id: id1, type: "success", name: "first" } });
+
+		expect((await p1).name).toBe("first");
+		expect((await p2).name).toBe("second");
+	});
+
+	it("ignores responses without a known id", async () => {
+		const { evaluateFormulaInWorker } = await import("../formulaClient");
+
+		const promise = evaluateFormulaInWorker(makeParams("x"));
+		const posted = mockWorker.postMessage.mock.calls[0][0] as FormulaWorkerParams;
+
+		// Stray message with an unknown id must not resolve the pending promise.
+		mockWorker.onmessage?.({ data: { id: 9999, type: "success" } });
+		// The real response then resolves it.
+		mockWorker.onmessage?.({ data: { id: posted.id, type: "success" } });
+
+		await expect(promise).resolves.toMatchObject({ type: "success" });
+	});
+
+	it("rejects all in-flight promises on worker error (Error object)", async () => {
+		const { evaluateFormulaInWorker } = await import("../formulaClient");
+
+		const promise = evaluateFormulaInWorker(makeParams("x"));
 		const error = new Error("Test worker error");
 		mockWorker.onerror?.(error);
 
-		await expect(evaluationPromise).rejects.toThrow("Test worker error");
-		await expect(evaluationPromise).rejects.toBe(error);
+		await expect(promise).rejects.toBe(error);
 	});
 
-	it("should reject promise on worker error (Event with message)", async () => {
+	it("rejects on worker error event with a message", async () => {
 		const { evaluateFormulaInWorker } = await import("../formulaClient");
 
-		const params = {} as unknown as FormulaWorkerParams;
-		const evaluationPromise = evaluateFormulaInWorker(params);
-
+		const promise = evaluateFormulaInWorker(makeParams("x"));
 		mockWorker.onerror?.({ message: "Worker initialization failed" });
 
-		await expect(evaluationPromise).rejects.toThrow("Worker initialization failed");
+		await expect(promise).rejects.toThrow("Worker initialization failed");
 	});
 
-	it("should reject promise on worker error (Event without message)", async () => {
+	it("rejects on worker error event without a message", async () => {
 		const { evaluateFormulaInWorker } = await import("../formulaClient");
 
-		const params = {} as unknown as FormulaWorkerParams;
-		const evaluationPromise = evaluateFormulaInWorker(params);
-
+		const promise = evaluateFormulaInWorker(makeParams("x"));
 		mockWorker.onerror?.({});
 
-		await expect(evaluationPromise).rejects.toThrow("Worker error");
-	});
-
-	it("should preempt if multiple formulas are evaluated concurrently", async () => {
-		const { evaluateFormulaInWorker } = await import("../formulaClient");
-
-		const params1 = { formulaId: "1" } as unknown as FormulaWorkerParams;
-		const params2 = { formulaId: "2" } as unknown as FormulaWorkerParams;
-
-		const promise1 = evaluateFormulaInWorker(params1);
-		const promise2 = evaluateFormulaInWorker(params2);
-
-		await expect(promise1).rejects.toThrow("Formula worker preempted");
-
-		mockWorker.onmessage?.({ data: { type: "success" } });
-
-		const res2 = await promise2;
-		expect(res2).toEqual({ type: "success" });
+		await expect(promise).rejects.toThrow("Worker error");
 	});
 });

@@ -4,10 +4,14 @@ import type {
 } from "../utils/formula";
 
 let worker: Worker | null = null;
-let currentResolver: {
-	resolve: (value: FormulaEvaluationResult) => void;
-	reject: (reason: unknown) => void;
-} | null = null;
+let nextId = 1;
+const pending = new Map<
+	number,
+	{
+		resolve: (value: FormulaEvaluationResult) => void;
+		reject: (reason: unknown) => void;
+	}
+>();
 
 function ensureWorker(): Worker {
 	if (worker) return worker;
@@ -15,16 +19,18 @@ function ensureWorker(): Worker {
 		type: "module",
 	});
 	worker.onmessage = (ev: MessageEvent<FormulaEvaluationResult>) => {
-		const r = currentResolver;
-		currentResolver = null;
-		r?.resolve(ev.data);
+		const { id } = ev.data;
+		if (id === undefined) return;
+		const entry = pending.get(id);
+		if (!entry) return;
+		pending.delete(id);
+		entry.resolve(ev.data);
 	};
 	worker.onerror = (ev) => {
-		const r = currentResolver;
-		currentResolver = null;
 		const err =
 			ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
-		r?.reject(err);
+		for (const entry of pending.values()) entry.reject(err);
+		pending.clear();
 	};
 	return worker;
 }
@@ -32,15 +38,10 @@ function ensureWorker(): Worker {
 export function evaluateFormulaInWorker(
 	params: FormulaWorkerParams,
 ): Promise<FormulaEvaluationResult> {
+	const id = nextId++;
 	const w = ensureWorker();
 	return new Promise<FormulaEvaluationResult>((resolve, reject) => {
-		// Single-flight semantics — the store awaits each formula before issuing
-		// the next one, so a queue isn't necessary. Reject any in-flight call if
-		// a new one arrives concurrently to surface programmer error early.
-		if (currentResolver) {
-			currentResolver.reject(new Error("Formula worker preempted"));
-		}
-		currentResolver = { resolve, reject };
-		w.postMessage(params);
+		pending.set(id, { resolve, reject });
+		w.postMessage({ ...params, id });
 	});
 }

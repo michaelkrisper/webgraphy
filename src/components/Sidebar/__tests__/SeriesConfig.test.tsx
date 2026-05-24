@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { SeriesConfigUI } from "../SeriesConfig";
 import { useGraphStore } from "../../../store/useGraphStore";
 
@@ -8,8 +9,22 @@ vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: vi.fn(),
 }));
 
+interface ColorPickerMockProps {
+	color: string;
+	onChange: (next: string) => void;
+	onHover: (next: string) => void;
+	onHoverEnd: () => void;
+	ariaLabel?: string;
+}
+
 vi.mock("../ColorPicker", () => ({
-	default: ({ color, onChange, onHover, onHoverEnd, ariaLabel }: any) => (
+	default: ({
+		color,
+		onChange,
+		onHover,
+		onHoverEnd,
+		ariaLabel,
+	}: ColorPickerMockProps) => (
 		<div data-testid="color-picker" aria-label={ariaLabel}>
 			<button type="button" onClick={() => onChange("#000000")}>Change Color</button>
 			<button type="button" onMouseEnter={() => onHover("#111111")} onMouseLeave={onHoverEnd}>Hover Color</button>
@@ -18,9 +33,18 @@ vi.mock("../ColorPicker", () => ({
 	),
 }));
 
+interface PopupPickerMockProps {
+	current: unknown;
+	onChange: (next: number) => void;
+	renderTrigger: (props: {
+		onClick: () => void;
+		ref: null;
+	}) => React.ReactNode;
+}
+
 vi.mock("../PopupPicker", () => ({
-	PopupPicker: ({ current, onChange, renderTrigger }: any) => (
-		<div data-testid="popup-picker" data-current={current}>
+	PopupPicker: ({ current, onChange, renderTrigger }: PopupPickerMockProps) => (
+		<div data-testid="popup-picker" data-current={String(current)}>
 			{renderTrigger({ onClick: () => onChange(2), ref: null })}
 		</div>
 	),
@@ -43,15 +67,19 @@ describe("SeriesConfigUI", () => {
 		setPreviewColor: mockSetPreviewColor,
 	};
 
+	type StoreSelector = (state: typeof defaultMockState) => unknown;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(useGraphStore).mockImplementation((selector: any) => selector(defaultMockState));
+		vi.mocked(useGraphStore).mockImplementation(((selector: StoreSelector) =>
+			selector(defaultMockState)) as unknown as typeof useGraphStore);
 	});
 
 	const defaultProps = {
 		series: {
 			id: "s1",
 			sourceId: "ds1",
+			name: "",
 			yColumn: "col1",
 			yAxisId: "axis-1",
 			lineStyle: "solid",
@@ -59,14 +87,14 @@ describe("SeriesConfigUI", () => {
 			lineColor: "#ff0000",
 			pointColor: "#ff0000",
 			hidden: false,
-		} as any,
+		} satisfies SeriesConfig,
 		datasets: [
 			{
 				id: "ds1",
 				columns: ["time", "col1", "col2"],
 				data: [],
-			}
-		] as any,
+			},
+		] as unknown as Dataset[],
 	};
 
 	it("renders series configuration UI", () => {
@@ -165,12 +193,11 @@ describe("SeriesConfigUI", () => {
 	});
 
 	it("creates new y axis if it does not exist", () => {
-		vi.mocked(useGraphStore).mockImplementation((selector: any) =>
+		vi.mocked(useGraphStore).mockImplementation(((selector: StoreSelector) =>
 			selector({
 				...defaultMockState,
 				series: [{ id: "s1", yAxisId: "axis-1" }, { id: "s3", yAxisId: "axis-3" }],
-			})
-		);
+			})) as unknown as typeof useGraphStore);
 		render(<SeriesConfigUI {...defaultProps} />);
 
 		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));

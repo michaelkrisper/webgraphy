@@ -20,7 +20,6 @@ const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
  * @param {SeriesConfig[]} series - Array of series configurations (styling, axis assignments)
  * @param {XAxisConfig[]} xAxes - Array of X-axis configurations
  * @param {YAxisConfig[]} yAxes - Array of Y-axis configurations (min, max, position, color)
- * @param {{x: string, y: string}} _axisTitles - Axis labels (unused in current version)
  * @param {number} width - SVG canvas width in pixels
  * @param {number} height - SVG canvas height in pixels
  * @param {Theme} theme - Theme object with colors, fonts, and styling
@@ -31,7 +30,6 @@ export const exportToSVG = (
 	series: SeriesConfig[],
 	xAxes: XAxisConfig[],
 	yAxes: YAxisConfig[],
-	_axisTitles: { x: string; y: string },
 	width: number,
 	height: number,
 	theme: Theme,
@@ -452,7 +450,6 @@ export const formatDate = (val: number, step: number) => {
  * @param {SeriesConfig[]} series - Series configurations
  * @param {XAxisConfig[]} xAxes - X-axis array
  * @param {YAxisConfig[]} yAxes - Y-axis array
- * @param {{x: string, y: string}} axisTitles - Axis labels
  * @param {number} width - Canvas width in logical pixels
  * @param {number} height - Canvas height in logical pixels
  * @param {Theme} theme - Theme for styling
@@ -463,7 +460,6 @@ export const exportToPNG = async (
 	series: SeriesConfig[],
 	xAxes: XAxisConfig[],
 	yAxes: YAxisConfig[],
-	axisTitles: { x: string; y: string },
 	width: number,
 	height: number,
 	theme: Theme,
@@ -473,7 +469,6 @@ export const exportToPNG = async (
 		series,
 		xAxes,
 		yAxes,
-		axisTitles,
 		width,
 		height,
 		theme,

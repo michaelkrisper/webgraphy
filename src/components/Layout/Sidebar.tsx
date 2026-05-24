@@ -20,7 +20,6 @@ export const Sidebar: React.FC = () => {
 	const series = useGraphStore((s) => s.series);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);
-	const axisTitles = useGraphStore((s) => s.axisTitles);
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];
 
@@ -51,7 +50,6 @@ export const Sidebar: React.FC = () => {
 			series,
 			xAxes,
 			yAxes,
-			axisTitles,
 			plotContainer.clientWidth,
 			plotContainer.clientHeight,
 			t,
@@ -68,7 +66,6 @@ export const Sidebar: React.FC = () => {
 			series,
 			xAxes,
 			yAxes,
-			axisTitles,
 			plotContainer.clientWidth,
 			plotContainer.clientHeight,
 			t,

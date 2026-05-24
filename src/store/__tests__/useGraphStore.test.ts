@@ -5,19 +5,21 @@ import { useGraphStore } from "../useGraphStore";
 class MockWorker {
 	onmessage: ((ev: MessageEvent) => void) | null = null;
 	onerror: ((ev: ErrorEvent | Error) => void) | null = null;
-	postMessage(data: { formula: string }) {
+	postMessage(data: { formula: string; id?: number }) {
+		const { id } = data;
 		setTimeout(() => {
 			if (data.formula === "[Val] * 3") {
 				if (this.onerror) this.onerror(new Error("Worker error"));
 			} else if (data.formula === "[Val] * 4") {
 				if (this.onmessage)
 					this.onmessage({
-						data: { type: "error", error: "Calculation failed" },
+						data: { id, type: "error", error: "Calculation failed" },
 					} as MessageEvent);
 			} else if (data.formula === "avgday([Val])") {
 				if (this.onmessage)
 					this.onmessage({
 						data: {
+							id,
 							type: "success",
 							newColumn: { data: new Float32Array([1, 2]) },
 							sparseXColumn: { data: new Float32Array([1, 2]), refPoint: 0 },
@@ -27,6 +29,7 @@ class MockWorker {
 				if (this.onmessage)
 					this.onmessage({
 						data: {
+							id,
 							type: "success",
 							newColumn: { data: new Float32Array([1, 2]) },
 						},
