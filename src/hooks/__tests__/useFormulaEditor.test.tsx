@@ -64,7 +64,7 @@ describe("useFormulaEditor", () => {
 			} as React.ChangeEvent<HTMLTextAreaElement>);
 		});
 
-		let labels = result.current.suggestions.map((s) => s.label);
+		const labels = result.current.suggestions.map((s) => s.label);
 		expect(labels).toContain("pi");
 
 		act(() => {
