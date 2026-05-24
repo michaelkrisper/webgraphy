@@ -517,6 +517,8 @@ export const downloadFile = (
 ) => {
 	const a = document.createElement("a");
 	const isDataUrl = content.startsWith("data:");
+	let urlToDownload = content;
+
 	if (isDataUrl) {
 		// Ensure the data URL has a safe MIME type to prevent XSS
 		try {
@@ -547,18 +549,30 @@ export const downloadFile = (
 			) {
 				throw new Error();
 			}
+
+			const data = url.pathname.slice(commaIndex + 1);
+			const isBase64 = parts.includes("base64");
+
+			const byteString = isBase64 ? atob(data) : decodeURIComponent(data);
+			const arrayBuffer = new Uint8Array(byteString.length);
+			for (let i = 0; i < byteString.length; i++) {
+				arrayBuffer[i] = byteString.charCodeAt(i);
+			}
+
+			const blob = new Blob([arrayBuffer], { type: contentType || mimeType });
+			urlToDownload = URL.createObjectURL(blob);
 		} catch {
 			throw new Error("Unsafe data URL scheme detected");
 		}
-		a.href = content;
 	} else {
 		const file = new Blob([content], { type: contentType });
-		a.href = URL.createObjectURL(file);
+		urlToDownload = URL.createObjectURL(file);
 	}
+
+	a.href = urlToDownload;
 	a.download = fileName;
 	a.click();
-	if (!isDataUrl) {
-		// Security/Memory leak prevention: revoke the object URL after download
-		setTimeout(() => URL.revokeObjectURL(a.href), 100);
-	}
+
+	// Security/Memory leak prevention: revoke the object URL after download
+	setTimeout(() => URL.revokeObjectURL(a.href), 100);
 };
