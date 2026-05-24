@@ -19,7 +19,8 @@ export const hexToRgba = (hex: string): number[] => {
 
 export const rgbToHex = (r: number, g: number, b: number): string => {
 	const toHex = (n: number) => {
-		const h = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+		const num = typeof n === "number" && !Number.isNaN(n) ? n : 0;
+		const h = Math.max(0, Math.min(255, Math.round(num))).toString(16);
 		return h.length === 1 ? `0${h}` : h;
 	};
 	return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
