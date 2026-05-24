@@ -1,4 +1,6 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
+// Mock-heavy component test: store/hook mocks use loose `any` shapes on purpose.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import ChartContainer from "../ChartContainer";
 import { useGraphStore } from "../../../store/useGraphStore";
