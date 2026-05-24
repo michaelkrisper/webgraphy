@@ -153,16 +153,13 @@ function syncStoreUpdates(
 	xUpdates: Record<string, { min: number; max: number }>,
 	yUpdates: Record<string, { min: number; max: number }>,
 ) {
-	const xById = new Map(state.xAxes.map((a) => [a.id, a]));
-	const yById = new Map(state.yAxes.map((a) => [a.id, a]));
-
 	const filteredXUpdates: Record<string, { min: number; max: number }> = {};
 	const filteredYUpdates: Record<string, { min: number; max: number }> = {};
 	let hasX = false;
 	let hasY = false;
 
 	for (const [id, upd] of Object.entries(xUpdates)) {
-		const axis = xById.get(id);
+		const axis = state.xAxes.find((a) => a.id === id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
@@ -174,7 +171,7 @@ function syncStoreUpdates(
 	}
 
 	for (const [id, upd] of Object.entries(yUpdates)) {
-		const axis = yById.get(id);
+		const axis = state.yAxes.find((a) => a.id === id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
