@@ -455,6 +455,13 @@ export function usePanZoom({
 		shiftDownRef.current = isShiftPressed;
 	}, [panTarget, isShiftPressed]);
 
+	useEffect(
+		() => () => {
+			if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+		},
+		[],
+	);
+
 	// eslint-disable-next-line react-hooks/immutability
 	useEffect(() => {
 		let mouseMoveRaf = 0;

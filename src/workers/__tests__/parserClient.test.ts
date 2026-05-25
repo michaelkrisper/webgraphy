@@ -4,6 +4,7 @@ class MockWorker {
   onmessage: ((ev: MessageEvent) => void) | null = null;
   onerror: ((ev: ErrorEvent | Event) => void) | null = null;
   postMessage = vi.fn();
+  terminate = vi.fn();
 
   simulateMessage(data: unknown) {
     if (this.onmessage) {

@@ -180,14 +180,17 @@ async function putAppState(
 	}
 }
 
-function flushDataset(id: string) {
+async function flushDataset(id: string): Promise<void> {
 	const ds = pendingDatasets.get(id);
 	datasetTimers.delete(id);
 	pendingDatasets.delete(id);
 	if (!ds) return;
-	getDB()
-		.then((db) => db.put(DATASET_STORE, ds))
-		.catch((e) => console.error("saveDataset failed:", e));
+	try {
+		const db = await getDB();
+		await db.put(DATASET_STORE, ds);
+	} catch (e) {
+		console.error("saveDataset failed:", e);
+	}
 }
 
 export const persistence = {
@@ -201,11 +204,12 @@ export const persistence = {
 		);
 	},
 	async flushAll(): Promise<void> {
-		for (const id of [...datasetTimers.keys()]) {
+		const ids = [...datasetTimers.keys()];
+		for (const id of ids) {
 			const t = datasetTimers.get(id);
 			if (t) clearTimeout(t);
-			flushDataset(id);
 		}
+		await Promise.all(ids.map((id) => flushDataset(id)));
 	},
 	async loadDataset(id: string): Promise<Dataset | undefined> {
 		const db = await getDB();
@@ -292,6 +296,11 @@ export const persistence = {
 };
 
 if (typeof window !== "undefined") {
+	// "hidden" fires before unload and still allows async IndexedDB writes to
+	// run, which beforeunload does not reliably guarantee.
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") persistence.flushAll();
+	});
 	window.addEventListener("beforeunload", () => {
 		persistence.flushAll();
 	});
