@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 
 import { ChartGantt, Expand } from "lucide-react";
@@ -26,24 +25,18 @@ import {
 	AXIS_EPSILON,
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
-	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
-	calcNumericTicks,
 	calcYAxisTicks,
 	formatAxisLabel,
 	getAxisById,
 	syncAxesWithTargets,
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
-import {
-	generateSecondaryLabels,
-	generateTimeTicks,
-	getTimeStep,
-} from "../../utils/time";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
+import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
@@ -192,113 +185,8 @@ type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 
-function buildXAxisLayout(
-	axis: XAxisConfig,
-	chartWidth: number,
-	labelColor: string,
-	categoryLabels: string[] | undefined,
-	categoryTicks: number[] | undefined,
-	datasets: Dataset[],
-): XAxisLayout {
-	const r = axis.max - axis.min;
-	const isDate = axis.xMode === "date";
-	const uniqueColumns = Array.from(
-		datasets.reduce(
-			(acc, d: Dataset) => acc.add(d.xAxisColumn),
-			new Set<string>(),
-		),
-	);
-	const defaultTitle =
-		datasets.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
-	const title = axis.name || defaultTitle || "";
-	const color = labelColor;
-	if (r <= 0 || chartWidth <= 0)
-		return {
-			id: axis.id,
-			min: axis.min,
-			max: axis.max,
-			showGrid: axis.showGrid,
-			ticks: {
-				result: [],
-				step: 1,
-				precision: 0,
-				isXDate: false as const,
-			},
-			title,
-			color,
-			categoryLabels,
-			categoryTicks,
-		};
-	if (categoryLabels) {
-		const result = categoryTicks
-			? categoryTicks.filter((v) => v >= axis.min && v <= axis.max)
-			: calcCategoricalTicks(axis.min, axis.max, categoryLabels.length);
-		return {
-			id: axis.id,
-			min: axis.min,
-			max: axis.max,
-			showGrid: axis.showGrid,
-			ticks: {
-				result,
-				step: 1,
-				precision: 0,
-				isXDate: false as const,
-			},
-			title,
-			color,
-			categoryLabels,
-			categoryTicks,
-		};
-	}
-	if (!isDate) {
-		const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
-		if (step <= 0)
-			return {
-				id: axis.id,
-				min: axis.min,
-				max: axis.max,
-				showGrid: axis.showGrid,
-				ticks: {
-					result: [],
-					step: 1,
-					precision: 0,
-					isXDate: false as const,
-				},
-				title,
-				color,
-			};
-		const precision = calcNumericPrecision(step);
-		return {
-			id: axis.id,
-			min: axis.min,
-			max: axis.max,
-			showGrid: axis.showGrid,
-			ticks: {
-				result: calcNumericTicks(axis.min, axis.max, step),
-				step,
-				precision,
-				isXDate: false as const,
-			},
-			title,
-			color,
-		};
-	} else {
-		const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-		return {
-			id: axis.id,
-			min: axis.min,
-			max: axis.max,
-			showGrid: axis.showGrid,
-			ticks: {
-				result: generateTimeTicks(axis.min, axis.max, ts),
-				isXDate: true as const,
-				secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts),
-			},
-			title,
-			color,
-		};
-	}
-}
+/** Cap on x-values sampled when deriving categorical labels for a forced axis. */
+const MAX_DERIVED_CATEGORY_LABELS = 1000;
 
 const getXAxisMetrics = (
 	xMode: "date" | "numeric" | "categorical",
@@ -516,7 +404,7 @@ export default function ChartContainer() {
 					const arr = col.data;
 					for (let i = 0; i < arr.length; i++) {
 						uniq.add(arr[i] + ref);
-						if (uniq.size > 1000) break outer;
+						if (uniq.size > MAX_DERIVED_CATEGORY_LABELS) break outer;
 					}
 				}
 				const sorted = Array.from(uniq).sort((a, b) => a - b);
@@ -929,6 +817,10 @@ export default function ChartContainer() {
 		],
 	);
 
+	// Latest-callback ref: keep syncViewportRef pointing at the current
+	// syncViewport so the stable imperative handle and RAF closures call the
+	// up-to-date version. The write is intentional during render.
+	// eslint-disable-next-line react-hooks/refs
 	syncViewportRef.current = syncViewport;
 
 	// 6. Effects

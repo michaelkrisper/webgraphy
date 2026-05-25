@@ -58,7 +58,10 @@ export function calcCategoricalTicks(
 	return ticks;
 }
 
-/** Generate tick values from min to max for a given step (capped at 200). */
+/** Hard cap on generated numeric ticks, guarding against pathological steps. */
+const MAX_NUMERIC_TICKS = 200;
+
+/** Generate tick values from min to max for a given step. */
 export function calcNumericTicks(
 	min: number,
 	max: number,
@@ -67,7 +70,7 @@ export function calcNumericTicks(
 	const first = Math.ceil((min - step) / step) * step;
 	const ticks: number[] = [];
 	for (let t = first; t <= max + step; t += step) {
-		if (ticks.length > 200) break;
+		if (ticks.length > MAX_NUMERIC_TICKS) break;
 		ticks.push(t);
 	}
 	return ticks;

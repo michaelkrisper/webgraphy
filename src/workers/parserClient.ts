@@ -1,4 +1,4 @@
-import type { Dataset } from "../services/persistence";
+import type { ParsedDataset } from "../services/persistence";
 import type { ParseSettings } from "../utils/data-parser";
 import type { ParserRequest, ParserResponse } from "./parser.worker";
 
@@ -6,7 +6,10 @@ let worker: Worker | null = null;
 let nextId = 1;
 const pending = new Map<
 	number,
-	{ resolve: (value: Dataset[]) => void; reject: (reason: unknown) => void }
+	{
+		resolve: (value: ParsedDataset[]) => void;
+		reject: (reason: unknown) => void;
+	}
 >();
 
 function ensureWorker(): Worker {
@@ -37,10 +40,10 @@ export function parseDataInWorker(
 	file: File,
 	type: string,
 	settings?: ParseSettings,
-): Promise<Dataset[]> {
+): Promise<ParsedDataset[]> {
 	const id = nextId++;
 	const w = ensureWorker();
-	return new Promise<Dataset[]>((resolve, reject) => {
+	return new Promise<ParsedDataset[]>((resolve, reject) => {
 		pending.set(id, { resolve, reject });
 		const req: ParserRequest = { id, file, type, settings };
 		w.postMessage(req);

@@ -17,6 +17,10 @@ export interface TimeTick {
 	label: string;
 }
 
+/** Hard caps guarding the tick/label loops against pathological time ranges. */
+const MAX_TIME_TICKS = 500;
+const MAX_SECONDARY_LABELS = 100;
+
 const UNIT_SECONDS = {
 	second: 1,
 	minute: 60,
@@ -147,7 +151,7 @@ export function generateTimeTicks(
 		else if (unit === "year") d.setFullYear(d.getFullYear() + value);
 
 		current = d.getTime() / 1000;
-		if (ticks.length > 500) break;
+		if (ticks.length > MAX_TIME_TICKS) break;
 	}
 
 	return ticks;
@@ -207,7 +211,7 @@ export function generateSecondaryLabels(
 			});
 			d.setDate(d.getDate() + 1);
 			current = d.getTime() / 1000;
-			if (labels.length > 100) break;
+			if (labels.length > MAX_SECONDARY_LABELS) break;
 		}
 	} else {
 		// day, week, month, year
@@ -223,7 +227,7 @@ export function generateSecondaryLabels(
 			});
 			d.setFullYear(d.getFullYear() + 1);
 			current = d.getTime() / 1000;
-			if (labels.length > 100) break;
+			if (labels.length > MAX_SECONDARY_LABELS) break;
 		}
 	}
 

@@ -12,6 +12,11 @@ import { getColumnIndex } from "../../utils/columns";
 import { screenToWorld, worldToScreen } from "../../utils/coords";
 import { formatFullDate } from "../../utils/time";
 
+// Highlighted-point marker glyph sizes (px): a white "halo" drawn behind the
+// smaller colored glyph. Square side = half * 2; circle radius = half.
+const MARKER_OUTER_HALF = 6.5;
+const MARKER_INNER_HALF = 5.5;
+
 interface SeriesMetadata {
 	series: SeriesConfig;
 	ds: Dataset;
@@ -288,38 +293,53 @@ const Crosshair = React.memo(
 
 						if (style === "square") {
 							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-							ctx.fillRect(xs - 6.5, ys - 6.5, 13, 13);
+							ctx.fillRect(
+								xs - MARKER_OUTER_HALF,
+								ys - MARKER_OUTER_HALF,
+								MARKER_OUTER_HALF * 2,
+								MARKER_OUTER_HALF * 2,
+							);
 							ctx.fillStyle = color;
-							ctx.fillRect(xs - 5.5, ys - 5.5, 11, 11);
+							ctx.fillRect(
+								xs - MARKER_INNER_HALF,
+								ys - MARKER_INNER_HALF,
+								MARKER_INNER_HALF * 2,
+								MARKER_INNER_HALF * 2,
+							);
 							ctx.strokeStyle = plotBg;
 							ctx.lineWidth = 2.5;
-							ctx.strokeRect(xs - 5.5, ys - 5.5, 11, 11);
+							ctx.strokeRect(
+								xs - MARKER_INNER_HALF,
+								ys - MARKER_INNER_HALF,
+								MARKER_INNER_HALF * 2,
+								MARKER_INNER_HALF * 2,
+							);
 						} else if (style === "cross") {
 							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
 							ctx.lineWidth = 5.0;
 							ctx.beginPath();
-							ctx.moveTo(xs - 5.5, ys - 5.5);
-							ctx.lineTo(xs + 5.5, ys + 5.5);
-							ctx.moveTo(xs + 5.5, ys - 5.5);
-							ctx.lineTo(xs - 5.5, ys + 5.5);
+							ctx.moveTo(xs - MARKER_INNER_HALF, ys - MARKER_INNER_HALF);
+							ctx.lineTo(xs + MARKER_INNER_HALF, ys + MARKER_INNER_HALF);
+							ctx.moveTo(xs + MARKER_INNER_HALF, ys - MARKER_INNER_HALF);
+							ctx.lineTo(xs - MARKER_INNER_HALF, ys + MARKER_INNER_HALF);
 							ctx.stroke();
 
 							ctx.strokeStyle = color;
 							ctx.lineWidth = 2.5;
 							ctx.beginPath();
-							ctx.moveTo(xs - 5.5, ys - 5.5);
-							ctx.lineTo(xs + 5.5, ys + 5.5);
-							ctx.moveTo(xs + 5.5, ys - 5.5);
-							ctx.lineTo(xs - 5.5, ys + 5.5);
+							ctx.moveTo(xs - MARKER_INNER_HALF, ys - MARKER_INNER_HALF);
+							ctx.lineTo(xs + MARKER_INNER_HALF, ys + MARKER_INNER_HALF);
+							ctx.moveTo(xs + MARKER_INNER_HALF, ys - MARKER_INNER_HALF);
+							ctx.lineTo(xs - MARKER_INNER_HALF, ys + MARKER_INNER_HALF);
 							ctx.stroke();
 						} else {
 							ctx.beginPath();
-							ctx.arc(xs, ys, 6.5, 0, Math.PI * 2);
+							ctx.arc(xs, ys, MARKER_OUTER_HALF, 0, Math.PI * 2);
 							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
 							ctx.fill();
 
 							ctx.beginPath();
-							ctx.arc(xs, ys, 5.5, 0, Math.PI * 2);
+							ctx.arc(xs, ys, MARKER_INNER_HALF, 0, Math.PI * 2);
 							ctx.fillStyle = color;
 							ctx.fill();
 

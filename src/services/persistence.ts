@@ -28,6 +28,14 @@ export interface Dataset {
 	xAxisId: string;
 }
 
+/**
+ * Dataset shape as emitted by the parser: the x-axis column and axis slot are
+ * resolved later by the store (`addDataset`), so both are absent/optional here.
+ */
+export type ParsedDataset = Omit<Dataset, "xAxisId" | "xAxisColumn"> & {
+	xAxisColumn?: string;
+};
+
 export interface XAxisConfig {
 	id: string;
 	name: string;

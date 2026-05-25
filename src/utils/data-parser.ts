@@ -1,6 +1,6 @@
 // Data Parser (v0.5.0 - Main Thread)
 
-import type { DataColumn } from "../services/persistence";
+import type { DataColumn, ParsedDataset } from "../services/persistence";
 import { processRawColumn } from "./data-processing";
 import { secureJSONParse } from "./json";
 
@@ -109,7 +109,7 @@ function buildDatasets(
 	configByName: Map<string, ColumnConfigEntry>,
 	splitColIdxSet: Set<number>,
 	settings?: ParseSettings,
-) {
+): ParsedDataset[] {
 	const doSplit = splitColIdxSet.size > 0;
 	// Output columns exclude the split columns themselves
 	const outputColIdxs: number[] = [];
@@ -180,7 +180,7 @@ export async function parseData(
 	file: File,
 	type: string,
 	settings?: ParseSettings,
-) {
+): Promise<ParsedDataset[]> {
 	let result: Awaited<ReturnType<typeof parseCSV>>;
 	if (type === "csv") result = await parseCSV(file, settings);
 	else if (type === "json") result = await parseJSON(file, settings);
