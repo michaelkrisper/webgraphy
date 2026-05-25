@@ -184,7 +184,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 										}}
 										title={ds.name}
 									>
-										{ds.name.includes(": ") ? ds.name.split(": ")[1] : ds.name}
+										{ds.name}
 									</span>
 									<span className="sb-dataset-meta">
 										{ds.rowCount.toLocaleString()} lines
@@ -271,7 +271,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 											>
 												{ds.columns.map((c) => (
 													<option key={c} value={c}>
-														{c.includes(": ") ? c.split(": ")[1] : c}
+														{c}
 													</option>
 												))}
 											</select>
@@ -324,7 +324,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 										if (isX) return null;
 										const colData = ds.data[colIdx];
 										const isCalc = !!colData?.formula;
-										const label = col.includes(": ") ? col.split(": ")[1] : col;
+										const label = col;
 										const isRenaming =
 											renamingColumn?.datasetId === ds.id &&
 											renamingColumn?.col === col;

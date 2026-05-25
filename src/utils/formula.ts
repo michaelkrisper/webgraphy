@@ -1066,13 +1066,6 @@ export function compileFormula(
 					if (!availableColumnsMap.has(col)) {
 						availableColumnsMap.set(col, i);
 					}
-					const colonIdx = col.indexOf(": ");
-					if (colonIdx !== -1) {
-						const suffix = col.substring(colonIdx + 2);
-						if (!availableColumnsMap.has(suffix)) {
-							availableColumnsMap.set(suffix, i);
-						}
-					}
 				}
 			}
 			return availableColumnsMap;

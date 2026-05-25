@@ -103,7 +103,7 @@ describe("useFormulaEditor", () => {
 		expect(result.current.formula).toBe("a + b");
 	});
 
-	const columns = ["Dataset: Column A", "Column B", "Dataset: Another"];
+	const columns = ["Column A", "Column B", "Another"];
 
 	it("initializes with initialFormula", () => {
 		const { textareaRef } = createMockTextarea();

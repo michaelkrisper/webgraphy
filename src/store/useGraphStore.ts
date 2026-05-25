@@ -195,17 +195,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
 				const xColName = dataset.xAxisColumn;
 				const sparseRowCount = sparseXColumn.data.length;
-				const letter = String.fromCharCode(65 + get().datasets.length);
 				const sparseDataset: Dataset = {
 					id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
-					name: `${letter} - ${trimmedName}`,
-					columns: [
-						`${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
-						`${letter}: ${trimmedName}`,
-					],
+					name: trimmedName,
+					columns: [xColName, trimmedName],
 					data: [{ ...sparseXColumn }, { ...newColumn, formula }],
 					rowCount: sparseRowCount,
-					xAxisColumn: `${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
+					xAxisColumn: xColName,
 					xAxisId: dataset.xAxisId,
 				};
 				get().addDataset(sparseDataset);

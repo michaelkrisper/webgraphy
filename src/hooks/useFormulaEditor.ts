@@ -131,23 +131,14 @@ export function useFormulaEditor({
 			if (bracketMatch) {
 				const partial = bracketMatch[1].toLowerCase();
 				return columns
-					.filter((c) => {
-						const short = c.includes(": ") ? c.split(": ")[1] : c;
-						return (
-							short.toLowerCase().startsWith(partial) ||
-							c.toLowerCase().startsWith(partial)
-						);
-					})
+					.filter((c) => c.toLowerCase().startsWith(partial))
 					.slice(0, 8)
-					.map((c) => {
-						const short = c.includes(": ") ? c.split(": ")[1] : c;
-						return {
-							kind: "column" as const,
-							label: short,
-							insert: `${short}]`,
-							detail: c !== short ? `from ${c.split(": ")[0]}` : "column",
-						};
-					});
+					.map((c) => ({
+						kind: "column" as const,
+						label: c,
+						insert: `${c}]`,
+						detail: "column",
+					}));
 			}
 
 			// Otherwise — function or constant name.

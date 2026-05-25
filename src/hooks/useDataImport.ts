@@ -8,17 +8,6 @@ import { parseDataInWorker } from "../workers/parserClient";
 
 const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
-const processImportedDataset = (ds: Dataset, currentDatasetsLength: number) => {
-	const letter = String.fromCharCode(65 + currentDatasetsLength);
-	const prefix = `${letter}: `;
-	ds.name = `${letter} - ${ds.name}`;
-	ds.columns = ds.columns.map((c) => `${prefix}${c}`);
-	if (ds.xAxisColumn) {
-		ds.xAxisColumn = `${prefix}${ds.xAxisColumn}`;
-	}
-	return ds;
-};
-
 export type PendingFile = {
 	file: File;
 	preview: string;
@@ -82,10 +71,7 @@ const processImportedDatasets = (
 ) => {
 	const isSplitImport = incoming.length > 1;
 
-	for (const raw of incoming) {
-		const currentState = useGraphStore.getState();
-		const ds = processImportedDataset(raw, currentState.datasets.length);
-
+	for (const ds of incoming) {
 		addDataset(ds);
 
 		if (!isSplitImport && ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
