@@ -177,6 +177,69 @@ describe("m4Float32", () => {
 		expect(out.x.length).toBeGreaterThanOrEqual(3);
 		expect(Array.from(result.x)).toEqual([1, 2, 3]);
 	});
+
+	it("should not resize the out buffer if it is already large enough when n <= threshold", () => {
+		const xData = new Float32Array([1, 2, 3]);
+		const yData = new Float32Array([10, 20, 30]);
+		const threshold = 5;
+
+		const out = {
+			x: new Float32Array(10), // large enough
+			y: new Float32Array(10),
+		};
+
+		const origBuffer = out.x.buffer;
+		const result = m4Float32(xData, yData, threshold, out);
+		expect(out.x.buffer).toBe(origBuffer);
+		expect(Array.from(result.x)).toEqual([1, 2, 3]);
+	});
+
+	it("should handle NaN values in xData", () => {
+		const xData = new Float32Array([0, 1, NaN, 3, 4]);
+		const yData = new Float32Array([0, 10, -10, 5, 0]);
+		const threshold = 4; // 1 bucket
+
+		const result = m4Float32(xData, yData, threshold);
+		// NaN should be included in the output if it's the first NaN in the bucket
+		// resulting array: [0, 1, NaN, 4]
+		let hasNaN = false;
+		for (let i = 0; i < result.x.length; i++) {
+			if (Number.isNaN(result.x[i])) {
+				hasNaN = true;
+				break;
+			}
+		}
+		expect(hasNaN).toBe(true);
+		expect(result.y.length).toBeGreaterThan(0);
+	});
+
+	it("should not resize the out buffer if it is already large enough when n > threshold", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4]);
+		const yData = new Float32Array([0, 10, -10, 5, 0]);
+		const threshold = 4; // 1 bucket, maxPoints = 1 * 5 = 5
+
+		const out = {
+			x: new Float32Array(10), // Large enough
+			y: new Float32Array(10),
+		};
+
+		const origBuffer = out.x.buffer;
+
+		const result = m4Float32(xData, yData, threshold, out);
+		expect(out.x.buffer).toBe(origBuffer); // Should not have created a new buffer
+		expect(result.x.length).toBe(4);
+	});
+
+	it("should handle zero or negative thresholds", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4]);
+		const yData = new Float32Array([0, 10, -10, 5, 0]);
+		const threshold = 0; // numBuckets = max(1, floor(0/4)) = 1
+
+		const result = m4Float32(xData, yData, threshold);
+
+		expect(result.x.length).toBeGreaterThan(0);
+		expect(Array.from(result.x)).toEqual([0, 1, 2, 4]);
+	});
 });
 
 describe("m4ByXFloat32", () => {
