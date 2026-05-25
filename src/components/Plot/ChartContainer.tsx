@@ -977,108 +977,16 @@ export default function ChartContainer() {
 		});
 
 		return activeXAxesUsed.map((axis) => {
-			const r = axis.max - axis.min,
-				isDate = axis.xMode === "date";
 			const catInfo = xAxisCategoryLabels.get(axis.id);
-			const categoryLabels = catInfo?.labels;
-			const categoryTicks = catInfo?.ticks;
 			const dss = dsByX[axis.id] || [];
-			const uniqueColumns = Array.from(
-				dss.reduce(
-					(acc, d: Dataset) => acc.add(d.xAxisColumn),
-					new Set<string>(),
-				),
+			return buildXAxisLayout(
+				axis,
+				chartWidth,
+				themeColors.labelColor,
+				catInfo?.labels,
+				catInfo?.ticks,
+				dss,
 			);
-			const defaultTitle =
-				dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
-			const title = axis.name || defaultTitle || "";
-			const color = themeColors.labelColor;
-			if (r <= 0 || chartWidth <= 0)
-				return {
-					id: axis.id,
-					min: axis.min,
-					max: axis.max,
-					showGrid: axis.showGrid,
-					ticks: { result: [], step: 1, precision: 0, isXDate: false as const },
-					title,
-					color,
-					categoryLabels,
-					categoryTicks,
-				};
-
-			if (categoryLabels) {
-				const result = categoryTicks
-					? categoryTicks.filter((v) => v >= axis.min && v <= axis.max)
-					: calcCategoricalTicks(axis.min, axis.max, categoryLabels.length);
-				return {
-					id: axis.id,
-					min: axis.min,
-					max: axis.max,
-					showGrid: axis.showGrid,
-					ticks: {
-						result,
-						step: 1,
-						precision: 0,
-						isXDate: false as const,
-					},
-					title,
-					color,
-					categoryLabels,
-					categoryTicks,
-				};
-			}
-
-			if (!isDate) {
-				const step = calcNumericStep(
-					r,
-					Math.max(2, Math.floor(chartWidth / 60)),
-				);
-				if (step <= 0)
-					return {
-						id: axis.id,
-						min: axis.min,
-						max: axis.max,
-						showGrid: axis.showGrid,
-						ticks: {
-							result: [],
-							step: 1,
-							precision: 0,
-							isXDate: false as const,
-						},
-						title,
-						color,
-					};
-				const precision = calcNumericPrecision(step);
-				return {
-					id: axis.id,
-					min: axis.min,
-					max: axis.max,
-					showGrid: axis.showGrid,
-					ticks: {
-						result: calcNumericTicks(axis.min, axis.max, step),
-						step,
-						precision,
-						isXDate: false as const,
-					},
-					title,
-					color,
-				};
-			} else {
-				const ts = getTimeStep(r, Math.max(2, Math.floor(chartWidth / 80)));
-				return {
-					id: axis.id,
-					min: axis.min,
-					max: axis.max,
-					showGrid: axis.showGrid,
-					ticks: {
-						result: generateTimeTicks(axis.min, axis.max, ts),
-						isXDate: true as const,
-						secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts),
-					},
-					title,
-					color,
-				};
-			}
 		});
 	}, [
 		activeXAxesUsed,
