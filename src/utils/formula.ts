@@ -1151,7 +1151,10 @@ export function compileFormula(
 			filterState: {},
 		});
 
-		const stack = new Float64Array(64);
+		// Each token pushes at most one value, so the RPN stack can never grow
+		// deeper than the queue length — size it accordingly to avoid silent
+		// out-of-range writes on deeply nested expressions.
+		const stack = new Float64Array(outputQueue.length + 1);
 		const argsScratch: number[] = [];
 
 		return {
