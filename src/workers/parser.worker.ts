@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import type { Dataset } from "../services/persistence";
+import type { ParsedDataset } from "../services/persistence";
 import { type ParseSettings, parseData } from "../utils/data-parser";
 
 export interface ParserRequest {
@@ -13,11 +13,11 @@ export interface ParserRequest {
 export interface ParserResponse {
 	id: number;
 	type: "success" | "error";
-	datasets?: Dataset[];
+	datasets?: ParsedDataset[];
 	error?: string;
 }
 
-function collectTransferables(datasets: Dataset[]): ArrayBuffer[] {
+function collectTransferables(datasets: ParsedDataset[]): ArrayBuffer[] {
 	const buffers: ArrayBuffer[] = [];
 	for (const ds of datasets) {
 		for (const col of ds.data) {
@@ -30,7 +30,7 @@ function collectTransferables(datasets: Dataset[]): ArrayBuffer[] {
 self.onmessage = async (ev: MessageEvent<ParserRequest>) => {
 	const { id, file, type, settings } = ev.data;
 	try {
-		const datasets = (await parseData(file, type, settings)) as Dataset[];
+		const datasets = await parseData(file, type, settings);
 		const transferables = collectTransferables(datasets);
 		const response: ParserResponse = { id, type: "success", datasets };
 		(self as DedicatedWorkerGlobalScope).postMessage(response, transferables);

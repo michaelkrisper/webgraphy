@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/refs */
 // src/components/Plot/ChartContainer.tsx
 
 import { ChartGantt, Expand } from "lucide-react";
@@ -929,6 +928,10 @@ export default function ChartContainer() {
 		],
 	);
 
+	// Latest-callback ref: keep syncViewportRef pointing at the current
+	// syncViewport so the stable imperative handle and RAF closures call the
+	// up-to-date version. The write is intentional during render.
+	// eslint-disable-next-line react-hooks/refs
 	syncViewportRef.current = syncViewport;
 
 	// 6. Effects

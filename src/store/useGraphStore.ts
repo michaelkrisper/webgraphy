@@ -3,6 +3,7 @@ import { generateDemoDataset, getDemoAppState } from "../services/demoData";
 import {
 	type DataColumn,
 	type Dataset,
+	type ParsedDataset,
 	persistence,
 	type SeriesConfig,
 	type XAxisConfig,
@@ -31,7 +32,7 @@ interface GraphState {
 	) => void;
 
 	// Actions
-	addDataset: (dataset: Dataset) => void;
+	addDataset: (dataset: ParsedDataset & { xAxisId?: string }) => void;
 	addCalculatedColumn: (
 		datasetId: string,
 		name: string,
