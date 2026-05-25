@@ -235,9 +235,6 @@ describe("data-parser", () => {
 		});
 
 		it("should throw error for invalid JSON format", async () => {
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
 			const file = createMockFile(
 				"[not json]",
 				"test.json",
@@ -246,18 +243,9 @@ describe("data-parser", () => {
 			await expect(parseData(file, "json", {})).rejects.toThrow(
 				/^Invalid JSON format: /
 			);
-			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to parse JSON data:",
-				expect.any(Error)
-			);
-
-			consoleSpy.mockRestore();
 		});
 
 		it("should handle non-Error instances when parsing JSON", async () => {
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
 			const parseSpy = vi.spyOn(jsonUtils, "secureJSONParse").mockImplementation(() => {
 				throw "String error thrown";
 			});
@@ -267,13 +255,8 @@ describe("data-parser", () => {
 			await expect(parseData(file, "json", {})).rejects.toThrow(
 				"Invalid JSON format: String error thrown",
 			);
-			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to parse JSON data:",
-				"String error thrown"
-			);
 
 			parseSpy.mockRestore();
-			consoleSpy.mockRestore();
 		});
 
 		it("should handle parsing configurations in JSON", async () => {

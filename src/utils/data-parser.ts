@@ -581,7 +581,6 @@ async function parseJSON(file: File, settings?: ParseSettings) {
 		// secureJSONParse strips __proto__/constructor keys to prevent prototype pollution.
 		raw = secureJSONParse(text);
 	} catch (error) {
-		console.error("Failed to parse JSON data:", error);
 		throw new Error(
 			"Invalid JSON format: " +
 				(error instanceof Error ? error.message : String(error)),
