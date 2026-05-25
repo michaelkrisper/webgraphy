@@ -655,6 +655,11 @@ function computeDrawRanges(
 	drawRangesScratch.length = drCount;
 }
 
+// The renderer adapts its decimation pixel budget between these bounds based on
+// measured frame time to keep pan/zoom responsive.
+const MIN_PIXEL_BUDGET_MULT = 32;
+const MAX_PIXEL_BUDGET_MULT = 64;
+
 function updatePixelBudget(
 	frameTime: number,
 	now: number,
@@ -667,12 +672,12 @@ function updatePixelBudget(
 		lastBudgetUpdateRef.current = now;
 		if (frameTime > TARGET_MS) {
 			pixelBudgetMultRef.current = Math.max(
-				32,
+				MIN_PIXEL_BUDGET_MULT,
 				pixelBudgetMultRef.current * 0.8,
 			);
 		} else if (frameTime < TARGET_MS * 0.5) {
 			pixelBudgetMultRef.current = Math.min(
-				64,
+				MAX_PIXEL_BUDGET_MULT,
 				pixelBudgetMultRef.current * 1.2,
 			);
 		}
@@ -740,7 +745,7 @@ export const WebGLRenderer = React.memo(
 		useEffect(() => {
 			plotBgRgbaRef.current = hexToRgba(plotBg ?? "#ffffff");
 		}, [plotBg]);
-		const pixelBudgetMultRef = useRef<number>(64);
+		const pixelBudgetMultRef = useRef<number>(MAX_PIXEL_BUDGET_MULT);
 		const frameTimeRef = useRef<number>(0);
 		const lastBudgetUpdateRef = useRef<number>(0);
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
@@ -1124,7 +1129,7 @@ export const WebGLRenderer = React.memo(
 		useEffect(() => {
 			if (isInteracting) return;
 			const id = setTimeout(() => {
-				pixelBudgetMultRef.current = 64;
+				pixelBudgetMultRef.current = MAX_PIXEL_BUDGET_MULT;
 				drawFrameRef.current?.(liveXAxesRef.current, liveYAxesRef.current);
 			}, 0);
 			return () => clearTimeout(id);
