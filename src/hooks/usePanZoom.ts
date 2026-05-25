@@ -1,6 +1,10 @@
 // src/hooks/usePanZoom.ts
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PanTarget } from "../components/Plot/chartTypes";
+import {
+	type PanTarget,
+	panTargetXAxisId,
+	panTargetYAxisId,
+} from "../components/Plot/chartTypes";
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
 import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
@@ -123,13 +127,13 @@ export function usePanZoom({
 		let changed = false;
 
 		// X-Axis Panning
-		if (ps.target === "all" || (ps.target as { xAxisId?: string }).xAxisId) {
+		if (ps.target === "all" || panTargetXAxisId(ps.target)) {
 			for (let i = 0; i < activeXAxes.length; i++) {
 				const axis = activeXAxes[i];
 				if (
 					ps.target !== "all" &&
 					!shiftDownRef.current &&
-					(ps.target as { xAxisId?: string }).xAxisId !== axis.id
+					panTargetXAxisId(ps.target) !== axis.id
 				)
 					continue;
 				const startConf = ps.startTargetX[axis.id];
@@ -148,8 +152,8 @@ export function usePanZoom({
 		}
 
 		// Y-Axis Panning
-		if (ps.target === "all" || (ps.target as { yAxisId?: string }).yAxisId) {
-			const targetYId = (ps.target as { yAxisId?: string }).yAxisId;
+		if (ps.target === "all" || panTargetYAxisId(ps.target)) {
+			const targetYId = panTargetYAxisId(ps.target);
 			const syncSideAxes =
 				shiftDownRef.current && targetYId
 					? leftAxes.some((a) => a.id === targetYId)
@@ -300,7 +304,7 @@ export function usePanZoom({
 			) {
 				const axesToZoom = (() => {
 					if (target === "all") return activeYAxes;
-					const yId = (target as { yAxisId: string }).yAxisId;
+					const yId = panTargetYAxisId(target) as string;
 					if (shiftKey) {
 						return leftAxes.some((a) => a.id === yId) ? leftAxes : rightAxes;
 					}
