@@ -196,7 +196,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const xColName = dataset.xAxisColumn;
 				const sparseRowCount = sparseXColumn.data.length;
 				const sparseDataset: Dataset = {
-					id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
+					id: `${datasetId}-sparse-${trimmedName}-${crypto.randomUUID()}`,
 					name: trimmedName,
 					columns: [xColName, trimmedName],
 					data: [{ ...sparseXColumn }, { ...newColumn, formula }],
