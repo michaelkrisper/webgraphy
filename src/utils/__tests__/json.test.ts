@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, expect, it } from "vitest";
-import { secureJSONParse } from "../json";
+import { describe, expect, it, vi } from "vitest";
+import { secureJSONParse, JSONParseError } from "../json";
 
 describe("secureJSONParse", () => {
 	it("should parse valid JSON", () => {
@@ -82,6 +82,35 @@ describe("secureJSONParse", () => {
 
 	it("should throw error for invalid JSON", () => {
 		const json = '{"invalid": }';
-		expect(() => secureJSONParse(json)).toThrow();
+		expect(() => secureJSONParse(json)).toThrow(JSONParseError);
+
+		try {
+			secureJSONParse(json);
+			expect.fail("Should have thrown");
+		} catch (error) {
+			expect(error).toBeInstanceOf(JSONParseError);
+			expect((error as JSONParseError).name).toBe("JSONParseError");
+			expect((error as JSONParseError).cause).toBeInstanceOf(SyntaxError);
+			expect((error as JSONParseError).message).toContain("Unexpected");
+		}
+	});
+
+	it("should fallback to default error message if thrown value is not an Error", () => {
+		// Mock JSON.parse to throw a string instead of an Error object
+		const originalParse = JSON.parse;
+		JSON.parse = vi.fn().mockImplementation(() => {
+			throw "String error";
+		});
+
+		try {
+			secureJSONParse('{"test": 1}');
+			expect.fail("Should have thrown");
+		} catch (error) {
+			expect(error).toBeInstanceOf(JSONParseError);
+			expect((error as JSONParseError).message).toBe("Invalid JSON");
+			expect((error as JSONParseError).cause).toBe("String error");
+		} finally {
+			JSON.parse = originalParse;
+		}
 	});
 });
