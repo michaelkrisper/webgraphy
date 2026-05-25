@@ -8,12 +8,10 @@ function parseHexChannels(
 	if (typeof hex !== "string") return null;
 
 	let normalizedHex = hex;
-	if (
-		normalizedHex.startsWith("#") &&
-		normalizedHex.length > 1 &&
-		normalizedHex.length < 7
-	) {
-		normalizedHex = "#" + normalizedHex.slice(1).padStart(6, "0");
+	// Expand CSS shorthand #rgb -> #rrggbb
+	if (/^#[0-9a-f]{3}$/i.test(normalizedHex)) {
+		const [, r, g, b] = normalizedHex;
+		normalizedHex = `#${r}${r}${g}${g}${b}${b}`;
 	}
 
 	const m = HEX_RE.exec(normalizedHex);

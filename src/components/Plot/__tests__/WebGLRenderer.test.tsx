@@ -38,8 +38,10 @@ describe("hexToRgba", () => {
 	});
 
 	it("handles invalid hex formats gracefully", () => {
-		// too short, parses as zero padded hex
-		expect(hexToRgba("#FF")).toEqual([0, 0, 255 / 255]);
+		// too short (not 3 or 6 hex digits) is invalid
+		expect(hexToRgba("#FF")).toEqual([0, 0, 0]);
+		// CSS shorthand expands #rgb -> #rrggbb
+		expect(hexToRgba("#00f")).toEqual([0, 0, 1]);
 		// nonsense characters still fall back
 		expect(hexToRgba("#zzz")).toEqual([0, 0, 0]);
 		// too long
