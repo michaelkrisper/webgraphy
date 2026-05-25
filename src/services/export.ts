@@ -571,6 +571,8 @@ export const downloadFile = (
 	a.download = fileName;
 	a.click();
 
-	// Security/Memory leak prevention: revoke the object URL after download
-	setTimeout(() => URL.revokeObjectURL(a.href), 100);
+	// Security/Memory leak prevention: revoke the object URL after download.
+	// Capture the URL directly rather than re-reading a.href, which can be
+	// detached/GC'd by the time the timeout fires.
+	setTimeout(() => URL.revokeObjectURL(urlToDownload), 100);
 };
