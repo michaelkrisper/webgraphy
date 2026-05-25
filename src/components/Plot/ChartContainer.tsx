@@ -185,6 +185,9 @@ type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 
+/** Cap on x-values sampled when deriving categorical labels for a forced axis. */
+const MAX_DERIVED_CATEGORY_LABELS = 1000;
+
 const getXAxisMetrics = (
 	xMode: "date" | "numeric" | "categorical",
 ): Omit<XAxisMetrics, "id" | "cumulativeOffset"> => {
@@ -401,7 +404,7 @@ export default function ChartContainer() {
 					const arr = col.data;
 					for (let i = 0; i < arr.length; i++) {
 						uniq.add(arr[i] + ref);
-						if (uniq.size > 1000) break outer;
+						if (uniq.size > MAX_DERIVED_CATEGORY_LABELS) break outer;
 					}
 				}
 				const sorted = Array.from(uniq).sort((a, b) => a - b);
