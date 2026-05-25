@@ -39,7 +39,10 @@ vi.mock("../../Sidebar/SeriesConfig", () => ({
 vi.mock("../../../services/export", () => ({
 	exportToSVG: vi.fn().mockReturnValue("<svg></svg>"),
 	exportToPNG: vi.fn().mockResolvedValue("data:image/png;base64,..."),
-	downloadFile: vi.fn(),
+}));
+
+vi.mock("../../../hooks/useFileDownload", () => ({
+	useFileDownload: vi.fn().mockReturnValue(vi.fn()),
 }));
 
 // Mock indexedDB for the Reset/Demo buttons
