@@ -136,8 +136,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	};
 
 	const insertColumn = (col: string) => {
-		const colName = col.includes(": ") ? col.split(": ")[1] : col;
-		insertText(`[${colName}]`);
+		insertText(`[${col}]`);
 	};
 
 	const title = (
@@ -279,7 +278,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 								className="calc-col-btn"
 								title={col}
 							>
-								{col.includes(": ") ? col.split(": ")[1] : col}
+								{col}
 							</button>
 						))}
 					</div>

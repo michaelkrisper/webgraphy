@@ -74,9 +74,11 @@ describe("colors", () => {
 			expect(hexToRgb("#zzxxxx")).toEqual({ r: 0, g: 0, b: 0 });
 		});
 
-		it("should handle zero padded hex color", () => {
-			expect(hexToRgb("#fff")).toEqual({ r: 0, g: 15, b: 255 });
-			expect(hexToRgb("#1")).toEqual({ r: 0, g: 0, b: 1 });
+		it("should expand CSS shorthand hex colors", () => {
+			expect(hexToRgb("#fff")).toEqual({ r: 255, g: 255, b: 255 });
+			expect(hexToRgb("#abc")).toEqual({ r: 170, g: 187, b: 204 });
+			// Lengths other than 3 or 6 hex digits are invalid.
+			expect(hexToRgb("#1")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb("#0f0a05")).toEqual({ r: 15, g: 10, b: 5 });
 			expect(hexToRgb("#000102")).toEqual({ r: 0, g: 1, b: 2 });
 		});

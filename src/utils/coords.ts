@@ -20,11 +20,14 @@ export const worldToScreen = (x: number, y: number, view: Viewport) => {
 	const chartWidth = view.width - p.left - p.right;
 	const chartHeight = view.height - p.top - p.bottom;
 
-	const sx = p.left + ((x - view.xMin) / (view.xMax - view.xMin)) * chartWidth;
-	const sy =
-		view.height -
-		p.bottom -
-		((y - view.yMin) / (view.yMax - view.yMin)) * chartHeight;
+	const xRange = view.xMax - view.xMin;
+	const yRange = view.yMax - view.yMin;
+	// A zero-width range (e.g. a single data point) would divide by zero; center
+	// the degenerate axis instead of emitting NaN/Infinity screen coords.
+	const fx = xRange !== 0 ? (x - view.xMin) / xRange : 0.5;
+	const fy = yRange !== 0 ? (y - view.yMin) / yRange : 0.5;
+	const sx = p.left + fx * chartWidth;
+	const sy = view.height - p.bottom - fy * chartHeight;
 	return { x: sx, y: sy };
 };
 

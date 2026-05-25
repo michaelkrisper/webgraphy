@@ -51,8 +51,8 @@ describe("Coordinate Conversions", () => {
 
 			const result = worldToScreen(100, 50, view);
 
-			expect(Number.isNaN(result.x)).toBe(true);
-			expect(Number.isNaN(result.y)).toBe(true);
+			// Degenerate (zero-width) range centers the point instead of NaN.
+			expect(result).toEqual({ x: 500, y: 250 });
 		});
 
 		it("handles negative coordinates correctly", () => {
@@ -197,8 +197,8 @@ describe("Coordinate Conversions", () => {
 			};
 
 			const result = worldToScreen(50, 50, view);
-			expect(Number.isNaN(result.x)).toBe(true);
-			expect(Number.isNaN(result.y)).toBe(true);
+			// Degenerate (zero-width) range centers the point instead of NaN.
+			expect(result).toEqual({ x: 500, y: 250 });
 		});
 
 		it("handles extreme padding (collapsed chart area)", () => {

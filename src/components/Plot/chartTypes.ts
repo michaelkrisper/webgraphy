@@ -51,3 +51,11 @@ export interface XAxisMetrics {
 }
 
 export type PanTarget = "all" | { xAxisId: string } | { yAxisId: string };
+
+/** The x-axis id a pan target refers to, or undefined for "all"/y-targets. */
+export const panTargetXAxisId = (t: PanTarget): string | undefined =>
+	typeof t === "object" && "xAxisId" in t ? t.xAxisId : undefined;
+
+/** The y-axis id a pan target refers to, or undefined for "all"/x-targets. */
+export const panTargetYAxisId = (t: PanTarget): string | undefined =>
+	typeof t === "object" && "yAxisId" in t ? t.yAxisId : undefined;

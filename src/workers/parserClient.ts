@@ -27,6 +27,8 @@ function ensureWorker(): Worker {
 			ev instanceof Error ? ev : new Error(ev.message ?? "Worker error");
 		for (const entry of pending.values()) entry.reject(err);
 		pending.clear();
+		worker?.terminate();
+		worker = null;
 	};
 	return worker;
 }

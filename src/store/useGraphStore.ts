@@ -195,17 +195,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
 				const xColName = dataset.xAxisColumn;
 				const sparseRowCount = sparseXColumn.data.length;
-				const letter = String.fromCharCode(65 + get().datasets.length);
 				const sparseDataset: Dataset = {
 					id: `${datasetId}-sparse-${trimmedName}-${Date.now()}`,
-					name: `${letter} - ${trimmedName}`,
-					columns: [
-						`${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
-						`${letter}: ${trimmedName}`,
-					],
+					name: trimmedName,
+					columns: [xColName, trimmedName],
 					data: [{ ...sparseXColumn }, { ...newColumn, formula }],
 					rowCount: sparseRowCount,
-					xAxisColumn: `${letter}: ${xColName.includes(": ") ? xColName.split(": ")[1] : xColName}`,
+					xAxisColumn: xColName,
 					xAxisId: dataset.xAxisId,
 				};
 				get().addDataset(sparseDataset);
@@ -259,50 +255,45 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 
 	addDataset: (dataset) => {
-		set((state) => {
-			if (!dataset.xAxisColumn) {
-				const potentialX =
-					dataset.columns.find(
-						(c) =>
-							c.toLowerCase().includes("time") ||
-							c.toLowerCase().includes("date"),
-					) || dataset.columns[0];
-				dataset.xAxisColumn = potentialX;
-			}
+		const state = get();
 
-			if (!dataset.xAxisId) {
-				const usedXAxisIds = state.datasets.reduce(
-					(acc, d) => (d.xAxisId ? acc.add(d.xAxisId) : acc),
-					new Set<string>(),
-				);
-				const unusedAxis =
-					state.xAxes.find((a) => !usedXAxisIds.has(a.id)) || state.xAxes[0];
-				dataset.xAxisId = unusedAxis.id;
-			}
+		const xAxisColumn =
+			dataset.xAxisColumn ||
+			dataset.columns.find(
+				(c) =>
+					c.toLowerCase().includes("time") ||
+					c.toLowerCase().includes("date"),
+			) ||
+			dataset.columns[0];
 
-			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
-			const col = dataset.data[xColIdx];
-			const bounds = col?.bounds || { min: 0, max: 100 };
-			const xMode = xModeFor(col);
-
-			const nextXAxes = state.xAxes.map((a) =>
-				a.id === dataset.xAxisId
-					? {
-							...a,
-							min: bounds.min,
-							max: bounds.max,
-							xMode,
-						}
-					: a,
+		let xAxisId = dataset.xAxisId;
+		if (!xAxisId) {
+			const usedXAxisIds = state.datasets.reduce(
+				(acc, d) => (d.xAxisId ? acc.add(d.xAxisId) : acc),
+				new Set<string>(),
 			);
+			const unusedAxis =
+				state.xAxes.find((a) => !usedXAxisIds.has(a.id)) || state.xAxes[0];
+			xAxisId = unusedAxis.id;
+		}
 
-			persistence.saveDataset(dataset);
+		const newDataset: Dataset = { ...dataset, xAxisColumn, xAxisId };
 
-			return {
-				datasets: [...state.datasets, dataset],
-				xAxes: nextXAxes,
-			};
-		});
+		const xColIdx = getColumnIndex(newDataset, xAxisColumn);
+		const col = newDataset.data[xColIdx];
+		const bounds = col?.bounds || { min: 0, max: 100 };
+		const xMode = xModeFor(col);
+
+		set((s) => ({
+			datasets: [...s.datasets, newDataset],
+			xAxes: s.xAxes.map((a) =>
+				a.id === xAxisId
+					? { ...a, min: bounds.min, max: bounds.max, xMode }
+					: a,
+			),
+		}));
+
+		persistence.saveDataset(newDataset);
 		if (get().isLoaded) debouncedSaveState();
 	},
 

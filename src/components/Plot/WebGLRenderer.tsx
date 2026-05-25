@@ -838,6 +838,17 @@ export const WebGLRenderer = React.memo(
 			if (drawFrameRef.current) {
 				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
 			}
+
+			return () => {
+				gl.deleteProgram(program);
+				gl.deleteShader(vs);
+				gl.deleteShader(fs);
+				gl.getExtension("WEBGL_lose_context")?.loseContext();
+				glRef.current = null;
+				programRef.current = null;
+				locationsRef.current = null;
+				stateCacheRef.current = null;
+			};
 		}, []);
 
 		const seriesMetadata = useMemo(() => {

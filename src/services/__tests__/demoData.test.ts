@@ -27,12 +27,12 @@ describe("demoData", () => {
 			expect(dataset.name).toBe("Weather Demo");
 			expect(dataset.rowCount).toBe(100);
 			expect(dataset.columns).toHaveLength(5);
-			expect(dataset.columns).toContain("Demo: Timestamp");
-			expect(dataset.columns).toContain("Demo: Temperature (°C)");
-			expect(dataset.columns).toContain("Demo: Humidity (%)");
-			expect(dataset.columns).toContain("Demo: Solar Irradiance (W/m²)");
-			expect(dataset.columns).toContain("Demo: Wind Speed (m/s)");
-			expect(dataset.xAxisColumn).toBe("Demo: Timestamp");
+			expect(dataset.columns).toContain("Timestamp");
+			expect(dataset.columns).toContain("Temperature (°C)");
+			expect(dataset.columns).toContain("Humidity (%)");
+			expect(dataset.columns).toContain("Solar Irradiance (W/m²)");
+			expect(dataset.columns).toContain("Wind Speed (m/s)");
+			expect(dataset.xAxisColumn).toBe("Timestamp");
 			expect(dataset.xAxisId).toBe("axis-1");
 		});
 
@@ -46,7 +46,7 @@ describe("demoData", () => {
 				expect(column.bounds).toBeDefined();
 				expect(column.bounds.min).toBeLessThanOrEqual(column.bounds.max);
 
-				if (dataset.columns[index] === "Demo: Timestamp") {
+				if (dataset.columns[index] === "Timestamp") {
 					expect(column.isFloat64).toBe(true);
 				} else {
 					expect(column.isFloat64).toBe(false);

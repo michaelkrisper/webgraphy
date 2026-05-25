@@ -490,7 +490,7 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 
 	let isFirstLine = true;
 
-	for await (const { lines } of readCSVChunks(file)) {
+	for await (const { lines, done } of readCSVChunks(file)) {
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i].trim();
 
@@ -500,8 +500,11 @@ async function parseCSV(file: File, settings?: ParseSettings) {
 			}
 
 			if (!line) {
-				// Only increment lineCount if it's an actual empty line in the middle of the file
-				if (i < lines.length - 1) {
+				// Count every blank line except the artifact left by a trailing
+				// newline, which only appears as the last entry of the final chunk.
+				// (Per-chunk position is unreliable: readCSVChunks holds back the
+				// last partial line, so chunk boundaries are arbitrary.)
+				if (!(done && i === lines.length - 1)) {
 					lineCount++;
 				}
 				continue;

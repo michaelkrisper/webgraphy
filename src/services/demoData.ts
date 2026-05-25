@@ -73,14 +73,13 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 		}
 	}
 
-	const prefix = "Demo: ";
 	return {
 		id: datasetId,
 		name: "Weather Demo",
-		columns: columns.map((c) => `${prefix}${c}`),
+		columns,
 		data,
 		rowCount,
-		xAxisColumn: `${prefix}${columns[0]}`,
+		xAxisColumn: columns[0],
 		xAxisId: "axis-1",
 	};
 }

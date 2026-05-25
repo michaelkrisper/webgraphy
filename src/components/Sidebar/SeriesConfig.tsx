@@ -340,14 +340,9 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				className="sc-select"
 				title="Y Column"
 			>
-				{datasets.map((ds, dsIdx) => {
-					const letter = String.fromCharCode(65 + dsIdx);
+				{datasets.map((ds) => {
 					return ds.columns.map((c) => {
-						const label = multiDs
-							? `${letter}: ${c.includes(": ") ? c.split(": ")[1] : c}`
-							: c.includes(": ")
-								? c.split(": ")[1]
-								: c;
+						const label = multiDs ? `${ds.name}: ${c}` : c;
 						return (
 							<option key={`${ds.id}::${c}`} value={`${ds.id}::${c}`}>
 								{label}

@@ -36,9 +36,24 @@ export function polynomialRegression(
 ): Float64Array {
 	const n = x.length;
 	const d = Math.min(degree, Math.min(n - 1, 10)); // Cap at 10 for stability
-
-	// Build Vandermonde matrix and solve via normal equations
 	const m = d + 1;
+
+	// Center and scale x before building the normal equations. Raw values such
+	// as epoch timestamps raised to high powers wreck the conditioning of X^T X;
+	// fitting in normalized space and evaluating at the same points leaves the
+	// fitted y values unchanged but keeps the solve numerically stable.
+	let meanX = 0;
+	for (let i = 0; i < n; i++) meanX += x[i];
+	meanX /= n;
+	let varX = 0;
+	for (let i = 0; i < n; i++) {
+		const dxv = x[i] - meanX;
+		varX += dxv * dxv;
+	}
+	const scaleX = Math.sqrt(varX / n) || 1;
+	const xs = new Float64Array(n);
+	for (let i = 0; i < n; i++) xs[i] = (x[i] - meanX) / scaleX;
+
 	// Compute X^T * X and X^T * y
 	const XtX = new Float64Array(m * m);
 	const Xty = new Float64Array(m);
@@ -50,9 +65,9 @@ export function polynomialRegression(
 			let xpow2 = 1;
 			for (let k = 0; k < m; k++) {
 				XtX[j * m + k] += xpow * xpow2;
-				xpow2 *= x[i];
+				xpow2 *= xs[i];
 			}
-			xpow *= x[i];
+			xpow *= xs[i];
 		}
 	}
 
@@ -65,7 +80,7 @@ export function polynomialRegression(
 			xpow = 1;
 		for (let j = 0; j < m; j++) {
 			val += coeffs[j] * xpow;
-			xpow *= x[i];
+			xpow *= xs[i];
 		}
 		result[i] = val;
 	}
@@ -172,7 +187,7 @@ export function logisticRegression(
 		if (y[i] < yMin) yMin = y[i];
 		if (y[i] > yMax) yMax = y[i];
 	}
-	const L = yMax * 1.05; // Upper asymptote
+	const L = yMax + 0.05 * (yMax - yMin); // Upper asymptote, 5% above the range
 	const yRange = L - yMin;
 	if (yRange < 1e-10) return new Float64Array(n);
 

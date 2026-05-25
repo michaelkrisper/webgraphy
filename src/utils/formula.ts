@@ -1066,13 +1066,6 @@ export function compileFormula(
 					if (!availableColumnsMap.has(col)) {
 						availableColumnsMap.set(col, i);
 					}
-					const colonIdx = col.indexOf(": ");
-					if (colonIdx !== -1) {
-						const suffix = col.substring(colonIdx + 2);
-						if (!availableColumnsMap.has(suffix)) {
-							availableColumnsMap.set(suffix, i);
-						}
-					}
 				}
 			}
 			return availableColumnsMap;
@@ -1158,7 +1151,10 @@ export function compileFormula(
 			filterState: {},
 		});
 
-		const stack = new Float64Array(64);
+		// Each token pushes at most one value, so the RPN stack can never grow
+		// deeper than the queue length — size it accordingly to avoid silent
+		// out-of-range writes on deeply nested expressions.
+		const stack = new Float64Array(outputQueue.length + 1);
 		const argsScratch: number[] = [];
 
 		return {

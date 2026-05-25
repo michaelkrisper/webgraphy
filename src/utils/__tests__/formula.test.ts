@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { compileFormula, evaluateFormulaSync } from "../formula";
 
 describe("compileFormula", () => {
-	const columns = ["Timestamp", "A: Temp", "A: Hum", "A: Press"];
+	const columns = ["Timestamp", "Temp", "Hum", "Press"];
 
 	it("should handle averaging functions", () => {
 		const cols = ["Timestamp", "Temp"];
@@ -317,10 +317,9 @@ describe("compileFormula", () => {
 		const resSumDay = compileFormula("sumday([Temp])", columns);
 		expect(resSumDay.evaluate([20, 1000])).toBe(20);
 
-		// Test column not found via bestEnd fallback
-		// e.g. "[A: Unknown]" where "A:" exists but not "A: Unknown"
-		const resUnknown = compileFormula("[A: Unknown]", columns);
-		expect(resUnknown.error).toContain("Column not found: A: Unknown");
+		// Unknown column reference reports a clear error.
+		const resUnknown = compileFormula("[Unknown]", columns);
+		expect(resUnknown.error).toContain("Column not found: Unknown");
 
 		// Defensive fallback testing - providing unknown functions triggers an error
 		// earlier in the lexer as checked in 'should return error for invalid characters'
@@ -330,7 +329,7 @@ describe("compileFormula", () => {
 });
 
 describe("compileFormula — new language features", () => {
-	const columns = ["Timestamp", "A: Temp", "A: Hum", "A: Press"];
+	const columns = ["Timestamp", "Temp", "Hum", "Press"];
 
 	it("parses scientific-notation numeric literals", () => {
 		expect(compileFormula("1e3", columns).evaluate([])).toBe(1000);
@@ -456,7 +455,7 @@ describe("compileFormula — new language features", () => {
 	});
 
 	it("rolling rejects non-constant window argument", () => {
-		const { error } = compileFormula("rolling([A: Temp], [A: Hum])", columns);
+		const { error } = compileFormula("rolling([Temp], [Hum])", columns);
 		expect(error).toContain("constant number");
 	});
 

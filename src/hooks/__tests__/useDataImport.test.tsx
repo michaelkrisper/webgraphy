@@ -237,8 +237,8 @@ describe("useDataImport hook", () => {
 
 		expect(parseDataInWorker).toHaveBeenCalledWith(file, "csv", settings);
 		expect(mockAddDataset).toHaveBeenCalled();
-		expect(mockAddDataset.mock.calls[0][0].name).toBe("A - test.csv");
-		expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe("A: Col1");
+		expect(mockAddDataset.mock.calls[0][0].name).toBe("test.csv");
+		expect(mockAddDataset.mock.calls[0][0].columns[0]).toBe("Col1");
 		expect(result.current.isImporting).toBe(false);
 		expect(result.current.pendingFile).toBeNull();
 
@@ -290,7 +290,7 @@ describe("useDataImport hook", () => {
 		expect(result.current.pendingFile).toBeNull();
 		// xAxisColumn is undefined so all columns pass the filter — Col1 gets auto-added as a series
 		expect(mockAddSeries).toHaveBeenCalledTimes(1);
-		expect(mockAddSeries.mock.calls[0][0].yColumn).toBe("A: Col1");
+		expect(mockAddSeries.mock.calls[0][0].yColumn).toBe("Col1");
 
 		global.FileReader = originalFileReader;
 	});
@@ -411,8 +411,8 @@ describe("useDataImport hook", () => {
 		});
 
 		expect(mockAddSeries).toHaveBeenCalledTimes(2);
-		expect(mockAddSeries.mock.calls[0][0].yColumn).toBe("A: Temp");
-		expect(mockAddSeries.mock.calls[1][0].yColumn).toBe("A: Humidity");
+		expect(mockAddSeries.mock.calls[0][0].yColumn).toBe("Temp");
+		expect(mockAddSeries.mock.calls[1][0].yColumn).toBe("Humidity");
 
 		global.FileReader = originalFileReader;
 	});
