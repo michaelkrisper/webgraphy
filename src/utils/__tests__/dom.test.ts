@@ -29,4 +29,9 @@ describe("escapeHTML", () => {
 	it("should handle empty strings", () => {
 		expect(escapeHTML("")).toBe("");
 	});
+
+	it("should handle null and undefined", () => {
+		expect(escapeHTML(null)).toBe("");
+		expect(escapeHTML(undefined)).toBe("");
+	});
 });
