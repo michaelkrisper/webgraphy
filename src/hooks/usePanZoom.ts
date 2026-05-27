@@ -1,5 +1,6 @@
 // src/hooks/usePanZoom.ts
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hitTestXAxis, hitTestYAxis } from "../components/Plot/axisHitTest";
 import {
 	type PanTarget,
 	panTargetXAxisId,
@@ -214,42 +215,21 @@ export function usePanZoom({
 	const hoveredXAxisIdRef = useRef<string | null>(null);
 
 	const getHoveredYAxis = useCallback(
-		(mouseX: number, mouseY: number) => {
-			if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
-			let lOff = 0;
-			for (let i = 0; i < leftAxes.length; i++) {
-				const am = axisLayout[leftAxes[i].id] || { total: 40 };
-				if (
-					mouseX >= padding.left - lOff - am.total &&
-					mouseX <= padding.left - lOff
-				)
-					return leftAxes[i].id;
-				lOff += am.total;
-			}
-			let rOff = 0;
-			for (let i = 0; i < rightAxes.length; i++) {
-				const am = axisLayout[rightAxes[i].id] || { total: 40 };
-				if (
-					mouseX >= width - padding.right + rOff &&
-					mouseX <= width - padding.right + rOff + am.total
-				)
-					return rightAxes[i].id;
-				rOff += am.total;
-			}
-			return null;
-		},
+		(mouseX: number, mouseY: number) =>
+			hitTestYAxis(mouseX, mouseY, {
+				width,
+				height,
+				padding,
+				leftAxes,
+				rightAxes,
+				axisLayout,
+			}),
 		[leftAxes, rightAxes, axisLayout, padding, width, height],
 	);
 
 	const getHoveredXAxis = useCallback(
-		(mouseX: number, mouseY: number) => {
-			if (mouseX < padding.left || mouseX > width - padding.right) return null;
-			for (const m of xAxesMetrics) {
-				const baseY = height - padding.bottom + m.cumulativeOffset;
-				if (mouseY >= baseY && mouseY <= baseY + m.height) return m.id;
-			}
-			return null;
-		},
+		(mouseX: number, mouseY: number) =>
+			hitTestXAxis(mouseX, mouseY, { width, height, padding, xAxesMetrics }),
 		[xAxesMetrics, padding, width, height],
 	);
 
