@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyZoomToRange } from "../panZoomMath";
+import { applyZoomToRange, panRangeByPixels } from "../panZoomMath";
 
 describe("applyZoomToRange", () => {
 	it("keeps the range unchanged at zoom factor 1", () => {
@@ -55,5 +55,31 @@ describe("applyZoomToRange", () => {
 			min: 100,
 			max: 500,
 		});
+	});
+});
+
+describe("panRangeByPixels", () => {
+	it("leaves the range unchanged for a zero pixel delta", () => {
+		expect(panRangeByPixels(0, 100, 0, 500)).toEqual({ min: 0, max: 100 });
+	});
+
+	it("preserves the range width while shifting both edges", () => {
+		// span 500px, range 100 -> 1 world unit per 5px; +50px shift = +10 world
+		const r = panRangeByPixels(0, 100, 50, 500);
+		expect(r).toEqual({ min: 10, max: 110 });
+		expect(r.max - r.min).toBe(100);
+	});
+
+	it("shifts in the opposite direction for a negative delta", () => {
+		expect(panRangeByPixels(0, 100, -50, 500)).toEqual({ min: -10, max: 90 });
+	});
+
+	it("scales the world shift by the range size", () => {
+		// wider range moves more world units for the same pixel delta
+		expect(panRangeByPixels(0, 1000, 50, 500)).toEqual({ min: 100, max: 1100 });
+	});
+
+	it("supports non-zero range offsets", () => {
+		expect(panRangeByPixels(200, 400, 25, 100)).toEqual({ min: 250, max: 450 });
 	});
 });
