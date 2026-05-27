@@ -22,12 +22,11 @@ export function buildXAxisLayout(
 ): XAxisLayout {
 	const r = axis.max - axis.min;
 	const isDate = axis.xMode === "date";
-	const uniqueColumns = Array.from(
-		datasets.reduce(
-			(acc, d: Dataset) => acc.add(d.xAxisColumn),
-			new Set<string>(),
-		),
-	);
+	const uniqueColumns: string[] = [];
+	for (let i = 0; i < datasets.length; i++) {
+		const col = datasets[i].xAxisColumn;
+		if (!uniqueColumns.includes(col)) uniqueColumns.push(col);
+	}
 	const defaultTitle =
 		datasets.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
 	const title = axis.name || defaultTitle || "";
