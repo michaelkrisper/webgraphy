@@ -188,4 +188,26 @@ describe("applyKeyboardZoom", () => {
 		expect(targetYs.y1.min).toBeCloseTo(-7.5);
 		expect(targetYs.y1.max).toBeCloseTo(107.5);
 	});
+
+	it("should use existing targetXAxes/targetYs if available", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		};
+		const keys = new Set(["+"]);
+		const targetXAxes: Record<string, { min: number; max: number }> = {
+			x1: { min: 10, max: 110 },
+		};
+		const targetYs: Record<string, { min: number; max: number }> = {
+			y1: { min: 10, max: 110 },
+		};
+
+		const result = applyKeyboardZoom(state, keys, targetXAxes, targetYs);
+
+		expect(result).toBe(true);
+		expect(targetXAxes.x1.min).toBeCloseTo(17.5);
+		expect(targetXAxes.x1.max).toBeCloseTo(102.5);
+		expect(targetYs.y1.min).toBeCloseTo(17.5);
+		expect(targetYs.y1.max).toBeCloseTo(102.5);
+	});
 });
