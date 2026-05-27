@@ -311,9 +311,11 @@ export const exportToSVG = (
 	});
 
 	// Group series by the xAxisId of their source dataset
-	const datasetXAxisMap = new Map(
-		datasets.map((d) => [d.id, d.xAxisId || "axis-1"]),
-	);
+	const datasetXAxisMap = new Map<string, string>();
+	for (const d of datasets) {
+		datasetXAxisMap.set(d.id, d.xAxisId || "axis-1");
+	}
+
 	series.forEach((s) => {
 		const xAxisId = datasetXAxisMap.get(s.sourceId);
 		if (xAxisId) {
