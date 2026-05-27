@@ -28,3 +28,21 @@ export function applyZoomToRange(
 		max: pivotWorld + (1 - weight) * newRange,
 	};
 }
+
+/**
+ * Translate an axis range by a pointer movement measured in pixels.
+ *
+ * `deltaPx` is the signed pixel movement already oriented for the axis
+ * (callers negate it where the data should move opposite to the pointer),
+ * and `chartSpanPx` is the axis' on-screen length in pixels. The range width
+ * is preserved; both edges shift by the equivalent world distance.
+ */
+export function panRangeByPixels(
+	min: number,
+	max: number,
+	deltaPx: number,
+	chartSpanPx: number,
+): Range {
+	const worldShift = (deltaPx * (max - min)) / chartSpanPx;
+	return { min: min + worldShift, max: max + worldShift };
+}

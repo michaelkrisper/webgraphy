@@ -9,7 +9,7 @@ import {
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
 import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
-import { applyZoomToRange } from "./panZoomMath";
+import { applyZoomToRange, panRangeByPixels } from "./panZoomMath";
 
 interface UsePanZoomOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
@@ -140,10 +140,12 @@ export function usePanZoom({
 					continue;
 				const startConf = ps.startTargetX[axis.id];
 				if (!startConf) continue;
-				const pxPerWorld = chartWidth / (startConf.max - startConf.min);
-				const shiftWorld = -dx / pxPerWorld;
-				const newMin = startConf.min + shiftWorld;
-				const newMax = startConf.max + shiftWorld;
+				const { min: newMin, max: newMax } = panRangeByPixels(
+					startConf.min,
+					startConf.max,
+					-dx,
+					chartWidth,
+				);
 				const cur = targetXAxes.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
 					// eslint-disable-next-line react-hooks/immutability
@@ -173,10 +175,12 @@ export function usePanZoom({
 				}
 				const startConf = ps.startTargetY[axis.id];
 				if (!startConf) continue;
-				const pxPerWorld = chartHeight / (startConf.max - startConf.min);
-				const shiftWorld = dy / pxPerWorld;
-				const newMin = startConf.min + shiftWorld;
-				const newMax = startConf.max + shiftWorld;
+				const { min: newMin, max: newMax } = panRangeByPixels(
+					startConf.min,
+					startConf.max,
+					dy,
+					chartHeight,
+				);
 				const cur = targetYs.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
 					// eslint-disable-next-line react-hooks/immutability
@@ -538,13 +542,12 @@ export function usePanZoom({
 				activeXAxes.forEach((a) => {
 					const cur = targetXAxes.current[a.id];
 					if (cur) {
-						const pxPerWorld = chartWidth / (cur.max - cur.min);
-						const shiftWorld = panDx / pxPerWorld;
-						targetXAxes.current[a.id] = {
-							...cur,
-							min: cur.min - shiftWorld,
-							max: cur.max - shiftWorld,
-						};
+						targetXAxes.current[a.id] = panRangeByPixels(
+							cur.min,
+							cur.max,
+							-panDx,
+							chartWidth,
+						);
 					}
 				});
 			}
@@ -556,13 +559,12 @@ export function usePanZoom({
 				activeYAxes.forEach((a) => {
 					const cur = targetYs.current[a.id];
 					if (cur) {
-						const pxPerWorld = chartHeight / (cur.max - cur.min);
-						const shiftWorld = panDy / pxPerWorld;
-						targetYs.current[a.id] = {
-							...cur,
-							min: cur.min + shiftWorld,
-							max: cur.max + shiftWorld,
-						};
+						targetYs.current[a.id] = panRangeByPixels(
+							cur.min,
+							cur.max,
+							panDy,
+							chartHeight,
+						);
 					}
 				});
 			}
