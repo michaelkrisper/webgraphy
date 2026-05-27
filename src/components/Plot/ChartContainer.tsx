@@ -152,8 +152,9 @@ function syncStoreUpdates(
 	let hasX = false;
 	let hasY = false;
 
+	const xAxisMap = new Map(state.xAxes.map((a) => [a.id, a]));
 	for (const [id, upd] of Object.entries(xUpdates)) {
-		const axis = state.xAxes.find((a) => a.id === id);
+		const axis = xAxisMap.get(id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
@@ -164,8 +165,9 @@ function syncStoreUpdates(
 		}
 	}
 
+	const yAxisMap = new Map(state.yAxes.map((a) => [a.id, a]));
 	for (const [id, upd] of Object.entries(yUpdates)) {
-		const axis = state.yAxes.find((a) => a.id === id);
+		const axis = yAxisMap.get(id);
 		if (
 			!axis ||
 			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
