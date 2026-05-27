@@ -9,6 +9,7 @@ import {
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
 import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
+import { applyZoomToRange } from "./panZoomMath";
 
 interface UsePanZoomOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
@@ -270,12 +271,14 @@ export function usePanZoom({
 					const worldMouse = screenToWorld(mouseX, 0, vp);
 					const zfX =
 						typeof zoomFactor === "number" ? zoomFactor : zoomFactor.x;
-					const newXRange = (currentX.max - currentX.min) * zfX;
 					const weight = (mouseX - padding.left) / chartWidth;
-					targetXAxes.current[axis.id] = {
-						min: worldMouse.x - weight * newXRange,
-						max: worldMouse.x + (1 - weight) * newXRange,
-					};
+					targetXAxes.current[axis.id] = applyZoomToRange(
+						worldMouse.x,
+						currentX.min,
+						currentX.max,
+						weight,
+						zfX,
+					);
 				});
 			}
 			if (
@@ -309,12 +312,14 @@ export function usePanZoom({
 					const worldMouse = screenToWorld(0, mouseY, axisVp);
 					const zfY =
 						typeof zoomFactor === "number" ? zoomFactor : zoomFactor.y;
-					const newYRange = (currentTarget.max - currentTarget.min) * zfY;
 					const weight = (height - padding.bottom - mouseY) / chartHeight;
-					targetYs.current[axis.id] = {
-						min: worldMouse.y - weight * newYRange,
-						max: worldMouse.y + (1 - weight) * newYRange,
-					};
+					targetYs.current[axis.id] = applyZoomToRange(
+						worldMouse.y,
+						currentTarget.min,
+						currentTarget.max,
+						weight,
+						zfY,
+					);
 				});
 			}
 			syncViewport();
