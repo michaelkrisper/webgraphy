@@ -37,6 +37,26 @@ describe("formatFullDate", () => {
 		const ts = 1673784000.1;
 		expect(formatFullDate(ts)).toBe("15.01.2023, 12:00:00,1");
 	});
+
+	it("handles exact zero epoch", () => {
+		expect(formatFullDate(0)).toBe("01.01.1970, 00:00:00");
+	});
+
+	it("handles fractional seconds that resolve to exactly zero after formatting", () => {
+		expect(formatFullDate(0.0001)).toBe("01.01.1970, 00:00:00");
+	});
+
+	it("handles single-digit zero in fractional second (e.g. .01)", () => {
+		expect(formatFullDate(0.01)).toBe("01.01.1970, 00:00:00,01");
+	});
+
+	it("handles two-digit zero in fractional second (e.g. .001)", () => {
+		expect(formatFullDate(0.001)).toBe("01.01.1970, 00:00:00,001");
+	});
+
+	it("handles negative timestamps correctly", () => {
+		expect(formatFullDate(-1.5)).toBe("31.12.1969, 23:59:58,5");
+	});
 });
 
 describe("generateTimeTicks", () => {
