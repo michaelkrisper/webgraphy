@@ -36,6 +36,7 @@ import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
+import { computeAxisOffsets, sumGutterTotals } from "./axisGutters";
 import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
@@ -480,21 +481,13 @@ export default function ChartContainer() {
 		return { leftAxes: left, rightAxes: right };
 	}, [activeYAxes]);
 
-	const { leftOffsets, rightOffsets } = useMemo(() => {
-		const leftOffsets: Record<string, number> = {};
-		let lOff = 0;
-		for (const a of leftAxes) {
-			leftOffsets[a.id] = lOff;
-			lOff += axisLayout[a.id]?.total || 40;
-		}
-		const rightOffsets: Record<string, number> = {};
-		let rOff = 0;
-		for (const a of rightAxes) {
-			rightOffsets[a.id] = rOff;
-			rOff += axisLayout[a.id]?.total || 40;
-		}
-		return { leftOffsets, rightOffsets };
-	}, [leftAxes, rightAxes, axisLayout]);
+	const { leftOffsets, rightOffsets } = useMemo(
+		() => ({
+			leftOffsets: computeAxisOffsets(leftAxes, axisLayout),
+			rightOffsets: computeAxisOffsets(rightAxes, axisLayout),
+		}),
+		[leftAxes, rightAxes, axisLayout],
+	);
 
 	const xAxesMetrics = useMemo((): XAxisMetrics[] => {
 		const result: XAxisMetrics[] = [];
@@ -509,14 +502,8 @@ export default function ChartContainer() {
 
 	const padding = useMemo(() => {
 		const base = BASE_PADDING_DESKTOP;
-		const leftSum = leftAxes.reduce(
-			(sum, a) => sum + (axisLayout[a.id]?.total || 40),
-			0,
-		);
-		const rightSum = rightAxes.reduce(
-			(sum, a) => sum + (axisLayout[a.id]?.total || 40),
-			0,
-		);
+		const leftSum = sumGutterTotals(leftAxes, axisLayout);
+		const rightSum = sumGutterTotals(rightAxes, axisLayout);
 		const bottom =
 			xAxesMetrics.length > 0
 				? xAxesMetrics.reduce((sum, m) => sum + m.height, 0)
