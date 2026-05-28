@@ -22,7 +22,6 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { getColumnIndex } from "../../utils/columns";
 import {
-	AXIS_EPSILON,
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
 	calcYAxisTicks,
@@ -43,6 +42,7 @@ import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
+import { syncStoreUpdates } from "./syncStoreUpdates";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { computeXAxesMetrics } from "./xAxisMetrics";
 
@@ -143,47 +143,6 @@ function updateOverlayAxes(
 	}
 
 	scratch.estVertexCount = est;
-}
-
-function syncStoreUpdates(
-	state: ReturnType<typeof useGraphStore.getState>,
-	xUpdates: Record<string, { min: number; max: number }>,
-	yUpdates: Record<string, { min: number; max: number }>,
-) {
-	const filteredXUpdates: Record<string, { min: number; max: number }> = {};
-	const filteredYUpdates: Record<string, { min: number; max: number }> = {};
-	let hasX = false;
-	let hasY = false;
-
-	const xAxisMap = new Map(state.xAxes.map((a) => [a.id, a]));
-	for (const [id, upd] of Object.entries(xUpdates)) {
-		const axis = xAxisMap.get(id);
-		if (
-			!axis ||
-			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
-			Math.abs(axis.max - upd.max) > AXIS_EPSILON
-		) {
-			filteredXUpdates[id] = upd;
-			hasX = true;
-		}
-	}
-
-	const yAxisMap = new Map(state.yAxes.map((a) => [a.id, a]));
-	for (const [id, upd] of Object.entries(yUpdates)) {
-		const axis = yAxisMap.get(id);
-		if (
-			!axis ||
-			Math.abs(axis.min - upd.min) > AXIS_EPSILON ||
-			Math.abs(axis.max - upd.max) > AXIS_EPSILON
-		) {
-			filteredYUpdates[id] = upd;
-			hasY = true;
-		}
-	}
-
-	if (hasX || hasY) {
-		state.batchUpdateAxes(filteredXUpdates, filteredYUpdates);
-	}
 }
 
 type DatasetsByAxisId = Record<string, Dataset[]>;
