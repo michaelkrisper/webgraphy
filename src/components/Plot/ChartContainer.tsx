@@ -43,107 +43,13 @@ import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { syncStoreUpdates } from "./syncStoreUpdates";
+import {
+	type OverlayXEntry,
+	type OverlayYEntry,
+	updateOverlayAxes,
+} from "./overlayAxes";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { computeXAxesMetrics } from "./xAxisMetrics";
-
-type OverlayXEntry = {
-	id: string;
-	min: number;
-	max: number;
-	showGrid: boolean;
-	ticks: number[];
-	categoryLabels?: string[];
-};
-type OverlayYEntry = {
-	id: string;
-	min: number;
-	max: number;
-	showGrid: boolean;
-	ticks: number[];
-	position: "left" | "right";
-	categoryLabels?: string[];
-};
-
-function updateOverlayAxes(
-	scratch: {
-		xAxes: OverlayXEntry[];
-		yAxes: OverlayYEntry[];
-		estVertexCount?: number;
-	},
-	xLayout: XAxisLayout[],
-	yLayout: YAxisLayout[],
-) {
-	let est = 12 + 12 + 32;
-
-	const sx = scratch.xAxes;
-	sx.length = xLayout.length;
-	for (let i = 0; i < xLayout.length; i++) {
-		const a = xLayout[i];
-		let entry = sx[i];
-		if (!entry) {
-			entry = {
-				id: a.id,
-				min: a.min,
-				max: a.max,
-				showGrid: a.showGrid,
-				ticks: [],
-				categoryLabels: a.categoryLabels,
-			};
-			sx[i] = entry;
-		} else {
-			entry.id = a.id;
-			entry.min = a.min;
-			entry.max = a.max;
-			entry.showGrid = a.showGrid;
-			entry.categoryLabels = a.categoryLabels;
-		}
-		const src = a.ticks.result;
-		const dst = entry.ticks;
-		dst.length = src.length;
-		for (let j = 0; j < src.length; j++) {
-			const t = src[j];
-			dst[j] = typeof t === "number" ? t : t.timestamp;
-		}
-
-		est += (src.length + 1) * 4 + 6;
-		if (i === 0 && a.showGrid) {
-			est += src.length * 4;
-		}
-	}
-	const sy = scratch.yAxes;
-	sy.length = yLayout.length;
-	for (let i = 0; i < yLayout.length; i++) {
-		const a = yLayout[i];
-		let entry = sy[i];
-		if (!entry) {
-			entry = {
-				id: a.id,
-				min: a.min,
-				max: a.max,
-				showGrid: a.showGrid,
-				ticks: a.ticks,
-				position: a.position,
-				categoryLabels: a.categoryLabels,
-			};
-			sy[i] = entry;
-		} else {
-			entry.id = a.id;
-			entry.min = a.min;
-			entry.max = a.max;
-			entry.showGrid = a.showGrid;
-			entry.ticks = a.ticks;
-			entry.position = a.position;
-			entry.categoryLabels = a.categoryLabels;
-		}
-
-		est += (a.ticks.length + 1) * 4 + 6;
-		if (a.showGrid) {
-			est += a.ticks.length * 4;
-		}
-	}
-
-	scratch.estVertexCount = est;
-}
 
 type DatasetsByAxisId = Record<string, Dataset[]>;
 

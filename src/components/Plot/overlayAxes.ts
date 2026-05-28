@@ -1,0 +1,113 @@
+// Copies axis-layout snapshots into a long-lived overlay-scratch buffer for
+// the WebGL renderer, in place — entries are reused across frames to avoid
+// allocations during pan/zoom — and updates an estimated vertex count used to
+// size the renderer's GPU buffers. Extracted from ChartContainer so the
+// transformation can be exercised independently.
+
+import type { XAxisLayout, YAxisLayout } from "./chartTypes";
+
+export interface OverlayXEntry {
+	id: string;
+	min: number;
+	max: number;
+	showGrid: boolean;
+	ticks: number[];
+	categoryLabels?: string[];
+}
+
+export interface OverlayYEntry {
+	id: string;
+	min: number;
+	max: number;
+	showGrid: boolean;
+	ticks: number[];
+	position: "left" | "right";
+	categoryLabels?: string[];
+}
+
+interface OverlayScratch {
+	xAxes: OverlayXEntry[];
+	yAxes: OverlayYEntry[];
+	estVertexCount?: number;
+}
+
+// Baseline vertex budget covering chart-frame primitives that are always drawn
+// (plot border, zero-axis line, padding triangles).
+const BASE_VERTEX_COUNT = 12 + 12 + 32;
+
+export function updateOverlayAxes(
+	scratch: OverlayScratch,
+	xLayout: XAxisLayout[],
+	yLayout: YAxisLayout[],
+): void {
+	let est = BASE_VERTEX_COUNT;
+
+	const sx = scratch.xAxes;
+	sx.length = xLayout.length;
+	for (let i = 0; i < xLayout.length; i++) {
+		const a = xLayout[i];
+		let entry = sx[i];
+		if (!entry) {
+			entry = {
+				id: a.id,
+				min: a.min,
+				max: a.max,
+				showGrid: a.showGrid,
+				ticks: [],
+				categoryLabels: a.categoryLabels,
+			};
+			sx[i] = entry;
+		} else {
+			entry.id = a.id;
+			entry.min = a.min;
+			entry.max = a.max;
+			entry.showGrid = a.showGrid;
+			entry.categoryLabels = a.categoryLabels;
+		}
+		const src = a.ticks.result;
+		const dst = entry.ticks;
+		dst.length = src.length;
+		for (let j = 0; j < src.length; j++) {
+			const t = src[j];
+			dst[j] = typeof t === "number" ? t : t.timestamp;
+		}
+
+		est += (src.length + 1) * 4 + 6;
+		if (i === 0 && a.showGrid) {
+			est += src.length * 4;
+		}
+	}
+	const sy = scratch.yAxes;
+	sy.length = yLayout.length;
+	for (let i = 0; i < yLayout.length; i++) {
+		const a = yLayout[i];
+		let entry = sy[i];
+		if (!entry) {
+			entry = {
+				id: a.id,
+				min: a.min,
+				max: a.max,
+				showGrid: a.showGrid,
+				ticks: a.ticks,
+				position: a.position,
+				categoryLabels: a.categoryLabels,
+			};
+			sy[i] = entry;
+		} else {
+			entry.id = a.id;
+			entry.min = a.min;
+			entry.max = a.max;
+			entry.showGrid = a.showGrid;
+			entry.ticks = a.ticks;
+			entry.position = a.position;
+			entry.categoryLabels = a.categoryLabels;
+		}
+
+		est += (a.ticks.length + 1) * 4 + 6;
+		if (a.showGrid) {
+			est += a.ticks.length * 4;
+		}
+	}
+
+	scratch.estVertexCount = est;
+}
