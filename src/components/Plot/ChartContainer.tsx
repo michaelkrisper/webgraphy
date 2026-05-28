@@ -25,10 +25,7 @@ import {
 	AXIS_EPSILON,
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
-	calcNumericPrecision,
-	calcNumericStep,
 	calcYAxisTicks,
-	formatAxisLabel,
 	getAxisById,
 	syncAxesWithTargets,
 } from "../../utils/axisCalculations";
@@ -36,7 +33,11 @@ import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
-import { computeAxisOffsets, sumGutterTotals } from "./axisGutters";
+import {
+	computeAxisOffsets,
+	measureYAxisGutter,
+	sumGutterTotals,
+} from "./axisGutters";
 import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
 import { Crosshair } from "./Crosshair";
@@ -443,28 +444,13 @@ export default function ChartContainer() {
 
 	const axisLayout = useMemo(() => {
 		const layout: Record<string, { total: number; label: number }> = {};
-		activeYAxes.forEach((axis) => {
-			const categoryLabels = yAxisCategoryLabels.get(axis.id);
-			let widestValChars: number;
-			if (categoryLabels) {
-				widestValChars = categoryLabels.reduce(
-					(acc, n) => Math.max(acc, n?.length ?? 0),
-					1,
-				);
-			} else {
-				const step = calcNumericStep(
-					axis.max - axis.min,
-					Math.max(2, Math.floor(height / 30)),
-				);
-				const precision = calcNumericPrecision(step);
-				widestValChars = Math.max(
-					formatAxisLabel(axis.min, precision).length,
-					formatAxisLabel(axis.max, precision).length,
-				);
-			}
-			const labelWidth = Math.min(100, widestValChars * 6);
-			layout[axis.id] = { label: labelWidth, total: labelWidth + 24 };
-		});
+		for (const axis of activeYAxes) {
+			layout[axis.id] = measureYAxisGutter(
+				axis,
+				height,
+				yAxisCategoryLabels.get(axis.id),
+			);
+		}
 		return layout;
 	}, [activeYAxes, height, yAxisCategoryLabels]);
 
