@@ -44,6 +44,7 @@ import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
+import { computeXAxesMetrics } from "./xAxisMetrics";
 
 type OverlayXEntry = {
 	id: string;
@@ -191,20 +192,6 @@ const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 
 /** Cap on x-values sampled when deriving categorical labels for a forced axis. */
 const MAX_DERIVED_CATEGORY_LABELS = 1000;
-
-const getXAxisMetrics = (
-	xMode: "date" | "numeric" | "categorical",
-): Omit<XAxisMetrics, "id" | "cumulativeOffset"> => {
-	if (xMode === "date") {
-		return {
-			height: 70,
-			labelBottom: 22,
-			secLabelBottom: 38,
-			titleBottom: 60,
-		};
-	}
-	return { height: 50, labelBottom: 26, secLabelBottom: 0, titleBottom: 40 };
-};
 
 export default function ChartContainer() {
 	// 1. Core Refs and State
@@ -475,16 +462,10 @@ export default function ChartContainer() {
 		[leftAxes, rightAxes, axisLayout],
 	);
 
-	const xAxesMetrics = useMemo((): XAxisMetrics[] => {
-		const result: XAxisMetrics[] = [];
-		let currentOffset = 0;
-		for (const axis of activeXAxesUsed) {
-			const base = getXAxisMetrics(axis.xMode);
-			result.push({ ...base, id: axis.id, cumulativeOffset: currentOffset });
-			currentOffset += base.height;
-		}
-		return result;
-	}, [activeXAxesUsed]);
+	const xAxesMetrics = useMemo(
+		() => computeXAxesMetrics(activeXAxesUsed),
+		[activeXAxesUsed],
+	);
 
 	const padding = useMemo(() => {
 		const base = BASE_PADDING_DESKTOP;
