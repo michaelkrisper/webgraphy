@@ -45,6 +45,7 @@ import {
 	computeYAxesLayoutCached,
 	createAxesLayoutCache,
 } from "./computeAxesLayout";
+import { computeYAxisCategoryLabels } from "./categoryLabels";
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
@@ -169,47 +170,10 @@ export default function ChartContainer() {
 		return yAxes.filter((a) => usedYAxisIdsSet.has(a.id));
 	}, [yAxes, usedYAxisIdsSet]);
 
-	// Per-axis categorical labels: only when ALL series on the axis bind to a column
-	// that has categoryLabels, and they all share the same label set.
-	const yAxisCategoryLabels = useMemo(() => {
-		const dsById = new Map(datasets.map((d) => [d.id, d]));
-
-		const out = new Map<string, string[] | undefined>();
-		const seriesByAxis = new Map<string, typeof series>();
-		series.forEach((s) => {
-			const arr = seriesByAxis.get(s.yAxisId) || [];
-			arr.push(s);
-			seriesByAxis.set(s.yAxisId, arr);
-		});
-		seriesByAxis.forEach((axisSeries, axisId) => {
-			let labels: string[] | undefined;
-			let mismatch = false;
-			for (const s of axisSeries) {
-				const ds = dsById.get(s.sourceId);
-				if (!ds) {
-					mismatch = true;
-					break;
-				}
-				const colIdx = getColumnIndex(ds, s.yColumn);
-				const col = colIdx >= 0 ? ds.data[colIdx] : undefined;
-				const cl = col?.categoryLabels;
-				if (!cl) {
-					mismatch = true;
-					break;
-				}
-				if (!labels) labels = cl;
-				else if (
-					labels.length !== cl.length ||
-					labels.some((v, i) => v !== cl[i])
-				) {
-					mismatch = true;
-					break;
-				}
-			}
-			out.set(axisId, mismatch ? undefined : labels);
-		});
-		return out;
-	}, [series, datasets]);
+	const yAxisCategoryLabels = useMemo(
+		() => computeYAxisCategoryLabels(series, datasets),
+		[series, datasets],
+	);
 
 	// Per-X-axis categorical labels:
 	// - if axis.xMode === "categorical": force categorical, derive labels from
