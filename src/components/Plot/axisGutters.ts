@@ -2,6 +2,12 @@
 // the left and right of the plot. Extracted from ChartContainer so the
 // offset/width math can be unit-tested in isolation.
 
+import {
+	calcNumericPrecision,
+	calcNumericStep,
+	formatAxisLabel,
+} from "../../utils/axisCalculations";
+
 export const DEFAULT_GUTTER_TOTAL = 40;
 
 interface GutterLayout {
@@ -42,4 +48,37 @@ export function sumGutterTotals(
 	let sum = 0;
 	for (const a of axes) sum += gutterTotal(axisLayout, a.id);
 	return sum;
+}
+
+/**
+ * Size a single Y-axis gutter based on the widest label it will need to
+ * render. For categorical axes the widest category label drives the width;
+ * for numeric axes the precision implied by the range and chart height does.
+ * Returns the inner label width and the total gutter width (label + tick
+ * area). The label width is capped at 100px.
+ */
+export function measureYAxisGutter(
+	axis: { min: number; max: number },
+	height: number,
+	categoryLabels: readonly string[] | undefined,
+): { label: number; total: number } {
+	let widestValChars: number;
+	if (categoryLabels) {
+		widestValChars = categoryLabels.reduce(
+			(acc, n) => Math.max(acc, n?.length ?? 0),
+			1,
+		);
+	} else {
+		const step = calcNumericStep(
+			axis.max - axis.min,
+			Math.max(2, Math.floor(height / 30)),
+		);
+		const precision = calcNumericPrecision(step);
+		widestValChars = Math.max(
+			formatAxisLabel(axis.min, precision).length,
+			formatAxisLabel(axis.max, precision).length,
+		);
+	}
+	const labelWidth = Math.min(100, widestValChars * 6);
+	return { label: labelWidth, total: labelWidth + 24 };
 }

@@ -3,6 +3,7 @@ import {
 	DEFAULT_GUTTER_TOTAL,
 	computeAxisOffsets,
 	gutterTotal,
+	measureYAxisGutter,
 	sumGutterTotals,
 } from "../axisGutters";
 
@@ -58,5 +59,45 @@ describe("sumGutterTotals", () => {
 		expect(sumGutterTotals([{ id: "A" }, { id: "missing" }], layout)).toBe(
 			50 + DEFAULT_GUTTER_TOTAL,
 		);
+	});
+});
+
+describe("measureYAxisGutter", () => {
+	it("sizes a categorical gutter from the widest category label", () => {
+		// widest is "Charlie" (7 chars) -> labelWidth = 7*6 = 42, total = 66
+		const r = measureYAxisGutter(
+			{ min: 0, max: 2 },
+			500,
+			["A", "Bee", "Charlie"],
+		);
+		expect(r).toEqual({ label: 42, total: 66 });
+	});
+
+	it("treats empty/undefined category labels as 1 char wide", () => {
+		const r = measureYAxisGutter({ min: 0, max: 0 }, 500, []);
+		expect(r).toEqual({ label: 6, total: 30 });
+	});
+
+	it("caps the categorical label width at 100px", () => {
+		const r = measureYAxisGutter({ min: 0, max: 1 }, 500, [
+			"a".repeat(50),
+		]);
+		expect(r).toEqual({ label: 100, total: 124 });
+	});
+
+	it("sizes a numeric gutter from the formatted range endpoints", () => {
+		const r = measureYAxisGutter({ min: 0, max: 100 }, 500, undefined);
+		// integer ticks at this scale -> 3-char endpoint "100"
+		expect(r.label % 6).toBe(0);
+		expect(r.total).toBe(r.label + 24);
+		expect(r.label).toBeGreaterThanOrEqual(6);
+		expect(r.label).toBeLessThanOrEqual(100);
+	});
+
+	it("grows the numeric gutter when negative endpoints need more chars", () => {
+		const narrow = measureYAxisGutter({ min: 0, max: 100 }, 500, undefined);
+		const wide = measureYAxisGutter({ min: -1000, max: 100 }, 500, undefined);
+		expect(wide.label).toBeGreaterThan(narrow.label);
+		expect(wide.total).toBe(wide.label + 24);
 	});
 });
