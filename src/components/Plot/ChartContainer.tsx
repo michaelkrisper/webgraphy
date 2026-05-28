@@ -39,6 +39,12 @@ import {
 } from "./axisGutters";
 import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
+import {
+	type AxesLayoutCache,
+	computeXAxesLayoutCached,
+	computeYAxesLayoutCached,
+	createAxesLayoutCache,
+} from "./computeAxesLayout";
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
@@ -389,49 +395,21 @@ export default function ChartContainer() {
 		[],
 	);
 
-	const xLayoutCacheRef = useRef<
-		Map<string, { key: string; layout: XAxisLayout }>
-	>(new Map());
-	const xLayoutCacheDepsRef = useRef<string>("");
+	const xLayoutCacheRef = useRef<AxesLayoutCache<XAxisLayout>>(
+		createAxesLayoutCache(),
+	);
 	const computeXAxesLayout = useCallback(
-		(liveXAxes: XAxisConfig[]): XAxisLayout[] => {
-			const dsByX: DatasetsByAxisId = {};
-			datasets.forEach((d) => {
-				if (activeDsIdsSet.has(d.id)) {
-					const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-					if (!dsByX[xId]) dsByX[xId] = [];
-					dsByX[xId].push(d);
-				}
-			});
-
-			const depsKey = `${chartWidth}|${themeColors.labelColor}|${datasets.length}|${activeDsIdsSet.size}`;
-			if (xLayoutCacheDepsRef.current !== depsKey) {
-				xLayoutCacheRef.current.clear();
-				xLayoutCacheDepsRef.current = depsKey;
-			}
-			const cache = xLayoutCacheRef.current;
-
-			return liveXAxes
-				.filter((axis) => activeXAxesUsed.some((ax) => ax.id === axis.id))
-				.map((axis) => {
-					const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
-					const cached = cache.get(axis.id);
-					if (cached && cached.key === cacheKey) return cached.layout;
-
-					const catInfo = xAxisCategoryLabels.get(axis.id);
-					const dss = dsByX[axis.id] || [];
-					const layout = buildXAxisLayout(
-						axis,
-						chartWidth,
-						themeColors.labelColor,
-						catInfo?.labels,
-						catInfo?.ticks,
-						dss,
-					);
-					cache.set(axis.id, { key: cacheKey, layout });
-					return layout;
-				});
-		},
+		(liveXAxes: XAxisConfig[]): XAxisLayout[] =>
+			computeXAxesLayoutCached({
+				liveXAxes,
+				activeXAxesUsed,
+				datasets,
+				activeDsIdsSet,
+				chartWidth,
+				labelColor: themeColors.labelColor,
+				xAxisCategoryLabels,
+				cache: xLayoutCacheRef.current,
+			}),
 		[
 			activeDsIdsSet,
 			datasets,
@@ -442,43 +420,18 @@ export default function ChartContainer() {
 		],
 	);
 
-	const yLayoutCacheRef = useRef<
-		Map<string, { key: string; layout: YAxisLayout }>
-	>(new Map());
-	const yLayoutCacheDepsRef = useRef<string>("");
+	const yLayoutCacheRef = useRef<AxesLayoutCache<YAxisLayout>>(
+		createAxesLayoutCache(),
+	);
 	const computeYAxesLayout = useCallback(
-		(liveYAxes: YAxisConfig[]): YAxisLayout[] => {
-			const depsKey = `${chartHeight}|${usedYAxisIdsSet.size}`;
-			if (yLayoutCacheDepsRef.current !== depsKey) {
-				yLayoutCacheRef.current.clear();
-				yLayoutCacheDepsRef.current = depsKey;
-			}
-			const cache = yLayoutCacheRef.current;
-			return liveYAxes
-				.filter((a) => usedYAxisIdsSet.has(a.id))
-				.map((axis) => {
-					const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
-					const cached = cache.get(axis.id);
-					if (cached && cached.key === cacheKey) return cached.layout;
-					const categoryLabels = yAxisCategoryLabels.get(axis.id);
-					const { ticks, precision, actualStep } = calcYAxisTicks(
-						axis.min,
-						axis.max,
-						chartHeight,
-						categoryLabels ? 1 : undefined,
-						categoryLabels?.length,
-					);
-					const layout = {
-						...axis,
-						ticks,
-						precision,
-						actualStep,
-						categoryLabels,
-					};
-					cache.set(axis.id, { key: cacheKey, layout });
-					return layout;
-				});
-		},
+		(liveYAxes: YAxisConfig[]): YAxisLayout[] =>
+			computeYAxesLayoutCached({
+				liveYAxes,
+				usedYAxisIdsSet,
+				chartHeight,
+				yAxisCategoryLabels,
+				cache: yLayoutCacheRef.current,
+			}),
 		[usedYAxisIdsSet, chartHeight, yAxisCategoryLabels],
 	);
 
