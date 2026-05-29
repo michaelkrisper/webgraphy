@@ -113,22 +113,22 @@ const Crosshair = React.memo(
 		}, [datasetsById, yAxes, xAxes, series]);
 
 		const xAxisNameById = useMemo(() => {
-			const dsByX: Record<string, Dataset[]> = {};
-			datasets.forEach((d) => {
-				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-				if (!dsByX[xId]) dsByX[xId] = [];
-				dsByX[xId].push(d);
-			});
 			const out: Record<string, string> = {};
-			for (const xId in dsByX) {
-				const dss = dsByX[xId];
-				const uniqueSet = new Set<string>();
-				for (const d of dss) {
-					uniqueSet.add(d.xAxisColumn);
+			const columnsByXId: Record<string, string[]> = {};
+			for (let i = 0; i < datasets.length; i++) {
+				const d = datasets[i];
+				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
+				const col = d.xAxisColumn;
+				let cols = columnsByXId[xId];
+				if (!cols) {
+					columnsByXId[xId] = [col];
+				} else if (!cols.includes(col)) {
+					cols.push(col);
 				}
-				const uniqueColumns = Array.from(uniqueSet);
-				out[xId] =
-					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+			}
+			for (const xId in columnsByXId) {
+				const cols = columnsByXId[xId];
+				out[xId] = cols.length > 1 ? cols.join(" / ") : cols[0];
 			}
 			return out;
 		}, [datasets]);
