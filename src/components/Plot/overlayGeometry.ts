@@ -47,6 +47,8 @@ interface YAxisGutter {
 	readonly total: number;
 }
 
+const ARROW_SIZE = 6;
+
 /**
  * Append the plot-background quad (two triangles, 6 vertices) covering the
  * plot area, with all coordinates pre-multiplied by `dpr` so the renderer
@@ -325,6 +327,108 @@ export function writeYAxisLines(
 			buf[p++] = xb;
 			buf[p++] = sy;
 		}
+	}
+	return p;
+}
+
+/**
+ * Append zero-line arrow tips (TRIANGLES) for every straddling y-axis and
+ * the first x-axis. Mirrors the predicate of writeYZeroLines/writeXZeroLine.
+ */
+export function writeZeroLineArrows(
+	buf: Float32Array,
+	p: number,
+	yAxes: readonly ZeroLineAxis[],
+	xAxis: ZeroLineAxis | undefined,
+	pad: Padding,
+	w: number,
+	cw: number,
+	ch: number,
+	dpr: number,
+): number {
+	const aSize = ARROW_SIZE * dpr;
+	for (const ax of yAxes) {
+		if (ax.categoryLabels) continue;
+		if (!ax.showGrid) continue;
+		if (!(ax.min <= 0 && ax.max >= 0 && ax.max > ax.min)) continue;
+		const range = ax.max - ax.min;
+		const norm = (0 - ax.min) / range;
+		const sy = (pad.top + (1 - norm) * ch) * dpr;
+		const tipX = (w - pad.right + 8) * dpr;
+		buf[p++] = tipX;
+		buf[p++] = sy;
+		buf[p++] = tipX - aSize;
+		buf[p++] = sy - aSize / 2;
+		buf[p++] = tipX - aSize;
+		buf[p++] = sy + aSize / 2;
+	}
+	if (
+		xAxis &&
+		xAxis.showGrid &&
+		!xAxis.categoryLabels &&
+		xAxis.min <= 0 &&
+		xAxis.max >= 0 &&
+		xAxis.max > xAxis.min
+	) {
+		const range = xAxis.max - xAxis.min;
+		const norm = (0 - xAxis.min) / range;
+		const sx = (pad.left + norm * cw) * dpr;
+		const tipY = (pad.top - 8) * dpr;
+		buf[p++] = sx;
+		buf[p++] = tipY;
+		buf[p++] = sx - aSize / 2;
+		buf[p++] = tipY + aSize;
+		buf[p++] = sx + aSize / 2;
+		buf[p++] = tipY + aSize;
+	}
+	return p;
+}
+
+/**
+ * Append axis arrow tips (TRIANGLES) for every x-axis row and every y-axis.
+ * No straddle/grid guards — these arrows belong to the axis frame itself.
+ */
+export function writeAxisArrows(
+	buf: Float32Array,
+	p: number,
+	xAxes: readonly XAxisLine[],
+	xAxesMetrics: readonly XAxisMetric[],
+	yAxes: readonly YAxisLine[],
+	axisLayout: Record<string, YAxisGutter | undefined>,
+	leftOffsets: Record<string, number | undefined>,
+	rightOffsets: Record<string, number | undefined>,
+	pad: Padding,
+	w: number,
+	h: number,
+	dpr: number,
+): number {
+	const aSize = ARROW_SIZE * dpr;
+	for (let idx = 0; idx < xAxes.length; idx++) {
+		const m = xAxesMetrics[idx];
+		if (!m) continue;
+		const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
+		const tipX = (w - pad.right + 8) * dpr;
+		buf[p++] = tipX;
+		buf[p++] = yL;
+		buf[p++] = (w - pad.right + 8 - 6) * dpr;
+		buf[p++] = yL - aSize / 2;
+		buf[p++] = (w - pad.right + 8 - 6) * dpr;
+		buf[p++] = yL + aSize / 2;
+	}
+	const tipY = (pad.top - 8) * dpr;
+	for (const ax of yAxes) {
+		const isLeft = ax.position === "left";
+		const total = axisLayout[ax.id]?.total ?? DEFAULT_GUTTER_TOTAL;
+		const xPos = isLeft
+			? pad.left - (leftOffsets[ax.id] ?? 0) - total
+			: w - pad.right + (rightOffsets[ax.id] ?? 0);
+		const lineX = isLeft ? xPos + total : xPos;
+		buf[p++] = lineX * dpr;
+		buf[p++] = tipY;
+		buf[p++] = (lineX - 3) * dpr;
+		buf[p++] = tipY + aSize;
+		buf[p++] = (lineX + 3) * dpr;
+		buf[p++] = tipY + aSize;
 	}
 	return p;
 }
