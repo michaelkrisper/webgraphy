@@ -25,6 +25,28 @@ interface ZeroLineAxis {
 	readonly categoryLabels?: readonly string[];
 }
 
+interface XAxisLine {
+	readonly ticks: readonly number[];
+	readonly min: number;
+	readonly max: number;
+}
+
+interface XAxisMetric {
+	readonly cumulativeOffset: number;
+}
+
+interface YAxisLine {
+	readonly id: string;
+	readonly ticks: readonly number[];
+	readonly min: number;
+	readonly max: number;
+	readonly position: "left" | "right";
+}
+
+interface YAxisGutter {
+	readonly total: number;
+}
+
 /**
  * Append the plot-background quad (two triangles, 6 vertices) covering the
  * plot area, with all coordinates pre-multiplied by `dpr` so the renderer
@@ -212,5 +234,97 @@ export function writeFramePlotBorder(
 	buf[p++] = yT;
 	buf[p++] = xR;
 	buf[p++] = yB;
+	return p;
+}
+
+const DEFAULT_GUTTER_TOTAL = 40;
+
+/**
+ * Append every x-axis horizontal line plus its tick marks, stacked below the
+ * plot by each axis' cumulative offset. Returns the advanced write index.
+ */
+export function writeXAxisLines(
+	buf: Float32Array,
+	p: number,
+	axes: readonly XAxisLine[],
+	metrics: readonly XAxisMetric[],
+	pad: Padding,
+	w: number,
+	h: number,
+	cw: number,
+	dpr: number,
+): number {
+	for (let idx = 0; idx < axes.length; idx++) {
+		const ax = axes[idx];
+		const m = metrics[idx];
+		if (!m) continue;
+		const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
+		// Axis spine: left edge to right tip
+		buf[p++] = pad.left * dpr;
+		buf[p++] = yL;
+		buf[p++] = (w - pad.right + 8) * dpr;
+		buf[p++] = yL;
+		if (ax.max <= ax.min) continue;
+		const range = ax.max - ax.min;
+		const tickEnd = yL + 6 * dpr;
+		for (const t of ax.ticks) {
+			const norm = (t - ax.min) / range;
+			if (norm < 0 || norm > 1) continue;
+			const sx = (pad.left + norm * cw) * dpr;
+			buf[p++] = sx;
+			buf[p++] = yL;
+			buf[p++] = sx;
+			buf[p++] = tickEnd;
+		}
+	}
+	return p;
+}
+
+/**
+ * Append every y-axis vertical line plus its tick marks, placed left or right
+ * of the plot per `position` and stacked outwards by `leftOffsets` /
+ * `rightOffsets`. Returns the advanced write index.
+ */
+export function writeYAxisLines(
+	buf: Float32Array,
+	p: number,
+	axes: readonly YAxisLine[],
+	axisLayout: Record<string, YAxisGutter | undefined>,
+	leftOffsets: Record<string, number | undefined>,
+	rightOffsets: Record<string, number | undefined>,
+	pad: Padding,
+	w: number,
+	h: number,
+	ch: number,
+	dpr: number,
+): number {
+	const tipY = (pad.top - 8) * dpr;
+	const yBot = (h - pad.bottom) * dpr;
+	for (const ax of axes) {
+		const isLeft = ax.position === "left";
+		const total = axisLayout[ax.id]?.total ?? DEFAULT_GUTTER_TOTAL;
+		const xPos = isLeft
+			? pad.left - (leftOffsets[ax.id] ?? 0) - total
+			: w - pad.right + (rightOffsets[ax.id] ?? 0);
+		const lineX = isLeft ? xPos + total : xPos;
+		// Axis spine: bottom of plot up to arrow tip
+		buf[p++] = lineX * dpr;
+		buf[p++] = yBot;
+		buf[p++] = lineX * dpr;
+		buf[p++] = tipY;
+		if (ax.max <= ax.min) continue;
+		const range = ax.max - ax.min;
+		const xa = (isLeft ? lineX - 5 : lineX) * dpr;
+		const xb = (isLeft ? lineX : lineX + 5) * dpr;
+		for (const t of ax.ticks) {
+			const norm = (t - ax.min) / range;
+			if (norm < 0 || norm > 1) continue;
+			const sy = (pad.top + (1 - norm) * ch) * dpr;
+			buf[p++] = xa;
+			buf[p++] = sy;
+			buf[p++] = xb;
+			buf[p++] = sy;
+		}
+	}
 	return p;
 }
