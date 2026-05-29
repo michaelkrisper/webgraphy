@@ -9,7 +9,11 @@ import {
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
 import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
-import { applyZoomToRange, panRangeByPixels } from "./panZoomMath";
+import {
+	applyZoomBoxToAxes,
+	applyZoomToRange,
+	panRangeByPixels,
+} from "./panZoomMath";
 
 interface UsePanZoomOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
@@ -647,42 +651,22 @@ export function usePanZoom({
 				const box = zoomBoxStartRef.current;
 				zoomBoxStartRef.current = null;
 				setIsZooming(false);
-				const minX = Math.min(box.startX, box.endX),
-					maxX = Math.max(box.startX, box.endX);
-				const minY = Math.min(box.startY, box.endY),
-					maxY = Math.max(box.startY, box.endY);
+				const minX = Math.min(box.startX, box.endX);
+				const maxX = Math.max(box.startX, box.endX);
+				const minY = Math.min(box.startY, box.endY);
+				const maxY = Math.max(box.startY, box.endY);
 				if (maxX - minX > 5 && maxY - minY > 5) {
-					activeXAxes.forEach((axis) => {
-						const vp = {
-							xMin: axis.min,
-							xMax: axis.max,
-							yMin: 0,
-							yMax: 100,
-							width,
-							height,
-							padding,
-						};
-						const w1 = screenToWorld(minX, maxY, vp),
-							w2 = screenToWorld(maxX, minY, vp);
-						targetXAxes.current[axis.id] = { min: w1.x, max: w2.x };
-					});
-					if (!isShiftPressedRef.current) {
-						activeYAxes.forEach((axis) => {
-							const mx2 = activeXAxes[0];
-							const avp = {
-								xMin: mx2.min,
-								xMax: mx2.max,
-								yMin: axis.min,
-								yMax: axis.max,
-								width,
-								height,
-								padding,
-							};
-							const a1 = screenToWorld(minX, maxY, avp),
-								a2 = screenToWorld(maxX, minY, avp);
-							targetYs.current[axis.id] = { min: a1.y, max: a2.y };
-						});
-					}
+					applyZoomBoxToAxes(
+						{ minX, maxX, minY, maxY },
+						activeXAxes,
+						activeYAxes,
+						width,
+						height,
+						padding,
+						targetXAxes.current,
+						targetYs.current,
+						isShiftPressedRef.current,
+					);
 					syncViewport();
 				}
 			}
