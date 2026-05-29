@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
 	writeBackgroundQuad,
 	writeXGridLines,
+	writeXZeroLine,
 	writeYGridLines,
+	writeYZeroLines,
 } from "../overlayGeometry";
 
 const pad = { left: 20, right: 10, top: 5, bottom: 30 };
@@ -173,5 +175,104 @@ describe("writeYGridLines", () => {
 			1,
 		);
 		expect(next).toBe(4);
+	});
+});
+
+describe("writeYZeroLines", () => {
+	const straddling = { min: -10, max: 10, showGrid: true };
+	const onlyPositive = { min: 5, max: 10, showGrid: true };
+
+	it("emits one line per straddling, gridded, non-categorical axis", () => {
+		const buf = new Float32Array(20);
+		const next = writeYZeroLines(buf, 0, [straddling], pad, 130, 50, 1);
+		expect(next).toBe(4);
+	});
+
+	it("skips axes that do not straddle 0", () => {
+		const buf = new Float32Array(20);
+		expect(writeYZeroLines(buf, 0, [onlyPositive], pad, 130, 50, 1)).toBe(0);
+	});
+
+	it("skips axes without grid", () => {
+		const buf = new Float32Array(20);
+		expect(
+			writeYZeroLines(
+				buf,
+				0,
+				[{ ...straddling, showGrid: false }],
+				pad,
+				130,
+				50,
+				1,
+			),
+		).toBe(0);
+	});
+
+	it("skips categorical axes", () => {
+		const buf = new Float32Array(20);
+		expect(
+			writeYZeroLines(
+				buf,
+				0,
+				[{ ...straddling, categoryLabels: ["a", "b"] }],
+				pad,
+				130,
+				50,
+				1,
+			),
+		).toBe(0);
+	});
+
+	it("aggregates contributions from multiple straddling axes", () => {
+		const buf = new Float32Array(20);
+		const next = writeYZeroLines(
+			buf,
+			0,
+			[straddling, { ...straddling, min: -1, max: 5 }],
+			pad,
+			130,
+			50,
+			1,
+		);
+		expect(next).toBe(8);
+	});
+});
+
+describe("writeXZeroLine", () => {
+	const straddling = { min: -10, max: 10, showGrid: true };
+
+	it("emits a single 2-vertex line when the first x-axis straddles 0", () => {
+		const buf = new Float32Array(20);
+		const next = writeXZeroLine(buf, 0, straddling, pad, 100, 90, 1);
+		expect(next).toBe(4);
+	});
+
+	it("returns the unchanged write index when min > 0", () => {
+		const buf = new Float32Array(20);
+		expect(
+			writeXZeroLine(buf, 7, { ...straddling, min: 1 }, pad, 100, 90, 1),
+		).toBe(7);
+	});
+
+	it("returns the unchanged write index when categorical", () => {
+		const buf = new Float32Array(20);
+		expect(
+			writeXZeroLine(
+				buf,
+				0,
+				{ ...straddling, categoryLabels: ["A"] },
+				pad,
+				100,
+				90,
+				1,
+			),
+		).toBe(0);
+	});
+
+	it("returns the unchanged write index when showGrid is false", () => {
+		const buf = new Float32Array(20);
+		expect(
+			writeXZeroLine(buf, 0, { ...straddling, showGrid: false }, pad, 100, 90, 1),
+		).toBe(0);
 	});
 });

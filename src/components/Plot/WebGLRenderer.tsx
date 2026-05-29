@@ -30,7 +30,9 @@ import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
 	writeBackgroundQuad,
 	writeXGridLines,
+	writeXZeroLine,
 	writeYGridLines,
+	writeYZeroLines,
 } from "./overlayGeometry";
 import {
 	computeDataSlice,
@@ -284,38 +286,9 @@ function buildOverlay(
 
 	// Zero lines (horizontal for y-axes, vertical for first x-axis).
 	const zeroLineStart = p / 2;
-	for (const ax of overlay.yAxes) {
-		if (ax.categoryLabels) continue;
-		if (!ax.showGrid) continue;
-		if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
-			const range = ax.max - ax.min;
-			const norm = (0 - ax.min) / range;
-			const sy = (pad.top + (1 - norm) * ch) * dpr;
-			const arrowTipX = (w - pad.right + 8) * dpr;
-			buf[p++] = pad.left * dpr;
-			buf[p++] = sy;
-			buf[p++] = arrowTipX;
-			buf[p++] = sy;
-		}
-	}
+	p = writeYZeroLines(buf, p, overlay.yAxes, pad, w, ch, dpr);
 	if (overlay.xAxes.length > 0) {
-		const ax = overlay.xAxes[0];
-		if (
-			ax.showGrid &&
-			!ax.categoryLabels &&
-			ax.min <= 0 &&
-			ax.max >= 0 &&
-			ax.max > ax.min
-		) {
-			const range = ax.max - ax.min;
-			const norm = (0 - ax.min) / range;
-			const sx = (pad.left + norm * cw) * dpr;
-			const tipY = (pad.top - 8) * dpr;
-			buf[p++] = sx;
-			buf[p++] = (h - pad.bottom) * dpr;
-			buf[p++] = sx;
-			buf[p++] = tipY;
-		}
+		p = writeXZeroLine(buf, p, overlay.xAxes[0], pad, cw, h, dpr);
 	}
 	const zeroLineCount = p / 2 - zeroLineStart;
 	if (zeroLineCount > 0)
