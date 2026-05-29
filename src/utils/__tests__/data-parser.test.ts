@@ -205,6 +205,29 @@ describe("data-parser", () => {
 	});
 
 	describe("JSON parsing", () => {
+		it("should handle asynchronous errors from file.text()", async () => {
+			const mockFile = {
+				name: "test.json",
+				text: async () => {
+					throw new Error("File read error");
+				},
+			};
+			await expect(
+				parseData(mockFile as unknown as File, "json", {}),
+			).rejects.toThrow("File read error");
+		});
+
+		it("should throw error for empty array JSON", async () => {
+			const file = createMockFile(
+				"[]",
+				"test.json",
+				"application/json",
+			);
+			await expect(parseData(file, "json", {})).rejects.toThrow(
+				"Invalid JSON format: Expected a non-empty array of objects",
+			);
+		});
+
 		it("should parse simple JSON data", async () => {
 			const data = [
 				{ Time: 10, Temp: 1.1 },
