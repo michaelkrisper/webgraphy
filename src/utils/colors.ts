@@ -25,6 +25,17 @@ export const hexToRgba = (hex: string): number[] => {
 	return c ? [c.r / 255, c.g / 255, c.b / 255] : [0, 0, 0];
 };
 
+/** Normalised RGB channels for a hex string with an explicit alpha. */
+export const hexToRgbaWithAlpha = (
+	hex: string,
+	alpha = 1,
+): [number, number, number, number] => {
+	const c = parseHexChannels(hex);
+	return c
+		? [c.r / 255, c.g / 255, c.b / 255, alpha]
+		: [0, 0, 0, alpha];
+};
+
 export const rgbToHex = (r: number, g: number, b: number): string => {
 	const toHex = (n: number) => {
 		const num = typeof n === "number" && !Number.isNaN(n) ? n : 0;

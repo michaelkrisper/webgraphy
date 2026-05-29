@@ -10,6 +10,7 @@ import {
 	useState,
 } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
+import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
@@ -69,8 +70,7 @@ export default function ChartContainer() {
 	const [isDragOver, setIsDragOver] = useState(false);
 	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
 		useDataImport();
-	const [width, setWidth] = useState(800);
-	const [height, setHeight] = useState(600);
+	const { width, height } = useContainerSize(containerRef, 800, 600);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
@@ -124,28 +124,6 @@ export default function ChartContainer() {
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const [themeName] = useTheme();
 	const themeColors = THEMES[themeName];
-
-	// Dimension management
-	useEffect(() => {
-		if (!containerRef.current) return;
-		const observer = new ResizeObserver((entries) => {
-			if (entries.length > 0) {
-				const e = entries[entries.length - 1];
-				setWidth(e.contentRect.width);
-				setHeight(e.contentRect.height);
-			}
-		});
-		observer.observe(containerRef.current);
-		return () => observer.disconnect();
-	}, []);
-
-	useEffect(() => {
-		if (containerRef.current) {
-			const rect = containerRef.current.getBoundingClientRect();
-			setWidth(rect.width);
-			setHeight(rect.height);
-		}
-	}, []);
 
 	// 3. Layout Memos
 	const activeDsIdsSet = useMemo(() => {

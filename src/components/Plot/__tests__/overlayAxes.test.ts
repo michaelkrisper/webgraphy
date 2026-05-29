@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { XAxisLayout, YAxisLayout } from "../chartTypes";
 import {
+	estimateOverlayVertexCount,
 	type OverlayXEntry,
 	type OverlayYEntry,
 	updateOverlayAxes,
@@ -177,5 +178,45 @@ describe("updateOverlayAxes", () => {
 		updateOverlayAxes(scratch, [makeNumericX("A", [0])], []);
 		expect(scratch.xAxes).toHaveLength(1);
 		expect(scratch.yAxes).toHaveLength(0);
+	});
+});
+
+describe("estimateOverlayVertexCount", () => {
+	it("returns the baseline vertex count for no axes", () => {
+		expect(estimateOverlayVertexCount([], [])).toBe(BASE_VERTEX_COUNT);
+	});
+
+	it("adds (ticks + 1) * 4 + 6 per x-axis", () => {
+		const x = { ticks: { length: 3 }, showGrid: false };
+		// (3 + 1) * 4 + 6 = 22
+		expect(estimateOverlayVertexCount([x], [])).toBe(BASE_VERTEX_COUNT + 22);
+	});
+
+	it("adds first-x grid contribution only once", () => {
+		const a = { ticks: { length: 3 }, showGrid: true };
+		const b = { ticks: { length: 3 }, showGrid: true };
+		// per axis 22 each, first-x grid 3*4 = 12, total 22 + 22 + 12
+		expect(estimateOverlayVertexCount([a, b], [])).toBe(
+			BASE_VERTEX_COUNT + 22 + 22 + 12,
+		);
+	});
+
+	it("adds per-axis grid for every gridded y-axis", () => {
+		const y1 = { ticks: { length: 3 }, showGrid: true };
+		const y2 = { ticks: { length: 5 }, showGrid: false };
+		// y1: 22 + 12 = 34, y2: (5+1)*4+6 = 30
+		expect(estimateOverlayVertexCount([], [y1, y2])).toBe(
+			BASE_VERTEX_COUNT + 34 + 30,
+		);
+	});
+
+	it("matches updateOverlayAxes' computed est for the same inputs", () => {
+		const scratch = makeScratch();
+		const xLayout = [makeNumericX("X", [0, 5, 10], true)];
+		const yLayout = [makeY("Y", [0, 50, 100], "left", true)];
+		updateOverlayAxes(scratch, xLayout, yLayout);
+		expect(scratch.estVertexCount).toBe(
+			estimateOverlayVertexCount(scratch.xAxes, scratch.yAxes),
+		);
 	});
 });
