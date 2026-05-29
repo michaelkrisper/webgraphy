@@ -12,6 +12,7 @@ import { screenToWorld } from "../utils/coords";
 import {
 	applyZoomBoxToAxes,
 	applyZoomToRange,
+	computePinchGesture,
 	panRangeByPixels,
 } from "./panZoomMath";
 
@@ -499,30 +500,14 @@ export function usePanZoom({
 				containerRectRef.current ||
 				containerRef.current?.getBoundingClientRect();
 			if (!rect) return;
-			const t1 = e.touches[0],
-				t2 = e.touches[1];
-			const dx = Math.abs(t1.clientX - t2.clientX);
-			const dy = Math.abs(t1.clientY - t2.clientY);
-			const dist = Math.hypot(dx, dy);
-			if (dist === 0) return;
-
 			if (!lastPinchDist.current) return;
-			const zf = lastPinchDist.current.dist / dist;
-
-			let zfX = zf;
-			let zfY = zf;
-
-			// If the gesture is mostly horizontal, don't zoom vertically
-			if (dx > dy * 1.5) {
-				zfY = 1;
-			}
-			// If the gesture is mostly vertical, don't zoom horizontally
-			else if (dy > dx * 1.5) {
-				zfX = 1;
-			}
-
-			const cx = (t1.clientX + t2.clientX) / 2;
-			const cy = (t1.clientY + t2.clientY) / 2;
+			const gesture = computePinchGesture(
+				e.touches[0],
+				e.touches[1],
+				lastPinchDist.current.dist,
+			);
+			if (!gesture) return;
+			const { zfX, zfY, cx, cy, dist } = gesture;
 
 			// Apply pan
 			const panDx = cx - lastPinchDist.current.cx;
