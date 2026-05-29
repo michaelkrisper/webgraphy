@@ -30,6 +30,63 @@ export function createAxesLayoutCache<T>(): AxesLayoutCache<T> {
 	return { entries: new Map(), depsKey: "" };
 }
 
+export type DatasetsByXAxis = Record<string, Dataset[]>;
+
+/** Bucket active datasets by their x-axis id (falling back to the default). */
+export function groupActiveDatasetsByXAxis(
+	datasets: readonly Dataset[],
+	activeDsIds: ReadonlySet<string>,
+): DatasetsByXAxis {
+	const out: DatasetsByXAxis = {};
+	for (const d of datasets) {
+		if (!activeDsIds.has(d.id)) continue;
+		const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
+		if (!out[xId]) out[xId] = [];
+		out[xId].push(d);
+	}
+	return out;
+}
+
+/** Build the layout for a single x-axis using the pre-grouped datasets. */
+export function buildXAxisLayoutFor(
+	axis: XAxisConfig,
+	chartWidth: number,
+	labelColor: string,
+	xAxisCategoryLabels: ReadonlyMap<
+		string,
+		{ labels: string[]; ticks?: number[] } | undefined
+	>,
+	dsByX: DatasetsByXAxis,
+): XAxisLayout {
+	const catInfo = xAxisCategoryLabels.get(axis.id);
+	const dss = dsByX[axis.id] || [];
+	return buildXAxisLayout(
+		axis,
+		chartWidth,
+		labelColor,
+		catInfo?.labels,
+		catInfo?.ticks,
+		dss,
+	);
+}
+
+/** Build the layout for a single y-axis. */
+export function buildYAxisLayoutFor(
+	axis: YAxisConfig,
+	chartHeight: number,
+	yAxisCategoryLabels: ReadonlyMap<string, string[] | undefined>,
+): YAxisLayout {
+	const categoryLabels = yAxisCategoryLabels.get(axis.id);
+	const { ticks, precision, actualStep } = calcYAxisTicks(
+		axis.min,
+		axis.max,
+		chartHeight,
+		categoryLabels ? 1 : undefined,
+		categoryLabels?.length,
+	);
+	return { ...axis, ticks, precision, actualStep, categoryLabels };
+}
+
 export interface ComputeXAxesLayoutParams {
 	liveXAxes: readonly XAxisConfig[];
 	activeXAxesUsed: readonly XAxisConfig[];
@@ -54,14 +111,7 @@ export function computeXAxesLayoutCached({
 	xAxisCategoryLabels,
 	cache,
 }: ComputeXAxesLayoutParams): XAxisLayout[] {
-	const dsByX: Record<string, Dataset[]> = {};
-	for (const d of datasets) {
-		if (activeDsIdsSet.has(d.id)) {
-			const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-			if (!dsByX[xId]) dsByX[xId] = [];
-			dsByX[xId].push(d);
-		}
-	}
+	const dsByX = groupActiveDatasetsByXAxis(datasets, activeDsIdsSet);
 
 	const depsKey = `${chartWidth}|${labelColor}|${datasets.length}|${activeDsIdsSet.size}`;
 	if (cache.depsKey !== depsKey) {
@@ -76,15 +126,12 @@ export function computeXAxesLayoutCached({
 			const cached = cache.entries.get(axis.id);
 			if (cached && cached.key === cacheKey) return cached.layout;
 
-			const catInfo = xAxisCategoryLabels.get(axis.id);
-			const dss = dsByX[axis.id] || [];
-			const layout = buildXAxisLayout(
+			const layout = buildXAxisLayoutFor(
 				axis,
 				chartWidth,
 				labelColor,
-				catInfo?.labels,
-				catInfo?.ticks,
-				dss,
+				xAxisCategoryLabels,
+				dsByX,
 			);
 			cache.entries.set(axis.id, { key: cacheKey, layout });
 			return layout;
@@ -117,21 +164,11 @@ export function computeYAxesLayoutCached({
 			const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
 			const cached = cache.entries.get(axis.id);
 			if (cached && cached.key === cacheKey) return cached.layout;
-			const categoryLabels = yAxisCategoryLabels.get(axis.id);
-			const { ticks, precision, actualStep } = calcYAxisTicks(
-				axis.min,
-				axis.max,
+			const layout = buildYAxisLayoutFor(
+				axis,
 				chartHeight,
-				categoryLabels ? 1 : undefined,
-				categoryLabels?.length,
+				yAxisCategoryLabels,
 			);
-			const layout = {
-				...axis,
-				ticks,
-				precision,
-				actualStep,
-				categoryLabels,
-			};
 			cache.entries.set(axis.id, { key: cacheKey, layout });
 			return layout;
 		});

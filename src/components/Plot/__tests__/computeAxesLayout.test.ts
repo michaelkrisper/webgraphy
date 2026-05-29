@@ -5,9 +5,12 @@ import type {
 	YAxisConfig,
 } from "../../../services/persistence";
 import {
+	buildXAxisLayoutFor,
+	buildYAxisLayoutFor,
 	computeXAxesLayoutCached,
 	computeYAxesLayoutCached,
 	createAxesLayoutCache,
+	groupActiveDatasetsByXAxis,
 } from "../computeAxesLayout";
 import type { XAxisLayout, YAxisLayout } from "../chartTypes";
 
@@ -195,5 +198,94 @@ describe("computeYAxesLayoutCached", () => {
 		params.yAxisCategoryLabels = new Map([["Y", ["A", "B", "C"]]]);
 		const [layout] = computeYAxesLayoutCached(params);
 		expect(layout.categoryLabels).toEqual(["A", "B", "C"]);
+	});
+});
+
+describe("groupActiveDatasetsByXAxis", () => {
+	it("returns an empty object when there are no datasets", () => {
+		expect(groupActiveDatasetsByXAxis([], new Set())).toEqual({});
+	});
+
+	it("skips datasets not in the active set", () => {
+		const ds = makeDataset("ds1", "X");
+		expect(groupActiveDatasetsByXAxis([ds], new Set())).toEqual({});
+	});
+
+	it("groups active datasets by their xAxisId", () => {
+		const a1 = makeDataset("a1", "X");
+		const a2 = makeDataset("a2", "X");
+		const b = makeDataset("b", "Y");
+		const out = groupActiveDatasetsByXAxis(
+			[a1, a2, b],
+			new Set(["a1", "a2", "b"]),
+		);
+		expect(out.X).toEqual([a1, a2]);
+		expect(out.Y).toEqual([b]);
+	});
+
+	it("falls back to the default x-axis id when xAxisId is empty", () => {
+		const d = { ...makeDataset("d", "X"), xAxisId: "" };
+		const out = groupActiveDatasetsByXAxis([d], new Set(["d"]));
+		// fallback id comes from axisCalculations.DEFAULT_X_AXIS_ID
+		const ids = Object.keys(out);
+		expect(ids).toHaveLength(1);
+		expect(out[ids[0]]).toEqual([d]);
+	});
+});
+
+describe("buildXAxisLayoutFor", () => {
+	it("builds a layout for a numeric axis", () => {
+		const axis = makeXAxis("X");
+		const layout = buildXAxisLayoutFor(axis, 800, "#000", new Map(), {});
+		expect(layout.id).toBe("X");
+		expect(layout.min).toBe(0);
+		expect(layout.max).toBe(100);
+	});
+
+	it("forwards category labels from the supplied map", () => {
+		const axis = makeXAxis("X", { xMode: "categorical" });
+		const layout = buildXAxisLayoutFor(
+			axis,
+			800,
+			"#000",
+			new Map([["X", { labels: ["A", "B", "C"] }]]),
+			{},
+		);
+		expect(layout.categoryLabels).toEqual(["A", "B", "C"]);
+	});
+
+	it("uses an empty dataset list when the axis has none in dsByX", () => {
+		const axis = makeXAxis("X");
+		// No throw, just returns a layout
+		expect(() =>
+			buildXAxisLayoutFor(axis, 800, "#000", new Map(), {}),
+		).not.toThrow();
+	});
+});
+
+describe("buildYAxisLayoutFor", () => {
+	it("builds a layout with computed ticks for a numeric axis", () => {
+		const axis = makeYAxis("Y");
+		const layout = buildYAxisLayoutFor(axis, 600, new Map());
+		expect(layout.id).toBe("Y");
+		expect(layout.ticks.length).toBeGreaterThan(0);
+		expect(layout.categoryLabels).toBeUndefined();
+	});
+
+	it("forwards category labels and forces step 1 when categorical", () => {
+		const axis = makeYAxis("Y");
+		const layout = buildYAxisLayoutFor(
+			axis,
+			600,
+			new Map([["Y", ["A", "B", "C"]]]),
+		);
+		expect(layout.categoryLabels).toEqual(["A", "B", "C"]);
+	});
+
+	it("preserves the original axis fields via spread", () => {
+		const axis = makeYAxis("Y", { name: "Pressure", position: "right" });
+		const layout = buildYAxisLayoutFor(axis, 600, new Map());
+		expect(layout.name).toBe("Pressure");
+		expect(layout.position).toBe("right");
 	});
 });
