@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset } from "../../services/persistence";
 import { useGraphStore } from "../useGraphStore";
+import * as formulaClient from "../../workers/formulaClient";
 
 class MockWorker {
 	onmessage: ((ev: MessageEvent) => void) | null = null;
@@ -854,5 +855,83 @@ describe("useGraphStore", () => {
 		);
 		// Just to hit the !changed return path exactly
 		expect(useGraphStore.getState().xAxes[0].min).toBe(0);
+	});
+
+	it("should surface Error objects when evaluateFormulaInWorker throws", async () => {
+		const store = useGraphStore.getState();
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
+		store.addDataset(ds1);
+
+		vi.spyOn(formulaClient, "evaluateFormulaInWorker").mockRejectedValueOnce(
+			new Error("Force failed"),
+		);
+
+		const result = await store.addCalculatedColumn(
+			"ds-1",
+			"ErrCol",
+			"[Val] * 5",
+		);
+		expect(result.success).toBe(false);
+		expect(result.error).toBe("Force failed");
+	});
+
+	it("should surface stringified errors when evaluateFormulaInWorker throws non-Error", async () => {
+		const store = useGraphStore.getState();
+		const ds1: Dataset = {
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+				{
+					isFloat64: true,
+					refPoint: 0,
+					data: new Float32Array([1]),
+					bounds: { min: 0, max: 1 },
+				},
+			],
+			rowCount: 1,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		};
+		store.addDataset(ds1);
+
+		vi.spyOn(formulaClient, "evaluateFormulaInWorker").mockRejectedValueOnce(
+			"String error",
+		);
+
+		const result = await store.addCalculatedColumn(
+			"ds-1",
+			"ErrCol",
+			"[Val] * 5",
+		);
+		expect(result.success).toBe(false);
+		expect(result.error).toBe("String error");
 	});
 });
