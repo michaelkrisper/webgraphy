@@ -3,7 +3,11 @@
 // Float32Array identity) and have no GL/state dependencies, so they can be
 // unit-tested in isolation.
 
-import { findFirstGE, findLastLE } from "../../utils/binarySearch";
+import {
+	findFirstGE,
+	findLastLE,
+	findSegmentStartIndex,
+} from "../../utils/binarySearch";
 
 /**
  * Returns true when `xData` is monotonically non-decreasing. Each call shares
@@ -92,4 +96,52 @@ export function computeDataSlice(
 		: xDataLen - 1;
 
 	return { sliceStart, sliceEnd };
+}
+
+/**
+ * Intersect a series' cached segments with the visible slice and write the
+ * resulting draw ranges into `drawRangesScratch` in place, reusing existing
+ * slots and truncating to the new length so per-frame allocation stays at
+ * zero.
+ *
+ * For non-monotonic data every segment is emitted as-is; for monotonic data
+ * segments are clipped to `[sliceStart, sliceEnd]` and scanned starting from
+ * the first segment whose `end >= sliceStart` (via binary search).
+ */
+export function computeDrawRanges(
+	cachedSegments: readonly { start: number; end: number }[],
+	isMonotonic: boolean,
+	sliceStart: number,
+	sliceEnd: number,
+	drawRangesScratch: { start: number; count: number }[],
+): void {
+	let drCount = 0;
+	const pushRange = (start: number, count: number) => {
+		if (drCount < drawRangesScratch.length) {
+			drawRangesScratch[drCount].start = start;
+			drawRangesScratch[drCount].count = count;
+		} else {
+			drawRangesScratch.push({ start, count });
+		}
+		drCount++;
+	};
+
+	if (isMonotonic) {
+		const startSegIdx = findSegmentStartIndex(
+			cachedSegments as { start: number; end: number }[],
+			sliceStart,
+		);
+		for (let i = startSegIdx; i < cachedSegments.length; i++) {
+			const seg = cachedSegments[i];
+			if (seg.start > sliceEnd) break;
+			const segS = Math.max(seg.start, sliceStart);
+			const segE = Math.min(seg.end, sliceEnd);
+			if (segE >= segS) pushRange(segS, segE - segS + 1);
+		}
+	} else {
+		for (const seg of cachedSegments) {
+			pushRange(seg.start, seg.end - seg.start + 1);
+		}
+	}
+	drawRangesScratch.length = drCount;
 }

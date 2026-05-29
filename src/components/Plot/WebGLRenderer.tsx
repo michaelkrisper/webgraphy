@@ -12,7 +12,6 @@ import type {
 	YAxisConfig,
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import { findSegmentStartIndex } from "../../utils/binarySearch";
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { hexToRgba, hexToRgbaWithAlpha } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
@@ -41,6 +40,7 @@ import {
 } from "./overlayGeometry";
 import {
 	computeDataSlice,
+	computeDrawRanges,
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
 } from "./seriesPrep";
@@ -392,41 +392,6 @@ function buildOverlay(
 		});
 
 	ov.packedLen = p;
-}
-
-function computeDrawRanges(
-	cachedSegments: { start: number; end: number }[],
-	isMonotonic: boolean,
-	sliceStart: number,
-	sliceEnd: number,
-	drawRangesScratch: { start: number; count: number }[],
-): void {
-	let drCount = 0;
-	const pushRange = (start: number, count: number) => {
-		if (drCount < drawRangesScratch.length) {
-			drawRangesScratch[drCount].start = start;
-			drawRangesScratch[drCount].count = count;
-		} else {
-			drawRangesScratch.push({ start, count });
-		}
-		drCount++;
-	};
-
-	if (isMonotonic) {
-		const startSegIdx = findSegmentStartIndex(cachedSegments, sliceStart);
-		for (let i = startSegIdx; i < cachedSegments.length; i++) {
-			const seg = cachedSegments[i];
-			if (seg.start > sliceEnd) break;
-			const segS = Math.max(seg.start, sliceStart);
-			const segE = Math.min(seg.end, sliceEnd);
-			if (segE >= segS) pushRange(segS, segE - segS + 1);
-		}
-	} else {
-		for (const seg of cachedSegments) {
-			pushRange(seg.start, seg.end - seg.start + 1);
-		}
-	}
-	drawRangesScratch.length = drCount;
 }
 
 // The renderer adapts its decimation pixel budget between these bounds based on
