@@ -15,6 +15,7 @@ import {
 	computePinchGesture,
 	panRangeByPixels,
 } from "./panZoomMath";
+import { usePanZoomKeyboard } from "./usePanZoomKeyboard";
 
 interface UsePanZoomOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
@@ -700,38 +701,12 @@ export function usePanZoom({
 			chartHeight,
 		]);
 
-	useEffect(() => {
-		const handleKey = (e: KeyboardEvent) => {
-			if (e.key === "Control") setIsCtrlPressed(e.type === "keydown");
-			if (e.key === "Shift") setIsShiftPressed(e.type === "keydown");
-			if (e.type === "keyup") {
-				pressedKeys.current.delete(e.key);
-			} else {
-				if (
-					e.target instanceof HTMLInputElement ||
-					e.target instanceof HTMLSelectElement ||
-					e.target instanceof HTMLTextAreaElement
-				)
-					return;
-				if (e.ctrlKey && ["+", "-", "=", "_"].includes(e.key))
-					e.preventDefault();
-				pressedKeys.current.add(e.key);
-				if (
-					["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)
-				) {
-					syncViewport();
-				} else if (["+", "-"].includes(e.key)) {
-					syncViewport();
-				}
-			}
-		};
-		window.addEventListener("keydown", handleKey);
-		window.addEventListener("keyup", handleKey);
-		return () => {
-			window.removeEventListener("keydown", handleKey);
-			window.removeEventListener("keyup", handleKey);
-		};
-	}, [syncViewport, pressedKeys]);
+	usePanZoomKeyboard({
+		pressedKeys,
+		syncViewport,
+		setIsCtrlPressed,
+		setIsShiftPressed,
+	});
 
 	return {
 		panTarget,
