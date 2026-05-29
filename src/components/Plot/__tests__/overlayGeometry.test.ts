@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	writeAxisArrows,
 	writeBackgroundQuad,
 	writeFramePlotBorder,
 	writeXAxisLines,
@@ -8,6 +9,7 @@ import {
 	writeYAxisLines,
 	writeYGridLines,
 	writeYZeroLines,
+	writeZeroLineArrows,
 } from "../overlayGeometry";
 
 const pad = { left: 20, right: 10, top: 5, bottom: 30 };
@@ -456,5 +458,128 @@ describe("writeYAxisLines", () => {
 			1,
 		);
 		expect(next).toBe(16);
+	});
+});
+
+describe("writeZeroLineArrows", () => {
+	const yStraddling = { min: -10, max: 10, showGrid: true };
+	const xStraddling = { min: -1, max: 1, showGrid: true };
+
+	it("writes one 6-float arrow per qualifying y-axis plus first-x-axis arrow", () => {
+		const buf = new Float32Array(20);
+		const next = writeZeroLineArrows(
+			buf,
+			0,
+			[yStraddling],
+			xStraddling,
+			pad,
+			130,
+			100,
+			50,
+			1,
+		);
+		// 6 floats per arrow * 2 arrows = 12
+		expect(next).toBe(12);
+	});
+
+	it("skips axes that fail straddle/grid/categorical guards", () => {
+		const buf = new Float32Array(20);
+		const next = writeZeroLineArrows(
+			buf,
+			0,
+			[{ ...yStraddling, showGrid: false }],
+			undefined,
+			pad,
+			130,
+			100,
+			50,
+			1,
+		);
+		expect(next).toBe(0);
+	});
+
+	it("emits nothing when no x-axis is supplied and y-axes do not qualify", () => {
+		const buf = new Float32Array(20);
+		const next = writeZeroLineArrows(
+			buf,
+			0,
+			[{ ...yStraddling, categoryLabels: ["a"] }],
+			undefined,
+			pad,
+			130,
+			100,
+			50,
+			1,
+		);
+		expect(next).toBe(0);
+	});
+});
+
+describe("writeAxisArrows", () => {
+	const xAxis = { ticks: [], min: 0, max: 1 };
+	const xMetric = { cumulativeOffset: 0 };
+	const yAxis = {
+		id: "Y",
+		ticks: [],
+		min: 0,
+		max: 1,
+		position: "left" as const,
+	};
+
+	it("writes one 6-float arrow per x-axis and per y-axis", () => {
+		const buf = new Float32Array(40);
+		const next = writeAxisArrows(
+			buf,
+			0,
+			[xAxis],
+			[xMetric],
+			[yAxis],
+			{ Y: { total: 50 } },
+			{ Y: 0 },
+			{},
+			pad,
+			130,
+			90,
+			1,
+		);
+		expect(next).toBe(12);
+	});
+
+	it("skips an x-axis without a metric entry", () => {
+		const buf = new Float32Array(40);
+		const next = writeAxisArrows(
+			buf,
+			0,
+			[xAxis],
+			[],
+			[yAxis],
+			{ Y: { total: 50 } },
+			{ Y: 0 },
+			{},
+			pad,
+			130,
+			90,
+			1,
+		);
+		expect(next).toBe(6);
+	});
+
+	it("falls back to default gutter width when layout entry is missing", () => {
+		const buf = new Float32Array(20);
+		const next = writeAxisArrows(
+			buf,
+			0,
+			[],
+			[],
+			[yAxis],
+			{},
+			{ Y: 0 },
+			{},
+			pad,
+			130,
+			90,
+			1,
+		);
+		expect(next).toBe(6);
 	});
 });

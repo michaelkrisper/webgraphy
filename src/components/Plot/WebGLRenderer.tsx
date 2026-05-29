@@ -28,6 +28,7 @@ import {
 import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
+	writeAxisArrows,
 	writeBackgroundQuad,
 	writeFramePlotBorder,
 	writeXAxisLines,
@@ -36,6 +37,7 @@ import {
 	writeYAxisLines,
 	writeYGridLines,
 	writeYZeroLines,
+	writeZeroLineArrows,
 } from "./overlayGeometry";
 import {
 	computeDataSlice,
@@ -342,45 +344,17 @@ function buildOverlay(
 
 	// Zero-line arrow triangles.
 	const zeroTriStart = p / 2;
-	for (const ax of overlay.yAxes) {
-		if (ax.categoryLabels) continue;
-		if (!ax.showGrid) continue;
-		if (ax.min <= 0 && ax.max >= 0 && ax.max > ax.min) {
-			const range = ax.max - ax.min;
-			const norm = (0 - ax.min) / range;
-			const sy = (pad.top + (1 - norm) * ch) * dpr;
-			const arrowTipX = (w - pad.right + 8) * dpr;
-			const aSize = 6 * dpr;
-			buf[p++] = arrowTipX;
-			buf[p++] = sy;
-			buf[p++] = arrowTipX - aSize;
-			buf[p++] = sy - aSize / 2;
-			buf[p++] = arrowTipX - aSize;
-			buf[p++] = sy + aSize / 2;
-		}
-	}
-	if (overlay.xAxes.length > 0) {
-		const ax = overlay.xAxes[0];
-		if (
-			ax.showGrid &&
-			!ax.categoryLabels &&
-			ax.min <= 0 &&
-			ax.max >= 0 &&
-			ax.max > ax.min
-		) {
-			const range = ax.max - ax.min;
-			const norm = (0 - ax.min) / range;
-			const sx = (pad.left + norm * cw) * dpr;
-			const tipY = (pad.top - 8) * dpr;
-			const aSize = 6 * dpr;
-			buf[p++] = sx;
-			buf[p++] = tipY;
-			buf[p++] = sx - aSize / 2;
-			buf[p++] = tipY + aSize;
-			buf[p++] = sx + aSize / 2;
-			buf[p++] = tipY + aSize;
-		}
-	}
+	p = writeZeroLineArrows(
+		buf,
+		p,
+		overlay.yAxes,
+		overlay.xAxes[0],
+		pad,
+		w,
+		cw,
+		ch,
+		dpr,
+	);
 	const zeroTriCount = p / 2 - zeroTriStart;
 	if (zeroTriCount > 0)
 		ov.groups.push({
@@ -393,37 +367,20 @@ function buildOverlay(
 
 	// Axis arrow triangles (x/y).
 	const axisTriStart = p / 2;
-	overlay.xAxes.forEach((_, idx) => {
-		const m = overlay.xAxesMetrics[idx];
-		if (!m) return;
-		const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
-		const aSize = 6 * dpr;
-		buf[p++] = (w - pad.right + 8) * dpr;
-		buf[p++] = yL;
-		buf[p++] = (w - pad.right + 8 - 6) * dpr;
-		buf[p++] = yL - aSize / 2;
-		buf[p++] = (w - pad.right + 8 - 6) * dpr;
-		buf[p++] = yL + aSize / 2;
-	});
-	for (const ax of overlay.yAxes) {
-		const isLeft = ax.position === "left";
-		const metrics = overlay.axisLayout[ax.id] || {
-			total: 40,
-			label: 30,
-		};
-		const xPos = isLeft
-			? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
-			: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
-		const lineX = isLeft ? xPos + metrics.total : xPos;
-		const tipY = (pad.top - 8) * dpr;
-		const aSize = 6 * dpr;
-		buf[p++] = lineX * dpr;
-		buf[p++] = tipY;
-		buf[p++] = (lineX - 3) * dpr;
-		buf[p++] = tipY + aSize;
-		buf[p++] = (lineX + 3) * dpr;
-		buf[p++] = tipY + aSize;
-	}
+	p = writeAxisArrows(
+		buf,
+		p,
+		overlay.xAxes,
+		overlay.xAxesMetrics,
+		overlay.yAxes,
+		overlay.axisLayout,
+		overlay.leftOffsets,
+		overlay.rightOffsets,
+		pad,
+		w,
+		h,
+		dpr,
+	);
 	const axisTriCount = p / 2 - axisTriStart;
 	if (axisTriCount > 0)
 		ov.groups.push({
