@@ -35,13 +35,36 @@ interface OverlayScratch {
 // (plot border, zero-axis line, padding triangles).
 const BASE_VERTEX_COUNT = 12 + 12 + 32;
 
+interface VertexCountAxis {
+	ticks: { length: number };
+	showGrid: boolean;
+}
+
+/**
+ * Conservative upper bound on the vertices the overlay draw step will emit
+ * for the given axis set: baseline frame + per-axis label/tick + optional
+ * grid contributions (only the first x-axis carries vertical grid lines).
+ * Used to grow the renderer's packed buffer ahead of time.
+ */
+export function estimateOverlayVertexCount(
+	xAxes: readonly VertexCountAxis[],
+	yAxes: readonly VertexCountAxis[],
+): number {
+	let est = BASE_VERTEX_COUNT;
+	if (xAxes[0]?.showGrid) est += xAxes[0].ticks.length * 4;
+	for (const ax of xAxes) est += (ax.ticks.length + 1) * 4 + 6;
+	for (const ax of yAxes) {
+		if (ax.showGrid) est += ax.ticks.length * 4;
+		est += (ax.ticks.length + 1) * 4 + 6;
+	}
+	return est;
+}
+
 export function updateOverlayAxes(
 	scratch: OverlayScratch,
 	xLayout: XAxisLayout[],
 	yLayout: YAxisLayout[],
 ): void {
-	let est = BASE_VERTEX_COUNT;
-
 	const sx = scratch.xAxes;
 	sx.length = xLayout.length;
 	for (let i = 0; i < xLayout.length; i++) {
@@ -71,11 +94,6 @@ export function updateOverlayAxes(
 			const t = src[j];
 			dst[j] = typeof t === "number" ? t : t.timestamp;
 		}
-
-		est += (src.length + 1) * 4 + 6;
-		if (i === 0 && a.showGrid) {
-			est += src.length * 4;
-		}
 	}
 	const sy = scratch.yAxes;
 	sy.length = yLayout.length;
@@ -102,12 +120,7 @@ export function updateOverlayAxes(
 			entry.position = a.position;
 			entry.categoryLabels = a.categoryLabels;
 		}
-
-		est += (a.ticks.length + 1) * 4 + 6;
-		if (a.showGrid) {
-			est += a.ticks.length * 4;
-		}
 	}
 
-	scratch.estVertexCount = est;
+	scratch.estVertexCount = estimateOverlayVertexCount(sx, sy);
 }
