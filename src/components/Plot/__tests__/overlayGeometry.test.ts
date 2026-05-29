@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	writeBackgroundQuad,
+	writeFramePlotBorder,
 	writeXGridLines,
 	writeXZeroLine,
 	writeYGridLines,
@@ -274,5 +275,35 @@ describe("writeXZeroLine", () => {
 		expect(
 			writeXZeroLine(buf, 0, { ...straddling, showGrid: false }, pad, 100, 90, 1),
 		).toBe(0);
+	});
+});
+
+describe("writeFramePlotBorder", () => {
+	it("writes the left/top/right spines as 6 vertices (12 floats)", () => {
+		const buf = new Float32Array(20);
+		const next = writeFramePlotBorder(buf, 0, pad, 130, 50, 1);
+		expect(next).toBe(12);
+	});
+
+	it("produces a 'U' (top-open) frame", () => {
+		const buf = new Float32Array(12);
+		writeFramePlotBorder(buf, 0, pad, 130, 50, 1);
+		const xL = 20;
+		const xR = 120;
+		const yT = 5;
+		const yB = 55;
+		expect(Array.from(buf)).toEqual([
+			xL, yT, xL, yB, // left spine
+			xL, yT, xR, yT, // top spine
+			xR, yT, xR, yB, // right spine
+		]);
+	});
+
+	it("scales coordinates by dpr", () => {
+		const buf1 = new Float32Array(12);
+		const buf2 = new Float32Array(12);
+		writeFramePlotBorder(buf1, 0, pad, 130, 50, 1);
+		writeFramePlotBorder(buf2, 0, pad, 130, 50, 3);
+		for (let i = 0; i < 12; i++) expect(buf2[i]).toBe(buf1[i] * 3);
 	});
 });
