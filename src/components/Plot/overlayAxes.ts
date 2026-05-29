@@ -124,3 +124,50 @@ export function updateOverlayAxes(
 
 	scratch.estVertexCount = estimateOverlayVertexCount(sx, sy);
 }
+
+interface XAxisMetricsEntry {
+	id: string;
+	cumulativeOffset: number;
+	height: number;
+}
+
+interface OverlayContextScratch {
+	xAxesMetrics: XAxisMetricsEntry[];
+	axisLayout: Record<string, { total: number; label: number }>;
+	leftOffsets: Record<string, number>;
+	rightOffsets: Record<string, number>;
+	axisColor: string;
+	zeroLineColor: string;
+	gridColor: string;
+	plotBg: string;
+}
+
+interface OverlayContext {
+	xAxesMetrics: XAxisMetricsEntry[];
+	axisLayout: Record<string, { total: number; label: number }>;
+	leftOffsets: Record<string, number>;
+	rightOffsets: Record<string, number>;
+	axisColor: string;
+	zeroLineColor: string;
+	gridColor: string;
+	plotBg: string;
+}
+
+/**
+ * Copy the per-frame "static" overlay context (axis metrics, gutter layout,
+ * left/right offsets, theme colours) onto the long-lived scratch buffer that
+ * the WebGL renderer reads each frame. Mutates the scratch in place.
+ */
+export function applyOverlayContext(
+	scratch: OverlayContextScratch,
+	ctx: OverlayContext,
+): void {
+	scratch.xAxesMetrics = ctx.xAxesMetrics;
+	scratch.axisLayout = ctx.axisLayout;
+	scratch.leftOffsets = ctx.leftOffsets;
+	scratch.rightOffsets = ctx.rightOffsets;
+	scratch.axisColor = ctx.axisColor;
+	scratch.zeroLineColor = ctx.zeroLineColor;
+	scratch.gridColor = ctx.gridColor;
+	scratch.plotBg = ctx.plotBg;
+}
