@@ -1412,20 +1412,24 @@ function evaluateGroupAverage(
 	// Cached key reuse — incrementing through rows usually hits the same bucket.
 	const cacheDate = new Date();
 	let lastMs = NaN;
-	let lastKey = "";
-	const getKey = (t: number): string => {
+	let lastKey = 0;
+	const getKey = (t: number): number => {
 		const ms = toMillis(t);
 		if (ms === lastMs) return lastKey;
 		lastMs = ms;
 		cacheDate.setTime(ms);
-		lastKey = dateKey(cacheDate, granularity);
+		if (granularity === "second") cacheDate.setMilliseconds(0);
+		else if (granularity === "minute") cacheDate.setSeconds(0, 0);
+		else if (granularity === "hour") cacheDate.setMinutes(0, 0, 0);
+		else if (granularity === "day") cacheDate.setHours(0, 0, 0, 0);
+		lastKey = cacheDate.getTime();
 		return lastKey;
 	};
 
-	const groupSums = new Map<string, number>();
-	const groupCounts = new Map<string, number>();
-	const groupFirst = new Map<string, number>();
-	const groupLast = new Map<string, number>();
+	const groupSums = new Map<number, number>();
+	const groupCounts = new Map<number, number>();
+	const groupFirst = new Map<number, number>();
+	const groupLast = new Map<number, number>();
 	for (let i = 0; i < rowCount; i++) {
 		const t = timeCol.data[i] + timeCol.refPoint;
 		const v = valCol.data[i] + valCol.refPoint;
