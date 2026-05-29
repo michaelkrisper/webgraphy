@@ -35,6 +35,11 @@ import {
 	measureYAxisGutter,
 	sumGutterTotals,
 } from "./axisGutters";
+import {
+	type LiveAxesScratch,
+	applyAxisUpdates,
+	createLiveAxesScratch,
+} from "./buildLiveAxes";
 import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
 import {
@@ -255,13 +260,9 @@ export default function ChartContainer() {
 	const chartHeight = Math.max(0, height - padding.top - padding.bottom);
 
 	// 4. Callbacks for canvas rendering
-	const liveAxesScratchRef = useRef<{
-		liveX: XAxisConfig[];
-		liveY: YAxisConfig[];
-	}>({
-		liveX: [],
-		liveY: [],
-	});
+	const liveAxesScratchRef = useRef<LiveAxesScratch<XAxisConfig, YAxisConfig>>(
+		createLiveAxesScratch(),
+	);
 	const syncScratchRef = useRef<{
 		xUpdates: Record<string, { min: number; max: number }>;
 		yUpdates: Record<string, { min: number; max: number }>;
@@ -272,22 +273,13 @@ export default function ChartContainer() {
 			yUpdates: Record<string, { min: number; max: number }>,
 		) => {
 			const state = useGraphStore.getState();
-			const scratch = liveAxesScratchRef.current;
-			const liveX = scratch.liveX;
-			const liveY = scratch.liveY;
-			liveX.length = state.xAxes.length;
-			for (let i = 0; i < state.xAxes.length; i++) {
-				const a = state.xAxes[i];
-				const upd = xUpdates[a.id];
-				liveX[i] = upd ? { ...a, min: upd.min, max: upd.max } : a;
-			}
-			liveY.length = state.yAxes.length;
-			for (let i = 0; i < state.yAxes.length; i++) {
-				const a = state.yAxes[i];
-				const upd = yUpdates[a.id];
-				liveY[i] = upd ? { ...a, min: upd.min, max: upd.max } : a;
-			}
-			return { liveX, liveY };
+			return applyAxisUpdates(
+				liveAxesScratchRef.current,
+				state.xAxes,
+				state.yAxes,
+				xUpdates,
+				yUpdates,
+			);
 		},
 		[],
 	);
