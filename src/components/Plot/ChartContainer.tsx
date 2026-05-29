@@ -1,14 +1,7 @@
 // src/components/Plot/ChartContainer.tsx
 
 import { ChartGantt, Expand } from "lucide-react";
-import {
-	Fragment,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
@@ -26,6 +19,10 @@ import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
+import {
+	XAxisInteractionZones,
+	YAxisInteractionZones,
+} from "./AxisInteractionZones";
 import {
 	computeAxisOffsets,
 	measureYAxisGutter,
@@ -624,126 +621,31 @@ export default function ChartContainer() {
 					fontFamily={themeColors.fontFamily}
 					isInteracting={isInteracting}
 				/>
-				{xAxesMetrics.map((m) => {
-					const bY = padding.bottom - m.cumulativeOffset - m.height;
-					const title = xAxesLayout.find((a) => a.id === m.id)?.title || "";
-					return (
-						<Fragment key={`wheel-x-${m.id}`}>
-							<div
-								role="region"
-								aria-label={`X-Axis ${m.id} interaction area`}
-								onWheel={(e) => {
-									e.stopPropagation();
-									handleWheel(e, { xAxisId: m.id });
-								}}
-								onMouseDown={(e) => {
-									e.stopPropagation();
-									handleMouseDown(e, { xAxisId: m.id });
-								}}
-								onTouchStart={(e) => {
-									e.stopPropagation();
-									handleTouchStart(e, { xAxisId: m.id });
-								}}
-								onDoubleClick={(e) => {
-									e.stopPropagation();
-									const rect = e.currentTarget.getBoundingClientRect();
-									const yInside = e.clientY - rect.top;
-									// Check if double click is in the title area (roughly bottom 30px)
-									if (yInside >= m.titleBottom - 30) {
-										setEditingXAxisId(m.id);
-									} else {
-										handleAutoScaleX(m.id);
-									}
-								}}
-								style={{
-									position: "absolute",
-									bottom: bY,
-									left: padding.left,
-									right: padding.right,
-									height: m.height,
-									cursor: "ew-resize",
-									zIndex: 20,
-								}}
-							/>
-							{editingXAxisId === m.id && (
-								<input
-									defaultValue={title}
-									onBlur={(e) => {
-										const newName = e.target.value.trim();
-										useGraphStore
-											.getState()
-											.updateXAxis(m.id, { name: newName });
-										setEditingXAxisId(null);
-									}}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.currentTarget.blur();
-										} else if (e.key === "Escape") {
-											setEditingXAxisId(null);
-										}
-									}}
-									style={{
-										position: "absolute",
-										bottom: bY + m.height - m.titleBottom + 2,
-										left: "50%",
-										transform: "translateX(-50%)",
-										zIndex: 30,
-										textAlign: "center",
-										font: `bold 12px ${themeColors.fontFamily}`,
-										color: themeColors.labelColor,
-										background: themeColors.plotBg,
-										border: `1px solid ${themeColors.gridColor}`,
-										borderRadius: "4px",
-										padding: "2px 4px",
-										outline: "none",
-										width: "80%",
-										maxWidth: "300px",
-									}}
-								/>
-							)}
-						</Fragment>
-					);
-				})}
-				{activeYAxes.map((a) => {
-					const isL = a.position === "left",
-						am = axisLayout[a.id] || { total: 40 };
-					const xP = isL
-						? padding.left - (leftOffsets[a.id] ?? 0) - am.total
-						: width - padding.right + (rightOffsets[a.id] ?? 0);
-					return (
-						<div
-							role="region"
-							aria-label={`Y-Axis ${a.id} interaction area`}
-							key={`wheel-${a.id}`}
-							onWheel={(e) => {
-								e.stopPropagation();
-								handleWheel(e, { yAxisId: a.id });
-							}}
-							onMouseDown={(e) => {
-								e.stopPropagation();
-								handleMouseDown(e, { yAxisId: a.id });
-							}}
-							onTouchStart={(e) => {
-								e.stopPropagation();
-								handleTouchStart(e, { yAxisId: a.id });
-							}}
-							onDoubleClick={(e) => {
-								e.stopPropagation();
-								const rect = containerRef.current?.getBoundingClientRect();
-								handleAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined);
-							}}
-							style={{
-								position: "absolute",
-								left: xP,
-								top: padding.top,
-								width: am.total,
-								bottom: padding.bottom,
-								cursor: "ns-resize",
-								zIndex: 20,
-							}}
-						/>
-					);
-				})}
+				<XAxisInteractionZones
+					xAxesMetrics={xAxesMetrics}
+					xAxesLayout={xAxesLayout}
+					padding={padding}
+					editingXAxisId={editingXAxisId}
+					setEditingXAxisId={setEditingXAxisId}
+					themeColors={themeColors}
+					onWheel={handleWheel}
+					onMouseDown={handleMouseDown}
+					onTouchStart={handleTouchStart}
+					onAutoScaleX={handleAutoScaleX}
+				/>
+				<YAxisInteractionZones
+					axes={activeYAxes}
+					axisLayout={axisLayout}
+					leftOffsets={leftOffsets}
+					rightOffsets={rightOffsets}
+					padding={padding}
+					width={width}
+					containerRef={containerRef}
+					onWheel={handleWheel}
+					onMouseDown={handleMouseDown}
+					onTouchStart={handleTouchStart}
+					onAutoScaleY={handleAutoScaleY}
+				/>
 				{datasets.length > 0 && (
 					<>
 						<button
