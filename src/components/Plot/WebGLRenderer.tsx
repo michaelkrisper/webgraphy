@@ -14,7 +14,7 @@ import type {
 import { useGraphStore } from "../../store/useGraphStore";
 import { findSegmentStartIndex } from "../../utils/binarySearch";
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
-import { hexToRgba } from "../../utils/colors";
+import { hexToRgba, hexToRgbaWithAlpha } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import {
 	type DecimEntry,
@@ -234,14 +234,10 @@ function buildOverlay(
 	const cw = w - pad.left - pad.right;
 	const ch = h - pad.top - pad.bottom;
 
-	const hexRgba = (hex: string, a = 1): [number, number, number, number] => {
-		const c = hexToRgba(hex);
-		return [c[0], c[1], c[2], a];
-	};
-	const gridRgba = hexRgba(overlay.gridColor, 1);
-	const axisRgba = hexRgba(overlay.axisColor, 1);
-	const zeroRgba = hexRgba(overlay.zeroLineColor, 1);
-	const bgRgba = hexRgba(overlay.plotBg, 1);
+	const gridRgba = hexToRgbaWithAlpha(overlay.gridColor, 1);
+	const axisRgba = hexToRgbaWithAlpha(overlay.axisColor, 1);
+	const zeroRgba = hexToRgbaWithAlpha(overlay.zeroLineColor, 1);
+	const bgRgba = hexToRgbaWithAlpha(overlay.plotBg, 1);
 
 	// Estimate vertex count and grow packed buffer as needed.
 	let est = overlay.estVertexCount;

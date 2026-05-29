@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgb, hexToRgba, lchToRgb, rgbToHex, rgbToLch } from "../colors";
+import {
+	hexToRgb,
+	hexToRgba,
+	hexToRgbaWithAlpha,
+	lchToRgb,
+	rgbToHex,
+	rgbToLch,
+} from "../colors";
 
 describe("colors", () => {
 	describe("rgbToHex", () => {
@@ -372,6 +379,25 @@ describe("colors", () => {
 			// Blue produces a negative hue internally before wrap
 			expect(h).toBeGreaterThanOrEqual(0);
 			expect(h).toBeLessThan(360);
+		});
+	});
+
+	describe("hexToRgbaWithAlpha", () => {
+		it("appends the alpha to the normalised hex channels", () => {
+			expect(hexToRgbaWithAlpha("#FF0000", 0.5)).toEqual([1, 0, 0, 0.5]);
+			expect(hexToRgbaWithAlpha("#00FF00", 0.25)).toEqual([0, 1, 0, 0.25]);
+		});
+
+		it("defaults alpha to 1", () => {
+			expect(hexToRgbaWithAlpha("#0000FF")).toEqual([0, 0, 1, 1]);
+		});
+
+		it("falls back to opaque black for invalid hex, preserving the alpha argument", () => {
+			expect(hexToRgbaWithAlpha("not-a-color", 0.7)).toEqual([0, 0, 0, 0.7]);
+		});
+
+		it("supports #rgb shorthand", () => {
+			expect(hexToRgbaWithAlpha("#0f0", 0.4)).toEqual([0, 1, 0, 0.4]);
 		});
 	});
 });
