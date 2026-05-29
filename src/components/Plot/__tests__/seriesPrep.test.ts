@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
 	computeDataSlice,
+	computeDrawRanges,
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
 } from "../seriesPrep";
@@ -116,5 +117,74 @@ describe("computeDataSlice", () => {
 		// findLastLE(1001) -> idx 1, -1 padding -> 0
 		// findFirstGE(1002) -> idx 2, +1 padding -> 3
 		expect(r).toEqual({ sliceStart: 0, sliceEnd: 3 });
+	});
+});
+
+describe("computeDrawRanges", () => {
+	it("emits every segment unchanged for non-monotonic data", () => {
+		const segments = [
+			{ start: 0, end: 3 },
+			{ start: 7, end: 9 },
+		];
+		const out: { start: number; count: number }[] = [];
+		computeDrawRanges(segments, false, 0, 0, out);
+		expect(out).toEqual([
+			{ start: 0, count: 4 },
+			{ start: 7, count: 3 },
+		]);
+	});
+
+	it("clips segments to the visible slice for monotonic data", () => {
+		const segments = [{ start: 0, end: 10 }];
+		const out: { start: number; count: number }[] = [];
+		computeDrawRanges(segments, true, 3, 7, out);
+		expect(out).toEqual([{ start: 3, count: 5 }]);
+	});
+
+	it("skips segments entirely before the slice", () => {
+		const segments = [
+			{ start: 0, end: 2 },
+			{ start: 5, end: 10 },
+		];
+		const out: { start: number; count: number }[] = [];
+		computeDrawRanges(segments, true, 5, 10, out);
+		expect(out).toEqual([{ start: 5, count: 6 }]);
+	});
+
+	it("stops scanning after a segment starts past the slice end", () => {
+		const segments = [
+			{ start: 0, end: 5 },
+			{ start: 6, end: 10 },
+			{ start: 20, end: 30 },
+		];
+		const out: { start: number; count: number }[] = [];
+		computeDrawRanges(segments, true, 0, 15, out);
+		expect(out).toEqual([
+			{ start: 0, count: 6 },
+			{ start: 6, count: 5 },
+		]);
+	});
+
+	it("reuses existing scratch slots and truncates trailing entries", () => {
+		const out = [
+			{ start: 999, count: 999 },
+			{ start: 999, count: 999 },
+			{ start: 999, count: 999 },
+		];
+		computeDrawRanges(
+			[{ start: 0, end: 5 }],
+			true,
+			0,
+			10,
+			out,
+		);
+		// One range written; scratch truncated to length 1.
+		expect(out).toEqual([{ start: 0, count: 6 }]);
+	});
+
+	it("returns an empty result when no segments overlap the slice", () => {
+		const out: { start: number; count: number }[] = [{ start: 1, count: 1 }];
+		computeDrawRanges([{ start: 100, end: 200 }], true, 0, 10, out);
+		expect(out).toEqual([]);
 	});
 });
