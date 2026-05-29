@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyZoomToRange, panRangeByPixels } from "../panZoomMath";
+import {
+	applyZoomBoxToAxes,
+	applyZoomToRange,
+	panRangeByPixels,
+} from "../panZoomMath";
 
 describe("applyZoomToRange", () => {
 	it("keeps the range unchanged at zoom factor 1", () => {
@@ -81,5 +85,106 @@ describe("panRangeByPixels", () => {
 
 	it("supports non-zero range offsets", () => {
 		expect(panRangeByPixels(200, 400, 25, 100)).toEqual({ min: 250, max: 450 });
+	});
+});
+
+describe("applyZoomBoxToAxes", () => {
+	const padding = { top: 0, right: 0, bottom: 0, left: 0 };
+	const width = 100;
+	const height = 100;
+	const xAxis = { id: "X", min: 0, max: 100 };
+	const yAxis = { id: "Y", min: 0, max: 100 };
+
+	it("converts a screen box into per-axis ranges for X and Y by default", () => {
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 25, maxX: 75, minY: 25, maxY: 75 },
+			[xAxis],
+			[yAxis],
+			width,
+			height,
+			padding,
+			tx,
+			ty,
+			false,
+		);
+		expect(tx.X).toEqual({ min: 25, max: 75 });
+		expect(ty.Y).toEqual({ min: 25, max: 75 });
+	});
+
+	it("skips Y axes when xOnly is true (shift-drag)", () => {
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 25, maxX: 75, minY: 25, maxY: 75 },
+			[xAxis],
+			[yAxis],
+			width,
+			height,
+			padding,
+			tx,
+			ty,
+			true,
+		);
+		expect(tx.X).toEqual({ min: 25, max: 75 });
+		expect(ty.Y).toBeUndefined();
+	});
+
+	it("writes a target entry for every supplied axis", () => {
+		const x2 = { id: "X2", min: 0, max: 1000 };
+		const y2 = { id: "Y2", min: 0, max: 500 };
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 50, maxX: 50, minY: 50, maxY: 50 },
+			[xAxis, x2],
+			[yAxis, y2],
+			width,
+			height,
+			padding,
+			tx,
+			ty,
+			false,
+		);
+		expect(Object.keys(tx).sort()).toEqual(["X", "X2"]);
+		expect(Object.keys(ty).sort()).toEqual(["Y", "Y2"]);
+	});
+
+	it("leaves Y targets untouched when no x-axes are supplied", () => {
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 25, maxX: 75, minY: 25, maxY: 75 },
+			[],
+			[yAxis],
+			width,
+			height,
+			padding,
+			tx,
+			ty,
+			false,
+		);
+		expect(ty.Y).toBeUndefined();
+	});
+
+	it("uses each axis' own min/max as the screen-to-world viewport", () => {
+		const ax = { id: "A", min: 100, max: 200 };
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 25, maxX: 75, minY: 0, maxY: 0 },
+			[ax],
+			[],
+			width,
+			height,
+			padding,
+			tx,
+			ty,
+			false,
+		);
+		// box covers 25%..75% of the chart width -> 25% and 75% of [100,200] => [125,175]
+		expect(tx.A.min).toBeCloseTo(125, 5);
+		expect(tx.A.max).toBeCloseTo(175, 5);
 	});
 });
