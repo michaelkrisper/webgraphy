@@ -1,6 +1,5 @@
 // src/components/Plot/ChartContainer.tsx
 
-import { ChartGantt, Expand } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
@@ -19,6 +18,7 @@ import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
 import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
+import { ChartActionButtons } from "./ChartActionButtons";
 import {
 	XAxisInteractionZones,
 	YAxisInteractionZones,
@@ -647,60 +647,12 @@ export default function ChartContainer() {
 					onAutoScaleY={handleAutoScaleY}
 				/>
 				{datasets.length > 0 && (
-					<>
-						<button
-							onClick={handleStackedFit}
-							type="button"
-							title="Stacked Fit — each Y-axis fitted to its own slice"
-							style={{
-								position: "absolute",
-								bottom: padding.bottom - 29,
-								left: padding.left - 29 - 28,
-								zIndex: 100,
-								backgroundColor: "transparent",
-								border: "none",
-								borderRadius: "4px",
-								color: themeColors.textMuted,
-								padding: "4px",
-								cursor: "pointer",
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								opacity: 0.6,
-								transition: "opacity 0.2s",
-							}}
-							onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-							onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-						>
-							<ChartGantt size={18} />
-						</button>
-						<button
-							onClick={handleFitAll}
-							type="button"
-							title="Fit All"
-							style={{
-								position: "absolute",
-								bottom: padding.bottom - 29,
-								left: padding.left - 29,
-								zIndex: 100,
-								backgroundColor: "transparent",
-								border: "none",
-								borderRadius: "4px",
-								color: themeColors.textMuted,
-								padding: "4px",
-								cursor: "pointer",
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								opacity: 0.6,
-								transition: "opacity 0.2s",
-							}}
-							onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-							onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-						>
-							<Expand size={18} />
-						</button>
-					</>
+					<ChartActionButtons
+						padding={padding}
+						themeColors={themeColors}
+						onStackedFit={handleStackedFit}
+						onFitAll={handleFitAll}
+					/>
 				)}
 				{crosshairVisible && (
 					<Crosshair
