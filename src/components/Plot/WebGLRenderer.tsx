@@ -27,6 +27,10 @@ import {
 import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
+	MAX_PIXEL_BUDGET_MULT,
+	updatePixelBudget,
+} from "./pixelBudget";
+import {
 	writeAxisArrows,
 	writeBackgroundQuad,
 	writeFramePlotBorder,
@@ -392,35 +396,6 @@ function buildOverlay(
 		});
 
 	ov.packedLen = p;
-}
-
-// The renderer adapts its decimation pixel budget between these bounds based on
-// measured frame time to keep pan/zoom responsive.
-const MIN_PIXEL_BUDGET_MULT = 32;
-const MAX_PIXEL_BUDGET_MULT = 64;
-
-function updatePixelBudget(
-	frameTime: number,
-	now: number,
-	lastBudgetUpdateRef: { current: number },
-	pixelBudgetMultRef: { current: number },
-): void {
-	const TARGET_MS = 20;
-	const BUDGET_UPDATE_INTERVAL = 33;
-	if (now - lastBudgetUpdateRef.current >= BUDGET_UPDATE_INTERVAL) {
-		lastBudgetUpdateRef.current = now;
-		if (frameTime > TARGET_MS) {
-			pixelBudgetMultRef.current = Math.max(
-				MIN_PIXEL_BUDGET_MULT,
-				pixelBudgetMultRef.current * 0.8,
-			);
-		} else if (frameTime < TARGET_MS * 0.5) {
-			pixelBudgetMultRef.current = Math.min(
-				MAX_PIXEL_BUDGET_MULT,
-				pixelBudgetMultRef.current * 1.2,
-			);
-		}
-	}
 }
 
 export const WebGLRenderer = React.memo(
