@@ -18,6 +18,13 @@ interface GridAxis {
 	readonly showGrid: boolean;
 }
 
+interface ZeroLineAxis {
+	readonly min: number;
+	readonly max: number;
+	readonly showGrid: boolean;
+	readonly categoryLabels?: readonly string[];
+}
+
 /**
  * Append the plot-background quad (two triangles, 6 vertices) covering the
  * plot area, with all coordinates pre-multiplied by `dpr` so the renderer
@@ -109,5 +116,67 @@ export function writeYGridLines(
 			buf[p++] = sy;
 		}
 	}
+	return p;
+}
+
+/**
+ * Append horizontal zero lines for every y-axis whose visible range straddles
+ * 0 (skipping categorical axes and ones without grid). Each line extends from
+ * the plot's left edge to a small arrow-tip stub on the right.
+ */
+export function writeYZeroLines(
+	buf: Float32Array,
+	p: number,
+	axes: readonly ZeroLineAxis[],
+	pad: Padding,
+	w: number,
+	ch: number,
+	dpr: number,
+): number {
+	const xL = pad.left * dpr;
+	const xTip = (w - pad.right + 8) * dpr;
+	for (const ax of axes) {
+		if (ax.categoryLabels) continue;
+		if (!ax.showGrid) continue;
+		if (!(ax.min <= 0 && ax.max >= 0 && ax.max > ax.min)) continue;
+		const range = ax.max - ax.min;
+		const norm = (0 - ax.min) / range;
+		const sy = (pad.top + (1 - norm) * ch) * dpr;
+		buf[p++] = xL;
+		buf[p++] = sy;
+		buf[p++] = xTip;
+		buf[p++] = sy;
+	}
+	return p;
+}
+
+/**
+ * Append the vertical zero line for the first x-axis when its visible range
+ * straddles 0 and it is non-categorical with grid enabled. Drawn from the
+ * plot's bottom up to a small arrow-tip stub above the plot.
+ */
+export function writeXZeroLine(
+	buf: Float32Array,
+	p: number,
+	axis: ZeroLineAxis,
+	pad: Padding,
+	cw: number,
+	h: number,
+	dpr: number,
+): number {
+	if (
+		!axis.showGrid ||
+		axis.categoryLabels ||
+		!(axis.min <= 0 && axis.max >= 0 && axis.max > axis.min)
+	)
+		return p;
+	const range = axis.max - axis.min;
+	const norm = (0 - axis.min) / range;
+	const sx = (pad.left + norm * cw) * dpr;
+	const tipY = (pad.top - 8) * dpr;
+	buf[p++] = sx;
+	buf[p++] = (h - pad.bottom) * dpr;
+	buf[p++] = sx;
+	buf[p++] = tipY;
 	return p;
 }
