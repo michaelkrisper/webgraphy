@@ -35,6 +35,7 @@ import {
 	resetAxisTargets,
 } from "./buildLiveAxes";
 import { ChartLegend } from "./ChartLegend";
+import { PlotDragOverlay, ZoomBoxOverlay } from "./PlotOverlays";
 import {
 	type AxesLayoutCache,
 	buildXAxisLayoutFor,
@@ -553,31 +554,7 @@ export default function ChartContainer() {
 					userSelect: "none",
 				}}
 			>
-				{isDragOver && (
-					<div
-						style={{
-							position: "absolute",
-							inset: 0,
-							zIndex: 100,
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-							backgroundColor: "rgba(0,0,0,0.35)",
-							pointerEvents: "none",
-						}}
-					>
-						<span
-							style={{
-								color: "#fff",
-								fontSize: "1.4rem",
-								fontWeight: 600,
-								letterSpacing: "0.02em",
-							}}
-						>
-							Drop to import
-						</span>
-					</div>
-				)}
+				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
 					<EmptyState width={width} height={height} padding={padding} />
 				)}
@@ -672,27 +649,11 @@ export default function ChartContainer() {
 						plotBg={themeColors.plotBg}
 					/>
 				)}
-				{isZooming && (
-					<svg
-						ref={zoomBoxSvgRef}
-						width="100%"
-						height="100%"
-						className="chart-abs-fill"
-						style={{ zIndex: 30 }}
-					>
-						<title>Zoom Selection Box</title>
-						<rect
-							ref={zoomBoxRectRef}
-							x={0}
-							y={0}
-							width={0}
-							height={0}
-							fill="rgba(0, 123, 255, 0.2)"
-							stroke="#007bff"
-							strokeWidth="1"
-						/>
-					</svg>
-				)}
+				<ZoomBoxOverlay
+					visible={isZooming}
+					svgRef={zoomBoxSvgRef}
+					rectRef={zoomBoxRectRef}
+				/>
 				{series.length > 0 && legendVisible && (
 					<ChartLegend
 						series={series}
