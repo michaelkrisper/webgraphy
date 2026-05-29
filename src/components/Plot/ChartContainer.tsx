@@ -20,12 +20,10 @@ import type {
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
-import { getColumnIndex } from "../../utils/columns";
 import {
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
 	calcYAxisTicks,
-	getAxisById,
 	syncAxesWithTargets,
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
@@ -45,7 +43,10 @@ import {
 	computeYAxesLayoutCached,
 	createAxesLayoutCache,
 } from "./computeAxesLayout";
-import { computeYAxisCategoryLabels } from "./categoryLabels";
+import {
+	computeXAxisCategoryLabels,
+	computeYAxisCategoryLabels,
+} from "./categoryLabels";
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
@@ -61,9 +62,6 @@ import { computeXAxesMetrics } from "./xAxisMetrics";
 type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
-
-/** Cap on x-values sampled when deriving categorical labels for a forced axis. */
-const MAX_DERIVED_CATEGORY_LABELS = 1000;
 
 export default function ChartContainer() {
 	// 1. Core Refs and State
@@ -175,75 +173,10 @@ export default function ChartContainer() {
 		[series, datasets],
 	);
 
-	// Per-X-axis categorical labels:
-	// - if axis.xMode === "categorical": force categorical, derive labels from
-	//   column.categoryLabels if available, else stringify unique integer values.
-	// - else: auto-detect (all bound datasets' xAxisColumn share categoryLabels).
-	const xAxisCategoryLabels = useMemo(() => {
-		const out = new Map<
-			string,
-			{ labels: string[]; ticks?: number[] } | undefined
-		>();
-		const dssByX = new Map<string, Dataset[]>();
-
-		datasets.forEach((d) => {
-			if (!activeDsIdsSet.has(d.id)) return;
-			const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-			const arr = dssByX.get(xId) || [];
-			arr.push(d);
-			dssByX.set(xId, arr);
-		});
-		dssByX.forEach((dss, axisId) => {
-			const cfg = getAxisById(xAxes, axisId);
-			const forced = cfg?.xMode === "categorical";
-			let labels: string[] | undefined;
-			let mismatch = false;
-			for (const d of dss) {
-				const colIdx = getColumnIndex(d, d.xAxisColumn);
-				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
-				const cl = col?.categoryLabels;
-				if (!cl) {
-					mismatch = true;
-					break;
-				}
-				if (!labels) labels = cl;
-				else if (
-					labels.length !== cl.length ||
-					labels.some((v, i) => v !== cl[i])
-				) {
-					mismatch = true;
-					break;
-				}
-			}
-			if (!mismatch && labels) {
-				out.set(axisId, { labels });
-				return;
-			}
-			if (forced) {
-				// Derive labels from unique values across bound datasets.
-				const uniq = new Set<number>();
-				outer: for (const d of dss) {
-					const colIdx = getColumnIndex(d, d.xAxisColumn);
-					const col = colIdx >= 0 ? d.data[colIdx] : undefined;
-					if (!col) continue;
-					const ref = col.refPoint;
-					const arr = col.data;
-					for (let i = 0; i < arr.length; i++) {
-						uniq.add(arr[i] + ref);
-						if (uniq.size > MAX_DERIVED_CATEGORY_LABELS) break outer;
-					}
-				}
-				const sorted = Array.from(uniq).sort((a, b) => a - b);
-				out.set(axisId, {
-					labels: sorted.map((v) => String(v)),
-					ticks: sorted,
-				});
-				return;
-			}
-			out.set(axisId, undefined);
-		});
-		return out;
-	}, [activeDsIdsSet, datasets, xAxes]);
+	const xAxisCategoryLabels = useMemo(
+		() => computeXAxisCategoryLabels(activeDsIdsSet, datasets, xAxes),
+		[activeDsIdsSet, datasets, xAxes],
+	);
 
 	const activeXAxesUsed = useMemo(() => {
 		const axisToMinDsIdx = new Map<string, number>();
