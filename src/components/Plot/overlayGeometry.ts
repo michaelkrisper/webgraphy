@@ -180,3 +180,37 @@ export function writeXZeroLine(
 	buf[p++] = tipY;
 	return p;
 }
+
+/**
+ * Append the plot's "U" frame border: left spine, top spine, and right
+ * spine (the bottom is drawn by the x-axis line). 12 floats / 6 vertices.
+ */
+export function writeFramePlotBorder(
+	buf: Float32Array,
+	p: number,
+	pad: Padding,
+	w: number,
+	ch: number,
+	dpr: number,
+): number {
+	const xL = pad.left * dpr;
+	const xR = (w - pad.right) * dpr;
+	const yT = pad.top * dpr;
+	const yB = (pad.top + ch) * dpr;
+	// Left spine
+	buf[p++] = xL;
+	buf[p++] = yT;
+	buf[p++] = xL;
+	buf[p++] = yB;
+	// Top spine
+	buf[p++] = xL;
+	buf[p++] = yT;
+	buf[p++] = xR;
+	buf[p++] = yT;
+	// Right spine
+	buf[p++] = xR;
+	buf[p++] = yT;
+	buf[p++] = xR;
+	buf[p++] = yB;
+	return p;
+}

@@ -29,6 +29,7 @@ import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
 	writeBackgroundQuad,
+	writeFramePlotBorder,
 	writeXGridLines,
 	writeXZeroLine,
 	writeYGridLines,
@@ -302,18 +303,7 @@ function buildOverlay(
 
 	// Axis lines: frame spines + x/y axis lines + tick marks.
 	const axisLineStart = p / 2;
-	buf[p++] = pad.left * dpr;
-	buf[p++] = pad.top * dpr;
-	buf[p++] = pad.left * dpr;
-	buf[p++] = (pad.top + ch) * dpr;
-	buf[p++] = pad.left * dpr;
-	buf[p++] = pad.top * dpr;
-	buf[p++] = (w - pad.right) * dpr;
-	buf[p++] = pad.top * dpr;
-	buf[p++] = (w - pad.right) * dpr;
-	buf[p++] = pad.top * dpr;
-	buf[p++] = (w - pad.right) * dpr;
-	buf[p++] = (pad.top + ch) * dpr;
+	p = writeFramePlotBorder(buf, p, pad, w, ch, dpr);
 	overlay.xAxes.forEach((ax, idx) => {
 		const m = overlay.xAxesMetrics[idx];
 		if (!m) return;
