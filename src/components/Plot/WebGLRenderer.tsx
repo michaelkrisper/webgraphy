@@ -27,6 +27,7 @@ import {
 } from "./drawSeries";
 import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import { estimateOverlayVertexCount } from "./overlayAxes";
+import { writeBackgroundQuad } from "./overlayGeometry";
 import {
 	computeDataSlice,
 	getOrComputeMonotonicity,
@@ -251,23 +252,8 @@ function buildOverlay(
 	ov.groups.length = 0;
 
 	// --- Background quad (TRIANGLES) ---
-	const x0 = pad.left * dpr,
-		y0 = pad.top * dpr,
-		x1 = (pad.left + cw) * dpr,
-		y1 = (pad.top + ch) * dpr;
 	const bgStart = p / 2;
-	buf[p++] = x0;
-	buf[p++] = y0;
-	buf[p++] = x1;
-	buf[p++] = y0;
-	buf[p++] = x0;
-	buf[p++] = y1;
-	buf[p++] = x1;
-	buf[p++] = y0;
-	buf[p++] = x1;
-	buf[p++] = y1;
-	buf[p++] = x0;
-	buf[p++] = y1;
+	p = writeBackgroundQuad(buf, p, pad, cw, ch, dpr);
 	ov.groups.push({
 		topology: "TRIANGLES",
 		rgba: bgRgba,
