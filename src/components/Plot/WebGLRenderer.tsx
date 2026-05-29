@@ -27,7 +27,11 @@ import {
 } from "./drawSeries";
 import { GLStateCache, type WebGLLocations } from "./GLStateCache";
 import { estimateOverlayVertexCount } from "./overlayAxes";
-import { writeBackgroundQuad } from "./overlayGeometry";
+import {
+	writeBackgroundQuad,
+	writeXGridLines,
+	writeYGridLines,
+} from "./overlayGeometry";
 import {
 	computeDataSlice,
 	getOrComputeMonotonicity,
@@ -265,37 +269,9 @@ function buildOverlay(
 	// Grid: vertical (first x axis) + horizontal (y axes that show grid).
 	const gridStart = p / 2;
 	if (overlay.xAxes.length > 0) {
-		const ax = overlay.xAxes[0];
-		if (ax.showGrid && ax.max > ax.min) {
-			const range = ax.max - ax.min;
-			const yTop = pad.top * dpr;
-			const yBot = (pad.top + ch) * dpr;
-			for (const t of ax.ticks) {
-				const norm = (t - ax.min) / range;
-				if (norm < 0 || norm > 1) continue;
-				const sx = (pad.left + norm * cw) * dpr;
-				buf[p++] = sx;
-				buf[p++] = yTop;
-				buf[p++] = sx;
-				buf[p++] = yBot;
-			}
-		}
+		p = writeXGridLines(buf, p, overlay.xAxes[0], pad, cw, ch, dpr);
 	}
-	for (const ax of overlay.yAxes) {
-		if (!ax.showGrid || ax.max <= ax.min) continue;
-		const range = ax.max - ax.min;
-		const xL = pad.left * dpr;
-		const xR = (w - pad.right) * dpr;
-		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
-			const sy = (pad.top + (1 - norm) * ch) * dpr;
-			buf[p++] = xL;
-			buf[p++] = sy;
-			buf[p++] = xR;
-			buf[p++] = sy;
-		}
-	}
+	p = writeYGridLines(buf, p, overlay.yAxes, pad, w, ch, dpr);
 	const gridCount = p / 2 - gridStart;
 	if (gridCount > 0)
 		ov.groups.push({
