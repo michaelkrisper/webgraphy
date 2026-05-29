@@ -2,6 +2,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { secureJSONParse, JSONParseError } from "../json";
 
+describe("JSONParseError", () => {
+	it("should create an error with message and name", () => {
+		const error = new JSONParseError("test message");
+		expect(error).toBeInstanceOf(Error);
+		expect(error.name).toBe("JSONParseError");
+		expect(error.message).toBe("test message");
+		expect(error.cause).toBeUndefined();
+	});
+
+	it("should create an error with options", () => {
+		const cause = new Error("cause error");
+		const error = new JSONParseError("test message", { cause });
+		expect(error.cause).toBe(cause);
+	});
+});
+
 describe("secureJSONParse", () => {
 	it("should parse valid JSON", () => {
 		const json = '{"a": 1, "b": "test", "c": [1, 2, 3]}';
@@ -95,6 +111,24 @@ describe("secureJSONParse", () => {
 		}
 	});
 
+	it("should map standard Error objects to JSONParseError with the same message", () => {
+		const originalParse = JSON.parse;
+		JSON.parse = vi.fn().mockImplementation(() => {
+			throw new Error("Custom parsing error");
+		});
+
+		try {
+			secureJSONParse('{"test": 1}');
+			expect.fail("Should have thrown");
+		} catch (error) {
+			expect(error).toBeInstanceOf(JSONParseError);
+			expect((error as JSONParseError).message).toBe("Custom parsing error");
+			expect((error as JSONParseError).cause).toBeInstanceOf(Error);
+		} finally {
+			JSON.parse = originalParse;
+		}
+	});
+
 	it("should fallback to default error message if thrown value is not an Error", () => {
 		// Mock JSON.parse to throw a string instead of an Error object
 		const originalParse = JSON.parse;
@@ -109,6 +143,24 @@ describe("secureJSONParse", () => {
 			expect(error).toBeInstanceOf(JSONParseError);
 			expect((error as JSONParseError).message).toBe("Invalid JSON");
 			expect((error as JSONParseError).cause).toBe("String error");
+		} finally {
+			JSON.parse = originalParse;
+		}
+	});
+
+	it("should handle null thrown values gracefully", () => {
+		const originalParse = JSON.parse;
+		JSON.parse = vi.fn().mockImplementation(() => {
+			throw null; // eslint-disable-line no-throw-literal
+		});
+
+		try {
+			secureJSONParse('{"test": 1}');
+			expect.fail("Should have thrown");
+		} catch (error) {
+			expect(error).toBeInstanceOf(JSONParseError);
+			expect((error as JSONParseError).message).toBe("Invalid JSON");
+			expect((error as JSONParseError).cause).toBe(null);
 		} finally {
 			JSON.parse = originalParse;
 		}
