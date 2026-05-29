@@ -55,6 +55,7 @@ import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { syncStoreUpdates } from "./syncStoreUpdates";
 import {
+	applyOverlayContext,
 	type OverlayXEntry,
 	type OverlayYEntry,
 	updateOverlayAxes,
@@ -412,14 +413,16 @@ export default function ChartContainer() {
 
 					const scratch = overlayScratchRef.current;
 					updateOverlayAxes(scratch, xLayout, yLayout);
-					scratch.xAxesMetrics = xAxesMetrics;
-					scratch.axisLayout = axisLayout;
-					scratch.leftOffsets = leftOffsets;
-					scratch.rightOffsets = rightOffsets;
-					scratch.axisColor = themeColors.axisColor;
-					scratch.zeroLineColor = themeColors.zeroLineColor;
-					scratch.gridColor = themeColors.gridColor;
-					scratch.plotBg = themeColors.plotBg;
+					applyOverlayContext(scratch, {
+						xAxesMetrics,
+						axisLayout,
+						leftOffsets,
+						rightOffsets,
+						axisColor: themeColors.axisColor,
+						zeroLineColor: themeColors.zeroLineColor,
+						gridColor: themeColors.gridColor,
+						plotBg: themeColors.plotBg,
+					});
 					webglRef.current?.setOverlay(scratch);
 					webglRef.current?.redraw(liveX, liveY);
 					axesLayerRef.current?.redraw(xLayout, yLayout);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { XAxisLayout, YAxisLayout } from "../chartTypes";
 import {
+	applyOverlayContext,
 	estimateOverlayVertexCount,
 	type OverlayXEntry,
 	type OverlayYEntry,
@@ -218,5 +219,70 @@ describe("estimateOverlayVertexCount", () => {
 		expect(scratch.estVertexCount).toBe(
 			estimateOverlayVertexCount(scratch.xAxes, scratch.yAxes),
 		);
+	});
+});
+
+describe("applyOverlayContext", () => {
+	it("copies every context field onto the scratch object", () => {
+		const scratch = {
+			xAxesMetrics: [],
+			axisLayout: {},
+			leftOffsets: {},
+			rightOffsets: {},
+			axisColor: "",
+			zeroLineColor: "",
+			gridColor: "",
+			plotBg: "",
+		};
+		const xAxesMetrics = [
+			{ id: "X", cumulativeOffset: 0, height: 30 },
+		];
+		const axisLayout = { Y: { total: 40, label: 20 } };
+		const leftOffsets = { Y: 0 };
+		const rightOffsets = {};
+		applyOverlayContext(scratch, {
+			xAxesMetrics,
+			axisLayout,
+			leftOffsets,
+			rightOffsets,
+			axisColor: "#111",
+			zeroLineColor: "#222",
+			gridColor: "#333",
+			plotBg: "#444",
+		});
+		expect(scratch.xAxesMetrics).toBe(xAxesMetrics);
+		expect(scratch.axisLayout).toBe(axisLayout);
+		expect(scratch.leftOffsets).toBe(leftOffsets);
+		expect(scratch.rightOffsets).toBe(rightOffsets);
+		expect(scratch.axisColor).toBe("#111");
+		expect(scratch.zeroLineColor).toBe("#222");
+		expect(scratch.gridColor).toBe("#333");
+		expect(scratch.plotBg).toBe("#444");
+	});
+
+	it("replaces previous context references on subsequent calls", () => {
+		const scratch = {
+			xAxesMetrics: [{ id: "OLD", cumulativeOffset: 0, height: 0 }],
+			axisLayout: { OLD: { total: 1, label: 1 } },
+			leftOffsets: { OLD: 9 },
+			rightOffsets: { OLD: 9 },
+			axisColor: "#OLD",
+			zeroLineColor: "#OLD",
+			gridColor: "#OLD",
+			plotBg: "#OLD",
+		};
+		applyOverlayContext(scratch, {
+			xAxesMetrics: [],
+			axisLayout: {},
+			leftOffsets: {},
+			rightOffsets: {},
+			axisColor: "#aaa",
+			zeroLineColor: "#bbb",
+			gridColor: "#ccc",
+			plotBg: "#ddd",
+		});
+		expect(scratch.xAxesMetrics).toEqual([]);
+		expect(scratch.axisLayout).toEqual({});
+		expect(scratch.axisColor).toBe("#aaa");
 	});
 });
