@@ -35,6 +35,7 @@ import {
 	type LiveAxesScratch,
 	applyAxisUpdates,
 	createLiveAxesScratch,
+	resetAxisTargets,
 } from "./buildLiveAxes";
 import { ChartLegend } from "./ChartLegend";
 import {
@@ -467,19 +468,12 @@ export default function ChartContainer() {
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
-		if (isLoaded) {
-			xAxes.forEach((axis) => {
-				targetXAxes.current[axis.id] = { min: axis.min, max: axis.max };
-			});
-			yAxes.forEach((axis) => {
-				targetYs.current[axis.id] = { min: axis.min, max: axis.max };
-			});
-
-			overlayInitRef.current = false;
-			// Use force=false to schedule via rAF, breaking synchronous render loops.
-			// Redraw is still forced because we set overlayInitRef.current = false above.
-			syncViewportRef.current(false);
-		}
+		if (!isLoaded) return;
+		resetAxisTargets(xAxes, yAxes, targetXAxes.current, targetYs.current);
+		overlayInitRef.current = false;
+		// Use force=false to schedule via rAF, breaking synchronous render loops.
+		// Redraw is still forced because we set overlayInitRef.current = false above.
+		syncViewportRef.current(false);
 	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
 
 	// 7. Memos for static rendering (JSX)

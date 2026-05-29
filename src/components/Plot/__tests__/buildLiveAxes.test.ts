@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	applyAxisUpdates,
 	createLiveAxesScratch,
+	resetAxisTargets,
 } from "../buildLiveAxes";
 
 interface Axis {
@@ -127,5 +128,55 @@ describe("applyAxisUpdates", () => {
 			{},
 		);
 		expect(liveX[0].name).toBe("X-label");
+	});
+});
+
+describe("resetAxisTargets", () => {
+	it("writes each axis' min/max into the supplied target records", () => {
+		const targetX: Record<string, { min: number; max: number }> = {};
+		const targetY: Record<string, { min: number; max: number }> = {};
+		resetAxisTargets(
+			[
+				{ id: "X1", min: 0, max: 10 },
+				{ id: "X2", min: -5, max: 5 },
+			],
+			[{ id: "Y", min: 0, max: 100 }],
+			targetX,
+			targetY,
+		);
+		expect(targetX).toEqual({
+			X1: { min: 0, max: 10 },
+			X2: { min: -5, max: 5 },
+		});
+		expect(targetY).toEqual({ Y: { min: 0, max: 100 } });
+	});
+
+	it("overwrites existing target entries", () => {
+		const targetX: Record<string, { min: number; max: number }> = {
+			X: { min: 99, max: 99 },
+		};
+		resetAxisTargets(
+			[{ id: "X", min: 0, max: 10 }],
+			[],
+			targetX,
+			{},
+		);
+		expect(targetX.X).toEqual({ min: 0, max: 10 });
+	});
+
+	it("leaves the target record unchanged when given empty axis arrays", () => {
+		const targetX: Record<string, { min: number; max: number }> = {
+			X: { min: 1, max: 2 },
+		};
+		resetAxisTargets([], [], targetX, {});
+		expect(targetX).toEqual({ X: { min: 1, max: 2 } });
+	});
+
+	it("stores fresh objects (not references to the source axes)", () => {
+		const axis = { id: "X", min: 0, max: 10 };
+		const targetX: Record<string, { min: number; max: number }> = {};
+		resetAxisTargets([axis], [], targetX, {});
+		expect(targetX.X).not.toBe(axis);
+		expect(targetX.X).toEqual({ min: 0, max: 10 });
 	});
 });

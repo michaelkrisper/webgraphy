@@ -6,6 +6,31 @@
 
 export type AxisRangeUpdate = Record<string, { min: number; max: number }>;
 
+interface AxisRange {
+	id: string;
+	min: number;
+	max: number;
+}
+
+/**
+ * Snapshot each persisted axis' current [min,max] into the supplied target
+ * record, mutating in place. Used to seed the interactive target buffers
+ * after the store ranges change (load, undo/redo, sidebar edit).
+ */
+export function resetAxisTargets(
+	xAxes: readonly AxisRange[],
+	yAxes: readonly AxisRange[],
+	targetXAxes: Record<string, { min: number; max: number }>,
+	targetYs: Record<string, { min: number; max: number }>,
+): void {
+	for (const axis of xAxes) {
+		targetXAxes[axis.id] = { min: axis.min, max: axis.max };
+	}
+	for (const axis of yAxes) {
+		targetYs[axis.id] = { min: axis.min, max: axis.max };
+	}
+}
+
 export interface LiveAxesScratch<X, Y> {
 	liveX: X[];
 	liveY: Y[];
