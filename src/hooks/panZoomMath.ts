@@ -120,3 +120,49 @@ export function applyZoomBoxToAxes(
 		targetYs[axis.id] = { min: a1.y, max: a2.y };
 	}
 }
+
+interface TouchPoint {
+	clientX: number;
+	clientY: number;
+}
+
+export interface PinchGesture {
+	zfX: number;
+	zfY: number;
+	cx: number;
+	cy: number;
+	dist: number;
+}
+
+/**
+ * Derive a per-axis zoom factor and centre point from a two-touch pinch.
+ *
+ * Compares the touches' current distance to the previous frame's distance
+ * to compute a uniform zoom factor, then locks one axis at 1 when the
+ * gesture is strongly horizontal or strongly vertical (`dy/dx > 1.5`) so
+ * the user can pinch along a single axis without disturbing the other.
+ *
+ * Returns null when the touches coincide (degenerate gesture).
+ */
+export function computePinchGesture(
+	t1: TouchPoint,
+	t2: TouchPoint,
+	lastDist: number,
+): PinchGesture | null {
+	const dx = Math.abs(t1.clientX - t2.clientX);
+	const dy = Math.abs(t1.clientY - t2.clientY);
+	const dist = Math.hypot(dx, dy);
+	if (dist === 0) return null;
+	const zf = lastDist / dist;
+	let zfX = zf;
+	let zfY = zf;
+	if (dx > dy * 1.5) zfY = 1;
+	else if (dy > dx * 1.5) zfX = 1;
+	return {
+		zfX,
+		zfY,
+		cx: (t1.clientX + t2.clientX) / 2,
+		cy: (t1.clientY + t2.clientY) / 2,
+		dist,
+	};
+}

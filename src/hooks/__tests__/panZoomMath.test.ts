@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	applyZoomBoxToAxes,
 	applyZoomToRange,
+	computePinchGesture,
 	panRangeByPixels,
 } from "../panZoomMath";
 
@@ -186,5 +187,65 @@ describe("applyZoomBoxToAxes", () => {
 		// box covers 25%..75% of the chart width -> 25% and 75% of [100,200] => [125,175]
 		expect(tx.A.min).toBeCloseTo(125, 5);
 		expect(tx.A.max).toBeCloseTo(175, 5);
+	});
+});
+
+describe("computePinchGesture", () => {
+	it("returns null when the touches coincide", () => {
+		expect(
+			computePinchGesture({ clientX: 100, clientY: 100 }, { clientX: 100, clientY: 100 }, 50),
+		).toBeNull();
+	});
+
+	it("reports the midpoint as the gesture centre", () => {
+		const g = computePinchGesture(
+			{ clientX: 0, clientY: 0 },
+			{ clientX: 100, clientY: 100 },
+			Math.hypot(100, 100),
+		);
+		expect(g?.cx).toBe(50);
+		expect(g?.cy).toBe(50);
+	});
+
+	it("uses lastDist / dist as the uniform zoom factor for a diagonal", () => {
+		// 45° diagonal so neither axis is locked
+		const dist = Math.hypot(100, 100);
+		const g = computePinchGesture(
+			{ clientX: 0, clientY: 0 },
+			{ clientX: 100, clientY: 100 },
+			dist / 2,
+		);
+		expect(g?.zfX).toBeCloseTo(0.5, 10);
+		expect(g?.zfY).toBeCloseTo(0.5, 10);
+	});
+
+	it("locks Y at 1 for a strongly horizontal gesture (dx > 1.5 * dy)", () => {
+		const g = computePinchGesture(
+			{ clientX: 0, clientY: 0 },
+			{ clientX: 100, clientY: 10 }, // dx 100, dy 10
+			60,
+		);
+		expect(g?.zfY).toBe(1);
+		expect(g?.zfX).not.toBe(1);
+	});
+
+	it("locks X at 1 for a strongly vertical gesture (dy > 1.5 * dx)", () => {
+		const g = computePinchGesture(
+			{ clientX: 0, clientY: 0 },
+			{ clientX: 10, clientY: 100 },
+			60,
+		);
+		expect(g?.zfX).toBe(1);
+		expect(g?.zfY).not.toBe(1);
+	});
+
+	it("does not lock either axis for a diagonal gesture", () => {
+		const g = computePinchGesture(
+			{ clientX: 0, clientY: 0 },
+			{ clientX: 100, clientY: 100 },
+			Math.hypot(100, 100),
+		);
+		expect(g?.zfX).toBeCloseTo(1, 10);
+		expect(g?.zfY).toBeCloseTo(1, 10);
 	});
 });
