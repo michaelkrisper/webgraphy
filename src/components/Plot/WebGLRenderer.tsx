@@ -30,8 +30,10 @@ import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
 	writeBackgroundQuad,
 	writeFramePlotBorder,
+	writeXAxisLines,
 	writeXGridLines,
 	writeXZeroLine,
+	writeYAxisLines,
 	writeYGridLines,
 	writeYZeroLines,
 } from "./overlayGeometry";
@@ -304,56 +306,30 @@ function buildOverlay(
 	// Axis lines: frame spines + x/y axis lines + tick marks.
 	const axisLineStart = p / 2;
 	p = writeFramePlotBorder(buf, p, pad, w, ch, dpr);
-	overlay.xAxes.forEach((ax, idx) => {
-		const m = overlay.xAxesMetrics[idx];
-		if (!m) return;
-		const yL = (h - pad.bottom + m.cumulativeOffset) * dpr;
-		buf[p++] = pad.left * dpr;
-		buf[p++] = yL;
-		buf[p++] = (w - pad.right + 8) * dpr;
-		buf[p++] = yL;
-		if (ax.max <= ax.min) return;
-		const range = ax.max - ax.min;
-		const tickEnd = yL + 6 * dpr;
-		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
-			const sx = (pad.left + norm * cw) * dpr;
-			buf[p++] = sx;
-			buf[p++] = yL;
-			buf[p++] = sx;
-			buf[p++] = tickEnd;
-		}
-	});
-	for (const ax of overlay.yAxes) {
-		const isLeft = ax.position === "left";
-		const metrics = overlay.axisLayout[ax.id] || {
-			total: 40,
-			label: 30,
-		};
-		const xPos = isLeft
-			? pad.left - (overlay.leftOffsets[ax.id] ?? 0) - metrics.total
-			: w - pad.right + (overlay.rightOffsets[ax.id] ?? 0);
-		const lineX = isLeft ? xPos + metrics.total : xPos;
-		const tipY = (pad.top - 8) * dpr;
-		buf[p++] = lineX * dpr;
-		buf[p++] = (h - pad.bottom) * dpr;
-		buf[p++] = lineX * dpr;
-		buf[p++] = tipY;
-		if (ax.max <= ax.min) continue;
-		const range = ax.max - ax.min;
-		const xa = (isLeft ? lineX - 5 : lineX) * dpr;
-		const xb = (isLeft ? lineX : lineX + 5) * dpr;
-		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
-			const sy = (pad.top + (1 - norm) * ch) * dpr;
-			buf[p++] = xa;
-			buf[p++] = sy;
-			buf[p++] = xb;
-			buf[p++] = sy;
-		}
-	}
+	p = writeXAxisLines(
+		buf,
+		p,
+		overlay.xAxes,
+		overlay.xAxesMetrics,
+		pad,
+		w,
+		h,
+		cw,
+		dpr,
+	);
+	p = writeYAxisLines(
+		buf,
+		p,
+		overlay.yAxes,
+		overlay.axisLayout,
+		overlay.leftOffsets,
+		overlay.rightOffsets,
+		pad,
+		w,
+		h,
+		ch,
+		dpr,
+	);
 	const axisLineCount = p / 2 - axisLineStart;
 	if (axisLineCount > 0)
 		ov.groups.push({

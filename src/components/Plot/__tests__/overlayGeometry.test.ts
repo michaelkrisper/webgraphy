@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
 	writeBackgroundQuad,
 	writeFramePlotBorder,
+	writeXAxisLines,
 	writeXGridLines,
 	writeXZeroLine,
+	writeYAxisLines,
 	writeYGridLines,
 	writeYZeroLines,
 } from "../overlayGeometry";
@@ -305,5 +307,154 @@ describe("writeFramePlotBorder", () => {
 		writeFramePlotBorder(buf1, 0, pad, 130, 50, 1);
 		writeFramePlotBorder(buf2, 0, pad, 130, 50, 3);
 		for (let i = 0; i < 12; i++) expect(buf2[i]).toBe(buf1[i] * 3);
+	});
+});
+
+describe("writeXAxisLines", () => {
+	const axis = { ticks: [0, 50, 100], min: 0, max: 100 };
+	const metric = { cumulativeOffset: 0 };
+
+	it("writes the axis spine (4 floats) plus 4 floats per visible tick", () => {
+		const buf = new Float32Array(40);
+		const next = writeXAxisLines(
+			buf,
+			0,
+			[axis],
+			[metric],
+			pad,
+			130,
+			90,
+			100,
+			1,
+		);
+		// 4 spine + 3 ticks * 4 = 16
+		expect(next).toBe(16);
+	});
+
+	it("skips an axis when no metric is supplied at that index", () => {
+		const buf = new Float32Array(20);
+		const next = writeXAxisLines(buf, 0, [axis], [], pad, 130, 90, 100, 1);
+		expect(next).toBe(0);
+	});
+
+	it("emits only the spine for a zero-range axis", () => {
+		const buf = new Float32Array(20);
+		const next = writeXAxisLines(
+			buf,
+			0,
+			[{ ...axis, min: 5, max: 5 }],
+			[metric],
+			pad,
+			130,
+			90,
+			100,
+			1,
+		);
+		expect(next).toBe(4);
+	});
+
+	it("stacks multiple axes by their cumulativeOffset", () => {
+		const buf = new Float32Array(80);
+		const next = writeXAxisLines(
+			buf,
+			0,
+			[axis, axis],
+			[metric, { cumulativeOffset: 30 }],
+			pad,
+			130,
+			90,
+			100,
+			1,
+		);
+		// 16 per axis = 32
+		expect(next).toBe(32);
+	});
+});
+
+describe("writeYAxisLines", () => {
+	const axis = {
+		id: "Y",
+		ticks: [0, 50, 100],
+		min: 0,
+		max: 100,
+		position: "left" as const,
+	};
+	const layout = { Y: { total: 50 } };
+	const lOff = { Y: 0 };
+	const rOff = {};
+
+	it("writes the spine (4 floats) plus 4 floats per visible tick", () => {
+		const buf = new Float32Array(40);
+		const next = writeYAxisLines(
+			buf,
+			0,
+			[axis],
+			layout,
+			lOff,
+			rOff,
+			pad,
+			130,
+			90,
+			50,
+			1,
+		);
+		// spine + 3 ticks * 4 = 16
+		expect(next).toBe(16);
+	});
+
+	it("uses the default gutter width when axisLayout lacks an entry", () => {
+		const buf = new Float32Array(40);
+		const next = writeYAxisLines(
+			buf,
+			0,
+			[axis],
+			{},
+			lOff,
+			rOff,
+			pad,
+			130,
+			90,
+			50,
+			1,
+		);
+		// Still writes 16 floats; layout fallback is internal
+		expect(next).toBe(16);
+	});
+
+	it("emits only the spine for a zero-range axis", () => {
+		const buf = new Float32Array(20);
+		const next = writeYAxisLines(
+			buf,
+			0,
+			[{ ...axis, min: 5, max: 5 }],
+			layout,
+			lOff,
+			rOff,
+			pad,
+			130,
+			90,
+			50,
+			1,
+		);
+		expect(next).toBe(4);
+	});
+
+	it("handles right-positioned axes", () => {
+		const ax = { ...axis, position: "right" as const };
+		const buf = new Float32Array(40);
+		const next = writeYAxisLines(
+			buf,
+			0,
+			[ax],
+			layout,
+			lOff,
+			{ Y: 0 },
+			pad,
+			130,
+			90,
+			50,
+			1,
+		);
+		expect(next).toBe(16);
 	});
 });
