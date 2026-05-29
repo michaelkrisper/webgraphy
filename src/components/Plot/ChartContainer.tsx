@@ -13,17 +13,12 @@ import { useAutoScale } from "../../hooks/useAutoScale";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
-import type {
-	Dataset,
-	XAxisConfig,
-	YAxisConfig,
-} from "../../services/persistence";
+import type { XAxisConfig, YAxisConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import {
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
-	calcYAxisTicks,
 	syncAxesWithTargets,
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
@@ -40,13 +35,15 @@ import {
 	applyAxisUpdates,
 	createLiveAxesScratch,
 } from "./buildLiveAxes";
-import { buildXAxisLayout } from "./buildXAxisLayout";
 import { ChartLegend } from "./ChartLegend";
 import {
 	type AxesLayoutCache,
+	buildXAxisLayoutFor,
+	buildYAxisLayoutFor,
 	computeXAxesLayoutCached,
 	computeYAxesLayoutCached,
 	createAxesLayoutCache,
+	groupActiveDatasetsByXAxis,
 } from "./computeAxesLayout";
 import {
 	computeXAxisCategoryLabels,
@@ -63,8 +60,6 @@ import {
 } from "./overlayAxes";
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { computeXAxesMetrics } from "./xAxisMetrics";
-
-type DatasetsByAxisId = Record<string, Dataset[]>;
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 
@@ -507,42 +502,25 @@ export default function ChartContainer() {
 	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
 
 	// 7. Memos for static rendering (JSX)
-	const activeYAxesLayout = useMemo((): YAxisLayout[] => {
-		return activeYAxes.map((axis) => {
-			const categoryLabels = yAxisCategoryLabels.get(axis.id);
-			const { ticks, precision, actualStep } = calcYAxisTicks(
-				axis.min,
-				axis.max,
-				chartHeight,
-				categoryLabels ? 1 : undefined,
-				categoryLabels?.length,
-			);
-			return { ...axis, ticks, precision, actualStep, categoryLabels };
-		});
-	}, [activeYAxes, chartHeight, yAxisCategoryLabels]);
+	const activeYAxesLayout = useMemo(
+		() =>
+			activeYAxes.map((axis) =>
+				buildYAxisLayoutFor(axis, chartHeight, yAxisCategoryLabels),
+			),
+		[activeYAxes, chartHeight, yAxisCategoryLabels],
+	);
 
-	const xAxesLayout = useMemo((): XAxisLayout[] => {
-		const dsByX: DatasetsByAxisId = {};
-		datasets.forEach((d) => {
-			if (activeDsIdsSet.has(d.id)) {
-				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-				if (!dsByX[xId]) dsByX[xId] = [];
-				dsByX[xId].push(d);
-			}
-		});
-
-		return activeXAxesUsed.map((axis) => {
-			const catInfo = xAxisCategoryLabels.get(axis.id);
-			const dss = dsByX[axis.id] || [];
-			return buildXAxisLayout(
+	const xAxesLayout = useMemo(() => {
+		const dsByX = groupActiveDatasetsByXAxis(datasets, activeDsIdsSet);
+		return activeXAxesUsed.map((axis) =>
+			buildXAxisLayoutFor(
 				axis,
 				chartWidth,
 				themeColors.labelColor,
-				catInfo?.labels,
-				catInfo?.ticks,
-				dss,
-			);
-		});
+				xAxisCategoryLabels,
+				dsByX,
+			),
+		);
 	}, [
 		activeXAxesUsed,
 		chartWidth,
