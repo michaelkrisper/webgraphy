@@ -524,11 +524,11 @@ export const downloadFile = (
 		try {
 			const url = new URL(content);
 			if (url.protocol !== "data:") {
-				throw new Error();
+				throw new Error("Invalid URL protocol: expected 'data:'");
 			}
 			const commaIndex = url.pathname.indexOf(",");
 			if (commaIndex === -1) {
-				throw new Error();
+				throw new Error("Invalid data URL format: missing comma");
 			}
 			const mediaTypeAndParams = url.pathname.slice(0, commaIndex);
 			const parts = mediaTypeAndParams.split(";");
@@ -539,7 +539,7 @@ export const downloadFile = (
 				!mimeType.startsWith("image/") &&
 				!mimeType.startsWith("application/")
 			) {
-				throw new Error();
+				throw new Error(`Unsupported MIME type: ${mimeType}. Expected 'image/*' or 'application/*'`);
 			}
 			const lowerMimeType = mimeType.toLowerCase();
 			if (
@@ -547,7 +547,7 @@ export const downloadFile = (
 				lowerMimeType.includes("xml") ||
 				lowerMimeType.includes("html")
 			) {
-				throw new Error();
+				throw new Error(`Unsafe MIME type detected: ${mimeType}`);
 			}
 
 			const data = url.pathname.slice(commaIndex + 1);
@@ -561,8 +561,8 @@ export const downloadFile = (
 
 			const blob = new Blob([arrayBuffer], { type: contentType || mimeType });
 			urlToDownload = URL.createObjectURL(blob);
-		} catch {
-			throw new Error("Unsafe data URL scheme detected");
+		} catch (error) {
+			throw new Error("Unsafe data URL scheme detected", { cause: error });
 		}
 	} else {
 		const file = new Blob([content], { type: contentType });
