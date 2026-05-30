@@ -517,57 +517,57 @@ export const downloadFile = (
 ): (() => void) | void => {
 	const a = document.createElement("a");
 	const isDataUrl = content.startsWith("data:");
-	let urlToDownload: string;
+	const urlToDownload = (() => {
+		if (isDataUrl) {
+			// Ensure the data URL has a safe MIME type to prevent XSS
+			try {
+				const url = new URL(content);
+				if (url.protocol !== "data:") {
+					throw new Error();
+				}
+				const commaIndex = url.pathname.indexOf(",");
+				if (commaIndex === -1) {
+					throw new Error();
+				}
+				const mediaTypeAndParams = url.pathname.slice(0, commaIndex);
+				const parts = mediaTypeAndParams.split(";");
+				// If no media type is specified, it defaults to text/plain;charset=US-ASCII
+				const mimeType = parts[0].trim().toLowerCase() || "text/plain";
 
-	if (isDataUrl) {
-		// Ensure the data URL has a safe MIME type to prevent XSS
-		try {
-			const url = new URL(content);
-			if (url.protocol !== "data:") {
-				throw new Error();
-			}
-			const commaIndex = url.pathname.indexOf(",");
-			if (commaIndex === -1) {
-				throw new Error();
-			}
-			const mediaTypeAndParams = url.pathname.slice(0, commaIndex);
-			const parts = mediaTypeAndParams.split(";");
-			// If no media type is specified, it defaults to text/plain;charset=US-ASCII
-			const mimeType = parts[0].trim().toLowerCase() || "text/plain";
+				if (
+					!mimeType.startsWith("image/") &&
+					!mimeType.startsWith("application/")
+				) {
+					throw new Error();
+				}
+				const lowerMimeType = mimeType.toLowerCase();
+				if (
+					lowerMimeType.includes("svg") ||
+					lowerMimeType.includes("xml") ||
+					lowerMimeType.includes("html")
+				) {
+					throw new Error();
+				}
 
-			if (
-				!mimeType.startsWith("image/") &&
-				!mimeType.startsWith("application/")
-			) {
-				throw new Error();
-			}
-			const lowerMimeType = mimeType.toLowerCase();
-			if (
-				lowerMimeType.includes("svg") ||
-				lowerMimeType.includes("xml") ||
-				lowerMimeType.includes("html")
-			) {
-				throw new Error();
-			}
+				const data = url.pathname.slice(commaIndex + 1);
+				const isBase64 = parts.includes("base64");
 
-			const data = url.pathname.slice(commaIndex + 1);
-			const isBase64 = parts.includes("base64");
+				const byteString = isBase64 ? atob(data) : decodeURIComponent(data);
+				const arrayBuffer = new Uint8Array(byteString.length);
+				for (let i = 0; i < byteString.length; i++) {
+					arrayBuffer[i] = byteString.charCodeAt(i);
+				}
 
-			const byteString = isBase64 ? atob(data) : decodeURIComponent(data);
-			const arrayBuffer = new Uint8Array(byteString.length);
-			for (let i = 0; i < byteString.length; i++) {
-				arrayBuffer[i] = byteString.charCodeAt(i);
+				const blob = new Blob([arrayBuffer], { type: contentType || mimeType });
+				return URL.createObjectURL(blob);
+			} catch {
+				throw new Error("Unsafe data URL scheme detected");
 			}
-
-			const blob = new Blob([arrayBuffer], { type: contentType || mimeType });
-			urlToDownload = URL.createObjectURL(blob);
-		} catch {
-			throw new Error("Unsafe data URL scheme detected");
+		} else {
+			const file = new Blob([content], { type: contentType });
+			return URL.createObjectURL(file);
 		}
-	} else {
-		const file = new Blob([content], { type: contentType });
-		urlToDownload = URL.createObjectURL(file);
-	}
+	})();
 
 	a.href = urlToDownload;
 	a.download = fileName;
