@@ -206,4 +206,187 @@ describe("usePanZoom", () => {
 		expect(mockHandleAutoScaleX).toHaveBeenCalled();
 		expect(mockHandleAutoScaleY).toHaveBeenCalledWith("y1");
 	});
+
+	// Helper to dispatch a raw TouchEvent with arbitrary touch points.
+	function dispatchTouch(
+		type: "touchmove" | "touchend",
+		points: { clientX: number; clientY: number }[],
+	) {
+		const e = new Event(type, { cancelable: true });
+		Object.defineProperty(e, "touches", { value: points });
+		window.dispatchEvent(e);
+	}
+
+	it("starts a box zoom on ctrl+drag and applies it on mouse up", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		act(() => {
+			result.current.handleMouseDown(
+				{
+					clientX: 100,
+					clientY: 100,
+					button: 0,
+					ctrlKey: true,
+				} as unknown as React.MouseEvent,
+				"all",
+			);
+		});
+		expect(result.current.isZooming).toBe(true);
+
+		// Grow the box well past the 5px threshold in both dimensions.
+		act(() => {
+			window.dispatchEvent(
+				new MouseEvent("mousemove", { clientX: 400, clientY: 400 }),
+			);
+			vi.advanceTimersByTime(16);
+		});
+
+		act(() => {
+			window.dispatchEvent(new MouseEvent("mouseup", {}));
+		});
+
+		expect(result.current.isZooming).toBe(false);
+		expect(mockSyncViewport).toHaveBeenCalled();
+		expect(mockOnPanEnd).toHaveBeenCalled();
+	});
+
+	it("ignores a box zoom smaller than the threshold", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		act(() => {
+			result.current.handleMouseDown(
+				{
+					clientX: 100,
+					clientY: 100,
+					button: 0,
+					ctrlKey: true,
+				} as unknown as React.MouseEvent,
+				"all",
+			);
+		});
+
+		// Move only 2px — below the 5px threshold, so no zoom is applied.
+		act(() => {
+			window.dispatchEvent(
+				new MouseEvent("mousemove", { clientX: 102, clientY: 102 }),
+			);
+			vi.advanceTimersByTime(16);
+		});
+		act(() => {
+			window.dispatchEvent(new MouseEvent("mouseup", {}));
+		});
+
+		expect(result.current.isZooming).toBe(false);
+		expect(mockSyncViewport).not.toHaveBeenCalled();
+	});
+
+	it("zooms via wheel and ends the gesture after the debounce timeout", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		act(() => {
+			result.current.handleWheel(
+				{
+					clientX: 400,
+					clientY: 300,
+					deltaY: 100,
+					shiftKey: false,
+				} as unknown as React.WheelEvent,
+				"all",
+			);
+		});
+
+		expect(result.current.isInteracting).toBe(true);
+		expect(mockSyncViewport).toHaveBeenCalled();
+
+		// The 300ms debounce fires onPanEnd and clears the wheeling state.
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		expect(result.current.isInteracting).toBe(false);
+		expect(mockOnPanEnd).toHaveBeenCalled();
+	});
+
+	it("pans on a single raw touch move", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		act(() => {
+			result.current.handleTouchStart(
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				"all",
+			);
+		});
+
+		act(() => {
+			dispatchTouch("touchmove", [{ clientX: 160, clientY: 130 }]);
+		});
+
+		// Dragging right pans the X viewport left of its origin.
+		expect(baseOptions.targetXAxes.current["x1"].min).toBeLessThan(0);
+
+		act(() => {
+			dispatchTouch("touchend", []);
+		});
+		expect(mockOnPanEnd).toHaveBeenCalled();
+		expect(result.current.panTarget).toBeNull();
+	});
+
+	it("zooms on a two-finger pinch gesture", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		act(() => {
+			result.current.handleTouchStart(
+				{
+					touches: [
+						{ clientX: 300, clientY: 300 },
+						{ clientX: 500, clientY: 300 },
+					],
+				} as unknown as React.TouchEvent,
+				"all",
+			);
+		});
+
+		// Spread the fingers apart → zoom in.
+		act(() => {
+			dispatchTouch("touchmove", [
+				{ clientX: 250, clientY: 300 },
+				{ clientX: 550, clientY: 300 },
+			]);
+		});
+
+		expect(mockSyncViewport).toHaveBeenCalled();
+
+		act(() => {
+			dispatchTouch("touchend", []);
+		});
+		expect(result.current.panTarget).toBeNull();
+	});
+
+	it("auto-scales a single Y axis on double-tap of a y-axis target", () => {
+		const { result } = renderHook(() => usePanZoom(baseOptions));
+
+		const target = { yAxisId: "y1" } as unknown as Parameters<
+			typeof result.current.handleTouchStart
+		>[1];
+
+		act(() => {
+			result.current.handleTouchStart(
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				target,
+			);
+		});
+		act(() => {
+			result.current.handleTouchStart(
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				target,
+			);
+		});
+
+		expect(mockHandleAutoScaleY).toHaveBeenCalledWith("y1", expect.any(Number));
+	});
 });
