@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { compileFormula, evaluateFormulaSync } from "../formula";
+import {
+	compileFormula,
+	evaluateFormulaSync,
+	type FormulaWorkerParams,
+} from "../formula";
 
 describe("compileFormula", () => {
 	const columns = ["Timestamp", "Temp", "Hum", "Press"];
@@ -591,5 +595,194 @@ describe("evaluateFormulaSync", () => {
 		}
 
 		matchSpy.mockRestore();
+	});
+});
+
+describe("evaluateFormulaSync — success paths", () => {
+	// Build worker params the way useGraphStore does: columnData is ordered to
+	// match compileFormula's usedColumnIndices. `fullColumns` is indexed by the
+	// global column index.
+	function buildParams(
+		formula: string,
+		columns: string[],
+		fullColumns: number[][],
+	): FormulaWorkerParams {
+		const { usedColumnIndices } = compileFormula(formula, columns);
+		const rowCount = fullColumns[0].length;
+		const columnData = usedColumnIndices.map((idx) => ({
+			data: Float32Array.from(fullColumns[idx]),
+			refPoint: 0,
+		}));
+		return { datasetId: "d1", name: "calc", formula, columns, rowCount, columnData };
+	}
+
+	function decode(col: {
+		data: Float32Array | Float64Array;
+		refPoint: number;
+	}): number[] {
+		return Array.from(col.data, (v) => v + col.refPoint);
+	}
+
+	it("evaluates a plain arithmetic formula across all rows", () => {
+		const params = buildParams(
+			"[Temp] * 2",
+			["Time", "Temp"],
+			[
+				[0, 1, 2, 3],
+				[10, 20, 30, 40],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			const decoded = decode(result.newColumn);
+			[20, 40, 60, 80].forEach((v, i) => expect(decoded[i]).toBeCloseTo(v, 3));
+			expect(result.sparseXColumn).toBeUndefined();
+		}
+	});
+
+	it("returns an error for an invalid (non-compiling) formula", () => {
+		const result = evaluateFormulaSync({
+			datasetId: "d1",
+			name: "calc",
+			formula: "unknownfn([A])",
+			columns: ["A"],
+			rowCount: 1,
+			columnData: [{ data: Float32Array.from([1]), refPoint: 0 }],
+		});
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.error).toContain("Unknown function");
+		}
+	});
+
+	it("evaluates a linear regression formula via the regression path", () => {
+		// y = 2x + 1
+		const result = evaluateFormulaSync({
+			datasetId: "d1",
+			name: "fit",
+			formula: "linreg([Y])",
+			columns: ["X", "Y"],
+			rowCount: 5,
+			columnData: [
+				{ data: Float32Array.from([0, 1, 2, 3, 4]), refPoint: 0 },
+				{ data: Float32Array.from([1, 3, 5, 7, 9]), refPoint: 0 },
+			],
+		});
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			const decoded = decode(result.newColumn);
+			expect(decoded[0]).toBeCloseTo(1, 1);
+			expect(decoded[4]).toBeCloseTo(9, 1);
+		}
+	});
+
+	it("evaluates an avgDay group average into a sparse X/Y pair", () => {
+		const day1 = Date.UTC(2020, 0, 1, 12, 0, 0); // ms (> 1e11 ⇒ used as-is)
+		const day2 = Date.UTC(2020, 0, 2, 12, 0, 0);
+		const params = buildParams(
+			"avgDay([Value])",
+			["Time", "Value"],
+			[
+				[day1, day1 + 3.6e6, day2, day2 + 3.6e6],
+				[10, 20, 100, 200],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			expect(result.newColumn.data.length).toBe(2);
+			const decoded = decode(result.newColumn);
+			[15, 150].forEach((v, i) => expect(decoded[i]).toBeCloseTo(v, 2));
+			expect(result.sparseXColumn).toBeDefined();
+			expect(result.sparseXColumn?.data.length).toBe(2);
+		}
+	});
+
+	it("returns an error when the group-average column is missing", () => {
+		const result = evaluateFormulaSync({
+			datasetId: "d1",
+			name: "calc",
+			formula: "avgDay([Missing])",
+			columns: ["Time", "Value"],
+			rowCount: 1,
+			columnData: [{ data: Float32Array.from([0]), refPoint: 0 }],
+		});
+		expect(result.type).toBe("error");
+	});
+
+	it("applies center alignment for legacy rolling averages (avgNc)", () => {
+		const params = buildParams(
+			"avg3c([Temp])",
+			["Time", "Temp"],
+			[
+				[0, 1, 2, 3, 4],
+				[0, 10, 20, 30, 40],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			// Unaligned avg3 = [0,5,10,20,30]; center shift of 1 pulls each value
+			// one row earlier, clamping the tail.
+			const decoded = decode(result.newColumn);
+			[5, 10, 20, 30, 30].forEach((v, i) =>
+				expect(decoded[i]).toBeCloseTo(v, 2),
+			);
+		}
+	});
+
+	it("applies right alignment for legacy rolling averages (avgNr)", () => {
+		const params = buildParams(
+			"avg3r([Temp])",
+			["Time", "Temp"],
+			[
+				[0, 1, 2, 3, 4],
+				[0, 10, 20, 30, 40],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			// Right shift of 2 over avg3 = [0,5,10,20,30] ⇒ [10,20,30,30,30].
+			const decoded = decode(result.newColumn);
+			[10, 20, 30, 30, 30].forEach((v, i) =>
+				expect(decoded[i]).toBeCloseTo(v, 2),
+			);
+		}
+	});
+
+	it("handles the new-form rolling(...) literal-argument alignment", () => {
+		const params = buildParams(
+			"rollingC([Temp], 3)",
+			["Time", "Temp"],
+			[
+				[0, 1, 2, 3, 4],
+				[0, 10, 20, 30, 40],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			const decoded = decode(result.newColumn);
+			expect(decoded).toHaveLength(5);
+			decoded.forEach((v) => expect(Number.isFinite(v)).toBe(true));
+		}
+	});
+
+	it("handles the new-form rollingTime(...) alignment with a time window", () => {
+		const params = buildParams(
+			"rollingTimeC([Temp], 2)",
+			["Time", "Temp"],
+			[
+				[1000, 1001, 1002, 1003, 1004],
+				[0, 10, 20, 30, 40],
+			],
+		);
+		const result = evaluateFormulaSync(params);
+		expect(result.type).toBe("success");
+		if (result.type === "success") {
+			expect(decode(result.newColumn)).toHaveLength(5);
+		}
 	});
 });

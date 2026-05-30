@@ -151,7 +151,7 @@ describe("secureJSONParse", () => {
 	it("should handle null thrown values gracefully", () => {
 		const originalParse = JSON.parse;
 		JSON.parse = vi.fn().mockImplementation(() => {
-			throw null; // eslint-disable-line no-throw-literal
+			throw null;
 		});
 
 		try {
