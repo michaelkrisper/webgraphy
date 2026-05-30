@@ -577,6 +577,18 @@ describe("downloadFile", () => {
 		);
 	});
 
+	it("should throw an error if atob fails on invalid base64 data", () => {
+		expect(() =>
+			downloadFile("data:image/png;base64,invalid!base64", "test.png", "image/png"),
+		).toThrow("Unsafe data URL scheme detected");
+	});
+
+	it("should throw an error if decodeURIComponent fails on invalid data", () => {
+		expect(() =>
+			downloadFile("data:text/plain,%E0%A4%A", "test.txt", "text/plain"),
+		).toThrow("Unsafe data URL scheme detected");
+	});
+
 	it("should throw an error for implicit text/plain data URLs", () => {
 		expect(() => downloadFile("data:,1234", "test.html", "text/html")).toThrow(
 			"Unsafe data URL scheme detected",
