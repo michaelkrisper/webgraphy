@@ -469,5 +469,24 @@ describe("persistence", () => {
 			);
 			consoleSpy.mockRestore();
 		});
+
+		it("should catch error when putAppState fails", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			const error = new Error("Put failed");
+			const mockDb = {
+				put: vi.fn().mockRejectedValue(error),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+
+			await persistence.saveViewport({ xAxes: [], yAxes: [] });
+
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to save viewport:",
+				expect.any(Error),
+			);
+			consoleSpy.mockRestore();
+		});
 	});
 });
