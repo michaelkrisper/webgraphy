@@ -6,12 +6,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Minimal by default; the deploy job elevates its own permissions.
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   quality:
@@ -30,3 +34,23 @@ jobs:
         run: pnpm exec vitest run --coverage
       - name: Build
         run: pnpm run build
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    # Only deploy a green build of master; reuses the artifact from quality.
+    needs: quality
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
