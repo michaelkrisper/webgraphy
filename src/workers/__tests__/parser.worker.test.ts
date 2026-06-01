@@ -62,46 +62,22 @@ describe("parser.worker", () => {
     );
   });
 
-  it("should handle Error object from parseData", async () => {
+  // Covers both branches of the `err instanceof Error ? err.message : String(err)`
+  // normalization in the worker's catch block.
+  it.each([
+    { label: "Error object", thrown: new Error("Parse failed"), error: "Parse failed" },
+    { label: "string", thrown: "String error", error: "String error" },
+  ])("reports a $label rejection from parseData as an error", async ({ thrown, error }) => {
     const mockFile = new File(["dummy"], "test.csv", { type: "text/csv" });
-    vi.mocked(parseData).mockRejectedValue(new Error("Parse failed"));
+    vi.mocked(parseData).mockRejectedValue(thrown);
 
     const event = new MessageEvent("message", {
-      data: {
-        id: 2,
-        file: mockFile,
-        type: "csv",
-      },
+      data: { id: 2, file: mockFile, type: "csv" },
     });
 
     await (self as WorkerSelf).onmessage?.(event);
 
-    expect(postMessageMock).toHaveBeenCalledWith({
-      id: 2,
-      type: "error",
-      error: "Parse failed",
-    });
-  });
-
-  it("should handle string error from parseData", async () => {
-    const mockFile = new File(["dummy"], "test.csv", { type: "text/csv" });
-    vi.mocked(parseData).mockRejectedValue("String error");
-
-    const event = new MessageEvent("message", {
-      data: {
-        id: 3,
-        file: mockFile,
-        type: "csv",
-      },
-    });
-
-    await (self as WorkerSelf).onmessage?.(event);
-
-    expect(postMessageMock).toHaveBeenCalledWith({
-      id: 3,
-      type: "error",
-      error: "String error",
-    });
+    expect(postMessageMock).toHaveBeenCalledWith({ id: 2, type: "error", error });
   });
 
   it("should handle error thrown when postMessage fails (e.g., DataCloneError)", async () => {

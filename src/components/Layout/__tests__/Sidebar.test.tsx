@@ -142,15 +142,6 @@ describe("Sidebar Component", () => {
 		expect(sidebar).toBeInTheDocument();
 	});
 
-	it("can be collapsed and expanded", () => {
-		// Start with a large window so it's not initially collapsed
-		window.innerWidth = 1024;
-		render(<Sidebar />);
-
-		// Check it's not collapsed (sidebar-content visible)
-		screen.getByRole("complementary");
-	});
-
 	it("opens modals when links are clicked", () => {
 		render(<Sidebar />);
 

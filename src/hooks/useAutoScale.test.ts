@@ -21,32 +21,6 @@ describe("useAutoScale", () => {
 	const basePadding = { top: 10, right: 10, bottom: 10, left: 10 };
 	const baseChartHeight = 500;
 
-	it("should initialize and return handlers", () => {
-		const syncViewport = vi.fn();
-		const targetXAxes = { current: {} };
-		const targetYs = { current: {} };
-
-		const { result } = renderHook(() =>
-			useAutoScale({
-				isLoaded: true,
-				series: [],
-				datasets: [],
-				xAxes: [],
-				activeYAxes: [],
-				activeXAxesUsed: [],
-				padding: basePadding,
-				chartHeight: baseChartHeight,
-				targetXAxes,
-				targetYs,
-				syncViewport,
-			}),
-		);
-
-		expect(result.current.handleAutoScaleY).toBeInstanceOf(Function);
-		expect(result.current.handleAutoScaleX).toBeInstanceOf(Function);
-		expect(result.current.handleStackedFit).toBeInstanceOf(Function);
-	});
-
 	describe("handleAutoScaleY", () => {
 		it("should scale Y axis when mouseY is undefined (full fit)", () => {
 			const syncViewport = vi.fn();

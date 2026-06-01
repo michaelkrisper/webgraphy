@@ -52,8 +52,10 @@ describe("colors", () => {
 			expect(hexToRgb("\n\t")).toEqual({ r: 0, g: 0, b: 0 });
 		});
 
-		it("should handle valid hex strings with surrounding whitespace", () => {
-			expect(hexToRgb("  #ff0000  ")).toEqual({ r: 0, g: 0, b: 0 }); // Note: HEX_RE expects exactly the hex string, no spaces allowed around it.
+		it("should reject hex strings padded with surrounding whitespace", () => {
+			// HEX_RE matches the exact hex string, so any surrounding whitespace
+			// makes the input invalid and it falls back to black.
+			expect(hexToRgb("  #ff0000  ")).toEqual({ r: 0, g: 0, b: 0 });
 			expect(hexToRgb(" \n#00ff00\t ")).toEqual({ r: 0, g: 0, b: 0 });
 		});
 
@@ -179,30 +181,6 @@ describe("colors", () => {
 			expect(blue.r).toBeLessThanOrEqual(1);
 			expect(blue.g).toBeLessThanOrEqual(1);
 			expect(blue.b).toBeGreaterThanOrEqual(254);
-		});
-
-		it("should be the inverse of rgbToLch for standard colors", () => {
-			const colors = [
-				{ r: 0, g: 0, b: 0 },
-				{ r: 255, g: 255, b: 255 },
-				{ r: 255, g: 0, b: 0 },
-				{ r: 0, g: 255, b: 0 },
-				{ r: 0, g: 0, b: 255 },
-				{ r: 128, g: 128, b: 128 },
-				{ r: 255, g: 255, b: 0 },
-				{ r: 0, g: 255, b: 255 },
-				{ r: 255, g: 0, b: 255 },
-			];
-
-			for (const c of colors) {
-				const lch = rgbToLch(c.r, c.g, c.b);
-				const rgb = lchToRgb(lch.L, lch.C, lch.h);
-
-				// Allow small precision differences
-				expect(Math.abs(rgb.r - c.r)).toBeLessThanOrEqual(1);
-				expect(Math.abs(rgb.g - c.g)).toBeLessThanOrEqual(1);
-				expect(Math.abs(rgb.b - c.b)).toBeLessThanOrEqual(1);
-			}
 		});
 
 		it("should be the inverse of rgbToLch for a wide color spectrum", () => {

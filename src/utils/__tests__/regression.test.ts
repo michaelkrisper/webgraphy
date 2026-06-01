@@ -106,6 +106,14 @@ describe("Regression Utilities", () => {
 			expect(result[3]).toBeCloseTo(y[3], 2);
 		});
 
+		it("should fit exponential decay y = e^(-x)", () => {
+			const x = new Float64Array([0, 1, 2, 3]);
+			const y = new Float64Array([1, Math.exp(-1), Math.exp(-2), Math.exp(-3)]);
+			const result = exponentialRegression(x, y);
+			expect(result[0]).toBeCloseTo(y[0], 2);
+			expect(result[3]).toBeCloseTo(y[3], 2);
+		});
+
 		it("should handle non-positive y values by shifting", () => {
 			const x = new Float64Array([0, 1, 2]);
 			const y = new Float64Array([-1, 0, 1]);
@@ -160,6 +168,18 @@ describe("Regression Utilities", () => {
 			const result = kdeSmoothing(x, y);
 			expect(result.length).toBe(6);
 			expect(result[0]).toBeCloseTo(1, 0);
+		});
+
+		it("smooths more aggressively with a larger explicit bandwidth", () => {
+			const x = new Float64Array([1, 2, 3]);
+			const y = new Float64Array([0, 10, 0]);
+			const resultSmall = kdeSmoothing(x, y, 0.1);
+			const resultLarge = kdeSmoothing(x, y, 2.0);
+			// Small bandwidth stays close to the original peak...
+			expect(resultSmall[1]).toBeCloseTo(10, 0);
+			// ...while a large bandwidth pulls the peak down and lifts the edges.
+			expect(resultLarge[1]).toBeLessThan(7);
+			expect(resultLarge[0]).toBeGreaterThan(0.5);
 		});
 
 		it("should fallback when stdX is 0 (all x identical)", () => {

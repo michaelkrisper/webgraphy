@@ -153,9 +153,8 @@ describe("ChartContainer", () => {
 		expect(screen.getByTestId("import-settings-dialog")).toBeInTheDocument();
 	});
 
-	it("handles mouse wheel zoom correctly", async () => {
-		const mockUpdateAxis = vi.fn();
-    const mockBatchUpdateAxes = vi.fn();
+	it("wires wheel and keyboard interactions on the chart surface without crashing", async () => {
+		const mockBatchUpdateAxes = vi.fn();
 		(useGraphStore as any).mockImplementation((selector: any) => {
 			const state = {
         datasets: [{
@@ -171,7 +170,6 @@ describe("ChartContainer", () => {
 				highlightedSeriesId: null,
 				legendVisible: true,
 				crosshairVisible: true,
-				updateAxis: mockUpdateAxis,
 				setCrosshairData: vi.fn(),
         batchUpdateAxes: mockBatchUpdateAxes,
 			};
@@ -181,57 +179,17 @@ describe("ChartContainer", () => {
 		render(<ChartContainer width={800} height={600} themeName="light" />);
 
 		const container = screen.getByRole("main");
+		// Exercise the wheel + keyboard handlers ChartContainer attaches. The
+		// resulting viewport math is covered by the usePanZoom tests; here we only
+		// assert the surface stays mounted and interactive after the events fire.
 		fireEvent.wheel(container, { clientX: 400, clientY: 300, deltaY: 100 });
-
-    await new Promise(r => setTimeout(r, 50));
-
-		// Since syncViewport is wrapped in requestAnimationFrame and checks store equality,
-		// we can verify no crash occurred. The actual state updates are tested via usePanZoom tests.
-		expect(true).toBe(true);
-	});
-
-	it("handles keyboard panning and zooming", async () => {
-		const mockUpdateAxis = vi.fn();
-    const mockBatchUpdateAxes = vi.fn();
-		(useGraphStore as any).mockImplementation((selector: any) => {
-			const state = {
-        datasets: [{
-            id: "d1", name: "D1", columns: ["A: 1", "B: 2"],
-            data: [{ name: "A: 1", bounds: { min: 0, max: 10 } }, { name: "B: 2", bounds: { min: 0, max: 10 } }],
-            xAxisColumn: "A: 1",
-            xAxisId: "x1"
-        }],
-        series: [{ id: "s1", sourceId: "d1", type: "line", xCol: "A: 1", yCol: "B: 2", yAxisId: "y1" }],
-				xAxes: [{ id: "x1", min: 0, max: 10, position: "bottom" }],
-				yAxes: [{ id: "y1", min: 0, max: 10, position: "left" }],
-				isLoaded: true,
-				highlightedSeriesId: null,
-				legendVisible: true,
-				crosshairVisible: true,
-				updateAxis: mockUpdateAxis,
-				setCrosshairData: vi.fn(),
-        batchUpdateAxes: mockBatchUpdateAxes,
-			};
-			return selector(state);
-		});
-
-		render(<ChartContainer width={800} height={600} themeName="light" />);
-
-		const container = screen.getByRole("main");
-
-		// Focus and press arrow key (pan)
 		container.focus();
 		fireEvent.keyDown(container, { key: "ArrowRight", code: "ArrowRight" });
-
-    await new Promise(r => setTimeout(r, 50));
-
-		// Press + key (zoom in)
 		fireEvent.keyDown(container, { key: "+", code: "Equal" });
 
-    await new Promise(r => setTimeout(r, 50));
+		await new Promise((r) => setTimeout(r, 50));
 
-		// Since syncViewport is wrapped in requestAnimationFrame and checks store equality,
-		// we can verify no crash occurred. The actual state updates are tested via usePanZoom tests.
-		expect(true).toBe(true);
+		expect(container).toBeInTheDocument();
+		expect(screen.getByTestId("webgl-renderer")).toBeInTheDocument();
 	});
 });
