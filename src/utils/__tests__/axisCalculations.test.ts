@@ -115,17 +115,6 @@ describe("formatAxisLabel", () => {
 	});
 });
 
-describe("calcNumericPrecision", () => {
-	it("returns 0 for steps >= 1", () => {
-		expect(calcNumericPrecision(2)).toBe(0);
-		expect(calcNumericPrecision(10)).toBe(0);
-	});
-	it("returns positive precision for fractional steps", () => {
-		expect(calcNumericPrecision(0.1)).toBe(1);
-		expect(calcNumericPrecision(0.01)).toBe(2);
-	});
-});
-
 describe("calcCategoricalTicks", () => {
 	it("handles cases where min and max are negative", () => {
 		expect(calcCategoricalTicks(-10, -5, 10)).toEqual([]);

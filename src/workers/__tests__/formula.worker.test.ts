@@ -73,11 +73,15 @@ describe("formula.worker", () => {
     );
   });
 
-  it("should process error evaluation (Error object)", async () => {
+  // Covers both branches of the error normalization in the worker's catch block.
+  it.each([
+    { label: "Error object", thrown: new Error("Test Error"), error: "Test Error" },
+    { label: "string", thrown: "String Error", error: "String Error" },
+  ])("reports a thrown $label as an error response", async ({ thrown, error }) => {
     await import("../formula.worker");
 
     evaluateFormulaSyncMock.mockImplementation(() => {
-      throw new Error("Test Error");
+      throw thrown;
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,26 +92,7 @@ describe("formula.worker", () => {
     expect(globalThis.postMessage).toHaveBeenCalledWith({
       id: 123,
       type: "error",
-      error: "Test Error",
-    });
-  });
-
-  it("should process error evaluation (string)", async () => {
-    await import("../formula.worker");
-
-    evaluateFormulaSyncMock.mockImplementation(() => {
-      throw "String Error";
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onmessage = (globalThis as any).onmessage;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onmessage({ data: { id: 123, formulaId: "test-id" } } as any);
-
-    expect(globalThis.postMessage).toHaveBeenCalledWith({
-      id: 123,
-      type: "error",
-      error: "String Error",
+      error,
     });
   });
 });

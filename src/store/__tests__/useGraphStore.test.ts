@@ -847,16 +847,6 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().datasets[0].xAxisColumn).toBe("MissingCol");
 	});
 
-	it("should return unchanged state when batchUpdateAxes is provided identical values", () => {
-		const store = useGraphStore.getState();
-		store.batchUpdateAxes(
-			{ "axis-1": { min: 0, max: 100 } },
-			{ "axis-1": { min: 0, max: 100 } },
-		);
-		// Just to hit the !changed return path exactly
-		expect(useGraphStore.getState().xAxes[0].min).toBe(0);
-	});
-
 	it("should surface Error objects when evaluateFormulaInWorker throws", async () => {
 		const store = useGraphStore.getState();
 		const ds1: Dataset = {

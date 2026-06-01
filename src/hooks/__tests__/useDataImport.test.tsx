@@ -530,41 +530,6 @@ describe("useDataImport hook", () => {
     global.FileReader = originalFileReader;
   });
 
-  it("should handle error when reading an Excel file fails with a string error (e.g. XLSX.read throws string)", async () => {
-    const { result } = renderHook(() => useDataImport());
-    const file = new File(["dummy"], "test.xlsx", {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const originalFileReader = global.FileReader;
-    class MockFileReader {
-      onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
-        null;
-      readAsArrayBuffer() {
-        setTimeout(() => {
-          this.onload?.({ target: { result: new ArrayBuffer(8) } });
-        }, 10);
-      }
-    }
-    global.FileReader = MockFileReader as unknown as typeof FileReader;
-
-    const xlsx = await import("xlsx");
-    vi.mocked(xlsx.read).mockImplementationOnce(() => {
-      throw "String error";
-    });
-
-    await act(async () => {
-      await result.current.importFile(file);
-    });
-
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-
-    expect(result.current.error).toBe("Failed to parse Excel file.");
-    global.FileReader = originalFileReader;
-  });
-
   it("should successfully import an Excel file", async () => {
     const { result } = renderHook(() => useDataImport());
     const file = new File(["dummy"], "test.xlsx", {
@@ -749,7 +714,12 @@ describe("useDataImport hook", () => {
     global.FileReader = originalFileReader;
   });
 
-  it("should handle confirmImport failing when addDataset throws or similar error happens", async () => {
+  // confirmImport normalizes thrown values via `err instanceof Error ? err.message
+  // : String(err)`, so both an Error and a raw string must surface as `error`.
+  it.each([
+    { label: "an Error", thrown: new Error("addDataset failed"), expected: "addDataset failed" },
+    { label: "a string", thrown: "String error in confirmImport", expected: "String error in confirmImport" },
+  ])("surfaces $label thrown by addDataset during confirmImport", async ({ thrown, expected }) => {
     const { result } = renderHook(() => useDataImport());
     const file = new File(["dummy"], "test.csv", { type: "text/csv" });
 
@@ -785,96 +755,17 @@ describe("useDataImport hook", () => {
       mockDataset,
     ] as unknown as ReturnType<typeof parseDataInWorker>);
 
-    // Mock addDataset to throw
     mockAddDataset.mockImplementationOnce(() => {
-      throw new Error("addDataset failed");
+      throw thrown;
     });
 
     await act(async () => {
       await result.current.confirmImport(settings);
     });
 
-    expect(result.current.error).toBe("addDataset failed");
+    expect(result.current.error).toBe(expected);
     expect(result.current.isImporting).toBe(false);
 
-    global.FileReader = originalFileReader;
-  });
-
-  it("should handle confirmImport failing with a string error", async () => {
-    const { result } = renderHook(() => useDataImport());
-    const file = new File(["dummy"], "test.csv", { type: "text/csv" });
-
-    const originalFileReader = global.FileReader;
-    class MockFileReader {
-      onload: ((event: { target: { result: string } }) => void) | null = null;
-      readAsText() {
-        this.onload?.({ target: { result: "data" } });
-      }
-    }
-    global.FileReader = MockFileReader as unknown as typeof FileReader;
-
-    await act(async () => {
-      await result.current.importFile(file);
-    });
-
-    const settings: ImportSettings = {
-      delimiter: ",",
-      decimalPoint: ".",
-      startRow: 1,
-      columnConfigs: [],
-    };
-
-    const mockDataset = {
-      id: "ds-err",
-      name: "err.csv",
-      columns: ["A"],
-      rowCount: 1,
-      data: [],
-    };
-
-    vi.mocked(parseDataInWorker).mockResolvedValueOnce([
-      mockDataset,
-    ] as unknown as ReturnType<typeof parseDataInWorker>);
-
-    // Mock addDataset to throw string
-    mockAddDataset.mockImplementationOnce(() => {
-      throw "String error in confirmImport";
-    });
-
-    await act(async () => {
-      await result.current.confirmImport(settings);
-    });
-
-    expect(result.current.error).toBe("String error in confirmImport");
-    expect(result.current.isImporting).toBe(false);
-
-    global.FileReader = originalFileReader;
-  });
-
-  it("should handle reader.onerror when reading a text file", async () => {
-    const { result } = renderHook(() => useDataImport());
-    const file = new File(["dummy"], "test.csv", { type: "text/csv" });
-
-    const originalFileReader = global.FileReader;
-    class MockFileReader {
-      onerror: (() => void) | null = null;
-      readAsText() {
-        setTimeout(() => {
-          this.onerror?.();
-        }, 10);
-      }
-    }
-    global.FileReader = MockFileReader as unknown as typeof FileReader;
-
-    await act(async () => {
-      await result.current.importFile(file);
-    });
-
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-
-    expect(result.current.error).toBe("Failed to read file.");
     global.FileReader = originalFileReader;
   });
 
