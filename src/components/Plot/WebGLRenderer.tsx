@@ -474,6 +474,7 @@ export const WebGLRenderer = React.memo(
 		}, [props]);
 
 		const previewColor = useGraphStore((state) => state.previewColor);
+		const previewStyle = useGraphStore((state) => state.previewStyle);
 
 		useImperativeHandle(
 			ref,
@@ -583,6 +584,8 @@ export const WebGLRenderer = React.memo(
 				yIdx: number;
 				lineColorRgba: number[];
 				pointColorRgba: number[];
+				lineStyle: SeriesConfig["lineStyle"];
+				pointStyle: SeriesConfig["pointStyle"];
 			}[] = [];
 
 			for (let i = 0; i < series.length; i++) {
@@ -605,6 +608,9 @@ export const WebGLRenderer = React.memo(
 					? previewColor.color
 					: s.pointColor;
 
+				const stylePreview =
+					previewStyle?.seriesId === s.id ? previewStyle : null;
+
 				result.push({
 					series: s,
 					ds,
@@ -612,11 +618,13 @@ export const WebGLRenderer = React.memo(
 					yIdx,
 					lineColorRgba: hexToRgba(effectiveLineColor),
 					pointColorRgba: hexToRgba(effectivePointColor),
+					lineStyle: stylePreview?.lineStyle ?? s.lineStyle,
+					pointStyle: stylePreview?.pointStyle ?? s.pointStyle,
 				});
 			}
 
 			return result;
-		}, [datasets, series, previewColor]);
+		}, [datasets, series, previewColor, previewStyle]);
 
 		useEffect(() => {
 			liveXAxesRef.current = xAxes;
@@ -708,6 +716,8 @@ export const WebGLRenderer = React.memo(
 						yIdx,
 						lineColorRgba,
 						pointColorRgba,
+						lineStyle,
+						pointStyle,
 					} = seriesMetadata[idx];
 
 					const xAxis = getAxisById(currentXAxes, ds.xAxisId || DEFAULT_X_AXIS_ID);
@@ -795,8 +805,8 @@ export const WebGLRenderer = React.memo(
 						yBuffer,
 						sliceStart,
 						sliceEnd,
-						lineStyle: s.lineStyle,
-						pointStyle: s.pointStyle,
+						lineStyle,
+						pointStyle,
 					};
 
 					drawSeriesLines(

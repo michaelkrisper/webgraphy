@@ -149,6 +149,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const updateSeriesVisibility = useGraphStore((s) => s.updateSeriesVisibility);
 	const allSeries = useGraphStore((s) => s.series);
 	const setPreviewColor = useGraphStore((s) => s.setPreviewColor);
+	const setPreviewStyle = useGraphStore((s) => s.setPreviewStyle);
 
 	const multiDs = datasets.length > 1;
 	const handleUpdate = (updates: Partial<SeriesConfig>) => {
@@ -280,6 +281,9 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				options={LINE_OPTIONS}
 				current={series.lineStyle as LineStyle}
 				onChange={(v) => handleUpdate({ lineStyle: v })}
+				onHoverOption={(v) =>
+					setPreviewStyle(v ? { seriesId: series.id, lineStyle: v } : null)
+				}
 				popoverId={`line-style-popover-${series.id}`}
 				renderTrigger={({ onClick, ref }) => (
 					<button
@@ -300,6 +304,9 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				options={POINT_OPTIONS}
 				current={series.pointStyle as PointStyle}
 				onChange={(v) => handleUpdate({ pointStyle: v })}
+				onHoverOption={(v) =>
+					setPreviewStyle(v ? { seriesId: series.id, pointStyle: v } : null)
+				}
 				popoverId={`point-style-popover-${series.id}`}
 				renderTrigger={({ onClick, ref }) => (
 					<button

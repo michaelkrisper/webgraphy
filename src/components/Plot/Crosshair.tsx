@@ -425,7 +425,6 @@ const Crosshair = React.memo(
 						if (!itemNode) {
 							itemNode = document.createElement("div");
 							itemNode.className = "chart-tooltip-item-row";
-							itemNode.style.display = "contents"; // to let grid/flex work from parent if needed, or just normal block
 
 							const itemLabelSpan = document.createElement("span");
 							itemLabelSpan.className = "chart-tooltip-item-label";
@@ -442,7 +441,7 @@ const Crosshair = React.memo(
 							itemsDiv.appendChild(itemNode);
 						}
 
-						itemNode.style.display = "";
+						itemNode.hidden = false;
 						const itemLabelSpan = itemNode.children[0] as HTMLElement;
 						const intPartSpan = itemNode.children[1] as HTMLElement;
 						const decPartSpan = itemNode.children[2] as HTMLElement;
@@ -461,7 +460,7 @@ const Crosshair = React.memo(
 
 					// Hide remaining unused items in this group
 					while (itemNode) {
-						itemNode.style.display = "none";
+						itemNode.hidden = true;
 						itemNode = itemNode.nextElementSibling as HTMLElement | null;
 					}
 

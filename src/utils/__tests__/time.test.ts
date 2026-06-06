@@ -395,11 +395,28 @@ describe("generateSecondaryLabels", () => {
 		expect(labels[0].timestamp).toBe(1673654400); // 2023-01-14 (margin)
 	});
 
-	it("generates year labels when unit is day", () => {
+	it("generates MM/YYYY month labels when unit is day and there is room", () => {
 		const min = 1673740800; // 2023-01-15
 		const max = 1705276800; // 2024-01-15
 		const labels = generateSecondaryLabels(min, max, { unit: "day", value: 1 });
 		expect(labels.length).toBeGreaterThan(0);
+		// MM/YYYY format, monthly cadence, one month of margin before min.
+		expect(labels[0].label).toMatch(/^\d{2}\/\d{4}$/);
+		expect(labels[0].label).toBe("12/2022");
+		expect(labels[1].label).toBe("01/2023");
+		expect(labels[0].timestamp).toBe(1669852800); // 2022-12-01 UTC
+	});
+
+	it("falls back to year labels for day unit when months would be too tight", () => {
+		const min = 1673740800; // 2023-01-15
+		const max = 1705276800; // 2024-01-15
+		// Narrow chart: ~12 months can't fit, so use plain year labels.
+		const labels = generateSecondaryLabels(
+			min,
+			max,
+			{ unit: "day", value: 1 },
+			200,
+		);
 		expect(labels.map((l) => l.label)).toEqual([
 			"2022",
 			"2023",
@@ -409,7 +426,7 @@ describe("generateSecondaryLabels", () => {
 		expect(labels[0].timestamp).toBe(1640995200); // 2022-01-01
 	});
 
-	it("generates year labels when unit is week", () => {
+	it("generates MM/YYYY month labels when unit is week and there is room", () => {
 		const min = 1673740800; // 2023-01-15
 		const max = 1705276800; // 2024-01-15
 		const labels = generateSecondaryLabels(min, max, {
@@ -417,12 +434,8 @@ describe("generateSecondaryLabels", () => {
 			value: 2,
 		});
 		expect(labels.length).toBeGreaterThan(0);
-		expect(labels.map((l) => l.label)).toEqual([
-			"2022",
-			"2023",
-			"2024",
-			"2025",
-		]);
+		expect(labels[0].label).toMatch(/^\d{2}\/\d{4}$/);
+		expect(labels[0].label).toBe("12/2022");
 	});
 
 	it("generates year labels when unit is year", () => {

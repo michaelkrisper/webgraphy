@@ -1335,10 +1335,15 @@
 	font-variant-numeric: tabular-nums;
 }
 .chart-tooltip-items {
+	font-variant-numeric: tabular-nums;
+}
+.chart-tooltip-item-row {
 	display: grid;
 	grid-template-columns: auto auto auto;
 	column-gap: 0;
-	font-variant-numeric: tabular-nums;
+}
+.chart-tooltip-item-row[hidden] {
+	display: none;
 }
 .chart-tooltip-item-label {
 	padding-right: 4px;

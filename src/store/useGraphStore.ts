@@ -30,6 +30,18 @@ interface GraphState {
 	setPreviewColor: (
 		preview: { seriesId: string; color: string } | null,
 	) => void;
+	previewStyle: {
+		seriesId: string;
+		lineStyle?: SeriesConfig["lineStyle"];
+		pointStyle?: SeriesConfig["pointStyle"];
+	} | null;
+	setPreviewStyle: (
+		preview: {
+			seriesId: string;
+			lineStyle?: SeriesConfig["lineStyle"];
+			pointStyle?: SeriesConfig["pointStyle"];
+		} | null,
+	) => void;
 
 	// Actions
 	addDataset: (dataset: ParsedDataset & { xAxisId?: string }) => void;
@@ -122,6 +134,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 	previewColor: null,
 	setPreviewColor: (previewColor) => set({ previewColor }),
+	previewStyle: null,
+	setPreviewStyle: (previewStyle) => set({ previewStyle }),
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
 		const state = get();

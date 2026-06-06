@@ -130,6 +130,57 @@ describe("PopupPicker", () => {
 		expect(handleChange).not.toHaveBeenCalled();
 	});
 
+	it("fires onHoverOption with the value on hover and null on leave", () => {
+		const handleHover = vi.fn();
+		render(
+			<PopupPicker
+				options={mockOptions}
+				current="opt1"
+				onChange={vi.fn()}
+				onHoverOption={handleHover}
+				renderTrigger={({ onClick, ref }) => (
+					<button ref={ref} onClick={onClick} data-testid="trigger">
+						Trigger
+					</button>
+				)}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("trigger"));
+		const option = screen.getByText("Option 2").closest("button")!;
+
+		fireEvent.mouseEnter(option);
+		expect(handleHover).toHaveBeenLastCalledWith("opt2");
+
+		fireEvent.mouseLeave(option);
+		expect(handleHover).toHaveBeenLastCalledWith(null);
+	});
+
+	it("clears the hover preview when the popover closes", () => {
+		const handleHover = vi.fn();
+		render(
+			<PopupPicker
+				options={mockOptions}
+				current="opt1"
+				onChange={vi.fn()}
+				onHoverOption={handleHover}
+				renderTrigger={({ onClick, ref }) => (
+					<button ref={ref} onClick={onClick} data-testid="trigger">
+						Trigger
+					</button>
+				)}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("trigger"));
+		fireEvent.mouseEnter(screen.getByText("Option 2").closest("button")!);
+		handleHover.mockClear();
+
+		// Selecting an option closes the popover and must clear the preview.
+		fireEvent.click(screen.getByText("Option 1"));
+		expect(handleHover).toHaveBeenCalledWith(null);
+	});
+
 	it("closes popover when clicking outside", () => {
 		render(
 			<PopupPicker

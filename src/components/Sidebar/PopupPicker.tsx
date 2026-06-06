@@ -20,6 +20,8 @@ interface PopupPickerProps<T> {
 	}) => ReactNode;
 	popoverId?: string;
 	minWidth?: number;
+	/** Fired when an option is hovered (value) and when the hover leaves (null). */
+	onHoverOption?: (value: T | null) => void;
 }
 
 export function PopupPicker<T extends string | number>({
@@ -29,6 +31,7 @@ export function PopupPicker<T extends string | number>({
 	renderTrigger,
 	popoverId = "popup-picker-popover",
 	minWidth = 140,
+	onHoverOption,
 }: PopupPickerProps<T>) {
 	const [isOpen, setIsOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -64,8 +67,14 @@ export function PopupPicker<T extends string | number>({
 
 	const handleSelect = (value: T) => {
 		onChange(value);
+		onHoverOption?.(null);
 		setIsOpen(false);
 	};
+
+	// Clear any active hover preview when the popover closes for any reason.
+	useEffect(() => {
+		if (!isOpen) onHoverOption?.(null);
+	}, [isOpen, onHoverOption]);
 
 	return (
 		<>
@@ -85,6 +94,8 @@ export function PopupPicker<T extends string | number>({
 									type="button"
 									className={`popup-picker-item${isActive ? " popup-picker-item--active" : ""}`}
 									onClick={() => handleSelect(opt.value)}
+									onMouseEnter={() => onHoverOption?.(opt.value)}
+									onMouseLeave={() => onHoverOption?.(null)}
 									disabled={opt.disabled}
 								>
 									<span className="popup-picker-icon">{opt.icon}</span>

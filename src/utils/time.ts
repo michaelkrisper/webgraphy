@@ -185,10 +185,15 @@ export interface SecondaryLabel {
 	label: string;
 }
 
+/** Approx. width (px) reserved per "MM/YYYY" secondary label before it gets too
+ * tight and we fall back to plain year labels. */
+const MONTH_LABEL_MIN_PX = 64;
+
 export function generateSecondaryLabels(
 	min: number,
 	max: number,
 	step: TimeStep,
+	chartWidth = Infinity,
 ): SecondaryLabel[] {
 	const labels: SecondaryLabel[] = [];
 	const { unit } = step;
@@ -213,22 +218,50 @@ export function generateSecondaryLabels(
 			current = d.getTime() / 1000;
 			if (labels.length > MAX_SECONDARY_LABELS) break;
 		}
-	} else {
-		// day, week, month, year
-		d.setTime(min * 1000);
-		d.setHours(0, 0, 0, 0);
-		d.setMonth(0, 1);
-		d.setFullYear(d.getFullYear() - 1); // margin
-		let current = d.getTime() / 1000;
-		while (current <= max + 31536000) {
-			labels.push({
-				timestamp: current,
-				label: String(d.getFullYear()),
-			});
-			d.setFullYear(d.getFullYear() + 1);
-			current = d.getTime() / 1000;
-			if (labels.length > MAX_SECONDARY_LABELS) break;
+		return labels;
+	}
+
+	// day/week: prefer month-granular "MM/YYYY" labels, but if the range spans so
+	// many months they would crowd, fall back to plain year labels.
+	if (unit === "day" || unit === "week") {
+		const monthSpan = (max - min) / UNIT_SECONDS.month + 1;
+		const fitsMonths = monthSpan * MONTH_LABEL_MIN_PX <= chartWidth;
+		if (fitsMonths) {
+			d.setTime(min * 1000);
+			d.setHours(0, 0, 0, 0);
+			d.setDate(1);
+			d.setMonth(d.getMonth() - 1); // margin
+			let current = d.getTime() / 1000;
+			while (current <= max + UNIT_SECONDS.month) {
+				labels.push({
+					timestamp: current,
+					label: d.toLocaleDateString("de-DE", {
+						month: "2-digit",
+						year: "numeric",
+					}),
+				});
+				d.setMonth(d.getMonth() + 1);
+				current = d.getTime() / 1000;
+				if (labels.length > MAX_SECONDARY_LABELS) break;
+			}
+			return labels;
 		}
+	}
+
+	// month/year (and crowded day/week): year labels
+	d.setTime(min * 1000);
+	d.setHours(0, 0, 0, 0);
+	d.setMonth(0, 1);
+	d.setFullYear(d.getFullYear() - 1); // margin
+	let current = d.getTime() / 1000;
+	while (current <= max + 31536000) {
+		labels.push({
+			timestamp: current,
+			label: String(d.getFullYear()),
+		});
+		d.setFullYear(d.getFullYear() + 1);
+		current = d.getTime() / 1000;
+		if (labels.length > MAX_SECONDARY_LABELS) break;
 	}
 
 	return labels;

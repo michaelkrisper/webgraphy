@@ -111,7 +111,12 @@ export function buildXAxisLayout(
 			ticks: {
 				result: generateTimeTicks(axis.min, axis.max, ts),
 				isXDate: true as const,
-				secondaryLabels: generateSecondaryLabels(axis.min, axis.max, ts),
+				secondaryLabels: generateSecondaryLabels(
+					axis.min,
+					axis.max,
+					ts,
+					chartWidth,
+				),
 			},
 			title,
 			color,
