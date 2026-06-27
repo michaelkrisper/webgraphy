@@ -1,9 +1,3 @@
-// Reconcile axis-range updates produced during interactive panning/zooming
-// with the persisted store state. Filters out updates that match the current
-// store values within AXIS_EPSILON and only triggers a batched commit if any
-// axis actually moved. Extracted from ChartContainer so the filtering can be
-// unit-tested without spinning up the store.
-
 import { AXIS_EPSILON } from "../../utils/axisCalculations";
 
 export type AxisRangeUpdate = Record<string, { min: number; max: number }>;
@@ -20,6 +14,13 @@ interface StoreLike {
 	batchUpdateAxes(xUpdates: AxisRangeUpdate, yUpdates: AxisRangeUpdate): void;
 }
 
+/**
+ * Reconcile axis-range updates produced during interactive panning/zooming
+ * with the persisted store state. Filters out updates that match the current
+ * store values within AXIS_EPSILON and only triggers a batched commit if any
+ * axis actually moved. Extracted from ChartContainer so the filtering can be
+ * unit-tested without spinning up the store.
+ */
 export function syncStoreUpdates(
 	state: StoreLike,
 	xUpdates: AxisRangeUpdate,
