@@ -8,7 +8,14 @@ import {
 	calcYAxisTicks,
 	formatAxisLabel,
 	syncAxesWithTargets,
+	DEFAULT_X_AXIS_ID,
 } from "../axisCalculations";
+
+describe("DEFAULT_X_AXIS_ID", () => {
+	it("should have value 'axis-1'", () => {
+		expect(DEFAULT_X_AXIS_ID).toBe("axis-1");
+	});
+});
 
 describe("calcNumericStep", () => {
 	it("rounds to nice steps", () => {
