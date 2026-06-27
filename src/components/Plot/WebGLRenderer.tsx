@@ -521,8 +521,7 @@ export const WebGLRenderer = React.memo(
 			gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
 			gl.compileShader(fs);
 			if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-				console.error("FS Error:", gl.getShaderInfoLog(fs));
-				return;
+				throw new Error(`FS Error: ${gl.getShaderInfoLog(fs)}`);
 			}
 
 			const program = gl.createProgram();
