@@ -1,6 +1,7 @@
 // src/utils/__tests__/axisCalculations.test.ts
 import { describe, expect, it } from "vitest";
 import {
+	AXIS_EPSILON,
 	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
@@ -9,6 +10,12 @@ import {
 	formatAxisLabel,
 	syncAxesWithTargets,
 } from "../axisCalculations";
+
+describe("Constants", () => {
+	it("exports AXIS_EPSILON correctly", () => {
+		expect(AXIS_EPSILON).toBe(1e-10);
+	});
+});
 
 describe("calcNumericStep", () => {
 	it("rounds to nice steps", () => {
