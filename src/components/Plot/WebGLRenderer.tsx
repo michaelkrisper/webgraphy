@@ -512,8 +512,7 @@ export const WebGLRenderer = React.memo(
 			gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
 			gl.compileShader(vs);
 			if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-				console.error("VS Error:", gl.getShaderInfoLog(vs));
-				return;
+				throw new Error(`VS Error: ${gl.getShaderInfoLog(vs)}`);
 			}
 
 			const fs = gl.createShader(gl.FRAGMENT_SHADER);
@@ -521,8 +520,7 @@ export const WebGLRenderer = React.memo(
 			gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
 			gl.compileShader(fs);
 			if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-				console.error("FS Error:", gl.getShaderInfoLog(fs));
-				return;
+				throw new Error(`FS Error: ${gl.getShaderInfoLog(fs)}`);
 			}
 
 			const program = gl.createProgram();
@@ -531,8 +529,7 @@ export const WebGLRenderer = React.memo(
 			gl.attachShader(program, fs);
 			gl.linkProgram(program);
 			if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-				console.error("Link Error:", gl.getProgramInfoLog(program));
-				return;
+				throw new Error(`Link Error: ${gl.getProgramInfoLog(program)}`);
 			}
 			programRef.current = program;
 			const locs: WebGLLocations = {
