@@ -12,165 +12,18 @@ import type {
 	YAxisConfig,
 } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
-import { hexToRgba, hexToRgbaWithAlpha } from "../../utils/colors";
+import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
+import { buildOverlay, type OverlayInput } from "./buildOverlay";
+import type { OverlayState } from "./drawSeries";
 import {
-	type DecimEntry,
-	drawOverlay,
-	drawSeriesLines,
-	drawSeriesPoints,
-	type OverlayState,
-	type SegParams,
-	type SeriesDrawBundle,
-} from "./drawSeries";
-import { GLStateCache, type WebGLLocations } from "./GLStateCache";
-import { estimateOverlayVertexCount } from "./overlayAxes";
-import {
-	MAX_PIXEL_BUDGET_MULT,
-	updatePixelBudget,
-} from "./pixelBudget";
-import {
-	writeAxisArrows,
-	writeBackgroundQuad,
-	writeFramePlotBorder,
-	writeXAxisLines,
-	writeXGridLines,
-	writeXZeroLine,
-	writeYAxisLines,
-	writeYGridLines,
-	writeYZeroLines,
-	writeZeroLineArrows,
-} from "./overlayGeometry";
-import {
-	computeDataSlice,
-	computeDrawRanges,
-	getOrComputeMonotonicity,
-	getOrComputeSegments,
-} from "./seriesPrep";
+	acquireRenderBackend,
+	releaseRenderBackend,
+	type RenderBackend,
+} from "./renderBackend";
+import type { RendererSeriesInput } from "./rendererCore";
 
-const VERTEX_SHADER_SOURCE = `
-      // === VERTEX SHADER ===
-      attribute float a_x;
-      attribute float a_y;
-      attribute vec2 a_other;
-      attribute float a_t;
-      attribute float a_dist_start;
-      uniform vec2 u_x_scale_offset; // (scale, offset)
-      uniform vec2 u_y_scale_offset; // (scale, offset)
-      uniform vec4 u_padding;
-      uniform vec2 u_resolution;
-      uniform float u_point_size;
-      uniform float u_dpr;
-      uniform bool u_is_screen_space;
-      varying highp float v_t;
-      varying highp float v_len;
-      varying highp float v_dist_start;
-
-      vec2 toScreen(vec2 pos) {
-        float x = pos.x * u_x_scale_offset.x + u_x_scale_offset.y;
-        float y = pos.y * u_y_scale_offset.x + u_y_scale_offset.y;
-        return vec2(x, y);
-      }
-
-      void main() {
-        vec2 p;
-        if (u_is_screen_space) {
-          p = vec2(a_x, a_y); // Already scaled by dpr in the buffer
-        } else {
-          p = toScreen(vec2(a_x, a_y));
-        }
-        vec2 other;
-        if (u_is_screen_space) {
-          other = vec2(a_other.x, a_other.y);
-        } else {
-          other = toScreen(a_other);
-        }
-        v_t = a_t;
-        v_len = length(other - p);
-        v_dist_start = a_dist_start;
-        
-        // Correctly map screen pixels (0=top, res.y=bottom) to clip space (-1 to 1)
-        // x: [0, res.x] -> [-1, 1]  => (x / res.x * 2.0) - 1.0
-        // y: [0, res.y] -> [1, -1]  => 1.0 - (y / res.y * 2.0)
-        gl_Position = vec4((p.x / u_resolution.x * 2.0) - 1.0, 1.0 - (p.y / u_resolution.y * 2.0), 0, 1);
-        gl_PointSize = u_point_size;
-      }
-`;
-
-const FRAGMENT_SHADER_SOURCE = `
-      // === FRAGMENT SHADER ===
-      precision highp float;
-      varying highp float v_t;
-      varying highp float v_len;
-      varying highp float v_dist_start;
-      uniform vec4 u_color;
-      uniform int u_style;
-      uniform int u_line_style;
-      uniform float u_dpr;
-      uniform float u_point_size;
-
-      void drawCircle() {
-        vec2 p = (gl_PointCoord - 0.5) * u_point_size;
-        float r = length(p);
-        float halfSize = 0.5 * u_point_size;
-        float dOut = r - halfSize;
-        float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
-        if (a <= 0.0) discard;
-        float alpha = u_color.a * a;
-        gl_FragColor = vec4(u_color.rgb * alpha, alpha);
-      }
-
-      void drawSquare() {
-        // Work in device pixels for crisp axis-aligned AA.
-        vec2 p = (gl_PointCoord - 0.5) * u_point_size;
-        vec2 ap = abs(p);
-        float halfSize = 0.5 * u_point_size;
-        // Signed distance to outer edge (negative inside)
-        float dOut = max(ap.x, ap.y) - halfSize;
-        float a = 1.0 - smoothstep(-0.5, 0.5, dOut);
-        if (a <= 0.0) discard;
-        float alpha = u_color.a * a;
-        gl_FragColor = vec4(u_color.rgb * alpha, alpha);
-      }
-
-      void drawCross() {
-        vec2 p = gl_PointCoord - 0.5;
-        // Stroke half-width: at least 1px in point-coord space, scaled with size
-        float t = max(0.15, 1.5 / max(u_point_size, 2.0));
-        if (abs(p.x - p.y) > t && abs(p.x + p.y) > t) discard;
-        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
-      }
-
-      void drawLineSegment() {
-        if (u_line_style > 0) {
-          float dashLen = (u_line_style == 1) ? 8.0 : 2.0;
-          float gapLen = (u_line_style == 1) ? 6.0 : 4.0;
-          float total = (dashLen + gapLen) * u_dpr;
-          float dist = mod(v_dist_start + mod(v_t * v_len, total), total);
-          if (dist > dashLen * u_dpr) discard;
-        }
-        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
-      }
-
-      void drawSolid() {
-        gl_FragColor = vec4(u_color.rgb * u_color.a, u_color.a);
-      }
-
-      void main() {
-        if (u_style == 0) {
-          drawCircle();
-        } else if (u_style == 1) {
-          drawSquare();
-        } else if (u_style == 2) {
-          drawCross();
-        } else if (u_style == 3) {
-          drawSolid();
-        } else {
-          drawLineSegment();
-        }
-      }
-`;
+export type { OverlayInput } from "./buildOverlay";
 
 interface Props {
 	datasets: Dataset[];
@@ -185,219 +38,19 @@ interface Props {
 	plotBg: string;
 }
 
-export interface OverlayInput {
-	xAxes: Array<{
-		id: string;
-		min: number;
-		max: number;
-		showGrid: boolean;
-		ticks: number[];
-		categoryLabels?: string[];
-	}>;
-	yAxes: Array<{
-		id: string;
-		min: number;
-		max: number;
-		showGrid: boolean;
-		ticks: number[];
-		position: "left" | "right";
-		categoryLabels?: string[];
-	}>;
-	xAxesMetrics: Array<{ id: string; cumulativeOffset: number }>;
-	axisLayout: Record<string, { total: number; label: number }>;
-	leftOffsets: Record<string, number>;
-	rightOffsets: Record<string, number>;
-	axisColor: string;
-	zeroLineColor: string;
-	gridColor: string;
-	plotBg: string;
-	estVertexCount?: number;
-}
-
 export interface WebGLRendererHandle {
 	redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
 	setOverlay: (overlay: OverlayInput) => void;
 }
 
 /**
- * WebGLRenderer Component (v0.6.0 - Highly Optimized Draw Loop)
+ * React host for the plot renderer. All GL work lives in `RendererCore`,
+ * which runs inside an OffscreenCanvas render worker when the browser
+ * supports it (falling back to the main thread otherwise) — this component
+ * only resolves store/props into plain renderer inputs (columns, rgba
+ * colors, styles) and forwards imperative redraw/overlay calls from
+ * ChartContainer's rAF loop to the active backend.
  */
-
-function getOrInitBuffer(
-	gl: WebGLRenderingContext,
-	data: Float32Array,
-	columnBufferCache: WeakMap<Float32Array, WebGLBuffer>,
-): WebGLBuffer | null {
-	let buffer = columnBufferCache.get(data);
-	if (!buffer) {
-		const b = gl.createBuffer();
-		if (!b) return null;
-		buffer = b;
-		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-		gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-		columnBufferCache.set(data, buffer);
-	}
-	return buffer;
-}
-
-function buildOverlay(
-	overlay: OverlayInput,
-	w: number,
-	h: number,
-	pad: { left: number; right: number; top: number; bottom: number },
-	dpr: number,
-	ov: OverlayState,
-) {
-	const cw = w - pad.left - pad.right;
-	const ch = h - pad.top - pad.bottom;
-
-	const gridRgba = hexToRgbaWithAlpha(overlay.gridColor, 1);
-	const axisRgba = hexToRgbaWithAlpha(overlay.axisColor, 1);
-	const zeroRgba = hexToRgbaWithAlpha(overlay.zeroLineColor, 1);
-	const bgRgba = hexToRgbaWithAlpha(overlay.plotBg, 1);
-
-	// Estimate vertex count and grow packed buffer as needed.
-	const est =
-		overlay.estVertexCount ??
-		estimateOverlayVertexCount(overlay.xAxes, overlay.yAxes);
-	if (ov.packed.length < est)
-		ov.packed = new Float32Array(Math.max(est, ov.packed.length * 2));
-	const buf = ov.packed;
-	let p = 0;
-	ov.groups.length = 0;
-
-	// --- Background quad (TRIANGLES) ---
-	const bgStart = p / 2;
-	p = writeBackgroundQuad(buf, p, pad, cw, ch, dpr);
-	ov.groups.push({
-		topology: "TRIANGLES",
-		rgba: bgRgba,
-		width: 1,
-		offset: bgStart,
-		count: 6,
-	});
-
-	// Grid: vertical (first x axis) + horizontal (y axes that show grid).
-	const gridStart = p / 2;
-	if (overlay.xAxes.length > 0) {
-		p = writeXGridLines(buf, p, overlay.xAxes[0], pad, cw, ch, dpr);
-	}
-	p = writeYGridLines(buf, p, overlay.yAxes, pad, w, ch, dpr);
-	const gridCount = p / 2 - gridStart;
-	if (gridCount > 0)
-		ov.groups.push({
-			topology: "LINES",
-			rgba: gridRgba,
-			width: 1,
-			offset: gridStart,
-			count: gridCount,
-		});
-
-	// Zero lines (horizontal for y-axes, vertical for first x-axis).
-	const zeroLineStart = p / 2;
-	p = writeYZeroLines(buf, p, overlay.yAxes, pad, w, ch, dpr);
-	if (overlay.xAxes.length > 0) {
-		p = writeXZeroLine(buf, p, overlay.xAxes[0], pad, cw, h, dpr);
-	}
-	const zeroLineCount = p / 2 - zeroLineStart;
-	if (zeroLineCount > 0)
-		ov.groups.push({
-			topology: "LINES",
-			rgba: zeroRgba,
-			width: 1.5,
-			offset: zeroLineStart,
-			count: zeroLineCount,
-		});
-
-	// Axis lines: frame spines + x/y axis lines + tick marks.
-	const axisLineStart = p / 2;
-	p = writeFramePlotBorder(buf, p, pad, w, ch, dpr);
-	p = writeXAxisLines(
-		buf,
-		p,
-		overlay.xAxes,
-		overlay.xAxesMetrics,
-		pad,
-		w,
-		h,
-		cw,
-		dpr,
-	);
-	p = writeYAxisLines(
-		buf,
-		p,
-		overlay.yAxes,
-		overlay.axisLayout,
-		overlay.leftOffsets,
-		overlay.rightOffsets,
-		pad,
-		w,
-		h,
-		ch,
-		dpr,
-	);
-	const axisLineCount = p / 2 - axisLineStart;
-	if (axisLineCount > 0)
-		ov.groups.push({
-			topology: "LINES",
-			rgba: axisRgba,
-			width: 1,
-			offset: axisLineStart,
-			count: axisLineCount,
-		});
-
-	// Zero-line arrow triangles.
-	const zeroTriStart = p / 2;
-	p = writeZeroLineArrows(
-		buf,
-		p,
-		overlay.yAxes,
-		overlay.xAxes[0],
-		pad,
-		w,
-		cw,
-		ch,
-		dpr,
-	);
-	const zeroTriCount = p / 2 - zeroTriStart;
-	if (zeroTriCount > 0)
-		ov.groups.push({
-			topology: "TRIANGLES",
-			rgba: zeroRgba,
-			width: 1,
-			offset: zeroTriStart,
-			count: zeroTriCount,
-		});
-
-	// Axis arrow triangles (x/y).
-	const axisTriStart = p / 2;
-	p = writeAxisArrows(
-		buf,
-		p,
-		overlay.xAxes,
-		overlay.xAxesMetrics,
-		overlay.yAxes,
-		overlay.axisLayout,
-		overlay.leftOffsets,
-		overlay.rightOffsets,
-		pad,
-		w,
-		h,
-		dpr,
-	);
-	const axisTriCount = p / 2 - axisTriStart;
-	if (axisTriCount > 0)
-		ov.groups.push({
-			topology: "TRIANGLES",
-			rgba: axisRgba,
-			width: 1,
-			offset: axisTriStart,
-			count: axisTriCount,
-		});
-
-	ov.packedLen = p;
-}
-
 export const WebGLRenderer = React.memo(
 	forwardRef<WebGLRendererHandle, Props>((props, ref) => {
 		const {
@@ -407,66 +60,21 @@ export const WebGLRenderer = React.memo(
 			yAxes,
 			width,
 			height,
+			padding,
 			isInteracting = false,
+			highlightedSeriesId,
 			plotBg,
 		} = props;
 		const canvasRef = useRef<HTMLCanvasElement>(null);
-		const glRef = useRef<WebGLRenderingContext | null>(null);
-		const programRef = useRef<WebGLProgram | null>(null);
-		const locationsRef = useRef<WebGLLocations | null>(null);
-		const stateCacheRef = useRef<GLStateCache | null>(null);
-		const buffersRef = useRef<Map<string, WebGLBuffer>>(new Map());
-		const segParamsRef = useRef<Map<string, SegParams>>(new Map());
-		const segmentCacheRef = useRef<
-			WeakMap<Float32Array, { start: number; end: number }[]>
-		>(new WeakMap());
-		const monoCacheRef = useRef<WeakMap<Float32Array, boolean>>(new WeakMap());
-		// Cache GPU buffers keyed by source Float32Array identity (raw column data).
-		// Pan/zoom reuses these without re-uploading.
-		const columnBufferRef = useRef<WeakMap<Float32Array, WebGLBuffer>>(
-			new WeakMap(),
-		);
-		const decimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
-			new WeakMap(),
-		);
-		const decimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
-			x: new Float32Array(0),
-			y: new Float32Array(0),
+		const backendRef = useRef<RenderBackend | null>(null);
+		const overlayScratchRef = useRef<OverlayState>({
+			packed: new Float32Array(2048),
+			packedLen: 0,
+			groups: [],
 		});
-		const pointDecimCacheRef = useRef<WeakMap<Float32Array, DecimEntry>>(
-			new WeakMap(),
-		);
-		const pointDecimScratchRef = useRef<{ x: Float32Array; y: Float32Array }>({
-			x: new Float32Array(0),
-			y: new Float32Array(0),
-		});
-		// Overlay screen-space: one packed Float32Array (x,y pairs) for all primitives.
-		// Groups reference offsets/counts into this buffer.
-		const overlayRef = useRef<{
-			packed: Float32Array;
-			packedLen: number;
-			groups: Array<{
-				topology: "LINES" | "TRIANGLES";
-				rgba: [number, number, number, number];
-				width: number;
-				offset: number;
-				count: number;
-			}>;
-		}>({ packed: new Float32Array(2048), packedLen: 0, groups: [] });
-
-		const drawRangesScratchRef = useRef<{ start: number; count: number }[]>([]);
-		const plotBgRgbaRef = useRef<number[]>(hexToRgba(plotBg ?? "#ffffff"));
-		useEffect(() => {
-			plotBgRgbaRef.current = hexToRgba(plotBg ?? "#ffffff");
-		}, [plotBg]);
-		const pixelBudgetMultRef = useRef<number>(MAX_PIXEL_BUDGET_MULT);
-		const frameTimeRef = useRef<number>(0);
-		const lastBudgetUpdateRef = useRef<number>(0);
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
-		const drawFrameRef = useRef<
-			((xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void) | null
-		>(null);
+		const isInteractingRef = useRef(isInteracting);
 
 		const propsRef = useRef(props);
 		useEffect(() => {
@@ -476,18 +84,32 @@ export const WebGLRenderer = React.memo(
 		const previewColor = useGraphStore((state) => state.previewColor);
 		const previewStyle = useGraphStore((state) => state.previewStyle);
 
+		const redrawNow = (interacting: boolean) => {
+			backendRef.current?.redraw(
+				liveXAxesRef.current,
+				liveYAxesRef.current,
+				interacting,
+				propsRef.current.highlightedSeriesId ?? null,
+			);
+		};
+		// Latest-callback ref so the stable imperative handle and effects always
+		// call the current closure (same pattern as ChartContainer's syncViewportRef).
+		const redrawNowRef = useRef(redrawNow);
+		redrawNowRef.current = redrawNow;
+
 		useImperativeHandle(
 			ref,
 			() => ({
 				redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => {
 					liveXAxesRef.current = xAxes;
 					liveYAxesRef.current = yAxes;
-					drawFrameRef.current?.(xAxes, yAxes);
+					redrawNowRef.current(isInteractingRef.current);
 				},
 				setOverlay: (overlay: OverlayInput) => {
 					const { width: w, height: h, padding: pad } = propsRef.current;
 					const dpr = window.devicePixelRatio || 1;
-					buildOverlay(overlay, w, h, pad, dpr, overlayRef.current);
+					buildOverlay(overlay, w, h, pad, dpr, overlayScratchRef.current);
+					backendRef.current?.setOverlay(overlayScratchRef.current);
 				},
 			}),
 			[],
@@ -496,98 +118,26 @@ export const WebGLRenderer = React.memo(
 		useEffect(() => {
 			const canvas = canvasRef.current;
 			if (!canvas) return;
-			const gl = canvas.getContext("webgl", {
-				preserveDrawingBuffer: true,
-				antialias: true,
-				alpha: false,
-			});
-			if (!gl) return;
-			glRef.current = gl;
-
-			gl.enable(gl.BLEND);
-			gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-			const vs = gl.createShader(gl.VERTEX_SHADER);
-			if (!vs) return;
-			gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
-			gl.compileShader(vs);
-			if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-				console.error("VS Error:", gl.getShaderInfoLog(vs));
-				return;
-			}
-
-			const fs = gl.createShader(gl.FRAGMENT_SHADER);
-			if (!fs) return;
-			gl.shaderSource(fs, FRAGMENT_SHADER_SOURCE);
-			gl.compileShader(fs);
-			if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-				console.error("FS Error:", gl.getShaderInfoLog(fs));
-				return;
-			}
-
-			const program = gl.createProgram();
-			if (!program) return;
-			gl.attachShader(program, vs);
-			gl.attachShader(program, fs);
-			gl.linkProgram(program);
-			if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-				console.error("Link Error:", gl.getProgramInfoLog(program));
-				return;
-			}
-			programRef.current = program;
-			const locs: WebGLLocations = {
-				xScaleOffLoc: gl.getUniformLocation(program, "u_x_scale_offset"),
-				yScaleOffLoc: gl.getUniformLocation(program, "u_y_scale_offset"),
-				padLoc: gl.getUniformLocation(program, "u_padding"),
-				resLoc: gl.getUniformLocation(program, "u_resolution"),
-				colorLoc: gl.getUniformLocation(program, "u_color"),
-				styleLoc: gl.getUniformLocation(program, "u_style"),
-				lineStyleLoc: gl.getUniformLocation(program, "u_line_style"),
-				dprLoc: gl.getUniformLocation(program, "u_dpr"),
-				sizeLoc: gl.getUniformLocation(program, "u_point_size"),
-				screenSpaceLoc: gl.getUniformLocation(program, "u_is_screen_space"),
-				xLoc: gl.getAttribLocation(program, "a_x"),
-				yLoc: gl.getAttribLocation(program, "a_y"),
-				otherLoc: gl.getAttribLocation(program, "a_other"),
-				tLoc: gl.getAttribLocation(program, "a_t"),
-				distStartLoc: gl.getAttribLocation(program, "a_dist_start"),
-			};
-			locationsRef.current = locs;
-			stateCacheRef.current = new GLStateCache(gl, locs);
-
-			if (drawFrameRef.current) {
-				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
-			}
-
+			const { width: w, height: h, padding: pad, plotBg: bg } = propsRef.current;
+			backendRef.current = acquireRenderBackend(
+				canvas,
+				{ width: w, height: h, padding: pad, dpr: window.devicePixelRatio || 1 },
+				hexToRgba(bg ?? "#ffffff"),
+			);
 			return () => {
-				gl.deleteProgram(program);
-				gl.deleteShader(vs);
-				gl.deleteShader(fs);
-				gl.getExtension("WEBGL_lose_context")?.loseContext();
-				glRef.current = null;
-				programRef.current = null;
-				locationsRef.current = null;
-				stateCacheRef.current = null;
+				backendRef.current = null;
+				releaseRenderBackend(canvas);
 			};
 		}, []);
 
-		const seriesMetadata = useMemo(() => {
+		/** Resolve series + datasets + preview overrides into renderer inputs. */
+		const rendererSeries = useMemo(() => {
 			const datasetsById: Record<string, Dataset> = {};
 			for (let i = 0; i < datasets.length; i++) {
 				datasetsById[datasets[i].id] = datasets[i];
 			}
 
-			const result: {
-				series: SeriesConfig;
-				ds: Dataset;
-				xIdx: number;
-				yIdx: number;
-				lineColorRgba: number[];
-				pointColorRgba: number[];
-				lineStyle: SeriesConfig["lineStyle"];
-				pointStyle: SeriesConfig["pointStyle"];
-			}[] = [];
-
+			const result: RendererSeriesInput[] = [];
 			for (let i = 0; i < series.length; i++) {
 				const s = series[i];
 				const ds = datasetsById[s.sourceId];
@@ -595,34 +145,36 @@ export const WebGLRenderer = React.memo(
 
 				const xIdx = getColumnIndex(ds, ds.xAxisColumn);
 				const yIdx = getColumnIndex(ds, s.yColumn);
+				if (xIdx === -1 || yIdx === -1) continue;
 
-				if (xIdx === -1 || yIdx === -1) {
-					continue;
-				}
+				const colX = ds.data[xIdx];
+				const colY = ds.data[yIdx];
+				if (!colX || !colY) continue;
 
 				const isPreviewed = previewColor?.seriesId === s.id;
-				const effectiveLineColor = isPreviewed
-					? previewColor.color
-					: s.lineColor;
-				const effectivePointColor = isPreviewed
-					? previewColor.color
-					: s.pointColor;
-
 				const stylePreview =
 					previewStyle?.seriesId === s.id ? previewStyle : null;
 
 				result.push({
-					series: s,
-					ds,
-					xIdx,
-					yIdx,
-					lineColorRgba: hexToRgba(effectiveLineColor),
-					pointColorRgba: hexToRgba(effectivePointColor),
+					id: s.id,
+					segKey: `seg-${ds.id}-${xIdx}-${yIdx}-dyn`,
+					xAxisId: ds.xAxisId ?? "",
+					yAxisId: s.yAxisId,
+					hidden: !!s.hidden,
+					xData: colX.data,
+					yData: colY.data,
+					xRef: colX.refPoint,
+					yRef: colY.refPoint,
+					lineColorRgba: hexToRgba(
+						isPreviewed ? previewColor.color : s.lineColor,
+					),
+					pointColorRgba: hexToRgba(
+						isPreviewed ? previewColor.color : s.pointColor,
+					),
 					lineStyle: stylePreview?.lineStyle ?? s.lineStyle,
 					pointStyle: stylePreview?.pointStyle ?? s.pointStyle,
 				});
 			}
-
 			return result;
 		}, [datasets, series, previewColor, previewStyle]);
 
@@ -631,240 +183,45 @@ export const WebGLRenderer = React.memo(
 			liveYAxesRef.current = yAxes;
 		}, [xAxes, yAxes]);
 
-		const isInteractingRef = useRef(isInteracting);
+		useEffect(() => {
+			backendRef.current?.setViewport({
+				width,
+				height,
+				padding,
+				dpr: window.devicePixelRatio || 1,
+			});
+		}, [width, height, padding]);
+
+		useEffect(() => {
+			backendRef.current?.setPlotBg(hexToRgba(plotBg ?? "#ffffff"));
+			if (!isInteractingRef.current) redrawNowRef.current(false);
+		}, [plotBg]);
+
+		useEffect(() => {
+			const backend = backendRef.current;
+			if (!backend) return;
+			backend.setSeries(rendererSeries);
+			if (!isInteractingRef.current) redrawNowRef.current(false);
+		}, [rendererSeries]);
+
 		useEffect(() => {
 			isInteractingRef.current = isInteracting;
-		}, [isInteracting]);
-
-		useEffect(() => {
-			const gl = glRef.current;
-			if (
-				!gl ||
-				!programRef.current ||
-				!locationsRef.current ||
-				!stateCacheRef.current
-			)
-				return;
-
-			const drawFrame = (
-				currentXAxes: XAxisConfig[],
-				currentYAxes: YAxisConfig[],
-			) => {
-				const program = programRef.current;
-				const locs = locationsRef.current;
-				const st = stateCacheRef.current;
-				if (!program || !locs || !st) return;
-
-				const { width, height, padding, highlightedSeriesId } =
-					propsRef.current;
-
-				const chartWidth = width - padding.left - padding.right;
-				const chartHeight = height - padding.top - padding.bottom;
-				if (chartWidth <= 0 || chartHeight <= 0) return;
-
-				const dpr = window.devicePixelRatio || 1;
-				const pw = width * dpr;
-				const ph = height * dpr;
-
-				gl.viewport(0, 0, pw, ph);
-				const bg = plotBgRgbaRef.current;
-				gl.clearColor(bg[0], bg[1], bg[2], 1);
-				gl.clear(gl.COLOR_BUFFER_BIT);
-
-				gl.useProgram(program);
-
-				gl.uniform4f(
-					locs.padLoc,
-					padding.top * dpr,
-					padding.right * dpr,
-					padding.bottom * dpr,
-					padding.left * dpr,
-				);
-				gl.uniform2f(locs.resLoc, pw, ph);
-				gl.uniform1f(locs.dprLoc, dpr);
-
-				const overlay = overlayRef.current;
-				let overlayBuf = buffersRef.current.get("__overlay");
-				if (!overlayBuf) {
-					const b = gl.createBuffer();
-					if (b) {
-						overlayBuf = b;
-						buffersRef.current.set("__overlay", overlayBuf);
-					}
-				}
-				if (overlayBuf) {
-					drawOverlay(st, overlay, overlayBuf);
-				}
-
-				st.setScreenSpace(0);
-				gl.enable(gl.SCISSOR_TEST);
-				gl.scissor(
-					padding.left * dpr,
-					padding.bottom * dpr,
-					chartWidth * dpr,
-					chartHeight * dpr,
-				);
-
-				const plotBgRgba = plotBgRgbaRef.current;
-
-				const t0 = performance.now();
-				for (let idx = 0; idx < seriesMetadata.length; idx++) {
-					const {
-						series: s,
-						ds,
-						xIdx,
-						yIdx,
-						lineColorRgba,
-						pointColorRgba,
-						lineStyle,
-						pointStyle,
-					} = seriesMetadata[idx];
-
-					const xAxis = getAxisById(currentXAxes, ds.xAxisId || DEFAULT_X_AXIS_ID);
-					const yAxis = getAxisById(currentYAxes, s.yAxisId);
-					if (!xAxis || !yAxis) continue;
-					if (s.hidden) continue;
-
-					const colX = ds.data[xIdx];
-					const colY = ds.data[yIdx];
-					if (!colX || !colY) continue;
-
-					const xData = colX.data;
-					const yData = colY.data;
-					const xRef = colX.refPoint;
-					const yRef = colY.refPoint;
-
-					const xRange = xAxis.max - xAxis.min || 1;
-					const yRange = yAxis.max - yAxis.min || 1;
-
-					const isMonotonic = getOrComputeMonotonicity(
-						xData,
-						monoCacheRef.current,
-					);
-					const cachedSegments = getOrComputeSegments(
-						xData,
-						yData,
-						segmentCacheRef.current,
-					);
-					const { sliceStart, sliceEnd } = computeDataSlice(
-						xData,
-						xAxis.min,
-						xAxis.max,
-						xRef,
-						isMonotonic,
-					);
-
-					const xScaleVal = (chartWidth * dpr) / xRange;
-					const xOffsetVal =
-						padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
-					const yScaleVal =
-						(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-					const yOffsetVal =
-						(height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
-
-					const xBuffer = getOrInitBuffer(gl, xData, columnBufferRef.current);
-					const yBuffer = getOrInitBuffer(gl, yData, columnBufferRef.current);
-					if (!xBuffer || !yBuffer) return;
-
-					const drawRanges = drawRangesScratchRef.current;
-					computeDrawRanges(
-						cachedSegments,
-						isMonotonic,
-						sliceStart,
-						sliceEnd,
-						drawRanges,
-					);
-
-					st.setXScaleOff(xScaleVal, xOffsetVal);
-					st.setYScaleOff(yScaleVal, yOffsetVal);
-
-					const isHighlighted = highlightedSeriesId === s.id;
-
-					const bundle: SeriesDrawBundle = {
-						xData,
-						yData,
-						xRef,
-						yRef,
-						xAxisMin: xAxis.min,
-						xAxisMax: xAxis.max,
-						xRange,
-						yRange,
-						chartWidth,
-						chartHeight,
-						padding,
-						height,
-						dpr,
-						lineColorRgba,
-						pointColorRgba,
-						plotBgRgba,
-						isHighlighted,
-						isMonotonic,
-						cachedSegments,
-						drawRanges,
-						xBuffer,
-						yBuffer,
-						sliceStart,
-						sliceEnd,
-						lineStyle,
-						pointStyle,
-					};
-
-					drawSeriesLines(
-						st,
-						bundle,
-						decimCacheRef.current,
-						decimScratchRef.current,
-						buffersRef.current,
-						segParamsRef.current,
-						`seg-${ds.id}-${xIdx}-${yIdx}-dyn`,
-					);
-					drawSeriesPoints(
-						st,
-						bundle,
-						pointDecimCacheRef.current,
-						pointDecimScratchRef.current,
-						isInteractingRef.current,
-					);
-				}
-				gl.disable(gl.SCISSOR_TEST);
-
-				const now = performance.now();
-				frameTimeRef.current = now - t0;
-				updatePixelBudget(
-					frameTimeRef.current,
-					now,
-					lastBudgetUpdateRef,
-					pixelBudgetMultRef,
-				);
-			};
-
-			drawFrameRef.current = drawFrame;
-			if (!isInteractingRef.current) {
-				drawFrame(liveXAxesRef.current, liveYAxesRef.current);
-			}
-		}, [seriesMetadata, plotBg]);
-
-		useEffect(() => {
-			if (!isInteracting && drawFrameRef.current) {
-				drawFrameRef.current(liveXAxesRef.current, liveYAxesRef.current);
+			if (!isInteracting) {
+				// Interaction settled: redraw once at full pixel budget.
+				redrawNowRef.current(false);
 			}
 		}, [isInteracting]);
 
 		useEffect(() => {
-			if (isInteracting) return;
-			const id = setTimeout(() => {
-				pixelBudgetMultRef.current = MAX_PIXEL_BUDGET_MULT;
-				drawFrameRef.current?.(liveXAxesRef.current, liveYAxesRef.current);
-			}, 0);
-			return () => clearTimeout(id);
-		}, [isInteracting]);
+			if (!isInteractingRef.current) redrawNowRef.current(false);
+		}, [highlightedSeriesId]);
 
-		const dpr = window.devicePixelRatio || 1;
+		// No width/height attributes here: once the canvas is transferred to the
+		// render worker, only the worker may size its drawing buffer. CSS keeps
+		// the element filling its layer; backends resize via setViewport.
 		return (
 			<canvas
 				ref={canvasRef}
-				width={width * dpr}
-				height={height * dpr}
 				style={{ display: "block", width: "100%", height: "100%" }}
 			/>
 		);

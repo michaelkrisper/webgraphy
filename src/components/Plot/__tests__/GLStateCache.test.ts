@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GLStateCache, type WebGLLocations } from "../GLStateCache";
+import {
+	GLStateCache,
+	type LineProgramLocations,
+	type WebGLLocations,
+} from "../GLStateCache";
 
 describe("GLStateCache", () => {
-	let gl: WebGLRenderingContext;
+	let gl: WebGL2RenderingContext;
 	let locs: WebGLLocations;
 	let cache: GLStateCache;
 
@@ -13,11 +17,13 @@ describe("GLStateCache", () => {
 			uniform2f: vi.fn(),
 			uniform4f: vi.fn(),
 			lineWidth: vi.fn(),
+			useProgram: vi.fn(),
 			enableVertexAttribArray: vi.fn(),
 			disableVertexAttribArray: vi.fn(),
 			vertexAttrib1f: vi.fn(),
 			vertexAttrib2f: vi.fn(),
-		} as unknown as WebGLRenderingContext;
+			vertexAttribDivisor: vi.fn(),
+		} as unknown as WebGL2RenderingContext;
 
 		locs = {
 			xLoc: 0,
@@ -169,6 +175,21 @@ describe("GLStateCache", () => {
 			cache.enableAttrib(locs.xLoc);
 			expect(gl.enableVertexAttribArray).toHaveBeenCalledTimes(1);
 		});
+
+		it("pins the divisor per attribute and caches it", () => {
+			cache.enableAttrib(locs.xLoc, 0);
+			expect(gl.vertexAttribDivisor).toHaveBeenCalledWith(locs.xLoc, 0);
+			expect(gl.vertexAttribDivisor).toHaveBeenCalledTimes(1);
+
+			// Same divisor -> cached, no driver call.
+			cache.enableAttrib(locs.xLoc, 0);
+			expect(gl.vertexAttribDivisor).toHaveBeenCalledTimes(1);
+
+			// Instanced rebind of the same attribute index updates the divisor.
+			cache.enableAttrib(locs.xLoc, 1);
+			expect(gl.vertexAttribDivisor).toHaveBeenCalledWith(locs.xLoc, 1);
+			expect(gl.vertexAttribDivisor).toHaveBeenCalledTimes(2);
+		});
 	});
 
 	describe("disableAttribConst1", () => {
@@ -239,6 +260,89 @@ describe("GLStateCache", () => {
 			cache.reset();
 			cache.enableAttrib(locs.xLoc);
 			expect(gl.enableVertexAttribArray).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	describe("program switching and line-program uniforms", () => {
+		let lineLocs: LineProgramLocations;
+		let mainProgram: WebGLProgram;
+		let lineProgram: WebGLProgram;
+
+		beforeEach(() => {
+			lineLocs = {
+				x0Loc: 5,
+				y0Loc: 6,
+				x1Loc: 7,
+				y1Loc: 8,
+				dist0Loc: 9,
+				xScaleOffLoc: {} as WebGLUniformLocation,
+				yScaleOffLoc: {} as WebGLUniformLocation,
+				resLoc: {} as WebGLUniformLocation,
+				colorLoc: {} as WebGLUniformLocation,
+				widthLoc: {} as WebGLUniformLocation,
+				dashLoc: {} as WebGLUniformLocation,
+			};
+			mainProgram = {} as WebGLProgram;
+			lineProgram = {} as WebGLProgram;
+			cache.setPrograms(mainProgram, lineProgram, lineLocs);
+		});
+
+		it("caches useProgram across useMain/useLine switches", () => {
+			cache.useMain();
+			expect(gl.useProgram).toHaveBeenCalledWith(mainProgram);
+			cache.useMain();
+			expect(gl.useProgram).toHaveBeenCalledTimes(1);
+
+			cache.useLine();
+			expect(gl.useProgram).toHaveBeenCalledWith(lineProgram);
+			cache.useLine();
+			expect(gl.useProgram).toHaveBeenCalledTimes(2);
+		});
+
+		it("is a no-op without programs (unit-test / GL-less path)", () => {
+			const bare = new GLStateCache(gl, locs);
+			bare.useMain();
+			bare.useLine();
+			expect(gl.useProgram).not.toHaveBeenCalled();
+		});
+
+		it("binds the line program before writing its uniforms", () => {
+			cache.lpSetColor(0, 1, 0, 1);
+			expect(gl.useProgram).toHaveBeenCalledWith(lineProgram);
+			expect(gl.uniform4f).toHaveBeenCalledWith(lineLocs.colorLoc, 0, 1, 0, 1);
+		});
+
+		it("binds the main program before writing main uniforms", () => {
+			cache.useLine();
+			cache.setColor(1, 0, 0, 1);
+			expect(gl.useProgram).toHaveBeenLastCalledWith(mainProgram);
+			expect(gl.uniform4f).toHaveBeenCalledWith(locs.colorLoc, 1, 0, 0, 1);
+		});
+
+		it("caches line-program uniforms independently of main uniforms", () => {
+			cache.setColor(1, 0, 0, 1);
+			cache.lpSetColor(1, 0, 0, 1);
+			expect(gl.uniform4f).toHaveBeenCalledTimes(2);
+
+			cache.lpSetColor(1, 0, 0, 1);
+			expect(gl.uniform4f).toHaveBeenCalledTimes(2);
+
+			cache.lpSetWidth(2);
+			cache.lpSetWidth(2);
+			expect(gl.uniform1f).toHaveBeenCalledWith(lineLocs.widthLoc, 2);
+			expect(gl.uniform1f).toHaveBeenCalledTimes(1);
+
+			cache.lpSetDash(8, 6);
+			cache.lpSetDash(8, 6);
+			expect(gl.uniform2f).toHaveBeenCalledWith(lineLocs.dashLoc, 8, 6);
+			expect(gl.uniform2f).toHaveBeenCalledTimes(1);
+
+			cache.lpSetXScaleOff(2, 5);
+			cache.lpSetXScaleOff(2, 5);
+			cache.lpSetYScaleOff(3, 7);
+			cache.lpSetResolution(800, 600);
+			cache.lpSetResolution(800, 600);
+			expect(gl.uniform2f).toHaveBeenCalledTimes(4);
 		});
 	});
 });

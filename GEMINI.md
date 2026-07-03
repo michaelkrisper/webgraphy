@@ -7,12 +7,14 @@ millions of points.
 ## Stack
 
 - **Frontend:** React 19, TypeScript, Vite 8 (Node ≥ 24, pnpm).
-- **Rendering:** Raw WebGL with custom precision shaders. Per-frame updates
-  bypass React and Zustand for responsiveness.
+- **Rendering:** Raw WebGL2 with custom precision shaders; series lines are
+  instanced triangle capsules (AA, real widths, dashes). The renderer core
+  runs in a render worker via OffscreenCanvas when available. Per-frame
+  updates bypass React and Zustand for responsiveness.
 - **State:** Zustand (`src/store/`) for series, viewport, axes, themes.
 - **Persistence:** `idb` for datasets, LocalStorage for UI state and config.
-- **Concurrency:** Web Workers (`src/workers/`) for CSV/JSON parsing and
-  formula evaluation.
+- **Concurrency:** Web Workers (`src/workers/`) for CSV/JSON parsing,
+  formula evaluation, and rendering (`render.worker.ts`).
 - **PWA:** `vite-plugin-pwa` (auto-update, installable).
 
 ## Data Flow
@@ -24,9 +26,11 @@ millions of points.
    LocalStorage.
 4. `useGraphStore` (Zustand) is the single source of truth for active datasets
    and series configuration.
-5. `WebGLRenderer` consumes datasets + series configs and draws via custom
-   shaders. Pan/zoom mutate the viewport directly and re-render without going
-   through React.
+5. `WebGLRenderer` (React host) resolves datasets + series configs and hands
+   them to `rendererCore.ts`, which draws via custom shaders — inside
+   `render.worker.ts` (OffscreenCanvas) or on the main thread as fallback.
+   Pan/zoom mutate the viewport directly and re-render without going through
+   React.
 
 ## Key Directories
 

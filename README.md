@@ -105,10 +105,10 @@ The `rolling…` window size and `lag(…, n)` offset must be compile-time numer
 ## Architecture
 
 - **Frontend:** React 19 + TypeScript, bundled with Vite 8.
-- **Rendering:** Raw WebGL with custom precision shaders. Per-frame updates bypass the React render cycle and the global store for responsiveness.
+- **Rendering:** Raw WebGL2 with custom precision shaders; series lines are antialiased instanced triangle capsules (real stroke widths and dash patterns — no 1px driver-line limits). Per-frame updates bypass the React render cycle and the global store for responsiveness.
 - **State:** [Zustand](https://github.com/pmndrs/zustand) stores in `src/store/`.
 - **Persistence:** [`idb`](https://github.com/jakearchibald/idb) for datasets (IndexedDB); LocalStorage for UI config and theme.
-- **Concurrency:** Parsing (CSV/JSON/Excel) and formula evaluation run in Web Workers (`src/workers/`).
+- **Concurrency:** Rendering runs in a dedicated worker via `OffscreenCanvas` (with a main-thread fallback), and parsing (CSV/JSON/Excel) and formula evaluation run in Web Workers (`src/workers/`).
 - **PWA:** Service worker via `vite-plugin-pwa` (auto-update).
 
 ### Key directories
@@ -121,7 +121,7 @@ src/
 ├── store/                # Zustand stores
 ├── services/             # Persistence, export (SVG/PNG)
 ├── utils/                # Data parser, formula engine, coordinate math
-├── workers/              # CSV/JSON parsing, formula workers
+├── workers/              # CSV/JSON parsing, formula, and render workers
 └── themes.ts             # Light, Dark, Matrix, Winnie, Unicorn
 ```
 

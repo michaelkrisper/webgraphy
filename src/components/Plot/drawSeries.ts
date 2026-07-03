@@ -1,10 +1,16 @@
 /**
- * Pure draw helpers for the WebGL renderer.
+ * Pure draw helpers for the WebGL renderer core.
  *
- * `drawOverlay` renders the background / grid / spines / ticks group buffer that
- * the WebGLRenderer prepares via `setOverlay`. `drawSeriesLines` and
- * `drawSeriesPoints` render the per-series geometry; both share the M4 cache
- * logic in `getOrComputeM4` (line and point modes only differ in `bucketDivisor`).
+ * `drawOverlay` renders the background / grid / spines / ticks group buffer
+ * prepared via `buildOverlay`. `drawSeriesLines` renders series lines as
+ * instanced triangle capsules: each segment is expanded to a screen-space
+ * quad in the vertex shader (six vertices per instance via `gl_VertexID`)
+ * and shaded with a capsule SDF, which gives antialiasing, real stroke
+ * widths, round joins, and dash patterns. Native `gl.LINES`/`LINE_STRIP` is
+ * only used for 1px overlay primitives — driver line width is capped at 1px
+ * on most platforms (ANGLE/D3D, core profiles), so series lines never go
+ * through it. `drawSeriesPoints` renders markers via `gl.POINTS`; line and
+ * point decimation share the M4 cache logic in `getOrComputeM4`.
  */
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
@@ -67,6 +73,11 @@ export interface SeriesDrawBundle {
 	padding: { top: number; right: number; bottom: number; left: number };
 	height: number;
 	dpr: number;
+	// Data → device-px transform, shared by both programs.
+	xScale: number;
+	xOff: number;
+	yScale: number;
+	yOff: number;
 	lineColorRgba: number[];
 	pointColorRgba: number[];
 	plotBgRgba: number[];
@@ -89,7 +100,7 @@ export interface SeriesDrawBundle {
  * pixel column emits the four extrema).
  */
 export function getOrComputeM4(
-	gl: WebGLRenderingContext,
+	gl: WebGL2RenderingContext,
 	cache: WeakMap<Float32Array, DecimEntry>,
 	scratch: { x: Float32Array; y: Float32Array },
 	xData: Float32Array,
@@ -174,6 +185,7 @@ export function drawOverlay(
 	const { gl, locs } = st;
 	if (overlay.packedLen <= 0 || overlay.groups.length === 0) return;
 
+	st.useMain();
 	st.setScreenSpace(1);
 	st.setStyle(3);
 	st.setLineStyle(0);
@@ -205,16 +217,42 @@ export function drawOverlay(
 	}
 }
 
+/**
+ * Bind consecutive column samples as per-instance segment endpoints: with a
+ * 4-byte stride and divisor 1, instance `i` reads `data[start + i]` for the
+ * segment start and `data[start + i + 1]` for the end — no geometry buffer
+ * is built; the raw column buffers are read twice at a one-float offset.
+ */
+function bindColumnSegments(
+	st: GLStateCache,
+	xBuf: WebGLBuffer,
+	yBuf: WebGLBuffer,
+	startIndex: number,
+): void {
+	const { gl } = st;
+	const lineLocs = st.lineLocs;
+	if (!lineLocs) return;
+	const byteOff = startIndex * 4;
+	gl.bindBuffer(gl.ARRAY_BUFFER, xBuf);
+	st.enableAttrib(lineLocs.x0Loc, 1);
+	gl.vertexAttribPointer(lineLocs.x0Loc, 1, gl.FLOAT, false, 4, byteOff);
+	st.enableAttrib(lineLocs.x1Loc, 1);
+	gl.vertexAttribPointer(lineLocs.x1Loc, 1, gl.FLOAT, false, 4, byteOff + 4);
+	gl.bindBuffer(gl.ARRAY_BUFFER, yBuf);
+	st.enableAttrib(lineLocs.y0Loc, 1);
+	gl.vertexAttribPointer(lineLocs.y0Loc, 1, gl.FLOAT, false, 4, byteOff);
+	st.enableAttrib(lineLocs.y1Loc, 1);
+	gl.vertexAttribPointer(lineLocs.y1Loc, 1, gl.FLOAT, false, 4, byteOff + 4);
+}
+
 function drawDecimatedLines(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
 	lineDecimCache: WeakMap<Float32Array, DecimEntry>,
 	scratch: { x: Float32Array; y: Float32Array },
-	chartWidthPx: number,
 	numBuckets: number,
-	baseLineWidth: number,
 ): void {
-	const { gl, locs } = st;
+	const { gl } = st;
 	const entry = getOrComputeM4(
 		gl,
 		lineDecimCache,
@@ -229,33 +267,17 @@ function drawDecimatedLines(
 		3,
 	);
 	if (!entry.xBuf || !entry.yBuf || entry.count < 2) return;
-	void chartWidthPx;
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, entry.xBuf);
-	st.enableAttrib(locs.xLoc);
-	gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
-	gl.bindBuffer(gl.ARRAY_BUFFER, entry.yBuf);
-	st.enableAttrib(locs.yLoc);
-	gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
-	st.setLineWidth(baseLineWidth);
-	gl.drawArrays(gl.LINE_STRIP, 0, entry.count);
+	bindColumnSegments(st, entry.xBuf, entry.yBuf, 0);
+	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, entry.count - 1);
 }
 
-function drawPlainLines(
-	st: GLStateCache,
-	bundle: SeriesDrawBundle,
-	baseLineWidth: number,
-): void {
-	const { gl, locs } = st;
-	gl.bindBuffer(gl.ARRAY_BUFFER, bundle.xBuffer);
-	st.enableAttrib(locs.xLoc);
-	gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 0, 0);
-	gl.bindBuffer(gl.ARRAY_BUFFER, bundle.yBuffer);
-	st.enableAttrib(locs.yLoc);
-	gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 0, 0);
-	st.setLineWidth(baseLineWidth);
+function drawPlainLines(st: GLStateCache, bundle: SeriesDrawBundle): void {
+	const { gl } = st;
 	for (const seg of bundle.drawRanges) {
-		if (seg.count >= 2) gl.drawArrays(gl.LINE_STRIP, seg.start, seg.count);
+		if (seg.count < 2) continue;
+		bindColumnSegments(st, bundle.xBuffer, bundle.yBuffer, seg.start);
+		gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, seg.count - 1);
 	}
 }
 
@@ -263,16 +285,20 @@ function drawPlainLines(
 // call to avoid allocating a fresh array per dashed-line series per frame.
 const STEPS_SCRATCH: number[] = [];
 
+// Floats per dashed-line instance: x0, y0, x1, y1, cumulative start distance.
+const DASH_FLOATS = 5;
+const DASH_STRIDE = DASH_FLOATS * 4;
+
 function drawDashedLines(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
-	lStyle: number,
-	baseLineWidth: number,
 	segBuffersRef: Map<string, WebGLBuffer>,
 	segParamsRef: Map<string, SegParams>,
 	segBufferKey: string,
 ): void {
-	const { gl, locs } = st;
+	const { gl } = st;
+	const lineLocs = st.lineLocs;
+	if (!lineLocs) return;
 	const {
 		drawRanges,
 		xData,
@@ -291,6 +317,7 @@ function drawDashedLines(
 		STEPS_SCRATCH[i] = step;
 		totalLineSegs += Math.ceil(n / step);
 	}
+	if (totalLineSegs === 0) return;
 	const rangesLen = drawRanges.length;
 	const firstStart = drawRanges[0]?.start ?? 0;
 	// Pan = translation (xRange/yRange constant) so cache hits every frame.
@@ -317,7 +344,7 @@ function drawDashedLines(
 	}
 
 	if (needsRebuild) {
-		const sharedArr = new Float32Array(totalLineSegs * 12);
+		const sharedArr = new Float32Array(totalLineSegs * DASH_FLOATS);
 		const scaleX = (chartWidth * dpr) / xRange;
 		const scaleY = (chartHeight * dpr) / yRange;
 
@@ -336,23 +363,15 @@ function drawDashedLines(
 				const ay = yData[ai];
 				const bx = xData[bi];
 				const by = yData[bi];
-				const sLen = Math.sqrt(
-					((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
-				);
-				const off = outIdx * 12;
+				const off = outIdx * DASH_FLOATS;
 				sharedArr[off] = ax;
 				sharedArr[off + 1] = ay;
 				sharedArr[off + 2] = bx;
 				sharedArr[off + 3] = by;
-				sharedArr[off + 4] = 0;
-				sharedArr[off + 5] = cumDist;
-				sharedArr[off + 6] = bx;
-				sharedArr[off + 7] = by;
-				sharedArr[off + 8] = ax;
-				sharedArr[off + 9] = ay;
-				sharedArr[off + 10] = 1;
-				sharedArr[off + 11] = cumDist;
-				cumDist += sLen;
+				sharedArr[off + 4] = cumDist;
+				cumDist += Math.sqrt(
+					((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
+				);
 				outIdx++;
 			}
 		}
@@ -371,19 +390,24 @@ function drawDashedLines(
 	} else {
 		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 	}
-	void lStyle;
-	st.enableAttrib(locs.xLoc);
-	gl.vertexAttribPointer(locs.xLoc, 1, gl.FLOAT, false, 24, 0);
-	st.enableAttrib(locs.yLoc);
-	gl.vertexAttribPointer(locs.yLoc, 1, gl.FLOAT, false, 24, 4);
-	st.enableAttrib(locs.otherLoc);
-	gl.vertexAttribPointer(locs.otherLoc, 2, gl.FLOAT, false, 24, 8);
-	st.enableAttrib(locs.tLoc);
-	gl.vertexAttribPointer(locs.tLoc, 1, gl.FLOAT, false, 24, 16);
-	st.enableAttrib(locs.distStartLoc);
-	gl.vertexAttribPointer(locs.distStartLoc, 1, gl.FLOAT, false, 24, 20);
-	st.setLineWidth(baseLineWidth);
-	gl.drawArrays(gl.LINES, 0, totalLineSegs * 2);
+	st.enableAttrib(lineLocs.x0Loc, 1);
+	gl.vertexAttribPointer(lineLocs.x0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 0);
+	st.enableAttrib(lineLocs.y0Loc, 1);
+	gl.vertexAttribPointer(lineLocs.y0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 4);
+	st.enableAttrib(lineLocs.x1Loc, 1);
+	gl.vertexAttribPointer(lineLocs.x1Loc, 1, gl.FLOAT, false, DASH_STRIDE, 8);
+	st.enableAttrib(lineLocs.y1Loc, 1);
+	gl.vertexAttribPointer(lineLocs.y1Loc, 1, gl.FLOAT, false, DASH_STRIDE, 12);
+	st.enableAttrib(lineLocs.dist0Loc, 1);
+	gl.vertexAttribPointer(
+		lineLocs.dist0Loc,
+		1,
+		gl.FLOAT,
+		false,
+		DASH_STRIDE,
+		16,
+	);
+	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, totalLineSegs);
 }
 
 export function drawSeriesLines(
@@ -396,21 +420,19 @@ export function drawSeriesLines(
 	segBufferKey: string,
 ): void {
 	if (bundle.lineStyle === "none") return;
-	const { locs } = st;
+	const lineLocs = st.lineLocs;
+	if (!lineLocs) return;
+
+	st.useLine();
+	st.lpSetXScaleOff(bundle.xScale, bundle.xOff);
+	st.lpSetYScaleOff(bundle.yScale, bundle.yOff);
 	const c = bundle.lineColorRgba;
-	st.setColor(c[0], c[1], c[2], 1.0);
-	st.setPointSize((bundle.isHighlighted ? 2.5 : 1.5) * bundle.dpr);
-	const lStyle =
-		bundle.lineStyle === "solid" ? 0 : bundle.lineStyle === "dashed" ? 1 : 2;
-	st.setLineStyle(lStyle);
-	st.setStyle(-1);
+	st.lpSetColor(c[0], c[1], c[2], 1.0);
+	st.lpSetWidth((bundle.isHighlighted ? 2.5 : 1.0) * bundle.dpr);
 
-	const baseLineWidth = bundle.isHighlighted ? 2.5 : 1;
-
-	if (lStyle === 0) {
-		st.disableAttribConst2(locs.otherLoc, 0, 0);
-		st.disableAttribConst1(locs.tLoc, 0);
-		st.disableAttribConst1(locs.distStartLoc, 0);
+	if (bundle.lineStyle === "solid") {
+		st.lpSetDash(0, 0);
+		st.disableAttribConst1(lineLocs.dist0Loc, 0);
 
 		// M4 decimation: only when the visible slice is denser than 4 samples
 		// per device pixel. Output preserves per-bucket (first,min,max,last) so
@@ -429,23 +451,18 @@ export function drawSeriesLines(
 				bundle,
 				lineDecimCache,
 				lineDecimScratch,
-				chartWidthPx,
 				numBuckets,
-				baseLineWidth,
 			);
 		} else {
-			drawPlainLines(st, bundle, baseLineWidth);
+			drawPlainLines(st, bundle);
 		}
 	} else {
-		drawDashedLines(
-			st,
-			bundle,
-			lStyle,
-			baseLineWidth,
-			segBuffersRef,
-			segParamsRef,
-			segBufferKey,
-		);
+		if (bundle.lineStyle === "dashed") {
+			st.lpSetDash(8 * bundle.dpr, 6 * bundle.dpr);
+		} else {
+			st.lpSetDash(2 * bundle.dpr, 4 * bundle.dpr);
+		}
+		drawDashedLines(st, bundle, segBuffersRef, segParamsRef, segBufferKey);
 	}
 }
 
@@ -459,6 +476,7 @@ export function drawSeriesPoints(
 	if (bundle.pointStyle === "none") return;
 
 	const { gl, locs } = st;
+	st.useMain();
 	const visibleCount = bundle.sliceEnd - bundle.sliceStart + 1;
 	const chartWidthPx = bundle.chartWidth * bundle.dpr;
 	const pixelDensity = visibleCount / Math.max(1, chartWidthPx);
