@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { THEME_CYCLE, THEMES, type ThemeName } from "./themes";
+import { COLOR_PALETTE, THEME_CYCLE, THEMES, type ThemeName } from "./themes";
+
+describe("COLOR_PALETTE configuration", () => {
+	it("should have expected length", () => {
+		expect(COLOR_PALETTE).toHaveLength(6);
+	});
+
+	it("should contain valid hex color strings", () => {
+		for (const color of COLOR_PALETTE) {
+			expect(typeof color).toBe("string");
+			expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
+		}
+	});
+
+	it("should not contain duplicate colors", () => {
+		expect(new Set(COLOR_PALETTE).size).toBe(COLOR_PALETTE.length);
+	});
+});
 
 describe("THEMES configuration", () => {
 	it("should have all themes from THEMES included in THEME_CYCLE", () => {

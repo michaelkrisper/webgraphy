@@ -184,7 +184,7 @@ async function putAppState(
     const db = await getDB();
     await db.put(APP_STATE_STORE, state, key);
   } catch (error) {
-    console.error(`Failed to save ${label}:`, error);
+    console.error("Failed to save state", { label, error });
   }
 }
 
@@ -197,7 +197,7 @@ async function flushDataset(id: string): Promise<void> {
     const db = await getDB();
     await db.put(DATASET_STORE, ds);
   } catch (e) {
-    console.error("saveDataset failed:", e);
+    console.error("saveDataset failed", { error: e });
   }
 }
 
@@ -237,7 +237,7 @@ export const persistence = {
         tx.done,
       ]);
     } catch (e) {
-      console.error("flushAll failed:", e);
+      console.error("flushAll failed", { error: e });
     }
   },
   async loadDataset(id: string): Promise<Dataset | undefined> {
@@ -287,7 +287,7 @@ export const persistence = {
         const v = ViewportSchema.safeParse(vRaw);
         const c = ConfigSchema.safeParse(cRaw);
         if (v.success && c.success) return { ...v.data, ...c.data };
-        console.error("Invalid split state:", v.success ? c.error : v.error);
+        console.error("Invalid split state", { error: v.success ? c.error : v.error });
         return null;
       }
       if (legacy) {
@@ -302,11 +302,11 @@ export const persistence = {
           await db.delete(APP_STATE_STORE, LEGACY_KEY);
           return migrated;
         }
-        console.error("Invalid legacy state:", parsed.error);
+        console.error("Invalid legacy state", { error: parsed.error });
       }
       return null;
     } catch (error) {
-      console.error("Failed to load state:", error);
+      console.error("Failed to load state", { error });
       return null;
     }
   },
@@ -319,7 +319,7 @@ export const persistence = {
         db.delete(APP_STATE_STORE, LEGACY_KEY),
       ]);
     } catch (error) {
-      console.error("Failed to clear state:", error);
+      console.error("Failed to clear state", { error });
     }
   },
 };

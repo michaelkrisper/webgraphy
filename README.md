@@ -25,15 +25,15 @@ Drag-and-drop or pick a file: **CSV**, **JSON**, **XLSX / XLS** (with sheet sele
 
 ## Quick Start
 
-Webgraphy uses **pnpm** and requires **Node.js ≥ 24**.
+Webgraphy uses **npm** and requires **Node.js ≥ 24**.
 
 ```bash
-pnpm install
-pnpm run dev      # start the dev server (http://localhost:5173)
-pnpm run build    # type-check and produce a production build in dist/
-pnpm run preview  # serve the production build locally
-pnpm run lint     # run ESLint
-pnpm run test     # run the Vitest suite
+npm install
+npm run dev      # start the dev server (http://localhost:5173)
+npm run build    # type-check and produce a production build in dist/
+npm run preview  # serve the production build locally
+npm run lint     # run ESLint
+npm test         # run the Vitest suite
 ```
 
 ## Deployment
@@ -127,7 +127,7 @@ src/
 
 ## Contributing
 
-This project uses `pnpm`. When you modify `package.json` (dependencies, overrides), run `pnpm install` and commit the updated `pnpm-lock.yaml` alongside it. Run `pnpm run lint` and `pnpm run test` before opening a pull request.
+This project uses `npm`. When you modify `package.json` (dependencies, overrides), run `npm install` and commit the updated `package-lock.json` alongside it. Run `npm run lint` and `npm test` before opening a pull request.
 
 ## License
 

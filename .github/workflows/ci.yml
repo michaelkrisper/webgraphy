@@ -22,18 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          cache: npm
+      - run: npm ci
       - name: Lint
-        run: pnpm run lint
+        run: npm run lint
       - name: Test (with coverage thresholds)
-        run: pnpm exec vitest run --coverage
+        run: npx vitest run --coverage
       - name: Build
-        run: pnpm run build
+        run: npm run build
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v5

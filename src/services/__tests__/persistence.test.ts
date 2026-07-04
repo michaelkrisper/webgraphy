@@ -392,8 +392,8 @@ describe("persistence", () => {
 				await vi.runAllTimersAsync();
 
 				expect(consoleSpy).toHaveBeenCalledWith(
-					"saveDataset failed:",
-					expect.any(Error),
+					"saveDataset failed",
+					{ error: expect.any(Error) },
 				);
 			} finally {
 				consoleSpy.mockRestore();
@@ -464,8 +464,8 @@ describe("persistence", () => {
 			await persistence.clearAppState();
 
 			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to clear state:",
-				expect.any(Error),
+				"Failed to clear state",
+				{ error: expect.any(Error) },
 			);
 			consoleSpy.mockRestore();
 		});
@@ -483,8 +483,8 @@ describe("persistence", () => {
 			await persistence.saveViewport({ xAxes: [], yAxes: [] });
 
 			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to save viewport:",
-				expect.any(Error),
+				"Failed to save state",
+				{ label: "viewport", error: expect.any(Error) },
 			);
 			consoleSpy.mockRestore();
 		});

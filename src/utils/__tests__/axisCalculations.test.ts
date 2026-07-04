@@ -1,14 +1,29 @@
 // src/utils/__tests__/axisCalculations.test.ts
 import { describe, expect, it } from "vitest";
 import {
+	AXIS_EPSILON,
 	calcCategoricalTicks,
 	calcNumericPrecision,
 	calcNumericStep,
 	calcNumericTicks,
 	calcYAxisTicks,
 	formatAxisLabel,
+	getAxisById,
 	syncAxesWithTargets,
+	DEFAULT_X_AXIS_ID,
 } from "../axisCalculations";
+
+describe("Constants", () => {
+	it("exports AXIS_EPSILON correctly", () => {
+		expect(AXIS_EPSILON).toBe(1e-10);
+	});
+});
+
+describe("DEFAULT_X_AXIS_ID", () => {
+	it("should have value 'axis-1'", () => {
+		expect(DEFAULT_X_AXIS_ID).toBe("axis-1");
+	});
+});
 
 describe("calcNumericStep", () => {
 	it("rounds to nice steps", () => {
@@ -242,5 +257,37 @@ describe("syncAxesWithTargets", () => {
 		const updates = syncAxesWithTargets(state, targetXAxes, targetYs);
 		expect(updates.xUpdates).toEqual({ x1: { min: -10, max: 110 } });
 		expect(updates.yUpdates).toEqual({});
+	});
+});
+
+describe("getAxisById", () => {
+	it("returns axis via direct lookup for canonical IDs", () => {
+		const axes = [{ id: "axis-1" }, { id: "axis-2" }, { id: "axis-3" }];
+		expect(getAxisById(axes, "axis-2")).toBe(axes[1]);
+	});
+
+	it("falls back to .find() for out-of-order arrays", () => {
+		const axes = [{ id: "axis-3" }, { id: "axis-1" }, { id: "axis-2" }];
+		expect(getAxisById(axes, "axis-1")).toBe(axes[1]);
+	});
+
+	it("falls back to .find() for non-canonical IDs", () => {
+		const axes = [{ id: "custom-id-1" }, { id: "custom-id-2" }];
+		expect(getAxisById(axes, "custom-id-2")).toBe(axes[1]);
+	});
+
+	it("returns undefined when the ID does not exist in the array", () => {
+		const axes = [{ id: "axis-1" }, { id: "axis-2" }];
+		expect(getAxisById(axes, "axis-3")).toBeUndefined();
+		expect(getAxisById(axes, "custom-id")).toBeUndefined();
+	});
+
+	it("returns undefined when the array is empty", () => {
+		expect(getAxisById([], "axis-1")).toBeUndefined();
+	});
+
+	it("handles malformed canonical IDs by falling back to find", () => {
+		const axes = [{ id: "axis-abc" }];
+		expect(getAxisById(axes, "axis-abc")).toBe(axes[0]);
 	});
 });

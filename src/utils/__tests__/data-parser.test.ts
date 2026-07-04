@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as jsonUtils from "../json";
-import { parseData } from "../data-parser";
+import { parseData, splitCSVLine } from "../data-parser";
 
 function createMockFile(content: string, name: string, type: string) {
 	const file = new File([content], name, { type });
@@ -307,6 +307,41 @@ describe("data-parser", () => {
 			);
 			expect(datasets[0].data[1].categoryLabels).toEqual(["A", "B"]);
 			expect(datasets[0].data[2].refPoint).toBe(1.1);
+		});
+	});
+
+	describe("splitCSVLine", () => {
+		it("should split line with single-character delimiter", () => {
+			expect(splitCSVLine("a,b,c", ",")).toEqual(["a", "b", "c"]);
+		});
+
+		it("should handle empty fields", () => {
+			expect(splitCSVLine("a,,c", ",")).toEqual(["a", "", "c"]);
+			expect(splitCSVLine(",b,", ",")).toEqual(["", "b", ""]);
+		});
+
+		it("should respect quotes for single-character delimiters", () => {
+			expect(splitCSVLine('a,"b,c",d', ",")).toEqual(["a", '"b,c"', "d"]);
+		});
+
+		it("should keep a quoted field that starts the line", () => {
+			expect(splitCSVLine('"a,b",c', ",")).toEqual(['"a,b"', "c"]);
+		});
+
+		it("should not split on a delimiter that is the quoted field content", () => {
+			expect(splitCSVLine('a,",",b', ",")).toEqual(["a", '","', "b"]);
+		});
+
+		it("should handle multi-character delimiters using fallback split", () => {
+			expect(splitCSVLine("a||b||c", "||")).toEqual(["a", "b", "c"]);
+		});
+
+		it("should handle empty strings", () => {
+			expect(splitCSVLine("", ",")).toEqual([""]);
+		});
+
+		it("should handle unbalanced quotes", () => {
+			expect(splitCSVLine('a,"b,c', ",")).toEqual(["a", '"b,c']);
 		});
 	});
 });
