@@ -790,7 +790,7 @@ describe("evaluateFormulaSync — success paths", () => {
 describe("compileFormula generic error fallback", () => {
 	it("returns a generic error message for non-FormulaError exceptions (TypeError)", () => {
 		// Passing an invalid argument to trigger a native TypeError inside compileFormula
-		const result = compileFormula(undefined as any, ["Col1"]);
+		const result = compileFormula(undefined as unknown as string, ["Col1"]);
 		expect(result.error).toBeDefined();
 		expect(result.error).toContain("Cannot read properties of undefined");
 		expect(result.evaluate([])).toBeNaN();
