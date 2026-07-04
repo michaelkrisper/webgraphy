@@ -77,6 +77,7 @@ describe("formula.worker", () => {
   it.each([
     { label: "Error object", thrown: new Error("Test Error"), error: "Test Error" },
     { label: "string", thrown: "String Error", error: "String Error" },
+    { label: "null", thrown: null, error: "null" },
   ])("reports a thrown $label as an error response", async ({ thrown, error }) => {
     await import("../formula.worker");
 
@@ -93,45 +94,6 @@ describe("formula.worker", () => {
       id: 123,
       type: "error",
       error,
-    });
-  });
-});
-
-describe("formula.worker stringification fallback", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let evaluateFormulaSyncMock: any;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    evaluateFormulaSyncMock = (await import("../../utils/formula"))
-      .evaluateFormulaSync;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    globalThis.self = globalThis as any;
-    globalThis.postMessage = vi.fn();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).onmessage;
-  });
-
-  it("handles non-Error objects in catch block", async () => {
-    await import("../formula.worker");
-
-    evaluateFormulaSyncMock.mockImplementation(() => {
-      throw null;
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onmessage = (globalThis as any).onmessage;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onmessage({ data: { id: 123, formulaId: "test-id" } } as any);
-
-    expect(globalThis.postMessage).toHaveBeenCalledWith({
-      id: 123,
-      type: "error",
-      error: "null",
     });
   });
 });
