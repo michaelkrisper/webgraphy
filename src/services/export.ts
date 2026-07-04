@@ -130,9 +130,9 @@ export const exportToSVG = (
 	const chartWidth = Math.max(0, width - padding.left - padding.right);
 	const chartHeight = Math.max(0, height - padding.top - padding.bottom);
 
-	let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${theme.plotBg}; font-family: ${escapeHTML(theme.fontFamily)};">`;
+	let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${escapeHTML(theme.plotBg)}; font-family: ${escapeHTML(theme.fontFamily)};">`;
 
-	svg += `<rect width="100%" height="100%" fill="${theme.plotBg}" />`;
+	svg += `<rect width="100%" height="100%" fill="${escapeHTML(theme.plotBg)}" />`;
 
 	// 2. Draw Grid
 	const gridAxis = activeYAxes.find((a) => a.showGrid) || activeYAxes[0];
@@ -152,7 +152,7 @@ export const exportToSVG = (
 		};
 		for (let t = firstYTick; t <= gridAxis.max; t += yStep) {
 			const { y } = worldToScreen(gridXAxis.min, t, vp);
-			svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${theme.gridColor}" stroke-width="1" />`;
+			svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${escapeHTML(theme.gridColor)}" stroke-width="1" />`;
 		}
 
 		const xRange = gridXAxis.max - gridXAxis.min;
@@ -160,7 +160,7 @@ export const exportToSVG = (
 		const firstXTick = Math.ceil(gridXAxis.min / xStep) * xStep;
 		for (let t = firstXTick; t <= gridXAxis.max; t += xStep) {
 			const { x } = worldToScreen(t, gridAxis.min, vp);
-			svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="${theme.gridColor}" stroke-width="1" />`;
+			svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="${escapeHTML(theme.gridColor)}" stroke-width="1" />`;
 		}
 	}
 
@@ -169,8 +169,8 @@ export const exportToSVG = (
 		const normX = (0 - gridXAxis.min) / (gridXAxis.max - gridXAxis.min);
 		const x = padding.left + normX * chartWidth;
 		const arrowSize = 6;
-		svg += `<line x1="${x}" y1="${height - padding.bottom}" x2="${x}" y2="${padding.top - 8}" stroke="${theme.zeroLineColor}" stroke-width="1.5" />`;
-		svg += `<polygon points="${x},${padding.top - 8} ${x - arrowSize / 2},${padding.top - 8 + arrowSize} ${x + arrowSize / 2},${padding.top - 8 + arrowSize}" fill="${theme.zeroLineColor}" />`;
+		svg += `<line x1="${x}" y1="${height - padding.bottom}" x2="${x}" y2="${padding.top - 8}" stroke="${escapeHTML(theme.zeroLineColor)}" stroke-width="1.5" />`;
+		svg += `<polygon points="${x},${padding.top - 8} ${x - arrowSize / 2},${padding.top - 8 + arrowSize} ${x + arrowSize / 2},${padding.top - 8 + arrowSize}" fill="${escapeHTML(theme.zeroLineColor)}" />`;
 	}
 	activeYAxes.forEach((axis) => {
 		if (axis.showGrid && axis.min <= 0 && axis.max >= 0) {
@@ -186,8 +186,8 @@ export const exportToSVG = (
 			const { y } = worldToScreen(gridXAxis?.min ?? 0, 0, vp);
 			const arrowSize = 6;
 			const x2 = width - padding.right + 8;
-			svg += `<line x1="${padding.left}" y1="${y}" x2="${x2}" y2="${y}" stroke="${theme.zeroLineColor}" stroke-width="1.5" />`;
-			svg += `<polygon points="${x2},${y} ${x2 - arrowSize},${y - arrowSize / 2} ${x2 - arrowSize},${y + arrowSize / 2}" fill="${theme.zeroLineColor}" />`;
+			svg += `<line x1="${padding.left}" y1="${y}" x2="${x2}" y2="${y}" stroke="${escapeHTML(theme.zeroLineColor)}" stroke-width="1.5" />`;
+			svg += `<polygon points="${x2},${y} ${x2 - arrowSize},${y - arrowSize / 2} ${x2 - arrowSize},${y + arrowSize / 2}" fill="${escapeHTML(theme.zeroLineColor)}" />`;
 		}
 	});
 
@@ -295,7 +295,7 @@ export const exportToSVG = (
 	});
 
 	// 4. Draw Axes
-	svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="${theme.axisColor}" stroke-width="2" />`;
+	svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="${escapeHTML(theme.axisColor)}" stroke-width="2" />`;
 
 	// Pre-compute dataset and series relationships for O(1) lookups
 	const datasetsByXAxisId: Record<string, Dataset[]> = {};
@@ -340,17 +340,17 @@ export const exportToSVG = (
 		};
 		const baseY = height - padding.bottom + idx * 60;
 
-		svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="${theme.axisColor}" stroke-width="1" />`;
+		svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 
 		for (let t = firstXTick; t <= axis.max; t += xStep) {
 			const { x } = worldToScreen(t, 0, vp);
 			if (x < padding.left || x > width - padding.right) continue;
-			svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${theme.axisColor}" stroke-width="1" />`;
+			svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 			const label =
 				axis.xMode === "date"
 					? formatDate(t, xStep)
 					: formatAxisLabel(t, xPrecision);
-			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${theme.labelColor}">${escapeHTML(label)}</text>`;
+			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(label)}</text>`;
 		}
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
@@ -386,7 +386,7 @@ export const exportToSVG = (
 
 		// Axis Line
 		const lineX = xPos + (isLeft ? axisWidth : 0);
-		svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="${theme.axisColor}" stroke-width="1" />`;
+		svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 
 		// Ticks and Labels (Right-Aligned)
 		const mainXConf = activeXAxes[0] || xAxes[0];
@@ -400,9 +400,9 @@ export const exportToSVG = (
 				height,
 				padding,
 			});
-			svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${theme.axisColor}" stroke-width="1" />`;
+			svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 			const labelX = xPos + axisWidth - 8;
-			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${theme.labelColor}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
+			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
 		}
 
 		const axisSeries = seriesByYAxisId[axis.id] || [];
@@ -412,10 +412,11 @@ export const exportToSVG = (
 			rotate = isLeft ? -90 : 90;
 		const estW = Math.min(chartHeight, fullTitle.length * 8 + 8);
 		svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
-		svg += `<rect x="-${estW / 2}" y="-10" width="${estW}" height="20" fill="${theme.secLabelBg}" rx="2" />`;
-		svg += `<text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="${theme.labelColor}">`;
+		svg += `<rect x="-${estW / 2}" y="-10" width="${estW}" height="20" fill="${escapeHTML(theme.secLabelBg)}" rx="2" />`;
+		svg += `<text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">`;
 		axisSeries.forEach((s, i) => {
-			if (i > 0) svg += `<tspan fill="${theme.labelColor}"> / </tspan>`;
+			if (i > 0)
+				svg += `<tspan fill="${escapeHTML(theme.labelColor)}"> / </tspan>`;
 			svg += `<tspan fill="${escapeHTML(s.lineColor)}">${escapeHTML(s.name || s.yColumn)}</tspan>`;
 		});
 		svg += `</text></g>`;
@@ -539,7 +540,9 @@ export const downloadFile = (
 				!mimeType.startsWith("image/") &&
 				!mimeType.startsWith("application/")
 			) {
-				throw new Error(`Unsupported MIME type: ${mimeType}. Expected 'image/*' or 'application/*'`);
+				throw new Error(
+					`Unsupported MIME type: ${mimeType}. Expected 'image/*' or 'application/*'`,
+				);
 			}
 			const lowerMimeType = mimeType.toLowerCase();
 			if (

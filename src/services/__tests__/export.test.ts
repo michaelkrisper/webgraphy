@@ -110,6 +110,27 @@ describe("exportToSVG", () => {
 		expect(svg).toContain("Series 1");
 	});
 
+	it("should escape HTML in theme properties to prevent XSS", () => {
+		const maliciousTheme = {
+			...THEMES.light,
+			fontFamily: '"><script>alert("XSS")</script>',
+			plotBg: '"><script>alert("XSS2")</script>',
+		};
+		const svg = exportToSVG(
+			mockDatasets,
+			mockSeries,
+			mockXAxes,
+			mockYAxes,
+			800,
+			600,
+			maliciousTheme,
+		);
+		expect(svg).not.toContain("<script>");
+		expect(svg).toContain(
+			"&quot;&gt;&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;",
+		);
+	});
+
 	it("should handle multiple left and right axes", () => {
 		const multiLeftSeries: SeriesConfig[] = [
 			{
@@ -579,7 +600,11 @@ describe("downloadFile", () => {
 
 	it("should throw an error if atob fails on invalid base64 data", () => {
 		expect(() =>
-			downloadFile("data:image/png;base64,invalid!base64", "test.png", "image/png"),
+			downloadFile(
+				"data:image/png;base64,invalid!base64",
+				"test.png",
+				"image/png",
+			),
 		).toThrow("Unsafe data URL scheme detected");
 	});
 
