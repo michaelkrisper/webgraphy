@@ -48,22 +48,6 @@ html,
 	overflow: hidden;
 }
 
-/* Legacy sidebar styles removed - now managed in components.css */
-
-details > summary {
-	list-style: none;
-}
-details > summary::-webkit-details-marker {
-	display: none;
-}
-.details-chevron {
-	transition: transform 0.2s ease;
-	margin-right: 4px;
-}
-details[open] > summary .details-chevron {
-	transform: rotate(90deg);
-}
-
 button,
 input,
 select,
