@@ -324,6 +324,14 @@ describe("data-parser", () => {
 			expect(splitCSVLine('a,"b,c",d', ",")).toEqual(["a", '"b,c"', "d"]);
 		});
 
+		it("should keep a quoted field that starts the line", () => {
+			expect(splitCSVLine('"a,b",c', ",")).toEqual(['"a,b"', "c"]);
+		});
+
+		it("should not split on a delimiter that is the quoted field content", () => {
+			expect(splitCSVLine('a,",",b', ",")).toEqual(["a", '","', "b"]);
+		});
+
 		it("should handle multi-character delimiters using fallback split", () => {
 			expect(splitCSVLine("a||b||c", "||")).toEqual(["a", "b", "c"]);
 		});

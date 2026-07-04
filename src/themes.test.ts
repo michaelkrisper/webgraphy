@@ -12,6 +12,10 @@ describe("COLOR_PALETTE configuration", () => {
 			expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
 		}
 	});
+
+	it("should not contain duplicate colors", () => {
+		expect(new Set(COLOR_PALETTE).size).toBe(COLOR_PALETTE.length);
+	});
 });
 
 describe("THEMES configuration", () => {

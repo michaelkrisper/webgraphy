@@ -22,6 +22,16 @@ describe("ImprintModal", () => {
 		).toBeInTheDocument();
 	});
 
+	it("opens the external link safely in a new tab", () => {
+		render(<ImprintModal onClose={vi.fn()} />);
+
+		const link = screen.getByRole("link", {
+			name: "https://github.com/michaelkrisper/webgraphy",
+		});
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
+	});
+
 	it("calls onClose when the close button is clicked", () => {
 		const onClose = vi.fn();
 		render(<ImprintModal onClose={onClose} />);
