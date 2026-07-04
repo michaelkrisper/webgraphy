@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DecimEntry, SeriesDrawBundle } from "../drawSeries";
+import type { DecimCache, SeriesDrawBundle } from "../drawSeries";
 import { drawSeriesLines, getOrComputeM4 } from "../drawSeries";
 import type { GLStateCache } from "../GLStateCache";
 
@@ -243,7 +243,7 @@ describe("getOrComputeM4", () => {
 
 	it("returns the same cached entry when called with identical params (no string sig allocation)", () => {
 		const { gl, bufferData } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -257,7 +257,7 @@ describe("getOrComputeM4", () => {
 
 	it("recomputes when bucketWidth crosses an octave (2x zoom)", () => {
 		const { gl, bufferData } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -271,7 +271,7 @@ describe("getOrComputeM4", () => {
 
 	it("reuses the entry while zooming within a bucket-width octave", () => {
 		const { gl, bufferData } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -286,7 +286,7 @@ describe("getOrComputeM4", () => {
 
 	it("reuses the entry while panning inside the padded window, recomputes beyond it", () => {
 		const { gl, bufferData } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		const xData = new Float32Array(200);
 		const yData = new Float32Array(200);
@@ -307,9 +307,28 @@ describe("getOrComputeM4", () => {
 		expect(bufferData).toHaveBeenCalledTimes(4);
 	});
 
+	it("keeps separate entries for the same yData under different xData", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+		const xA = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const xB = new Float32Array([0, 2, 4, 6, 8, 10, 12, 14, 16, 18]);
+
+		const eA = getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3);
+		const eB = getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3);
+		expect(eB).not.toBe(eA);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+
+		// Alternating between the two series must not evict either entry.
+		expect(getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3)).toBe(eA);
+		expect(getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3)).toBe(eB);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
 	it("emits identical points for buckets shared across a zoom recompute", () => {
 		const { gl } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		// Dense noisy data so each bucket has distinct extrema representatives.
 		const n = 4000;
@@ -341,7 +360,7 @@ describe("getOrComputeM4", () => {
 
 	it("stores numeric signature fields on the entry", () => {
 		const { gl } = makeMockGl();
-		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

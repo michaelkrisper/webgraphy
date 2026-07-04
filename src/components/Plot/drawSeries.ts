@@ -43,6 +43,16 @@ export interface DecimEntry {
 	yBuf: WebGLBuffer | null;
 }
 
+/**
+ * Decimation results keyed by yData identity, then xData identity — two
+ * series sharing a y column but different x columns must not evict each
+ * other's entry every frame.
+ */
+export type DecimCache = WeakMap<
+	Float32Array,
+	WeakMap<Float32Array, DecimEntry>
+>;
+
 export interface SegParams {
 	xRange: number;
 	yRange: number;
@@ -94,7 +104,7 @@ export interface SeriesDrawBundle {
 }
 
 /**
- * Pixel-anchored M4 decimation with a result cache keyed by yData identity.
+ * Pixel-anchored M4 decimation with a result cache keyed by column identity.
  * `bucketDivisor = 3` is used for line decimation (sub-pixel buckets keep
  * the polyline visually identical), `1` for point decimation (one bucket per
  * pixel column emits the four extrema).
@@ -107,7 +117,7 @@ export interface SeriesDrawBundle {
  */
 export function getOrComputeM4(
 	gl: WebGL2RenderingContext,
-	cache: WeakMap<Float32Array, DecimEntry>,
+	cache: DecimCache,
 	scratch: { x: Float32Array; y: Float32Array },
 	xData: Float32Array,
 	yData: Float32Array,
@@ -134,7 +144,12 @@ export function getOrComputeM4(
 	// still covers the visible window — pan and zoom-in within an octave hit;
 	// recompute only when the viewport leaves the cached window or the bucket
 	// width crosses an octave.
-	let entry = cache.get(yData);
+	let byX = cache.get(yData);
+	if (!byX) {
+		byX = new WeakMap();
+		cache.set(yData, byX);
+	}
+	let entry = byX.get(xData);
 	if (
 		entry &&
 		entry.bucketWidth === bucketWidth &&
@@ -184,7 +199,7 @@ export function getOrComputeM4(
 		xBuf,
 		yBuf,
 	};
-	cache.set(yData, entry);
+	byX.set(xData, entry);
 	return entry;
 }
 
@@ -259,7 +274,7 @@ function bindColumnSegments(
 function drawDecimatedLines(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
-	lineDecimCache: WeakMap<Float32Array, DecimEntry>,
+	lineDecimCache: DecimCache,
 	scratch: { x: Float32Array; y: Float32Array },
 	numBuckets: number,
 ): void {
@@ -424,7 +439,7 @@ function drawDashedLines(
 export function drawSeriesLines(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
-	lineDecimCache: WeakMap<Float32Array, DecimEntry>,
+	lineDecimCache: DecimCache,
 	lineDecimScratch: { x: Float32Array; y: Float32Array },
 	segBuffersRef: Map<string, WebGLBuffer>,
 	segParamsRef: Map<string, SegParams>,
@@ -480,7 +495,7 @@ export function drawSeriesLines(
 export function drawSeriesPoints(
 	st: GLStateCache,
 	bundle: SeriesDrawBundle,
-	pointDecimCache: WeakMap<Float32Array, DecimEntry>,
+	pointDecimCache: DecimCache,
 	pointDecimScratch: { x: Float32Array; y: Float32Array },
 	isInteracting: boolean,
 ): void {

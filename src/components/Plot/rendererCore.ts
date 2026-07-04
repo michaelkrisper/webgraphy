@@ -18,7 +18,7 @@
 
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import {
-	type DecimEntry,
+	type DecimCache,
 	drawOverlay,
 	drawSeriesLines,
 	drawSeriesPoints,
@@ -372,9 +372,9 @@ export class RendererCore {
 	// GPU buffers keyed by source Float32Array identity (raw column data).
 	// Pan/zoom reuses these without re-uploading.
 	private columnBuffers = new WeakMap<Float32Array, WebGLBuffer>();
-	private decimCache = new WeakMap<Float32Array, DecimEntry>();
+	private decimCache: DecimCache = new WeakMap();
 	private decimScratch = { x: new Float32Array(0), y: new Float32Array(0) };
-	private pointDecimCache = new WeakMap<Float32Array, DecimEntry>();
+	private pointDecimCache: DecimCache = new WeakMap();
 	private pointDecimScratch = {
 		x: new Float32Array(0),
 		y: new Float32Array(0),
