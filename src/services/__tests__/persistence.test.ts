@@ -18,7 +18,6 @@ const SAMPLE_APP_STATE: AppState = {
 	],
 	yAxes: [],
 	series: [],
-	axisTitles: { x: "", y: "" },
 	legendVisible: true,
 	crosshairVisible: true,
 };
@@ -242,7 +241,6 @@ describe("persistence", () => {
 				"app_state",
 				{
 					series: SAMPLE_APP_STATE.series,
-					axisTitles: SAMPLE_APP_STATE.axisTitles,
 					legendVisible: true,
 					crosshairVisible: true,
 				},
@@ -255,9 +253,11 @@ describe("persistence", () => {
 				xAxes: SAMPLE_APP_STATE.xAxes,
 				yAxes: SAMPLE_APP_STATE.yAxes,
 			};
+			// Old persisted configs carry an axisTitles object from a removed
+			// feature — loading must strip it, not fail.
 			const config = {
 				series: SAMPLE_APP_STATE.series,
-				axisTitles: SAMPLE_APP_STATE.axisTitles,
+				axisTitles: { x: "", y: "" },
 				legendVisible: true,
 				crosshairVisible: true,
 			};
@@ -279,7 +279,7 @@ describe("persistence", () => {
 				xAxes: SAMPLE_APP_STATE.xAxes,
 				yAxes: SAMPLE_APP_STATE.yAxes,
 				series: SAMPLE_APP_STATE.series,
-				axisTitles: SAMPLE_APP_STATE.axisTitles,
+				axisTitles: { x: "", y: "" },
 			};
 			const mockDb = {
 				get: vi
@@ -294,7 +294,9 @@ describe("persistence", () => {
 
 			const loaded = await persistence.loadAppState();
 			expect(loaded).toEqual({
-				...legacy,
+				xAxes: legacy.xAxes,
+				yAxes: legacy.yAxes,
+				series: legacy.series,
 				legendVisible: true,
 				crosshairVisible: true,
 			});
@@ -326,7 +328,6 @@ describe("persistence", () => {
 					.mockResolvedValueOnce({ xAxes: [{ id: "axis-1", min: "bad" }] })
 					.mockResolvedValueOnce({
 						series: [],
-						axisTitles: { x: "", y: "" },
 						legendVisible: true,
 						crosshairVisible: true,
 					})

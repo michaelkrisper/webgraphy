@@ -75,7 +75,6 @@ interface ViewportState {
 
 interface ConfigState {
   series: SeriesConfig[];
-  axisTitles: { x: string; y: string };
   legendVisible: boolean;
   crosshairVisible: boolean;
 }
@@ -115,9 +114,10 @@ const ViewportSchema = z.object({
   xAxes: z.array(XAxisConfigSchema),
   yAxes: z.array(YAxisConfigSchema),
 });
+// Older persisted configs additionally carry an `axisTitles` object from a
+// removed feature; Zod strips unknown keys, so they load unchanged.
 const ConfigSchema = z.object({
   series: z.array(SeriesConfigSchema),
-  axisTitles: z.object({ x: z.string(), y: z.string() }),
   legendVisible: z.boolean(),
   crosshairVisible: z.boolean(),
 });
@@ -125,7 +125,6 @@ const LegacyAppStateSchema = z.object({
   xAxes: z.array(XAxisConfigSchema),
   yAxes: z.array(YAxisConfigSchema),
   series: z.array(SeriesConfigSchema),
-  axisTitles: z.object({ x: z.string(), y: z.string() }),
 });
 
 let db: IDBPDatabase | null = null;
@@ -269,7 +268,6 @@ export const persistence = {
       persistence.saveViewport({ xAxes: state.xAxes, yAxes: state.yAxes }),
       persistence.saveConfig({
         series: state.series,
-        axisTitles: state.axisTitles,
         legendVisible: state.legendVisible,
         crosshairVisible: state.crosshairVisible,
       }),

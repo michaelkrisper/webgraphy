@@ -19,7 +19,6 @@ interface GraphState {
 	series: SeriesConfig[];
 	xAxes: XAxisConfig[];
 	yAxes: YAxisConfig[];
-	axisTitles: { x: string; y: string };
 	isLoaded: boolean;
 	highlightedSeriesId: string | null;
 	legendVisible: boolean;
@@ -54,15 +53,12 @@ interface GraphState {
 	updateDataset: (id: string, updates: Partial<Dataset>) => void;
 	renameColumn: (datasetId: string, oldName: string, newName: string) => void;
 	removeDataset: (id: string) => void;
-	moveDataset: (id: string, delta: -1 | 1) => void;
 
 	addSeries: (series: SeriesConfig) => void;
 	updateSeries: (id: string, updates: Partial<SeriesConfig>) => void;
 	updateSeriesVisibility: (id: string, hidden: boolean) => void;
 	removeSeries: (id: string) => void;
 	setHighlightedSeries: (id: string | null) => void;
-	bulkHideAllSeries: () => void;
-	bulkShowAllSeries: () => void;
 
 	updateXAxis: (id: string, updates: Partial<XAxisConfig>) => void;
 	updateYAxis: (id: string, updates: Partial<YAxisConfig>) => void;
@@ -71,9 +67,6 @@ interface GraphState {
 		yUpdates: Record<string, { min: number; max: number }>,
 	) => void;
 
-	setAxisTitles: (x: string, y: string) => void;
-
-	moveSeries: (id: string, delta: -1 | 1) => void;
 	reorderSeries: (fromId: string, toIndex: number) => void;
 
 	loadPersistedState: () => Promise<void>;
@@ -111,7 +104,6 @@ const createEmptyState = () => ({
 	series: [],
 	xAxes: createInitialXAxes(),
 	yAxes: createInitialYAxes(),
-	axisTitles: { x: "X-Axis", y: "Y-Axis" },
 });
 
 export const useGraphStore = create<GraphState>((set, get) => ({
@@ -119,7 +111,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	series: [],
 	xAxes: createInitialXAxes(),
 	yAxes: createInitialYAxes(),
-	axisTitles: { x: "X-Axis", y: "Y-Axis" },
 	isLoaded: false,
 	highlightedSeriesId: null,
 	legendVisible: true,
@@ -401,21 +392,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (get().isLoaded) debouncedSaveState();
 	},
 
-	moveDataset: (id, delta) => {
-		set((state) => {
-			const idx = state.datasets.findIndex((d) => d.id === id);
-			if (idx === -1) return state;
-			const targetIdx = idx + delta;
-			if (targetIdx < 0 || targetIdx >= state.datasets.length) return state;
-			const newDatasets = [...state.datasets];
-			const temp = newDatasets[idx];
-			newDatasets[idx] = newDatasets[targetIdx];
-			newDatasets[targetIdx] = temp;
-			return { datasets: newDatasets };
-		});
-		if (get().isLoaded) debouncedSaveState();
-	},
-
 	addSeries: (series) => {
 		set((state) => ({ series: [...state.series, series] }));
 		if (get().isLoaded) debouncedSaveConfig();
@@ -449,20 +425,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	setHighlightedSeries: (id) => {
 		set({ highlightedSeriesId: id });
-	},
-
-	bulkHideAllSeries: () => {
-		set((state) => ({
-			series: state.series.map((s) => ({ ...s, hidden: true })),
-		}));
-		if (get().isLoaded) debouncedSaveConfig();
-	},
-
-	bulkShowAllSeries: () => {
-		set((state) => ({
-			series: state.series.map((s) => ({ ...s, hidden: false })),
-		}));
-		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateXAxis: (id, updates) => {
@@ -511,26 +473,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			return { xAxes: nextX, yAxes: nextY };
 		});
 		if (get().isLoaded) debouncedSaveViewport();
-	},
-
-	setAxisTitles: (x, y) => {
-		set({ axisTitles: { x, y } });
-		if (get().isLoaded) debouncedSaveConfig();
-	},
-
-	moveSeries: (id, delta) => {
-		set((state) => {
-			const idx = state.series.findIndex((s) => s.id === id);
-			if (idx === -1) return state;
-			const targetIdx = idx + delta;
-			if (targetIdx < 0 || targetIdx >= state.series.length) return state;
-			const newSeries = [...state.series];
-			const temp = newSeries[idx];
-			newSeries[idx] = newSeries[targetIdx];
-			newSeries[targetIdx] = temp;
-			return { series: newSeries };
-		});
-		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	reorderSeries: (fromId, toIndex) => {
@@ -583,7 +525,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					return o ? { ...a, ...o } : a;
 				}),
 				series: [...state.series, ...demoState.series],
-				axisTitles: demoState.axisTitles,
 				isLoaded: true,
 			};
 		});
@@ -624,7 +565,6 @@ function debouncedSaveConfig() {
 			if (!s.isLoaded) return;
 			persistence.saveConfig({
 				series: s.series,
-				axisTitles: s.axisTitles,
 				legendVisible: s.legendVisible,
 				crosshairVisible: s.crosshairVisible,
 			});

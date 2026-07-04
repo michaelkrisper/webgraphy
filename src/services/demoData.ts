@@ -168,5 +168,4 @@ function createDemoSeries(dataset: Dataset): SeriesConfig[] {
 export const getDemoAppState = (dataset: Dataset) => ({
 	yAxes: createDemoYAxes(),
 	series: createDemoSeries(dataset),
-	axisTitles: { x: "Time", y: "Value" },
 });

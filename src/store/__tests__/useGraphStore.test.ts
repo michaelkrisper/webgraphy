@@ -244,35 +244,6 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().datasets).toHaveLength(0);
 	});
 
-	it("should move dataset correctly", () => {
-		const store = useGraphStore.getState();
-		const ds1: Dataset = {
-			id: "ds-1",
-			name: "D1",
-			columns: ["Time"],
-			data: [],
-			rowCount: 0,
-			xAxisColumn: "Time",
-			xAxisId: "axis-1",
-		};
-		const ds2: Dataset = {
-			id: "ds-2",
-			name: "D2",
-			columns: ["Time"],
-			data: [],
-			rowCount: 0,
-			xAxisColumn: "Time",
-			xAxisId: "axis-1",
-		};
-		store.addDataset(ds1);
-		store.addDataset(ds2);
-
-		store.moveDataset("ds-1", 1);
-		const state = useGraphStore.getState();
-		expect(state.datasets[0].id).toBe("ds-2");
-		expect(state.datasets[1].id).toBe("ds-1");
-	});
-
 	it("should manage series correctly", () => {
 		const store = useGraphStore.getState();
 		const series1 = {
@@ -296,34 +267,6 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().series).toHaveLength(0);
 	});
 
-	it("should manage bulk series visibility", () => {
-		const store = useGraphStore.getState();
-		const series1 = {
-			id: "s-1",
-			name: "S1",
-			sourceId: "ds-1",
-			yColumn: "val",
-			yAxisId: "axis-1",
-			color: "#000",
-		};
-		const series2 = {
-			id: "s-2",
-			name: "S2",
-			sourceId: "ds-1",
-			yColumn: "val2",
-			yAxisId: "axis-1",
-			color: "#000",
-		};
-		store.addSeries(series1);
-		store.addSeries(series2);
-
-		store.bulkHideAllSeries();
-		expect(useGraphStore.getState().series.every((s) => s.hidden)).toBe(true);
-
-		store.bulkShowAllSeries();
-		expect(useGraphStore.getState().series.every((s) => !s.hidden)).toBe(true);
-	});
-
 	it("should manage highlighted series", () => {
 		const store = useGraphStore.getState();
 		store.setHighlightedSeries("s-1");
@@ -338,12 +281,6 @@ describe("useGraphStore", () => {
 		store.updateYAxis("axis-1", { name: "New Y Name" });
 		expect(useGraphStore.getState().yAxes[0].name).toBe("New Y Name");
 
-		store.setAxisTitles("Global X", "Global Y");
-		expect(useGraphStore.getState().axisTitles).toEqual({
-			x: "Global X",
-			y: "Global Y",
-		});
-
 		store.batchUpdateAxes(
 			{ "axis-1": { min: 10, max: 20 } },
 			{ "axis-1": { min: 30, max: 40 } },
@@ -352,7 +289,7 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().yAxes[0].min).toBe(30);
 	});
 
-	it("should move and reorder series", () => {
+	it("should reorder series", () => {
 		const store = useGraphStore.getState();
 		const series1 = {
 			id: "s-1",
@@ -373,7 +310,7 @@ describe("useGraphStore", () => {
 		store.addSeries(series1);
 		store.addSeries(series2);
 
-		store.moveSeries("s-1", 1);
+		store.reorderSeries("s-2", 0);
 		expect(useGraphStore.getState().series[0].id).toBe("s-2");
 
 		store.reorderSeries("s-2", 1);
@@ -501,24 +438,8 @@ describe("useGraphStore", () => {
 		expect(useGraphStore.getState().xAxes[0].xMode).toBe("date");
 	});
 
-	it("should handle out-of-bounds indices in move methods", () => {
+	it("should ignore reorder of an unknown series", () => {
 		const store = useGraphStore.getState();
-		const ds1: Dataset = {
-			id: "ds-1",
-			name: "D1",
-			columns: ["Time"],
-			data: [],
-			rowCount: 0,
-			xAxisColumn: "Time",
-			xAxisId: "axis-1",
-		};
-		store.addDataset(ds1);
-
-		store.moveDataset("ds-not-found", 1);
-		store.moveDataset("ds-1", -10);
-		store.moveDataset("ds-1", 10);
-		expect(useGraphStore.getState().datasets[0].id).toBe("ds-1");
-
 		const series1 = {
 			id: "s-1",
 			name: "S1",
@@ -528,11 +449,6 @@ describe("useGraphStore", () => {
 			color: "#000",
 		};
 		store.addSeries(series1);
-
-		store.moveSeries("s-not-found", 1);
-		store.moveSeries("s-1", -10);
-		store.moveSeries("s-1", 10);
-		expect(useGraphStore.getState().series[0].id).toBe("s-1");
 
 		store.reorderSeries("s-not-found", 0);
 		expect(useGraphStore.getState().series[0].id).toBe("s-1");
@@ -556,7 +472,6 @@ describe("useGraphStore", () => {
 			xAxes: [],
 			yAxes: [],
 			series: [{ id: "s1", hidden: false }],
-			axisTitles: { x: "A", y: "B" },
 		} as unknown as Awaited<ReturnType<typeof persistence.loadAppState>>);
 		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([
 			{ id: "ds1" } as unknown as Dataset,
