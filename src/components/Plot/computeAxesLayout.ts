@@ -119,8 +119,10 @@ export function computeXAxesLayoutCached({
 		cache.depsKey = depsKey;
 	}
 
+	const activeXAxisIds = new Set(activeXAxesUsed.map((ax) => ax.id));
+
 	return liveXAxes
-		.filter((axis) => activeXAxesUsed.some((ax) => ax.id === axis.id))
+		.filter((axis) => activeXAxisIds.has(axis.id))
 		.map((axis) => {
 			const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
 			const cached = cache.entries.get(axis.id);
