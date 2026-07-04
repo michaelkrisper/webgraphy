@@ -31,7 +31,6 @@ import {
 	type LineProgramLocations,
 	type WebGLLocations,
 } from "./GLStateCache";
-import { MAX_PIXEL_BUDGET_MULT, updatePixelBudget } from "./pixelBudget";
 import {
 	computeDataSlice,
 	computeDrawRanges,
@@ -382,9 +381,6 @@ export class RendererCore {
 	};
 	private drawRangesScratch: { start: number; count: number }[] = [];
 
-	private pixelBudgetMultRef = { current: MAX_PIXEL_BUDGET_MULT };
-	private lastBudgetUpdateRef = { current: 0 };
-
 	private constructor(
 		gl: WebGL2RenderingContext,
 		main: CompiledProgram,
@@ -480,10 +476,6 @@ export class RendererCore {
 
 	setInteracting(interacting: boolean): void {
 		this.interacting = interacting;
-		if (!interacting) {
-			// Settled: allow the next frame to render at full sharpness again.
-			this.pixelBudgetMultRef.current = MAX_PIXEL_BUDGET_MULT;
-		}
 	}
 
 	setHighlight(id: string | null): void {
@@ -540,7 +532,6 @@ export class RendererCore {
 		);
 
 		const plotBgRgba = this.plotBgRgba;
-		const t0 = performance.now();
 
 		for (let idx = 0; idx < this.seriesList.length; idx++) {
 			const s = this.seriesList[idx];
@@ -646,14 +637,6 @@ export class RendererCore {
 			);
 		}
 		gl.disable(gl.SCISSOR_TEST);
-
-		const now = performance.now();
-		updatePixelBudget(
-			now - t0,
-			now,
-			this.lastBudgetUpdateRef,
-			this.pixelBudgetMultRef,
-		);
 	}
 
 	dispose(): void {
