@@ -255,7 +255,7 @@ describe("getOrComputeM4", () => {
 		expect(bufferData).toHaveBeenCalledTimes(2); // only on the first (miss) call: one for x, one for y
 	});
 
-	it("recomputes when bucketWidth changes (zoom)", () => {
+	it("recomputes when bucketWidth crosses an octave (2x zoom)", () => {
 		const { gl, bufferData } = makeMockGl();
 		const cache = new WeakMap<Float32Array, DecimEntry>();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
@@ -263,10 +263,80 @@ describe("getOrComputeM4", () => {
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
 		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
-		// Different xRange (zoom) → new bucketWidth → cache miss
+		// Halved xRange → bucketWidth drops an octave → cache miss
 		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 5, 5, 8, 3);
 
 		expect(bufferData).toHaveBeenCalledTimes(4); // 2 calls × 2 buffers each
+	});
+
+	it("reuses the entry while zooming within a bucket-width octave", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// Slight zoom-in: same quantized bucketWidth, viewport still covered.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0.5, 9.5, 9, 8, 3);
+
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2); // only the initial miss uploaded
+	});
+
+	it("reuses the entry while panning inside the padded window, recomputes beyond it", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array(200);
+		const yData = new Float32Array(200);
+		for (let i = 0; i < 200; i++) {
+			xData[i] = i * 0.2 - 10;
+			yData[i] = i;
+		}
+
+		// Entry computed for viewport [0,10] covers roughly [-5,15].
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4, 14, 10, 8, 3);
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2);
+
+		// Viewport exits the cached window → recompute.
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 8, 18, 10, 8, 3);
+		expect(e3).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("emits identical points for buckets shared across a zoom recompute", () => {
+		const { gl } = makeMockGl();
+		const cache = new WeakMap<Float32Array, DecimEntry>();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		// Dense noisy data so each bucket has distinct extrema representatives.
+		const n = 4000;
+		const xData = new Float32Array(n);
+		const yData = new Float32Array(n);
+		for (let i = 0; i < n; i++) {
+			xData[i] = i * 0.005;
+			yData[i] = Math.sin(i * 1.7) * 100 + Math.sin(i * 0.13) * 10;
+		}
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 20, 20, 8, 3);
+		const pts1 = new Map<number, number>();
+		for (let i = 0; i < e1.count; i++) pts1.set(e1.xArr[i], e1.yArr[i]);
+
+		// Force a recompute at the same bucket width by moving the viewport far
+		// right, then check every point in the overlap region is unchanged —
+		// the absolute power-of-two grid must pick the same representatives.
+		cache.delete(yData);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 5, 25, 20, 8, 3);
+		let overlap = 0;
+		for (let i = 0; i < e2.count; i++) {
+			const x = e2.xArr[i];
+			if (x < 5 || x > 15) continue;
+			expect(pts1.get(x)).toBe(e2.yArr[i]);
+			overlap++;
+		}
+		expect(overlap).toBeGreaterThan(50);
 	});
 
 	it("stores numeric signature fields on the entry", () => {

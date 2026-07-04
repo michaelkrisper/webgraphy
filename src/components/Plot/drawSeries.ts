@@ -98,6 +98,12 @@ export interface SeriesDrawBundle {
  * `bucketDivisor = 3` is used for line decimation (sub-pixel buckets keep
  * the polyline visually identical), `1` for point decimation (one bucket per
  * pixel column emits the four extrema).
+ *
+ * The bucket width is quantized to the next-lower power of two (never coarser
+ * than the pixel target). Combined with the world-0 grid anchor this keeps
+ * bucket boundaries fixed while xRange varies within an octave, and nests
+ * grids across octaves — so the chosen extrema stay put during smooth zoom
+ * instead of re-bucketing (and visually jumping) every frame.
  */
 export function getOrComputeM4(
 	gl: WebGL2RenderingContext,
@@ -112,24 +118,29 @@ export function getOrComputeM4(
 	numBuckets: number,
 	bucketDivisor: number,
 ): DecimEntry {
-	// Pad the cached window so panning within ±½ viewport reuses the result.
+	// Pad the computed window so panning within ±½ viewport reuses the result.
 	const pad = xRange * 0.5;
 	const decimMin = xAxisMin - pad;
 	const decimMax = xAxisMax + pad;
-	// Quantize the cache key to a power-of-two xRange step so wheel zoom
-	// rebuilds gracefully while pan-within-window hits the cache.
+	// Quantize the window edges to a power-of-two step; qMin/qMax are then
+	// exact multiples of bucketWidth, so the grid-start snap in m4 is drift-free.
 	const q = 2 ** Math.floor(Math.log2(xRange / 8));
 	const qMin = Math.floor(decimMin / q) * q;
 	const qMax = Math.ceil(decimMax / q) * q;
-	const bucketWidth = xRange / (numBuckets * bucketDivisor);
+	const bucketWidth =
+		2 ** Math.floor(Math.log2(xRange / (numBuckets * bucketDivisor)));
 
+	// Reuse the cached result as long as it was computed at the same grid and
+	// still covers the visible window — pan and zoom-in within an octave hit;
+	// recompute only when the viewport leaves the cached window or the bucket
+	// width crosses an octave.
 	let entry = cache.get(yData);
 	if (
 		entry &&
 		entry.bucketWidth === bucketWidth &&
-		entry.qMin === qMin &&
-		entry.qMax === qMax &&
-		entry.xRef === xRef
+		entry.xRef === xRef &&
+		entry.qMin <= xAxisMin &&
+		entry.qMax >= xAxisMax
 	) {
 		return entry;
 	}
