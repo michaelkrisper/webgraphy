@@ -813,4 +813,43 @@ describe("useDataImport hook", () => {
 
     global.FileReader = originalFileReader;
   });
+
+  it.each([
+    { label: "an Error", thrown: new Error("parseDataInWorker failed"), expected: "parseDataInWorker failed" },
+    { label: "a string", thrown: "String error in parseDataInWorker", expected: "String error in parseDataInWorker" },
+  ])("surfaces $label thrown by parseDataInWorker during confirmImport", async ({ thrown, expected }) => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.csv", { type: "text/csv" });
+
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
+        this.onload?.({ target: { result: "data" } });
+      }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    const settings: ImportSettings = {
+      delimiter: ",",
+      decimalPoint: ".",
+      startRow: 1,
+      columnConfigs: [],
+    };
+
+    vi.mocked(parseDataInWorker).mockRejectedValueOnce(thrown);
+
+    await act(async () => {
+      await result.current.confirmImport(settings);
+    });
+
+    expect(result.current.error).toBe(expected);
+    expect(result.current.isImporting).toBe(false);
+
+    global.FileReader = originalFileReader;
+  });
 });
