@@ -365,6 +365,40 @@ describe("persistence", () => {
 	});
 
 	describe("error handling", () => {
+		it("should catch error when flushAll fails", async () => {
+			vi.resetModules();
+			const idbMock = await import("idb");
+			const openDBMockInner = vi.mocked(idbMock.openDB);
+			openDBMockInner.mockRejectedValue(new Error("Failed to open IndexedDB"));
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			try {
+				const persistenceModule = await import("../persistence");
+				const localPersistence = persistenceModule.persistence;
+
+				const dataset: Dataset = {
+					id: "2",
+					name: "test-flush-all",
+					columns: [],
+					data: [],
+					rowCount: 0,
+					xAxisColumn: "X",
+					xAxisId: "axis-1",
+				};
+
+				await localPersistence.saveDataset(dataset);
+				await localPersistence.flushAll();
+
+				expect(consoleSpy).toHaveBeenCalledWith(
+					"flushAll failed:",
+					expect.any(Error),
+				);
+			} finally {
+				consoleSpy.mockRestore();
+			}
+		});
+
 		it("should propagate error when openDB fails (flushed)", async () => {
 			vi.resetModules();
 			const idbMock = await import("idb");
