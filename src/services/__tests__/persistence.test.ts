@@ -488,5 +488,51 @@ describe("persistence", () => {
 			);
 			consoleSpy.mockRestore();
 		});
+
+		it("should catch error when loadAppState fails entirely", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			const error = new Error("Load failed");
+			const mockDb = {
+				get: vi.fn().mockRejectedValue(error),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+
+			const result = await persistence.loadAppState();
+
+			expect(result).toBeNull();
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to load state:",
+				expect.any(Error),
+			);
+			consoleSpy.mockRestore();
+		});
+
+		it("should log error on invalid legacy state", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+
+			const invalidLegacy = { xAxes: "invalid" };
+
+			const mockDb = {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce(undefined)
+					.mockResolvedValueOnce(undefined)
+					.mockResolvedValueOnce(invalidLegacy),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+
+			const result = await persistence.loadAppState();
+
+			expect(result).toBeNull();
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Invalid legacy state:",
+				expect.any(Object),
+			);
+			consoleSpy.mockRestore();
+		});
 	});
 });
