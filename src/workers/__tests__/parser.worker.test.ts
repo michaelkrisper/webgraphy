@@ -80,7 +80,10 @@ describe("parser.worker", () => {
     expect(postMessageMock).toHaveBeenCalledWith({ id: 2, type: "error", error });
   });
 
-  it("should handle error thrown when postMessage fails (e.g., DataCloneError)", async () => {
+  it.each([
+    { label: "Error object", thrown: new Error("DataCloneError"), error: "DataCloneError" },
+    { label: "string", thrown: "String error", error: "String error" },
+  ])("should handle $label thrown when postMessage fails", async ({ thrown, error }) => {
     const mockFile = new File(["dummy"], "test.csv", { type: "text/csv" });
     const mockDataset: Dataset[] = [];
 
@@ -88,7 +91,7 @@ describe("parser.worker", () => {
 
     // Force the first postMessage to fail
     postMessageMock.mockImplementationOnce(() => {
-      throw new Error("DataCloneError");
+      throw thrown;
     });
 
     const event = new MessageEvent("message", {
@@ -106,7 +109,7 @@ describe("parser.worker", () => {
     expect(postMessageMock).toHaveBeenLastCalledWith({
       id: 4,
       type: "error",
-      error: "DataCloneError",
+      error,
     });
   });
 });
