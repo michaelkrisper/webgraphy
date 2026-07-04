@@ -96,3 +96,36 @@ describe("formula.worker", () => {
     });
   });
 });
+
+describe("formula.worker stringification fallback", () => {
+  let evaluateFormulaSyncMock: any;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    evaluateFormulaSyncMock = (await import("../../utils/formula")).evaluateFormulaSync;
+    globalThis.self = globalThis as any;
+    globalThis.postMessage = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (globalThis as any).onmessage;
+  });
+
+  it("handles non-Error objects in catch block", async () => {
+    await import("../formula.worker");
+
+    evaluateFormulaSyncMock.mockImplementation(() => {
+      throw null;
+    });
+
+    const onmessage = (globalThis as any).onmessage;
+    onmessage({ data: { id: 123, formulaId: "test-id" } } as any);
+
+    expect(globalThis.postMessage).toHaveBeenCalledWith({
+      id: 123,
+      type: "error",
+      error: "null",
+    });
+  });
+});
