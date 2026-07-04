@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { THEMES } from "../../themes";
 import { downloadFile, exportToPNG, exportToSVG, formatDate } from "../export";
+import { UNIT_SECONDS } from "../../utils/time";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -526,20 +527,8 @@ describe("downloadFile", () => {
 
 	beforeEach(() => {
 		const mockAnchor = { href: "", download: "", click: mockClick };
-		const mockCanvas = {
-			getContext: vi.fn(() => ({
-				scale: vi.fn(),
-				fillRect: vi.fn(),
-				drawImage: vi.fn(),
-			})),
-			toDataURL: vi.fn(() => "data:image/png;base64,mock"),
-		};
 		const documentMock = {
-			createElement: vi.fn((tag: string) => {
-				if (tag === "a") return mockAnchor;
-				if (tag === "canvas") return mockCanvas;
-				return {};
-			}),
+			createElement: vi.fn().mockReturnValue(mockAnchor),
 		};
 		vi.stubGlobal("document", documentMock);
 		// We still need the original URL class to validate the URL syntax in the new logic
@@ -656,6 +645,26 @@ describe("downloadFile", () => {
 		).toThrow("Unsafe data URL scheme detected");
 	});
 
+	it("should throw an error and preserve cause if URL.createObjectURL fails", () => {
+		const mockError = new Error("Mock creation error");
+		vi.spyOn(URL, "createObjectURL").mockImplementationOnce(() => {
+			throw mockError;
+		});
+
+		expect.hasAssertions();
+		try {
+			downloadFile(
+				"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+				"test.png",
+				"image/png",
+			);
+		} catch (error) {
+			expect(error).toBeInstanceOf(Error);
+			expect((error as Error).message).toBe("Unsafe data URL scheme detected");
+			expect((error as Error).cause).toBe(mockError);
+		}
+	});
+
 	it("should handle normal strings using Blob correctly", () => {
 		const cleanup = downloadFile("Hello, world!", "test.txt", "text/plain");
 
@@ -687,14 +696,14 @@ describe("formatDate", () => {
 	it("formats correctly for daily steps (>= 86400)", () => {
 		const date = new Date(2023, 0, 15, 12, 0, 0);
 		const val = Math.floor(date.getTime() / 1000);
-		expect(formatDate(val, 86400)).toBe("15.1.");
+		expect(formatDate(val, UNIT_SECONDS.day)).toBe("15.1.");
 		expect(formatDate(val, 90000)).toBe("15.1.");
 	});
 
 	it("formats correctly for hourly steps (>= 3600 but < 86400)", () => {
 		const date = new Date(2023, 0, 15, 9, 30, 0);
 		const val = Math.floor(date.getTime() / 1000);
-		expect(formatDate(val, 3600)).toBe("9:00");
+		expect(formatDate(val, UNIT_SECONDS.hour)).toBe("9:00");
 		expect(formatDate(val, 7200)).toBe("9:00");
 	});
 

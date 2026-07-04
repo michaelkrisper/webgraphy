@@ -813,4 +813,123 @@ describe("useDataImport hook", () => {
 
     global.FileReader = originalFileReader;
   });
+
+  it.each([
+    { label: "an Error", thrown: new Error("parseDataInWorker failed"), expected: "parseDataInWorker failed" },
+    { label: "a string", thrown: "String error in parseDataInWorker", expected: "String error in parseDataInWorker" },
+  ])("surfaces $label thrown by parseDataInWorker during confirmImport", async ({ thrown, expected }) => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.csv", { type: "text/csv" });
+
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null;
+      readAsText() {
+        this.onload?.({ target: { result: "data" } });
+      }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    const settings: ImportSettings = {
+      delimiter: ",",
+      decimalPoint: ".",
+      startRow: 1,
+      columnConfigs: [],
+    };
+
+    vi.mocked(parseDataInWorker).mockRejectedValueOnce(thrown);
+
+    await act(async () => {
+      await result.current.confirmImport(settings);
+    });
+
+    expect(result.current.error).toBe(expected);
+    expect(result.current.isImporting).toBe(false);
+
+    global.FileReader = originalFileReader;
+  });
+
+  it("should handle missing fullCsv and undefined worker datasets during confirmImport", async () => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const originalFileReader = global.FileReader;
+    class MockFileReader {
+      onload: ((event: { target: { result: ArrayBuffer } }) => void) | null =
+        null;
+      readAsArrayBuffer() {
+        setTimeout(() => {
+          this.onload?.({ target: { result: new ArrayBuffer(8) } });
+        }, 10);
+      }
+    }
+    global.FileReader = MockFileReader as unknown as typeof FileReader;
+
+    const xlsx = await import("xlsx");
+    const mockWorkbook = {
+      SheetNames: ["Sheet1"],
+      Sheets: { Sheet1: {} },
+    };
+    vi.mocked(xlsx.read).mockReturnValue(
+      mockWorkbook as unknown as ReturnType<typeof xlsx.read>,
+    );
+    vi.mocked(xlsx.utils.sheet_to_csv).mockReturnValue("A,B\n1,2");
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    act(() => {
+      if (result.current.pendingFile) {
+        result.current.pendingFile.fullCsv = undefined;
+      }
+    });
+
+    vi.mocked(parseDataInWorker).mockResolvedValueOnce(
+      undefined as unknown as ReturnType<typeof parseDataInWorker>,
+    );
+
+    const settings: ImportSettings = {
+      delimiter: ",",
+      decimalPoint: ".",
+      startRow: 1,
+      commentChar: "#",
+      columnConfigs: [],
+    };
+
+    await act(async () => {
+      await result.current.confirmImport(settings);
+    });
+
+    expect(result.current.isImporting).toBe(false);
+
+    global.FileReader = originalFileReader;
+  });
+
+  it("should handle unexpected errors in initiateImport (e.g. primitive throw)", async () => {
+    const { result } = renderHook(() => useDataImport());
+
+    // Force a primitive throw by passing an object that throws when 'name' is accessed
+    const maliciousFile = {
+      get name(): string {
+        throw "Primitive error in initiateImport";
+      },
+    } as unknown as File;
+
+    await act(async () => {
+      await result.current.importFile(maliciousFile);
+    });
+
+    expect(result.current.error).toBe("Primitive error in initiateImport");
+  });
 });

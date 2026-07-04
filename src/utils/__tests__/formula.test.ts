@@ -786,3 +786,27 @@ describe("evaluateFormulaSync — success paths", () => {
 		}
 	});
 });
+
+describe("compileFormula generic error fallback", () => {
+	it("returns a generic error message for non-FormulaError exceptions (TypeError)", () => {
+		// Passing an invalid argument to trigger a native TypeError inside compileFormula
+		const result = compileFormula(undefined as unknown as string, ["Col1"]);
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain("Cannot read properties of undefined");
+		expect(result.evaluate([])).toBeNaN();
+	});
+
+	it("returns a stringified error message for non-Error exceptions", () => {
+		// Passing an object with a getter that throws a string primitive
+		// when accessed during iteration over availableColumns.
+		const evilColumns = {
+			get length() {
+				throw "Mock string error";
+			},
+		} as unknown as string[];
+
+		const result = compileFormula("[Col1]", evilColumns);
+		expect(result.error).toBe("Mock string error");
+		expect(result.evaluate([])).toBeNaN();
+	});
+});

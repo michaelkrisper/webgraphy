@@ -4,6 +4,7 @@ import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
+import { UNIT_SECONDS } from "../utils/time";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -278,7 +279,7 @@ export const exportToSVG = (
 				let dashArray = "";
 				if (s.lineStyle === "dashed") dashArray = 'stroke-dasharray="8,6"';
 				else if (s.lineStyle === "dotted") dashArray = 'stroke-dasharray="2,4"';
-				svg += `<path d="${pathData.trim()}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
+				svg += `<path d="${escapeHTML(pathData.trim())}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
 			}
 		}
 		if (s.pointStyle !== "none") {
@@ -355,10 +356,7 @@ export const exportToSVG = (
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
 		const title = Array.from(
-			datasetsForThisAxis.reduce(
-				(acc, d) => acc.add(d.xAxisColumn),
-				new Set<string>(),
-			),
+			new Set(datasetsForThisAxis.map((d) => d.xAxisColumn)),
 		).join(" / ");
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
@@ -435,8 +433,8 @@ export const exportToSVG = (
  */
 export const formatDate = (val: number, step: number) => {
 	const d = new Date(val * 1000);
-	if (step >= 86400) return `${d.getDate()}.${d.getMonth() + 1}.`;
-	if (step >= 3600) return `${d.getHours()}:00`;
+	if (step >= UNIT_SECONDS.day) return `${d.getDate()}.${d.getMonth() + 1}.`;
+	if (step >= UNIT_SECONDS.hour) return `${d.getHours()}:00`;
 	return (
 		String(d.getHours()).padStart(2, "0") +
 		":" +
