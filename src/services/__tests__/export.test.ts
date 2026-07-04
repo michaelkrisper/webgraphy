@@ -657,6 +657,26 @@ describe("downloadFile", () => {
 		).toThrow("Unsafe data URL scheme detected");
 	});
 
+	it("should throw an error and preserve cause if URL.createObjectURL fails", () => {
+		const mockError = new Error("Mock creation error");
+		vi.spyOn(URL, "createObjectURL").mockImplementationOnce(() => {
+			throw mockError;
+		});
+
+		expect.hasAssertions();
+		try {
+			downloadFile(
+				"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+				"test.png",
+				"image/png",
+			);
+		} catch (error) {
+			expect(error).toBeInstanceOf(Error);
+			expect((error as Error).message).toBe("Unsafe data URL scheme detected");
+			expect((error as Error).cause).toBe(mockError);
+		}
+	});
+
 	it("should handle normal strings using Blob correctly", () => {
 		const cleanup = downloadFile("Hello, world!", "test.txt", "text/plain");
 
