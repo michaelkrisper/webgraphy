@@ -355,10 +355,7 @@ export const exportToSVG = (
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
 		const title = Array.from(
-			datasetsForThisAxis.reduce(
-				(acc, d) => acc.add(d.xAxisColumn),
-				new Set<string>(),
-			),
+			new Set(datasetsForThisAxis.map((d) => d.xAxisColumn)),
 		).join(" / ");
 		svg += `<text x="${padding.left + chartWidth / 2}" y="${baseY + 48}" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(title)}</text>`;
 	});
