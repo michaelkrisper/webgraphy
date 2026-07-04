@@ -1,9 +1,16 @@
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-	plugins: [react()],
+	plugins: [
+		react(),
+		VitePWA({
+			registerType: "autoUpdate",
+			injectRegister: null,
+		})
+	],
 	test: {
 		globals: true,
 		environment: "jsdom",
@@ -12,9 +19,6 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text", "json", "html"],
 			exclude: ["node_modules", "dist"],
-			// Regression guard: thresholds sit just below the current numbers so
-			// the suite fails if coverage drops meaningfully. Ratchet them up as
-			// coverage improves.
 			thresholds: {
 				statements: 85,
 				branches: 73,
@@ -26,6 +30,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
+			"virtual:pwa-register": path.resolve(__dirname, "src/__tests__/mock-pwa-register.ts"),
 		},
 	},
 });
