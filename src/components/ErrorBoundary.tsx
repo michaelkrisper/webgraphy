@@ -31,7 +31,6 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 			error,
 			errorInfo,
 		});
-		console.error("[ErrorBoundary]", error, errorInfo.componentStack);
 	}
 
 	handleReset = () => {
