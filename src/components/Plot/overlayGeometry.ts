@@ -4,6 +4,8 @@
 // write index, so the caller can sum vertex counts and push draw groups
 // while the geometry itself stays testable in isolation.
 
+import { DEFAULT_GUTTER_TOTAL } from "./axisGutters";
+
 interface Padding {
 	left: number;
 	right: number;
@@ -238,8 +240,6 @@ export function writeFramePlotBorder(
 	buf[p++] = yB;
 	return p;
 }
-
-const DEFAULT_GUTTER_TOTAL = 40;
 
 /**
  * Append every x-axis horizontal line plus its tick marks, stacked below the

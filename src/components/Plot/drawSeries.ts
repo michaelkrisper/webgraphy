@@ -29,7 +29,7 @@ export interface OverlayState {
 	}>;
 }
 
-export interface DecimEntry {
+interface DecimEntry {
 	// Numeric signature fields — compared directly to avoid per-frame string
 	// allocation on cache hits (hot path during pan/zoom).
 	bucketWidth: number;
