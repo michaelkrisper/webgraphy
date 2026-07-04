@@ -4,6 +4,7 @@ import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
+import { UNIT_SECONDS } from "../utils/time";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -432,8 +433,8 @@ export const exportToSVG = (
  */
 export const formatDate = (val: number, step: number) => {
 	const d = new Date(val * 1000);
-	if (step >= 86400) return `${d.getDate()}.${d.getMonth() + 1}.`;
-	if (step >= 3600) return `${d.getHours()}:00`;
+	if (step >= UNIT_SECONDS.day) return `${d.getDate()}.${d.getMonth() + 1}.`;
+	if (step >= UNIT_SECONDS.hour) return `${d.getHours()}:00`;
 	return (
 		String(d.getHours()).padStart(2, "0") +
 		":" +
