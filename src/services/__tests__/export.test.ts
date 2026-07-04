@@ -527,20 +527,8 @@ describe("downloadFile", () => {
 
 	beforeEach(() => {
 		const mockAnchor = { href: "", download: "", click: mockClick };
-		const mockCanvas = {
-			getContext: vi.fn(() => ({
-				scale: vi.fn(),
-				fillRect: vi.fn(),
-				drawImage: vi.fn(),
-			})),
-			toDataURL: vi.fn(() => "data:image/png;base64,mock"),
-		};
 		const documentMock = {
-			createElement: vi.fn((tag: string) => {
-				if (tag === "a") return mockAnchor;
-				if (tag === "canvas") return mockCanvas;
-				return {};
-			}),
+			createElement: vi.fn().mockReturnValue(mockAnchor),
 		};
 		vi.stubGlobal("document", documentMock);
 		// We still need the original URL class to validate the URL syntax in the new logic
