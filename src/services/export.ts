@@ -311,13 +311,16 @@ export const exportToSVG = (
 	});
 
 	// Group series by the xAxisId of their source dataset
-	const datasetXAxisMap = new Map<string, string>();
-	for (const d of datasets) {
-		datasetXAxisMap.set(d.id, d.xAxisId || "axis-1");
-	}
-
+	// Optimization: Since datasets length is extremely small (typically 1-3),
+	// an O(N*M) loop here completely avoids Map allocation overhead and is significantly faster.
 	series.forEach((s) => {
-		const xAxisId = datasetXAxisMap.get(s.sourceId);
+		let xAxisId: string | undefined;
+		for (let i = 0; i < datasets.length; i++) {
+			if (datasets[i].id === s.sourceId) {
+				xAxisId = datasets[i].xAxisId || "axis-1";
+				break;
+			}
+		}
 		if (xAxisId) {
 			if (!seriesByXAxisId[xAxisId]) seriesByXAxisId[xAxisId] = [];
 			seriesByXAxisId[xAxisId].push(s);
