@@ -8,16 +8,16 @@ WebGraphy — client-only PWA for high-performance data visualization with WebGL
 
 ## Commands
 
-Package manager is **pnpm** (Node >=24).
+Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use `npm install`.
 
-- `pnpm dev` — Vite dev server.
-- `pnpm build` — `tsc -b && vite build` (type-check then bundle).
-- `pnpm lint` — ESLint over the repo.
-- `pnpm test` — Vitest run (one-shot).
-- `pnpm exec vitest run --coverage` — tests with coverage thresholds enforced (what CI runs). Thresholds live in `vitest.config.ts`; the build fails if coverage drops below them. Ratchet up, never down.
-- Single test file: `pnpm exec vitest run src/utils/__tests__/formula.test.ts`
-- Single test by name: `pnpm exec vitest run -t "name substring"`
-- Watch: `pnpm exec vitest`
+- `npm run dev` — Vite dev server.
+- `npm run build` — `tsc -b && vite build` (type-check then bundle).
+- `npm run lint` — ESLint over the repo.
+- `npm test` — Vitest run (one-shot).
+- `npx vitest run --coverage` — tests with coverage thresholds enforced (what CI runs). Thresholds live in `vitest.config.ts`; the build fails if coverage drops below them. Ratchet up, never down.
+- Single test file: `npx vitest run src/utils/__tests__/formula.test.ts`
+- Single test by name: `npx vitest run -t "name substring"`
+- Watch: `npx vitest`
 
 `@` is aliased to `./src` (see `vitest.config.ts`). Tests run in jsdom; `src/__tests__/setup.ts` mocks `localStorage`.
 
