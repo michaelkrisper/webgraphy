@@ -209,3 +209,48 @@ describe("acquire/release lifecycle (StrictMode safety)", () => {
 		expect(FakeWorker.instances[0].terminate).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("Worker initialization failure", () => {
+	it("falls back to DirectBackend if Worker creation throws", () => {
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		class ThrowingWorker {
+			constructor() {
+				throw new Error("Worker blocked by CSP");
+			}
+		}
+		vi.stubGlobal("Worker", ThrowingWorker);
+		const gl = makeGl2Mock();
+		const canvas = withOffscreen(makeCanvasMock(gl));
+
+		const backend = acquireRenderBackend(canvas, viewport, [0, 0, 0]);
+		expect(errorSpy).toHaveBeenCalledWith(
+			"OffscreenCanvas render worker unavailable, falling back to main-thread rendering:",
+			expect.any(Error)
+		);
+		expect(canvas.getContext).toHaveBeenCalled();
+		releaseRenderBackend(canvas);
+	});
+});
+
+describe("Worker runtime errors", () => {
+	it("logs worker runtime errors to console.error", () => {
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.stubGlobal("Worker", FakeWorker);
+		const canvas = withOffscreen(makeCanvasMock(null));
+		const backend = acquireRenderBackend(canvas, viewport, [0, 0, 0]);
+
+		const worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+
+		// Simulate worker error with a message
+		if (typeof worker.onerror === "function") {
+			worker.onerror({ message: "Worker thread crashed" } as ErrorEvent);
+		}
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", "Worker thread crashed");
+
+		// Simulate worker error without a message
+		if (typeof worker.onerror === "function") {
+			worker.onerror({ type: "error" } as any);
+		}
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", { type: "error" });
+	});
+});

@@ -1,0 +1,17 @@
+<<<<<<< SEARCH
+		// Simulate worker error with a message
+		worker.onerror({ message: "Worker thread crashed" } as ErrorEvent);
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", "Worker thread crashed");
+
+		// Simulate worker error without a message
+		worker.onerror({ type: "error" } as any);
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", { type: "error" });
+=======
+		// Simulate worker error with a message
+		(worker.onerror as (ev: unknown) => void)({ message: "Worker thread crashed" } as ErrorEvent);
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", "Worker thread crashed");
+
+		// Simulate worker error without a message
+		(worker.onerror as (ev: unknown) => void)({ type: "error" } as any);
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", { type: "error" });
+>>>>>>> REPLACE
