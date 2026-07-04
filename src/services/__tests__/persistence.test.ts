@@ -261,12 +261,19 @@ describe("persistence", () => {
 				legendVisible: true,
 				crosshairVisible: true,
 			};
-			const mockDb = {
+			const mockStore = {
 				get: vi
 					.fn()
 					.mockResolvedValueOnce(viewport)
 					.mockResolvedValueOnce(config)
 					.mockResolvedValueOnce(undefined),
+			};
+			const mockTx = {
+				objectStore: vi.fn().mockReturnValue(mockStore),
+				done: Promise.resolve(),
+			};
+			const mockDb = {
+				transaction: vi.fn().mockReturnValue(mockTx),
 			};
 			openDBMock.mockResolvedValueOnce(mockDb);
 
@@ -281,12 +288,19 @@ describe("persistence", () => {
 				series: SAMPLE_APP_STATE.series,
 				axisTitles: SAMPLE_APP_STATE.axisTitles,
 			};
-			const mockDb = {
+			const mockStore = {
 				get: vi
 					.fn()
 					.mockResolvedValueOnce(undefined)
 					.mockResolvedValueOnce(undefined)
 					.mockResolvedValueOnce(legacy),
+			};
+			const mockTx = {
+				objectStore: vi.fn().mockReturnValue(mockStore),
+				done: Promise.resolve(),
+			};
+			const mockDb = {
+				transaction: vi.fn().mockReturnValue(mockTx),
 				put: vi.fn().mockResolvedValue(undefined),
 				delete: vi.fn().mockResolvedValue(undefined),
 			};
@@ -306,12 +320,19 @@ describe("persistence", () => {
 		});
 
 		it("should return null when no state present", async () => {
-			const mockDb = {
+			const mockStore = {
 				get: vi
 					.fn()
 					.mockResolvedValueOnce(undefined)
 					.mockResolvedValueOnce(undefined)
 					.mockResolvedValueOnce(undefined),
+			};
+			const mockTx = {
+				objectStore: vi.fn().mockReturnValue(mockStore),
+				done: Promise.resolve(),
+			};
+			const mockDb = {
+				transaction: vi.fn().mockReturnValue(mockTx),
 			};
 			openDBMock.mockResolvedValueOnce(mockDb);
 
