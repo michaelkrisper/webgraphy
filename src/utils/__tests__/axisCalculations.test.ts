@@ -10,11 +10,18 @@ import {
 	formatAxisLabel,
 	getAxisById,
 	syncAxesWithTargets,
+	DEFAULT_X_AXIS_ID,
 } from "../axisCalculations";
 
 describe("Constants", () => {
 	it("exports AXIS_EPSILON correctly", () => {
 		expect(AXIS_EPSILON).toBe(1e-10);
+	});
+});
+
+describe("DEFAULT_X_AXIS_ID", () => {
+	it("should have value 'axis-1'", () => {
+		expect(DEFAULT_X_AXIS_ID).toBe("axis-1");
 	});
 });
 
