@@ -488,5 +488,46 @@ describe("persistence", () => {
 			);
 			consoleSpy.mockRestore();
 		});
+
+		it("should catch error when loadAppState fails", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			const error = new Error("Load failed");
+			const mockDb = {
+				get: vi.fn().mockRejectedValue(error),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+
+			const result = await persistence.loadAppState();
+
+			expect(result).toBeNull();
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to load state:",
+				expect.any(Error),
+			);
+			consoleSpy.mockRestore();
+		});
+
+		it("should catch error when clearAppState fails due to getDB error", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			vi.resetModules();
+			const idbMock = await import("idb");
+			const openDBMockInner = vi.mocked(idbMock.openDB);
+			openDBMockInner.mockRejectedValue(new Error("Failed to open IndexedDB"));
+
+			const persistenceModule = await import("../persistence");
+			const localPersistence = persistenceModule.persistence;
+
+			await localPersistence.clearAppState();
+
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to clear state:",
+				expect.any(Error),
+			);
+			consoleSpy.mockRestore();
+		});
 	});
 });
