@@ -21,7 +21,10 @@ export function getOrComputeMonotonicity(
 	if (isMonotonic === undefined) {
 		isMonotonic = true;
 		for (let i = 1; i < xData.length; i++) {
-			if (xData[i] < xData[i - 1]) {
+			// Negated >= so NaN x values (comparisons are always false) flag the
+			// column as non-monotonic — binary-search slicing and M4 decimation
+			// both assume a sorted, NaN-free x column.
+			if (!(xData[i] >= xData[i - 1])) {
 				isMonotonic = false;
 				break;
 			}

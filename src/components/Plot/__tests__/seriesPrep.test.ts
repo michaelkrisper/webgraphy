@@ -17,6 +17,11 @@ describe("getOrComputeMonotonicity", () => {
 		expect(getOrComputeMonotonicity(arr, new WeakMap())).toBe(false);
 	});
 
+	it("returns false when the array contains NaN", () => {
+		const arr = new Float32Array([1, 2, NaN, 3]);
+		expect(getOrComputeMonotonicity(arr, new WeakMap())).toBe(false);
+	});
+
 	it("treats single-element and empty arrays as monotonic", () => {
 		expect(
 			getOrComputeMonotonicity(new Float32Array([42]), new WeakMap()),
