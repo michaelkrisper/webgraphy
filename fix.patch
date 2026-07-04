@@ -1,0 +1,29 @@
+--- src/components/Plot/__tests__/renderBackend.test.ts
++++ src/components/Plot/__tests__/renderBackend.test.ts
+@@ -221,7 +221,7 @@
+		const gl = makeGl2Mock();
+		const canvas = withOffscreen(makeCanvasMock(gl));
+
+-		const backend = acquireRenderBackend(canvas, viewport, [0, 0, 0]);
++		acquireRenderBackend(canvas, viewport, [0, 0, 0]);
+		expect(errorSpy).toHaveBeenCalledWith(
+			"OffscreenCanvas render worker unavailable, falling back to main-thread rendering:",
+			expect.any(Error)
+@@ -236,7 +236,7 @@
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.stubGlobal("Worker", FakeWorker);
+		const canvas = withOffscreen(makeCanvasMock(null));
+-		const backend = acquireRenderBackend(canvas, viewport, [0, 0, 0]);
++		acquireRenderBackend(canvas, viewport, [0, 0, 0]);
+
+		const worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+
+@@ -248,7 +248,7 @@
+
+		// Simulate worker error without a message
+		if (typeof worker.onerror === "function") {
+-			worker.onerror({ type: "error" } as any);
++			worker.onerror({ type: "error" } as unknown as ErrorEvent);
+		}
+		expect(errorSpy).toHaveBeenCalledWith("Render worker error:", { type: "error" });
+	});
