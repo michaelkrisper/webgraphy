@@ -21,7 +21,7 @@ export interface TimeTick {
 const MAX_TIME_TICKS = 500;
 const MAX_SECONDARY_LABELS = 100;
 
-const UNIT_SECONDS = {
+export const UNIT_SECONDS = {
 	second: 1,
 	minute: 60,
 	hour: 3600,
