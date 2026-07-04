@@ -344,6 +344,43 @@ describe("persistence", () => {
 			}
 		});
 
+		it("should catch error when put dataset fails (flushed)", async () => {
+			vi.resetModules();
+			const idbMock = await import("idb");
+			const openDBMockInner = vi.mocked(idbMock.openDB);
+
+			const mockDb = {
+				put: vi.fn().mockImplementation(() => {
+					throw new Error("Simulated put error");
+				})
+			};
+			openDBMockInner.mockResolvedValueOnce(mockDb);
+
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			try {
+				const persistenceModule = await import("../persistence");
+				const localPersistence = persistenceModule.persistence;
+
+				await localPersistence.saveDataset({
+					id: "saveDatasetErrorTest",
+					name: "test",
+					columns: [],
+					data: [],
+					rowCount: 0,
+					xAxisColumn: "X",
+					xAxisId: "axis-1"
+				});
+
+				await vi.advanceTimersByTimeAsync(400);
+				await vi.runAllTimersAsync();
+
+				expect(consoleSpy).toHaveBeenCalledWith("saveDataset failed:", expect.any(Error));
+			} finally {
+				consoleSpy.mockRestore();
+			}
+		});
+
 		it("should clear all state keys", async () => {
 			const mockDb = { delete: vi.fn().mockResolvedValue(undefined) };
 			openDBMock.mockResolvedValueOnce(mockDb);
@@ -487,6 +524,45 @@ describe("persistence", () => {
 				expect.any(Error),
 			);
 			consoleSpy.mockRestore();
+		});
+
+		it("should catch error when loadAppState fails", async () => {
+			vi.resetModules();
+			const idbMock = await import("idb");
+			const openDBMockInner = vi.mocked(idbMock.openDB);
+			openDBMockInner.mockRejectedValueOnce(new Error("Simulated load error"));
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const persistenceModule = await import("../persistence");
+			const localPersistence = persistenceModule.persistence;
+
+			const res = await localPersistence.loadAppState();
+			expect(res).toBeNull();
+			expect(consoleSpy).toHaveBeenCalledWith("Failed to load state:", expect.any(Error));
+			consoleSpy.mockRestore();
+		});
+
+		it("should catch error when flushAll fails", async () => {
+			vi.resetModules();
+			const idbMock = await import("idb");
+			const openDBMockInner = vi.mocked(idbMock.openDB);
+
+			const mockDb = {
+				transaction: vi.fn().mockImplementation(() => {
+					throw new Error("Simulated transaction failure");
+				})
+			};
+			openDBMockInner.mockResolvedValueOnce(mockDb);
+
+			const persistenceModule = await import("../persistence");
+			const localPersistence = persistenceModule.persistence;
+
+			const dataset: Dataset = { id: "flushAllErrorTest", name: "test", columns: [], data: [], rowCount: 0, xAxisColumn: "X", xAxisId: "axis-1" };
+			await localPersistence.saveDataset(dataset);
+
+			const consoleSpy2 = vi.spyOn(console, "error").mockImplementation(() => {});
+			await localPersistence.flushAll();
+			expect(consoleSpy2).toHaveBeenCalledWith("flushAll failed:", expect.any(Error));
+			consoleSpy2.mockRestore();
 		});
 	});
 });
