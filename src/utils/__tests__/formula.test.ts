@@ -1,3 +1,4 @@
+import { dateToSeconds } from "../time";
 import { describe, expect, it, vi } from "vitest";
 import {
 	compileFormula,
@@ -93,9 +94,9 @@ describe("compileFormula", () => {
 
 		expect(usedColumnIndices).toEqual([1, 0]);
 
-		const t1 = new Date("2023-01-01T10:00:00Z").getTime() / 1000;
-		const t2 = new Date("2023-01-01T11:00:00Z").getTime() / 1000;
-		const t3 = new Date("2023-01-02T10:00:00Z").getTime() / 1000;
+		const t1 = dateToSeconds(new Date("2023-01-01T10:00:00Z"));
+		const t2 = dateToSeconds(new Date("2023-01-01T11:00:00Z"));
+		const t3 = dateToSeconds(new Date("2023-01-02T10:00:00Z"));
 
 		expect(evaluate([10, t1], ctx)).toBe(10);
 		expect(evaluate([20, t2], ctx)).toBe(15);
@@ -242,9 +243,9 @@ describe("compileFormula", () => {
 	it("should test sumday, avghour, sumhour, avgminute, avgsecond", () => {
 		const resSumDay = compileFormula("sumday([Temp])", columns);
 		const ctxSumDay = resSumDay.createContext?.();
-		const t1 = new Date("2023-01-01T10:00:00Z").getTime() / 1000;
-		const t2 = new Date("2023-01-01T11:00:00Z").getTime() / 1000;
-		const t3 = new Date("2023-01-02T10:00:00Z").getTime() / 1000;
+		const t1 = dateToSeconds(new Date("2023-01-01T10:00:00Z"));
+		const t2 = dateToSeconds(new Date("2023-01-01T11:00:00Z"));
+		const t3 = dateToSeconds(new Date("2023-01-02T10:00:00Z"));
 
 		expect(resSumDay.evaluate([10, t1], ctxSumDay)).toBe(10);
 		expect(resSumDay.evaluate([20, t2], ctxSumDay)).toBe(30);

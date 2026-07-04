@@ -1,3 +1,4 @@
+import { dateToSeconds } from "../../utils/time";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as randomUtils from "../../utils/random";
 import { generateDemoDataset, getDemoAppState } from "../demoData";
@@ -96,7 +97,7 @@ describe("demoData", () => {
 			const tsCol = dataset.data[0];
 
 			expect(tsCol.refPoint).toBe(
-				Math.floor(new Date(2024, 0, 1).getTime() / 1000),
+				Math.floor(dateToSeconds(new Date(2024, 0, 1))),
 			);
 
 			// Timestamp bounds check

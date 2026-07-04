@@ -1,3 +1,4 @@
+import { dateToSeconds } from "../time";
 import { describe, expect, it, vi } from "vitest";
 import * as jsonUtils from "../json";
 import { parseData } from "../data-parser";
@@ -137,7 +138,7 @@ describe("data-parser", () => {
 
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].data[0].refPoint).toBe(
-				new Date(2025, 11, 24).getTime() / 1000,
+				dateToSeconds(new Date(2025, 11, 24)),
 			);
 			expect(datasets[0].data[0].isFloat64).toBe(true);
 		});
@@ -303,7 +304,7 @@ describe("data-parser", () => {
 
 			expect(datasets).toHaveLength(1);
 			expect(datasets[0].data[0].refPoint).toBe(
-				new Date(2025, 11, 24).getTime() / 1000,
+				dateToSeconds(new Date(2025, 11, 24)),
 			);
 			expect(datasets[0].data[1].categoryLabels).toEqual(["A", "B"]);
 			expect(datasets[0].data[2].refPoint).toBe(1.1);

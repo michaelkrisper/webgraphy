@@ -1,3 +1,4 @@
+import { dateToSeconds } from "../../utils/time";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { THEMES } from "../../themes";
 import { downloadFile, exportToPNG, exportToSVG, formatDate } from "../export";
@@ -661,25 +662,25 @@ describe("downloadFile", () => {
 describe("formatDate", () => {
 	it("formats correctly for daily steps (>= 86400)", () => {
 		const date = new Date(2023, 0, 15, 12, 0, 0);
-		const val = Math.floor(date.getTime() / 1000);
+		const val = Math.floor(dateToSeconds(date));
 		expect(formatDate(val, 86400)).toBe("15.1.");
 		expect(formatDate(val, 90000)).toBe("15.1.");
 	});
 
 	it("formats correctly for hourly steps (>= 3600 but < 86400)", () => {
 		const date = new Date(2023, 0, 15, 9, 30, 0);
-		const val = Math.floor(date.getTime() / 1000);
+		const val = Math.floor(dateToSeconds(date));
 		expect(formatDate(val, 3600)).toBe("9:00");
 		expect(formatDate(val, 7200)).toBe("9:00");
 	});
 
 	it("formats correctly for minute steps (< 3600)", () => {
 		const date1 = new Date(2023, 0, 15, 9, 5, 0);
-		const val1 = Math.floor(date1.getTime() / 1000);
+		const val1 = Math.floor(dateToSeconds(date1));
 		expect(formatDate(val1, 60)).toBe("09:05");
 
 		const date2 = new Date(2023, 0, 15, 14, 30, 0);
-		const val2 = Math.floor(date2.getTime() / 1000);
+		const val2 = Math.floor(dateToSeconds(date2));
 		expect(formatDate(val2, 1)).toBe("14:30");
 	});
 });

@@ -1,3 +1,4 @@
+import { dateToSeconds } from "../utils/time";
 import { secureRandom } from "../utils/random";
 import type {
 	DataColumn,
@@ -17,7 +18,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	const datasetId = "demo-dataset";
 
 	const currentYear = new Date().getFullYear();
-	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+	const startTime = Math.floor(dateToSeconds(new Date(currentYear, 0, 1)));
 
 	const data: DataColumn[] = columns.map((colName) => ({
 		isFloat64: colName === "Timestamp",

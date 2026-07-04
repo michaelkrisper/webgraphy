@@ -126,7 +126,7 @@ export function generateTimeTicks(
 	else if (unit === "month") d.setMonth(d.getMonth() - value);
 	else if (unit === "year") d.setFullYear(d.getFullYear() - value);
 
-	let current = d.getTime() / 1000;
+	let current = dateToSeconds(d);
 	// Use a slightly larger max for margin (approx 1 step)
 	const marginSeconds =
 		(unit === "month"
@@ -150,7 +150,7 @@ export function generateTimeTicks(
 		else if (unit === "month") d.setMonth(d.getMonth() + value);
 		else if (unit === "year") d.setFullYear(d.getFullYear() + value);
 
-		current = d.getTime() / 1000;
+		current = dateToSeconds(d);
 		if (ticks.length > MAX_TIME_TICKS) break;
 	}
 
@@ -204,7 +204,7 @@ export function generateSecondaryLabels(
 		d.setTime(min * 1000);
 		d.setHours(0, 0, 0, 0);
 		d.setDate(d.getDate() - 1); // margin
-		let current = d.getTime() / 1000;
+		let current = dateToSeconds(d);
 		while (current <= max + 86400) {
 			labels.push({
 				timestamp: current,
@@ -215,7 +215,7 @@ export function generateSecondaryLabels(
 				}),
 			});
 			d.setDate(d.getDate() + 1);
-			current = d.getTime() / 1000;
+			current = dateToSeconds(d);
 			if (labels.length > MAX_SECONDARY_LABELS) break;
 		}
 		return labels;
@@ -231,7 +231,7 @@ export function generateSecondaryLabels(
 			d.setHours(0, 0, 0, 0);
 			d.setDate(1);
 			d.setMonth(d.getMonth() - 1); // margin
-			let current = d.getTime() / 1000;
+			let current = dateToSeconds(d);
 			while (current <= max + UNIT_SECONDS.month) {
 				labels.push({
 					timestamp: current,
@@ -241,7 +241,7 @@ export function generateSecondaryLabels(
 					}),
 				});
 				d.setMonth(d.getMonth() + 1);
-				current = d.getTime() / 1000;
+				current = dateToSeconds(d);
 				if (labels.length > MAX_SECONDARY_LABELS) break;
 			}
 			return labels;
@@ -253,18 +253,22 @@ export function generateSecondaryLabels(
 	d.setHours(0, 0, 0, 0);
 	d.setMonth(0, 1);
 	d.setFullYear(d.getFullYear() - 1); // margin
-	let current = d.getTime() / 1000;
+	let current = dateToSeconds(d);
 	while (current <= max + 31536000) {
 		labels.push({
 			timestamp: current,
 			label: String(d.getFullYear()),
 		});
 		d.setFullYear(d.getFullYear() + 1);
-		current = d.getTime() / 1000;
+		current = dateToSeconds(d);
 		if (labels.length > MAX_SECONDARY_LABELS) break;
 	}
 
 	return labels;
+}
+
+export function dateToSeconds(d: Date): number {
+	return d.getTime() / 1000;
 }
 
 export function formatFullDate(ts: number): string {

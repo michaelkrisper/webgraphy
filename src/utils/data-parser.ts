@@ -1,5 +1,6 @@
 // Data Parser (v0.5.0 - Main Thread)
 
+import { dateToSeconds } from "./time";
 import type { DataColumn, ParsedDataset } from "../services/persistence";
 import { processRawColumn } from "./data-processing";
 import { secureJSONParse } from "./json";
@@ -700,7 +701,7 @@ function getDateFormatIndices(format: string): DateFormatIndices {
 function parseDate(val: string, format?: string): number {
 	if (!format) {
 		const d = new Date(val);
-		return d.getTime() / 1000;
+		return dateToSeconds(d);
 	}
 
 	const idx = getDateFormatIndices(format);
@@ -737,11 +738,11 @@ function parseDate(val: string, format?: string): number {
 	) {
 		dateScratch.setFullYear(year, month, day);
 		dateScratch.setHours(hour, min, sec, 0);
-		return dateScratch.getTime() / 1000;
+		return dateToSeconds(dateScratch);
 	}
 
 	const d = new Date(val);
-	return d.getTime() / 1000;
+	return dateToSeconds(d);
 }
 
 const dateScratch = new Date();
