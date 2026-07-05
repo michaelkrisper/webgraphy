@@ -6,7 +6,11 @@ import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
-import type { XAxisConfig, YAxisConfig } from "../../services/persistence";
+import type {
+	SeriesConfig,
+	XAxisConfig,
+	YAxisConfig,
+} from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import {
@@ -19,7 +23,11 @@ import {
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
-import { AxesLayer, type AxesLayerHandle } from "./AxesLayer";
+import {
+	buildLabels,
+	createLabelStringCache,
+	type LabelBuildContext,
+} from "./buildLabels";
 import { ChartActionButtons } from "./ChartActionButtons";
 import {
 	XAxisInteractionZones,
@@ -41,7 +49,6 @@ import { PlotDragOverlay, ZoomBoxOverlay } from "./PlotOverlays";
 import {
 	type AxesLayoutCache,
 	buildXAxisLayoutFor,
-	buildYAxisLayoutFor,
 	computeXAxesLayoutCached,
 	computeYAxesLayoutCached,
 	createAxesLayoutCache,
@@ -86,7 +93,7 @@ export default function ChartContainer() {
 		{},
 	);
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
-	const axesLayerRef = useRef<AxesLayerHandle | null>(null);
+	const labelStringCacheRef = useRef(createLabelStringCache());
 	const pressedKeysRef = useRef<Set<string>>(new Set());
 	const overlayScratchRef = useRef<{
 		xAxes: OverlayXEntry[];
@@ -379,6 +386,35 @@ export default function ChartContainer() {
 		}, []),
 	});
 
+	// Series grouped per axis for the WebGL label pass (axis titles).
+	const seriesByYAxisId = useMemo(() => {
+		const grouped: Record<string, SeriesConfig[]> = {};
+		for (const s of series) {
+			if (!grouped[s.yAxisId]) grouped[s.yAxisId] = [];
+			grouped[s.yAxisId].push(s);
+		}
+		return grouped;
+	}, [series]);
+
+	const seriesByXAxisId = useMemo(() => {
+		const dsXAxis = new Map(datasets.map((d) => [d.id, d.xAxisId]));
+		const grouped: Record<string, SeriesConfig[]> = {};
+		const seen: Record<string, Set<string>> = {};
+		for (const s of series) {
+			const xId = dsXAxis.get(s.sourceId);
+			if (!xId) continue;
+			if (!grouped[xId]) {
+				grouped[xId] = [];
+				seen[xId] = new Set();
+			}
+			const key = s.name || s.yColumn;
+			if (seen[xId].has(key)) continue;
+			seen[xId].add(key);
+			grouped[xId].push(s);
+		}
+		return grouped;
+	}, [series, datasets]);
+
 	const isInteractingRef = useRef(false);
 	useEffect(() => {
 		isInteractingRef.current = isInteracting;
@@ -438,6 +474,21 @@ export default function ChartContainer() {
 
 					const isInteractingNow =
 						panStateRef.current.active || isInteractingRef.current;
+
+					// Shared-viewport backend: the worker derives tick layout,
+					// overlay geometry, and labels itself from the SharedArrayBuffer
+					// ranges — the main thread's per-frame work ends here.
+					if (webglRef.current?.sceneShared()) {
+						webglRef.current.redraw(liveX, liveY);
+						if (forceStoreUpdate || !isInteractingNow) {
+							syncStoreUpdates(state, xUpdates, yUpdates);
+						}
+						if (kbZoom || kbPan || zoomAnimating) {
+							syncViewportRef.current(false);
+						}
+						return;
+					}
+
 					const xLayout = computeXAxesLayout(liveX);
 					const yLayout = computeYAxesLayout(liveY);
 
@@ -453,9 +504,30 @@ export default function ChartContainer() {
 						gridColor: themeColors.gridColor,
 						plotBg: themeColors.plotBg,
 					});
+					const labelCtx: LabelBuildContext = {
+						width,
+						height,
+						padding,
+						axisLayout,
+						xAxesMetrics,
+						labelColor: themeColors.labelColor,
+						secLabelBg: themeColors.secLabelBg,
+						fontFamily: themeColors.fontFamily,
+						leftOffsets,
+						rightOffsets,
+						seriesByXAxisId,
+						seriesByYAxisId,
+					};
 					webglRef.current?.setOverlay(scratch);
+					webglRef.current?.setLabels(
+						buildLabels(
+							xLayout,
+							yLayout,
+							labelCtx,
+							labelStringCacheRef.current,
+						),
+					);
 					webglRef.current?.redraw(liveX, liveY);
-					axesLayerRef.current?.redraw(xLayout, yLayout);
 
 					// Only sync back to store if not currently interacting (panning/zooming)
 					if (forceStoreUpdate || !isInteractingNow) {
@@ -483,6 +555,11 @@ export default function ChartContainer() {
 			leftOffsets,
 			rightOffsets,
 			themeColors,
+			width,
+			height,
+			padding,
+			seriesByXAxisId,
+			seriesByYAxisId,
 		],
 	);
 
@@ -493,6 +570,69 @@ export default function ChartContainer() {
 	syncViewportRef.current = syncViewport;
 
 	// 6. Effects
+	// Keep the render worker's scene context current (shared-viewport mode
+	// only): everything the worker needs besides the per-frame axis ranges.
+	useEffect(() => {
+		const handle = webglRef.current;
+		if (!handle?.sceneShared()) return;
+		const dsByX = groupActiveDatasetsByXAxis(datasets, activeDsIdsSet);
+		handle.setSceneContext({
+			width,
+			height,
+			padding,
+			axisLayout,
+			xAxesMetrics,
+			leftOffsets,
+			rightOffsets,
+			axisColor: themeColors.axisColor,
+			zeroLineColor: themeColors.zeroLineColor,
+			gridColor: themeColors.gridColor,
+			plotBg: themeColors.plotBg,
+			labelColor: themeColors.labelColor,
+			secLabelBg: themeColors.secLabelBg,
+			fontFamily: themeColors.fontFamily,
+			seriesByXAxisId,
+			seriesByYAxisId,
+			xAxesMeta: activeXAxesUsed.map((a) => {
+				const cat = xAxisCategoryLabels.get(a.id);
+				return {
+					id: a.id,
+					name: a.name,
+					showGrid: a.showGrid,
+					xMode: a.xMode,
+					columnNames: (dsByX[a.id] || []).map((d) => d.xAxisColumn),
+					categoryLabels: cat?.labels,
+					categoryTicks: cat?.ticks,
+				};
+			}),
+			yAxesMeta: activeYAxes.map((a) => ({
+				id: a.id,
+				name: a.name,
+				color: a.color,
+				position: a.position,
+				showGrid: a.showGrid,
+				categoryLabels: yAxisCategoryLabels.get(a.id),
+			})),
+		});
+	}, [
+		datasets,
+		activeDsIdsSet,
+		activeXAxesUsed,
+		activeYAxes,
+		xAxisCategoryLabels,
+		yAxisCategoryLabels,
+		width,
+		height,
+		padding,
+		axisLayout,
+		xAxesMetrics,
+		leftOffsets,
+		rightOffsets,
+		themeColors,
+		seriesByXAxisId,
+		seriesByYAxisId,
+	]);
+
 	// Force redraw on ANY change (ranges, names, config, sidebar, resize, theme).
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
@@ -506,14 +646,6 @@ export default function ChartContainer() {
 	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
 
 	// 7. Memos for static rendering (JSX)
-	const activeYAxesLayout = useMemo(
-		() =>
-			activeYAxes.map((axis) =>
-				buildYAxisLayoutFor(axis, chartHeight, yAxisCategoryLabels),
-			),
-		[activeYAxes, chartHeight, yAxisCategoryLabels],
-	);
-
 	const xAxesLayout = useMemo(() => {
 		const dsByX = groupActiveDatasetsByXAxis(datasets, activeDsIdsSet);
 		return activeXAxesUsed.map((axis) =>
@@ -607,28 +739,6 @@ export default function ChartContainer() {
 						/>
 					</ErrorBoundary>
 				</div>
-				<AxesLayer
-					ref={axesLayerRef}
-					xAxes={xAxesLayout}
-					yAxes={activeYAxesLayout}
-					width={width}
-					height={height}
-					padding={padding}
-					series={series}
-					datasets={datasets}
-					axisLayout={axisLayout}
-					xAxesMetrics={xAxesMetrics}
-					axisColor={themeColors.axisColor}
-					zeroLineColor={themeColors.zeroLineColor}
-					gridColor={themeColors.gridColor}
-					plotBg={themeColors.plotBg}
-					labelColor={themeColors.labelColor}
-					secLabelBg={themeColors.secLabelBg}
-					leftOffsets={leftOffsets}
-					rightOffsets={rightOffsets}
-					fontFamily={themeColors.fontFamily}
-					isInteracting={isInteracting}
-				/>
 				<XAxisInteractionZones
 					xAxesMetrics={xAxesMetrics}
 					xAxesLayout={xAxesLayout}

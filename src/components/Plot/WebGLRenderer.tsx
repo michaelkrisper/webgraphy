@@ -16,12 +16,13 @@ import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
 import type { OverlayState } from "./drawSeries";
+import type { SceneContext } from "./frameScene";
 import {
 	acquireRenderBackend,
 	releaseRenderBackend,
 	type RenderBackend,
 } from "./renderBackend";
-import type { RendererSeriesInput } from "./rendererCore";
+import type { RendererSeriesInput, RenderLabel } from "./rendererCore";
 
 export type { OverlayInput } from "./buildOverlay";
 
@@ -41,6 +42,10 @@ interface Props {
 export interface WebGLRendererHandle {
 	redraw: (xAxes: XAxisConfig[], yAxes: YAxisConfig[]) => void;
 	setOverlay: (overlay: OverlayInput) => void;
+	setLabels: (labels: RenderLabel[]) => void;
+	/** See RenderBackend.sceneShared — false until the backend exists. */
+	sceneShared: () => boolean;
+	setSceneContext: (ctx: SceneContext) => void;
 }
 
 /**
@@ -110,6 +115,13 @@ export const WebGLRenderer = React.memo(
 					const dpr = window.devicePixelRatio || 1;
 					buildOverlay(overlay, w, h, pad, dpr, overlayScratchRef.current);
 					backendRef.current?.setOverlay(overlayScratchRef.current);
+				},
+				setLabels: (labels: RenderLabel[]) => {
+					backendRef.current?.setLabels(labels);
+				},
+				sceneShared: () => backendRef.current?.sceneShared() ?? false,
+				setSceneContext: (ctx: SceneContext) => {
+					backendRef.current?.setSceneContext(ctx);
 				},
 			}),
 			[],

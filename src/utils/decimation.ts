@@ -156,6 +156,69 @@ export function m4ByXFloat32(
   return { x: xOut.subarray(0, outIdx), y: yOut.subarray(0, outIdx) };
 }
 
+/**
+ * Merge an M4 level (bucket width `w`, world-0-anchored grid, index-ordered
+ * output of `m4ByXFloat32` over the full data span) into the next-coarser
+ * octave (`coarseWidth = 2 * w`). Exact: because the power-of-two grids nest,
+ * each coarse bucket is the union of two fine buckets, and its
+ * (first, min, max, last) samples are guaranteed to be among the up-to-eight
+ * points the fine level kept — so the merged output equals a direct M4 pass
+ * over the raw data at `coarseWidth`, at O(level size) instead of O(samples).
+ *
+ * Input must be NaN-free (m4 output always is) and contain no edge anchors
+ * (full-span levels have none).
+ */
+export function m4MergeOctave(
+  xData: Float32Array,
+  yData: Float32Array,
+  xRef: number,
+  coarseWidth: number,
+): { x: Float32Array; y: Float32Array } {
+  const n = xData.length;
+  const xOut = new Float32Array(n);
+  const yOut = new Float32Array(n);
+  let out = 0;
+  let i = 0;
+  while (i < n) {
+    const b = Math.floor((xData[i] + xRef) / coarseWidth);
+    const firstI = i;
+    let lastI = i;
+    let minI = i;
+    let maxI = i;
+    let j = i + 1;
+    while (j < n && Math.floor((xData[j] + xRef) / coarseWidth) === b) {
+      if (yData[j] < yData[minI]) minI = j;
+      if (yData[j] > yData[maxI]) maxI = j;
+      lastI = j;
+      j++;
+    }
+    // Emit (first, min, max, last) deduplicated, in index order — same
+    // per-bucket shape m4ByXFloat32 produces.
+    const inner1 = Math.min(minI, maxI);
+    const inner2 = Math.max(minI, maxI);
+    xOut[out] = xData[firstI];
+    yOut[out] = yData[firstI];
+    out++;
+    if (inner1 !== firstI && inner1 !== lastI) {
+      xOut[out] = xData[inner1];
+      yOut[out] = yData[inner1];
+      out++;
+    }
+    if (inner2 !== firstI && inner2 !== lastI && inner2 !== inner1) {
+      xOut[out] = xData[inner2];
+      yOut[out] = yData[inner2];
+      out++;
+    }
+    if (lastI !== firstI) {
+      xOut[out] = xData[lastI];
+      yOut[out] = yData[lastI];
+      out++;
+    }
+    i = j;
+  }
+  return { x: xOut.subarray(0, out), y: yOut.subarray(0, out) };
+}
+
 export function m4Float32(
   xData: Float32Array,
   yData: Float32Array,

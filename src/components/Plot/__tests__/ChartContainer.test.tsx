@@ -11,10 +11,6 @@ vi.mock("../WebGLRenderer", () => ({
 	WebGLRenderer: vi.fn(() => <div data-testid="webgl-renderer" />),
 }));
 
-vi.mock("../AxesLayer", () => ({
-	AxesLayer: vi.fn(() => <div data-testid="axes-layer" />),
-}));
-
 vi.mock("../Crosshair", () => ({
 	Crosshair: vi.fn(() => <div data-testid="crosshair" />),
 }));
@@ -135,7 +131,6 @@ describe("ChartContainer", () => {
 
 		expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument();
 		expect(screen.getByTestId("webgl-renderer")).toBeInTheDocument();
-		expect(screen.getByTestId("axes-layer")).toBeInTheDocument();
 		expect(screen.getByTestId("chart-legend")).toBeInTheDocument();
 		expect(screen.getByTestId("crosshair")).toBeInTheDocument();
 	});

@@ -22,18 +22,29 @@ import type {
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
 import type { OverlayState } from "./drawSeries";
+import type { SceneContext } from "./frameScene";
 import {
 	type RenderAxis,
 	RendererCore,
 	type RendererSeriesInput,
 	type RendererViewport,
+	type RenderLabel,
 } from "./rendererCore";
+import { VIEWPORT_SAB_BYTES, ViewportWriter } from "./viewportChannel";
 
 export interface RenderBackend {
 	setViewport(viewport: RendererViewport): void;
 	setPlotBg(rgb: number[]): void;
 	setSeries(list: RendererSeriesInput[]): void;
 	setOverlay(ov: OverlayState): void;
+	setLabels(labels: RenderLabel[]): void;
+	/**
+	 * True when the backend derives overlay/labels itself from the shared
+	 * viewport — the host then skips its per-frame scene building and only
+	 * needs to keep the scene context up to date.
+	 */
+	sceneShared(): boolean;
+	setSceneContext(ctx: SceneContext): void;
 	redraw(
 		xAxes: RenderAxis[],
 		yAxes: RenderAxis[],
@@ -86,6 +97,16 @@ class DirectBackend implements RenderBackend {
 		this.core?.setOverlay(ov.packed, ov.packedLen, ov.groups);
 	}
 
+	setLabels(labels: RenderLabel[]): void {
+		this.core?.setLabels(labels);
+	}
+
+	sceneShared(): boolean {
+		return false;
+	}
+
+	setSceneContext(): void {}
+
 	redraw(
 		xAxes: RenderAxis[],
 		yAxes: RenderAxis[],
@@ -135,6 +156,18 @@ class WorkerBackend implements RenderBackend {
 		packedLen: number;
 		groups: OverlayState["groups"];
 	} | null = null;
+	private pendingLabels: RenderLabel[] | null = null;
+	// Shared-viewport mode (crossOriginIsolated only): per-frame axis ranges
+	// go through a seqlocked SharedArrayBuffer instead of postMessage, and the
+	// worker builds overlay/labels itself from the scene context.
+	private writer: ViewportWriter | null = null;
+	private sceneVersion = 0;
+	private xOrder: string[] = [];
+	private yOrder: string[] = [];
+	private lastWriteAt = 0;
+	private lastHighlight: string | null = null;
+	private rangeScratchX: { min: number; max: number }[] = [];
+	private rangeScratchY: { min: number; max: number }[] = [];
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -147,8 +180,17 @@ class WorkerBackend implements RenderBackend {
 		this.worker.onerror = (ev) => {
 			console.error("Render worker error:", ev.message ?? ev);
 		};
+		let viewportSab: SharedArrayBuffer | undefined;
+		if (
+			typeof SharedArrayBuffer !== "undefined" &&
+			typeof crossOriginIsolated !== "undefined" &&
+			crossOriginIsolated
+		) {
+			viewportSab = new SharedArrayBuffer(VIEWPORT_SAB_BYTES);
+			this.writer = new ViewportWriter(viewportSab);
+		}
 		this.post(
-			{ t: "init", canvas: offscreen, viewport, plotBg },
+			{ t: "init", canvas: offscreen, viewport, plotBg, viewportSab },
 			[offscreen],
 		);
 	}
@@ -209,14 +251,70 @@ class WorkerBackend implements RenderBackend {
 		};
 	}
 
+	setLabels(labels: RenderLabel[]): void {
+		this.pendingLabels = labels;
+	}
+
+	sceneShared(): boolean {
+		return this.writer !== null;
+	}
+
+	setSceneContext(ctx: SceneContext): void {
+		if (!this.writer) return;
+		this.sceneVersion++;
+		this.xOrder = ctx.xAxesMeta.map((m) => m.id);
+		this.yOrder = ctx.yAxesMeta.map((m) => m.id);
+		this.post({ t: "sceneCtx", ctx, version: this.sceneVersion });
+	}
+
+	/** Collect ranges for the ids in `order`, reusing the scratch entries. */
+	private collectRanges(
+		axes: RenderAxis[],
+		order: string[],
+		scratch: { min: number; max: number }[],
+	): { min: number; max: number }[] {
+		scratch.length = order.length;
+		for (let i = 0; i < order.length; i++) {
+			const axis = axes.find((a) => a.id === order[i]);
+			let entry = scratch[i];
+			if (!entry) {
+				entry = { min: 0, max: 1 };
+				scratch[i] = entry;
+			}
+			entry.min = axis ? axis.min : 0;
+			entry.max = axis ? axis.max : 1;
+		}
+		return scratch;
+	}
+
 	redraw(
 		xAxes: RenderAxis[],
 		yAxes: RenderAxis[],
 		interacting: boolean,
 		highlight: string | null,
 	): void {
+		if (this.writer) {
+			if (highlight !== this.lastHighlight) {
+				this.lastHighlight = highlight;
+				this.post({ t: "highlight", id: highlight });
+			}
+			this.writer.write(
+				this.sceneVersion,
+				interacting,
+				this.collectRanges(xAxes, this.xOrder, this.rangeScratchX),
+				this.collectRanges(yAxes, this.yOrder, this.rangeScratchY),
+			);
+			// The worker's render loop parks itself when idle; nudge it back to
+			// life when writes resume after a pause.
+			const now = Date.now();
+			if (now - this.lastWriteAt > 1000) this.post({ t: "wake" });
+			this.lastWriteAt = now;
+			return;
+		}
 		const overlay = this.pendingOverlay;
 		this.pendingOverlay = null;
+		const labels = this.pendingLabels;
+		this.pendingLabels = null;
 		this.post(
 			{
 				t: "frame",
@@ -225,6 +323,7 @@ class WorkerBackend implements RenderBackend {
 				interacting,
 				highlight,
 				overlay: overlay ?? undefined,
+				labels: labels ?? undefined,
 			},
 			overlay ? [overlay.packed.buffer] : undefined,
 		);

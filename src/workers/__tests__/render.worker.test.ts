@@ -170,7 +170,7 @@ describe("render.worker", () => {
 			.spyOn(window, "close")
 			.mockImplementation(() => undefined);
 		send({ t: "dispose" });
-		expect(gl.deleteProgram).toHaveBeenCalledTimes(2);
+		expect(gl.deleteProgram).toHaveBeenCalledTimes(3);
 		expect(closeSpy).toHaveBeenCalled();
 	});
 });

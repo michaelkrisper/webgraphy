@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { RendererCore, type RendererSeriesInput } from "../rendererCore";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+	RendererCore,
+	type RendererSeriesInput,
+	type RenderLabel,
+} from "../rendererCore";
 import { makeCanvasMock, makeGl2Mock } from "./glMock";
 
 function makeSeries(
@@ -46,10 +50,10 @@ describe("RendererCore", () => {
 
 	it("compiles both programs on creation", () => {
 		const { gl } = makeCore();
-		// main + line program: 2 programs, 4 shaders.
-		expect(gl.createProgram).toHaveBeenCalledTimes(2);
-		expect(gl.createShader).toHaveBeenCalledTimes(4);
-		expect(gl.linkProgram).toHaveBeenCalledTimes(2);
+		// main + line + label program: 3 programs, 6 shaders.
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+		expect(gl.createShader).toHaveBeenCalledTimes(6);
+		expect(gl.linkProgram).toHaveBeenCalledTimes(3);
 	});
 
 	it("clears and draws a solid series as instanced triangles", () => {
@@ -144,7 +148,102 @@ describe("RendererCore", () => {
 	it("releases GL resources on dispose", () => {
 		const { gl, core } = makeCore();
 		core.dispose();
-		expect(gl.deleteProgram).toHaveBeenCalledTimes(2);
-		expect(gl.deleteShader).toHaveBeenCalledTimes(4);
+		expect(gl.deleteProgram).toHaveBeenCalledTimes(3);
+		expect(gl.deleteShader).toHaveBeenCalledTimes(6);
+	});
+
+	describe("label pass", () => {
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		const mockCanvas2d = () =>
+			vi
+				.spyOn(HTMLCanvasElement.prototype, "getContext")
+				.mockImplementation(
+					() =>
+						({
+							measureText: vi.fn((text: string) => ({
+								width: text.length * 5,
+								actualBoundingBoxAscent: 7,
+								actualBoundingBoxDescent: 2,
+							})),
+							fillText: vi.fn(),
+							clearRect: vi.fn(),
+							scale: vi.fn(),
+							setTransform: vi.fn(),
+							set font(_v: string) {},
+							set fillStyle(_v: string) {},
+							set textAlign(_v: string) {},
+							set textBaseline(_v: string) {},
+						}) as unknown as CanvasRenderingContext2D,
+				);
+
+		const labels: RenderLabel[] = [
+			{
+				text: "42",
+				color: "#000000",
+				font: "9px sans",
+				x: 10,
+				y: 20,
+				align: "center",
+				baseline: "alphabetic",
+			},
+			{
+				text: "Jan 2025",
+				color: "#111111",
+				font: "bold 10px sans",
+				x: 30,
+				y: 40,
+				align: "left",
+				baseline: "alphabetic",
+				bg: "#222222",
+				tick: { x: 28, color: "#111111" },
+			},
+			{
+				text: "",
+				color: "#000000",
+				font: "bold 12px sans",
+				x: 5,
+				y: 50,
+				align: "center",
+				baseline: "middle",
+				rot: -1,
+				segments: [{ text: "S1", color: "red" }],
+			},
+		];
+
+		it("uploads each unique label once and draws all as instanced quads", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			core.setLabels(labels);
+			core.drawFrame(axes, axes);
+
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+			expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 3);
+			// Chrome: bg quad and separator quad in two color groups.
+			expect(gl.drawArrays).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6);
+			expect(gl.drawArrays).toHaveBeenCalledWith(gl.TRIANGLES, 6, 6);
+
+			// Second frame: atlas regions are cached, no re-upload.
+			core.drawFrame(axes, axes);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+		});
+
+		it("skips the label pass entirely when rasterization is unavailable", () => {
+			vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+				function (this: HTMLCanvasElement, kind: string) {
+					return kind === "2d" ? null : null;
+				} as never,
+			);
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			core.setLabels(labels);
+			core.drawFrame(axes, axes);
+			expect(gl.drawArraysInstanced).not.toHaveBeenCalled();
+		});
 	});
 });

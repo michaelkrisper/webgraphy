@@ -54,6 +54,7 @@ export class GLStateCache {
 
 	private mainProgram: WebGLProgram | null = null;
 	private lineProgram: WebGLProgram | null = null;
+	private labelProgram: WebGLProgram | null = null;
 	private activeProgram: WebGLProgram | null = null;
 
 	private colorSet = false;
@@ -121,6 +122,17 @@ export class GLStateCache {
 		if (this.lineProgram && this.activeProgram !== this.lineProgram) {
 			this.gl.useProgram(this.lineProgram);
 			this.activeProgram = this.lineProgram;
+		}
+	}
+
+	setLabelProgram(program: WebGLProgram): void {
+		this.labelProgram = program;
+	}
+
+	useLabel(): void {
+		if (this.labelProgram && this.activeProgram !== this.labelProgram) {
+			this.gl.useProgram(this.labelProgram);
+			this.activeProgram = this.labelProgram;
 		}
 	}
 

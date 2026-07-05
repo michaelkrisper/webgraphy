@@ -3,11 +3,23 @@ import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 import { resolveAppVersion } from "./appVersion";
 
+// Cross-origin isolation enables SharedArrayBuffer, which the render worker
+// uses for the per-frame viewport handoff (falls back to postMessage without
+// it). `credentialless` (not `require-corp`) keeps Google Fonts + GoatCounter
+// loading; Safari lacks it and simply stays on the fallback path. GitHub
+// Pages cannot set response headers, so production also uses the fallback.
+const coiHeaders = {
+	"Cross-Origin-Opener-Policy": "same-origin",
+	"Cross-Origin-Embedder-Policy": "credentialless",
+};
+
 // https://vite.dev/config/
 export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(resolveAppVersion()),
 	},
+	server: { headers: coiHeaders },
+	preview: { headers: coiHeaders },
 	plugins: [
 		{
 			name: "dev-csp-plugin",

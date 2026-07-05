@@ -16,11 +16,21 @@
 
 import type { OverlayState } from "../components/Plot/drawSeries";
 import {
+	buildFrameScene,
+	createFrameSceneCaches,
+	type SceneContext,
+} from "../components/Plot/frameScene";
+import {
 	type RenderAxis,
 	RendererCore,
 	type RendererSeriesInput,
 	type RendererViewport,
+	type RenderLabel,
 } from "../components/Plot/rendererCore";
+import {
+	createViewportSnapshot,
+	ViewportReader,
+} from "../components/Plot/viewportChannel";
 
 export interface WorkerSeriesMsg {
 	id: string;
@@ -47,10 +57,15 @@ export type RenderWorkerRequest =
 			canvas: OffscreenCanvas;
 			viewport: RendererViewport;
 			plotBg: number[];
+			/** Present when crossOriginIsolated: per-frame viewport handoff. */
+			viewportSab?: SharedArrayBuffer;
 	  }
 	| { t: "viewport"; viewport: RendererViewport }
 	| { t: "plotBg"; rgb: number[] }
 	| { t: "series"; list: WorkerSeriesMsg[] }
+	| { t: "sceneCtx"; ctx: SceneContext; version: number }
+	| { t: "highlight"; id: string | null }
+	| { t: "wake" }
 	| {
 			t: "frame";
 			xAxes: RenderAxis[];
@@ -62,6 +77,7 @@ export type RenderWorkerRequest =
 				packedLen: number;
 				groups: OverlayState["groups"];
 			};
+			labels?: RenderLabel[];
 	  }
 	| { t: "dispose" };
 
@@ -71,6 +87,94 @@ const columns = new Map<number, Float32Array>();
 
 let latestFrame: { xAxes: RenderAxis[]; yAxes: RenderAxis[] } | null = null;
 let drawScheduled = false;
+
+// --- SharedArrayBuffer viewport mode ---------------------------------------
+// The worker polls the shared viewport once per rAF and derives the whole
+// scene (tick layouts, overlay geometry, labels) itself; the main thread's
+// only per-frame work is the seqlocked write. The loop parks after ~2s
+// without a new snapshot and is restarted by a "wake" message.
+const IDLE_PARK_FRAMES = 120;
+let viewportReader: ViewportReader | null = null;
+const viewportSnap = createViewportSnapshot();
+let sceneCtx: SceneContext | null = null;
+let sceneCtxVersion = -1;
+const sceneCaches = createFrameSceneCaches();
+let currentViewport: RendererViewport | null = null;
+let loopRunning = false;
+let idleFrames = 0;
+let sceneDirty = false;
+// Reused per-frame axis arrays (ids stable per scene context).
+const sabXAxes: RenderAxis[] = [];
+const sabYAxes: RenderAxis[] = [];
+
+function drawSharedFrame(): void {
+	if (!core || !sceneCtx || !currentViewport) return;
+	sabXAxes.length = 0;
+	sabYAxes.length = 0;
+	const xCount = Math.min(viewportSnap.xCount, sceneCtx.xAxesMeta.length);
+	const yCount = Math.min(viewportSnap.yCount, sceneCtx.yAxesMeta.length);
+	for (let i = 0; i < xCount; i++) {
+		sabXAxes.push({
+			id: sceneCtx.xAxesMeta[i].id,
+			min: viewportSnap.ranges[i * 2],
+			max: viewportSnap.ranges[i * 2 + 1],
+		});
+	}
+	for (let i = 0; i < yCount; i++) {
+		sabYAxes.push({
+			id: sceneCtx.yAxesMeta[i].id,
+			min: viewportSnap.ranges[(viewportSnap.xCount + i) * 2],
+			max: viewportSnap.ranges[(viewportSnap.xCount + i) * 2 + 1],
+		});
+	}
+	const scene = buildFrameScene(
+		sceneCtx,
+		sceneCtxVersion,
+		viewportSnap,
+		currentViewport.dpr,
+		sceneCaches,
+	);
+	core.setOverlay(
+		scene.overlay.packed,
+		scene.overlay.packedLen,
+		scene.overlay.groups,
+	);
+	core.setLabels(scene.labels);
+	core.setInteracting(viewportSnap.interacting);
+	core.drawFrame(sabXAxes, sabYAxes);
+}
+
+function sharedLoop(): void {
+	if (!viewportReader || !core) {
+		loopRunning = false;
+		return;
+	}
+	const fresh = viewportReader.read(viewportSnap);
+	if ((fresh || sceneDirty) && viewportSnap.version === sceneCtxVersion) {
+		sceneDirty = false;
+		idleFrames = 0;
+		drawSharedFrame();
+	} else {
+		idleFrames++;
+	}
+	if (idleFrames > IDLE_PARK_FRAMES) {
+		loopRunning = false;
+		return;
+	}
+	requestAnimationFrame(sharedLoop);
+}
+
+function wakeSharedLoop(): void {
+	if (!viewportReader || loopRunning) return;
+	loopRunning = true;
+	idleFrames = 0;
+	if (typeof requestAnimationFrame === "function") {
+		requestAnimationFrame(sharedLoop);
+	} else {
+		loopRunning = false;
+	}
+}
+// ---------------------------------------------------------------------------
 
 function scheduleDraw(): void {
 	if (drawScheduled) return;
@@ -96,6 +200,7 @@ function applyViewport(viewport: RendererViewport): void {
 		if (canvas.width !== pw) canvas.width = pw;
 		if (canvas.height !== ph) canvas.height = ph;
 	}
+	currentViewport = viewport;
 	core?.setViewport(viewport);
 }
 
@@ -141,21 +246,45 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 			core = RendererCore.create(msg.canvas);
 			core?.setViewport(msg.viewport);
 			core?.setPlotBg(msg.plotBg);
+			if (msg.viewportSab) viewportReader = new ViewportReader(msg.viewportSab);
 			break;
 		}
 		case "viewport": {
 			applyViewport(msg.viewport);
 			if (latestFrame) scheduleDraw();
+			sceneDirty = true;
+			wakeSharedLoop();
 			break;
 		}
 		case "plotBg": {
 			core?.setPlotBg(msg.rgb);
 			if (latestFrame) scheduleDraw();
+			sceneDirty = true;
+			wakeSharedLoop();
 			break;
 		}
 		case "series": {
 			applySeries(msg.list);
 			if (latestFrame) scheduleDraw();
+			sceneDirty = true;
+			wakeSharedLoop();
+			break;
+		}
+		case "sceneCtx": {
+			sceneCtx = msg.ctx;
+			sceneCtxVersion = msg.version;
+			sceneDirty = true;
+			wakeSharedLoop();
+			break;
+		}
+		case "highlight": {
+			core?.setHighlight(msg.id);
+			sceneDirty = true;
+			wakeSharedLoop();
+			break;
+		}
+		case "wake": {
+			wakeSharedLoop();
 			break;
 		}
 		case "frame": {
@@ -166,6 +295,7 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 					msg.overlay.groups,
 				);
 			}
+			if (msg.labels) core?.setLabels(msg.labels);
 			core?.setInteracting(msg.interacting);
 			core?.setHighlight(msg.highlight);
 			latestFrame = { xAxes: msg.xAxes, yAxes: msg.yAxes };

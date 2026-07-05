@@ -291,6 +291,17 @@ const Crosshair = React.memo(
 					for (const item of group.items) {
 						const { xScreen: xs, yScreen: ys, pointStyle: style, color } = item;
 
+						// Skip markers for points outside the plot area — they would
+						// otherwise draw over axis labels/titles in the gutters.
+						if (
+							ys < padding.top ||
+							ys > height - padding.bottom ||
+							xs < padding.left ||
+							xs > width - padding.right
+						) {
+							continue;
+						}
+
 						if (style === "square") {
 							ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
 							ctx.fillRect(
@@ -351,7 +362,7 @@ const Crosshair = React.memo(
 				}
 				ctx.restore();
 			},
-			[isPanning, snapLineColor, padding, height, plotBg],
+			[isPanning, snapLineColor, padding, height, width, plotBg],
 		);
 
 		const renderTooltipHTML = useCallback(

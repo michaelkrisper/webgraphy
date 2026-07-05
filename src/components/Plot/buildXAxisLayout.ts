@@ -18,7 +18,9 @@ export function buildXAxisLayout(
 	labelColor: string,
 	categoryLabels: string[] | undefined,
 	categoryTicks: number[] | undefined,
-	datasets: Dataset[],
+	// Only the column names are read (default title); the render worker
+	// passes slim objects instead of full datasets.
+	datasets: ReadonlyArray<Pick<Dataset, "xAxisColumn">>,
 ): XAxisLayout {
 	const r = axis.max - axis.min;
 	const isDate = axis.xMode === "date";

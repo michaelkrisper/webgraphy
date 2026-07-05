@@ -322,9 +322,12 @@ describe("getOrComputeM4", () => {
 		const { gl, bufferData } = makeMockGl();
 		const cache: DecimCache = new WeakMap();
 		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
-		const xData = new Float32Array(200);
-		const yData = new Float32Array(200);
-		for (let i = 0; i < 200; i++) {
+		// Span [-10, 50] is wide enough that a [0,10] viewport stays on the
+		// windowed path (window < half the span) instead of becoming a
+		// full-span pyramid level.
+		const xData = new Float32Array(300);
+		const yData = new Float32Array(300);
+		for (let i = 0; i < 300; i++) {
 			xData[i] = i * 0.2 - 10;
 			yData[i] = i;
 		}
@@ -339,6 +342,52 @@ describe("getOrComputeM4", () => {
 		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 8, 18, 10, 8, 3);
 		expect(e3).not.toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("keeps a full-span pyramid level alive across intermediate zooms", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array(64);
+		const yData = new Float32Array(64);
+		for (let i = 0; i < 64; i++) {
+			xData[i] = i;
+			yData[i] = (i * 29) % 17;
+		}
+
+		// Full view → stored as a full-span level.
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		// Deep zoom-in → separate windowed entry.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 30, 32, 2, 8, 3);
+		expect(e2).not.toBe(e1);
+
+		// Back at full view: the level is served again without any re-upload.
+		const calls = bufferData.mock.calls.length;
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		expect(e3).toBe(e1);
+		expect(bufferData.mock.calls.length).toBe(calls);
+	});
+
+	it("derives coarser zoom-out levels by octave merge, matching a raw scan", () => {
+		const { gl } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array(256);
+		const yData = new Float32Array(256);
+		for (let i = 0; i < 256; i++) {
+			xData[i] = i;
+			yData[i] = Math.sin(i / 5) * ((i % 7) + 1);
+		}
+
+		// Establish a fine full-span level, then zoom out one octave.
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 256, 256, 8, 3);
+		const merged = getOrComputeM4(gl, cache, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+
+		// A cold cache at the same zoom must produce identical points.
+		const cold: DecimCache = new WeakMap();
+		const direct = getOrComputeM4(gl, cold, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+		expect(Array.from(merged.xArr)).toEqual(Array.from(direct.xArr));
+		expect(Array.from(merged.yArr)).toEqual(Array.from(direct.yArr));
 	});
 
 	it("keeps separate entries for the same yData under different xData", () => {

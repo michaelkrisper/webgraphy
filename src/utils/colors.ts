@@ -36,6 +36,29 @@ export const hexToRgbaWithAlpha = (
 		: [0, 0, 0, alpha];
 };
 
+const RGB_FN_RE = /^rgba?\(([^)]+)\)$/;
+
+/**
+ * Normalised [r,g,b,a] for a hex or rgb()/rgba() CSS color (theme colors like
+ * `secLabelBg` carry their own alpha). Falls back to opaque black.
+ */
+export const cssToRgbaWithAlpha = (
+	css: string,
+	alpha = 1,
+): [number, number, number, number] => {
+	const c = parseHexChannels(css);
+	if (c) return [c.r / 255, c.g / 255, c.b / 255, alpha];
+	const m = RGB_FN_RE.exec(css.trim());
+	if (m) {
+		const parts = m[1].split(",").map((s) => Number.parseFloat(s));
+		if (parts.length >= 3 && parts.slice(0, 3).every((n) => !Number.isNaN(n))) {
+			const a = parts.length > 3 && !Number.isNaN(parts[3]) ? parts[3] : alpha;
+			return [parts[0] / 255, parts[1] / 255, parts[2] / 255, a];
+		}
+	}
+	return [0, 0, 0, alpha];
+};
+
 export const rgbToHex = (r: number, g: number, b: number): string => {
 	const toHex = (n: number) => {
 		const num = typeof n === "number" && !Number.isNaN(n) ? n : 0;

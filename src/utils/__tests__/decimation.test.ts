@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { m4ByXFloat32, m4Float32 } from "../decimation";
+import { m4ByXFloat32, m4Float32, m4MergeOctave } from "../decimation";
 
 describe("m4Float32", () => {
 	it("should pass-through if n <= threshold", () => {
@@ -348,5 +348,86 @@ describe("m4ByXFloat32", () => {
 		expect(ys).not.toContain(NaN);
 		expect(ys).toContain(1);
 		expect(ys).toContain(3);
+	});
+});
+
+describe("m4MergeOctave", () => {
+	// Property: merging an M4 level one octave up must equal a direct M4 pass
+	// over the raw data at the coarser bucket width (grids nest at powers of
+	// two anchored at world 0).
+	function directAndMerged(
+		xData: Float32Array,
+		yData: Float32Array,
+		xRef: number,
+		fineWidth: number,
+	) {
+		const xMin = xData[0] + xRef;
+		const xMax = xData[xData.length - 1] + xRef;
+		const fine = m4ByXFloat32(xData, yData, xRef, xMin, xMax, fineWidth);
+		const merged = m4MergeOctave(fine.x, fine.y, xRef, fineWidth * 2);
+		const direct = m4ByXFloat32(xData, yData, xRef, xMin, xMax, fineWidth * 2);
+		return { merged, direct };
+	}
+
+	it("equals a direct coarse M4 pass on a noisy series", () => {
+		const n = 1000;
+		const xData = new Float32Array(n);
+		const yData = new Float32Array(n);
+		let seed = 42;
+		const rand = () => {
+			seed = (seed * 1103515245 + 12345) % 2147483648;
+			return seed / 2147483648;
+		};
+		for (let i = 0; i < n; i++) {
+			xData[i] = i * 0.13;
+			yData[i] = Math.sin(i / 7) * 10 + rand() * 5;
+		}
+
+		const { merged, direct } = directAndMerged(xData, yData, 0, 2);
+		expect(Array.from(merged.x)).toEqual(Array.from(direct.x));
+		expect(Array.from(merged.y)).toEqual(Array.from(direct.y));
+	});
+
+	it("equals a direct coarse M4 pass with a non-zero xRef", () => {
+		const n = 500;
+		const xData = new Float32Array(n);
+		const yData = new Float32Array(n);
+		for (let i = 0; i < n; i++) {
+			xData[i] = i * 0.5;
+			yData[i] = ((i * 37) % 11) - 5;
+		}
+
+		const { merged, direct } = directAndMerged(xData, yData, 1024, 4);
+		expect(Array.from(merged.x)).toEqual(Array.from(direct.x));
+		expect(Array.from(merged.y)).toEqual(Array.from(direct.y));
+	});
+
+	it("survives repeated octave merges (level ladder)", () => {
+		const n = 2048;
+		const xData = new Float32Array(n);
+		const yData = new Float32Array(n);
+		for (let i = 0; i < n; i++) {
+			xData[i] = i;
+			yData[i] = Math.cos(i / 3) * (1 + (i % 13));
+		}
+		const xMin = xData[0];
+		const xMax = xData[n - 1];
+
+		let level = m4ByXFloat32(xData, yData, 0, xMin, xMax, 8);
+		for (const w of [16, 32, 64]) {
+			level = m4MergeOctave(level.x, level.y, 0, w);
+			const direct = m4ByXFloat32(xData, yData, 0, xMin, xMax, w);
+			expect(Array.from(level.x)).toEqual(Array.from(direct.x));
+			expect(Array.from(level.y)).toEqual(Array.from(direct.y));
+		}
+	});
+
+	it("handles ties by keeping the earliest extremum like direct M4", () => {
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7]);
+		const yData = new Float32Array([1, 5, 5, 1, 1, 5, 5, 1]);
+
+		const { merged, direct } = directAndMerged(xData, yData, 0, 2);
+		expect(Array.from(merged.x)).toEqual(Array.from(direct.x));
+		expect(Array.from(merged.y)).toEqual(Array.from(direct.y));
 	});
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	cssToRgbaWithAlpha,
 	hexToRgb,
 	hexToRgba,
 	hexToRgbaWithAlpha,
@@ -377,5 +378,27 @@ describe("colors", () => {
 		it("supports #rgb shorthand", () => {
 			expect(hexToRgbaWithAlpha("#0f0", 0.4)).toEqual([0, 1, 0, 0.4]);
 		});
+	});
+});
+
+describe("cssToRgbaWithAlpha", () => {
+	it("parses hex colors with the given alpha", () => {
+		expect(cssToRgbaWithAlpha("#ff0000", 0.5)).toEqual([1, 0, 0, 0.5]);
+	});
+
+	it("parses rgba() colors, preferring their own alpha", () => {
+		expect(cssToRgbaWithAlpha("rgba(255,255,255,0.93)")).toEqual([
+			1, 1, 1, 0.93,
+		]);
+	});
+
+	it("parses rgb() colors with the fallback alpha", () => {
+		expect(cssToRgbaWithAlpha("rgb(0, 128, 255)", 1)).toEqual([
+			0, 128 / 255, 1, 1,
+		]);
+	});
+
+	it("falls back to opaque black on unparseable input", () => {
+		expect(cssToRgbaWithAlpha("papayawhip")).toEqual([0, 0, 0, 1]);
 	});
 });

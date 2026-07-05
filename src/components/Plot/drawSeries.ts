@@ -14,7 +14,7 @@
  */
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
-import { m4ByXFloat32 } from "../../utils/decimation";
+import { m4ByXFloat32, m4MergeOctave } from "../../utils/decimation";
 import type { GLStateCache } from "./GLStateCache";
 
 export interface OverlayState {
@@ -43,6 +43,21 @@ interface DecimEntry {
 	yBuf: WebGLBuffer | null;
 }
 
+interface DecimSlot {
+	/** Entry served most recently (windowed scan or a pyramid level). */
+	entry: DecimEntry | null;
+	/** Windowed scan result whose GL buffers are re-uploaded in place. */
+	windowed: DecimEntry | null;
+	/**
+	 * Full-span pyramid levels keyed by log2(bucketWidth); their coverage is
+	 * infinite so pan/zoom re-entry at that octave never rescans raw data.
+	 */
+	levels: Map<number, DecimEntry>;
+}
+
+/** Levels are ~4 floats per bucket, so this caps memory at a few 100KB. */
+const MAX_PYRAMID_LEVELS = 12;
+
 /**
  * Decimation results keyed by yData identity, then xData identity — two
  * series sharing a y column but different x columns must not evict each
@@ -50,7 +65,7 @@ interface DecimEntry {
  */
 export type DecimCache = WeakMap<
 	Float32Array,
-	WeakMap<Float32Array, DecimEntry>
+	WeakMap<Float32Array, DecimSlot>
 >;
 
 export interface SegParams {
@@ -156,18 +171,87 @@ export function getOrComputeM4(
 		byX = new WeakMap();
 		cache.set(yData, byX);
 	}
-	let entry = byX.get(xData);
+	let slot = byX.get(xData);
+	if (!slot) {
+		slot = { entry: null, windowed: null, levels: new Map() };
+		byX.set(xData, slot);
+	}
+
+	const prev = slot.entry;
 	if (
-		entry &&
-		entry.xRef === xRef &&
-		entry.qMin <= xAxisMin &&
-		entry.qMax >= xAxisMax &&
-		(entry.bucketWidth === bucketWidth ||
+		prev &&
+		prev.xRef === xRef &&
+		prev.qMin <= xAxisMin &&
+		prev.qMax >= xAxisMax &&
+		(prev.bucketWidth === bucketWidth ||
 			(interacting &&
-				entry.bucketWidth <= bucketWidth * 4 &&
-				entry.bucketWidth >= bucketWidth / 4))
+				prev.bucketWidth <= bucketWidth * 4 &&
+				prev.bucketWidth >= bucketWidth / 4))
 	) {
-		return entry;
+		return prev;
+	}
+
+	// Pyramid level for this octave? Levels cover the full span, so any pan
+	// or zoom re-entry at their bucket width is free.
+	const levelKey = Math.round(Math.log2(bucketWidth));
+	const exact = slot.levels.get(levelKey);
+	if (exact && exact.xRef === xRef) {
+		slot.entry = exact;
+		return exact;
+	}
+	if (interacting) {
+		for (const d of [-1, 1, -2, 2]) {
+			const near = slot.levels.get(levelKey + d);
+			if (near && near.xRef === xRef) {
+				slot.entry = near;
+				return near;
+			}
+		}
+	}
+
+	const n = xData.length;
+	if (n > 0) {
+		// Derive the level by merging up from a stored finer level —
+		// O(level size) instead of a raw-data scan (zoom-out fast path).
+		for (let k = 1; k <= 3; k++) {
+			const finer = slot.levels.get(levelKey - k);
+			if (!finer || finer.xRef !== xRef) continue;
+			let cur = finer;
+			for (let step = levelKey - k + 1; step <= levelKey; step++) {
+				const w = 2 ** step;
+				const merged = m4MergeOctave(cur.xArr, cur.yArr, xRef, w);
+				cur = storePyramidLevel(gl, slot, step, w, xRef, merged.x, merged.y);
+			}
+			slot.entry = cur;
+			return cur;
+		}
+
+		// When the requested window already spans most of the data, extend the
+		// scan to the full span and keep the result as a pyramid level.
+		const spanMin = xData[0] + xRef;
+		const spanMax = xData[n - 1] + xRef;
+		if (qMax - qMin >= 0.5 * (spanMax - spanMin)) {
+			const { x: dx, y: dy } = m4ByXFloat32(
+				xData,
+				yData,
+				xRef,
+				spanMin,
+				spanMax,
+				bucketWidth,
+				scratch,
+			);
+			const level = storePyramidLevel(
+				gl,
+				slot,
+				levelKey,
+				bucketWidth,
+				xRef,
+				dx,
+				dy,
+			);
+			slot.entry = level;
+			return level;
+		}
 	}
 
 	const { x: dx, y: dy } = m4ByXFloat32(
@@ -186,8 +270,8 @@ export function getOrComputeM4(
 	xArr.set(dx);
 	yArr.set(dy);
 
-	let xBuf = entry?.xBuf ?? null;
-	let yBuf = entry?.yBuf ?? null;
+	let xBuf = slot.windowed?.xBuf ?? null;
+	let yBuf = slot.windowed?.yBuf ?? null;
 	if (!xBuf) xBuf = gl.createBuffer();
 	if (!yBuf) yBuf = gl.createBuffer();
 	if (xBuf) {
@@ -198,7 +282,7 @@ export function getOrComputeM4(
 		gl.bindBuffer(gl.ARRAY_BUFFER, yBuf);
 		gl.bufferData(gl.ARRAY_BUFFER, yArr, gl.DYNAMIC_DRAW);
 	}
-	entry = {
+	const entry: DecimEntry = {
 		bucketWidth,
 		qMin,
 		qMax,
@@ -209,8 +293,61 @@ export function getOrComputeM4(
 		xBuf,
 		yBuf,
 	};
-	byX.set(xData, entry);
+	slot.windowed = entry;
+	slot.entry = entry;
 	return entry;
+}
+
+/**
+ * Copy an M4 result into a full-span pyramid level with its own GL buffers
+ * and infinite coverage, evicting the finest level when over the cap.
+ */
+function storePyramidLevel(
+	gl: WebGL2RenderingContext,
+	slot: DecimSlot,
+	levelKey: number,
+	bucketWidth: number,
+	xRef: number,
+	dx: Float32Array,
+	dy: Float32Array,
+): DecimEntry {
+	const xArr = new Float32Array(dx.length);
+	const yArr = new Float32Array(dy.length);
+	xArr.set(dx);
+	yArr.set(dy);
+	const xBuf = gl.createBuffer();
+	const yBuf = gl.createBuffer();
+	if (xBuf) {
+		gl.bindBuffer(gl.ARRAY_BUFFER, xBuf);
+		gl.bufferData(gl.ARRAY_BUFFER, xArr, gl.DYNAMIC_DRAW);
+	}
+	if (yBuf) {
+		gl.bindBuffer(gl.ARRAY_BUFFER, yBuf);
+		gl.bufferData(gl.ARRAY_BUFFER, yArr, gl.DYNAMIC_DRAW);
+	}
+	const level: DecimEntry = {
+		bucketWidth,
+		qMin: -Infinity,
+		qMax: Infinity,
+		xRef,
+		xArr,
+		yArr,
+		count: xArr.length,
+		xBuf,
+		yBuf,
+	};
+	slot.levels.set(levelKey, level);
+	if (slot.levels.size > MAX_PYRAMID_LEVELS) {
+		let finest = Infinity;
+		for (const key of slot.levels.keys()) if (key < finest) finest = key;
+		const evicted = slot.levels.get(finest);
+		slot.levels.delete(finest);
+		if (evicted) {
+			gl.deleteBuffer(evicted.xBuf);
+			gl.deleteBuffer(evicted.yBuf);
+		}
+	}
+	return level;
 }
 
 export function drawOverlay(
