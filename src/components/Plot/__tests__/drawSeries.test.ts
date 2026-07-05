@@ -269,6 +269,40 @@ describe("getOrComputeM4", () => {
 		expect(bufferData).toHaveBeenCalledTimes(4); // 2 calls × 2 buffers each
 	});
 
+	it("serves a covering entry within two octaves while interacting", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// 2x zoom-in crosses an octave — strict mode would recompute, but the
+		// interacting path tolerates the coarser covered entry.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3, true);
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2);
+
+		// The settle redraw runs strict and recomputes exactly.
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3);
+		expect(e3).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("recomputes while interacting once the bucket width is more than two octaves off", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// 10x zoom-in: ideal bucket width is 8x finer — beyond the 4x tolerance.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4.5, 5.5, 1, 8, 3, true);
+		expect(e2).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
 	it("reuses the entry while zooming within a bucket-width octave", () => {
 		const { gl, bufferData } = makeMockGl();
 		const cache: DecimCache = new WeakMap();

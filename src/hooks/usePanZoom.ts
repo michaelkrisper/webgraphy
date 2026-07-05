@@ -43,6 +43,9 @@ interface UsePanZoomOptions {
 	handleAutoScaleY: (axisId: string, mouseY?: number) => void;
 	pressedKeys: React.MutableRefObject<Set<string>>;
 	onPanEnd: () => void;
+	/** Set on wheel zoom; tells the viewport sync loop to ease toward the
+	 * targets instead of snapping. Cleared when a drag pan starts. */
+	smoothZoomRef: React.MutableRefObject<boolean>;
 	panStateRef: React.MutableRefObject<{
 		active: boolean;
 		startX: number;
@@ -91,6 +94,7 @@ export function usePanZoom({
 	pressedKeys,
 	onPanEnd,
 	panStateRef,
+	smoothZoomRef,
 }: UsePanZoomOptions): UsePanZoomResult {
 	const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
 	const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -365,6 +369,7 @@ export function usePanZoom({
 			}, 300);
 
 			const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+			smoothZoomRef.current = true;
 			const rect = containerRef.current?.getBoundingClientRect();
 			if (rect) containerRectRef.current = rect;
 			performZoom(
@@ -375,7 +380,7 @@ export function usePanZoom({
 				e.shiftKey,
 			);
 		},
-		[containerRef, width, height, performZoom, onPanEnd, panStateRef],
+		[containerRef, width, height, performZoom, onPanEnd, panStateRef, smoothZoomRef],
 	);
 
 	const handleMouseDown = useCallback(
@@ -398,13 +403,15 @@ export function usePanZoom({
 					updateZoomBoxDom(box);
 				}
 			} else {
+				// A drag must track the cursor 1:1 — stop any running zoom easing.
+				smoothZoomRef.current = false;
 				setPanTarget(target);
 				panTargetRef.current = target;
 				shiftDownRef.current = e.shiftKey;
 				lastMousePos.current = { x: e.clientX, y: e.clientY };
 			}
 		},
-		[containerRef, padding, width, height, updateZoomBoxDom],
+		[containerRef, padding, width, height, updateZoomBoxDom, smoothZoomRef],
 	);
 
 	const handleTouchStart = useCallback(

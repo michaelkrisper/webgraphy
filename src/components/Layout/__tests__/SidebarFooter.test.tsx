@@ -1,7 +1,6 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import packageJson from "../../../../package.json";
 import { SidebarFooter } from "../SidebarFooter";
 
 vi.mock("../HelpModal", () => ({
@@ -46,7 +45,7 @@ describe("SidebarFooter", () => {
 	it("renders version, author, and buttons", () => {
 		render(<SidebarFooter />);
 
-		expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
+		expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
 		expect(screen.getByText("© Michael Krisper")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "License" })).toBeInTheDocument();

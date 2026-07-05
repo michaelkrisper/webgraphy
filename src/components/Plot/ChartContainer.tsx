@@ -12,7 +12,9 @@ import { THEMES } from "../../themes";
 import {
 	type AxesFrame,
 	DEFAULT_X_AXIS_ID,
+	easeAxisUpdates,
 	syncAxesWithTargets,
+	ZOOM_EASE_FACTOR,
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
@@ -75,6 +77,14 @@ export default function ChartContainer() {
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
 	const targetYs = useRef<Record<string, { min: number; max: number }>>({});
+	// Wheel-zoom easing: last-rendered ranges plus the flag armed by handleWheel.
+	const smoothZoomRef = useRef(false);
+	const displayedXAxesRef = useRef<Record<string, { min: number; max: number }>>(
+		{},
+	);
+	const displayedYsRef = useRef<Record<string, { min: number; max: number }>>(
+		{},
+	);
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
 	const axesLayerRef = useRef<AxesLayerHandle | null>(null);
 	const pressedKeysRef = useRef<Set<string>>(new Set());
@@ -362,6 +372,7 @@ export default function ChartContainer() {
 		handleAutoScaleY,
 		pressedKeys: pressedKeysRef,
 		panStateRef,
+		smoothZoomRef,
 		onPanEnd: useCallback(() => {
 			panStateRef.current.active = false;
 			syncViewportRef.current(true);
@@ -401,6 +412,26 @@ export default function ChartContainer() {
 						syncScratchRef.current,
 					);
 
+				// Wheel zoom eases toward its target over a few frames; everything
+				// else (pan, keyboard, forced syncs) snaps via factor 1, which also
+				// keeps the displayed-range records current for the next zoom.
+				const easeFactor =
+					smoothZoomRef.current && !forceStoreUpdate ? ZOOM_EASE_FACTOR : 1;
+				const xEased = easeAxisUpdates(
+					displayedXAxesRef.current,
+					xUpdates,
+					state.xAxes,
+					easeFactor,
+				);
+				const yEased = easeAxisUpdates(
+					displayedYsRef.current,
+					yUpdates,
+					state.yAxes,
+					easeFactor,
+				);
+				const zoomAnimating = !(xEased && yEased);
+				if (!zoomAnimating) smoothZoomRef.current = false;
+
 				if (hasUpdates || !overlayInitRef.current || forceStoreUpdate) {
 					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
@@ -431,7 +462,7 @@ export default function ChartContainer() {
 						syncStoreUpdates(state, xUpdates, yUpdates);
 					}
 				}
-				if (kbZoom || kbPan) {
+				if (kbZoom || kbPan || zoomAnimating) {
 					syncViewportRef.current(false);
 				}
 			};

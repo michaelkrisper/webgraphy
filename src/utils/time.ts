@@ -21,6 +21,33 @@ export interface TimeTick {
 const MAX_TIME_TICKS = 500;
 const MAX_SECONDARY_LABELS = 100;
 
+// Tick labels are regenerated every rAF frame while panning/zooming;
+// `toLocaleDateString` builds a new Intl.DateTimeFormat per call (~50x the
+// cost of formatting), so keep one formatter per label shape. Created lazily
+// because a formatter captures the timezone at construction and tests set TZ
+// after module load.
+const lazyFmt = (options: Intl.DateTimeFormatOptions) => {
+	let fmt: Intl.DateTimeFormat | undefined;
+	return (d: Date) =>
+		(fmt ??= new Intl.DateTimeFormat("de-DE", options)).format(d);
+};
+const formatMonthShort = lazyFmt({ month: "short" });
+const formatDay = lazyFmt({
+	day: "2-digit",
+	month: "2-digit",
+	year: "numeric",
+});
+const formatMonthYear = lazyFmt({ month: "2-digit", year: "numeric" });
+const formatFullDateTime = lazyFmt({
+	day: "2-digit",
+	month: "2-digit",
+	year: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	fractionalSecondDigits: 3,
+});
+
 export const UNIT_SECONDS = {
 	second: 1,
 	minute: 60,
@@ -172,7 +199,7 @@ function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 		case "week":
 			return `${d.getDate()}.${d.getMonth() + 1}.`;
 		case "month":
-			return d.toLocaleDateString("de-DE", { month: "short" });
+			return formatMonthShort(d);
 		case "year":
 			return String(d.getFullYear());
 		default:
@@ -208,11 +235,7 @@ export function generateSecondaryLabels(
 		while (current <= max + 86400) {
 			labels.push({
 				timestamp: current,
-				label: d.toLocaleDateString("de-DE", {
-					day: "2-digit",
-					month: "2-digit",
-					year: "numeric",
-				}),
+				label: formatDay(d),
 			});
 			d.setDate(d.getDate() + 1);
 			current = d.getTime() / 1000;
@@ -235,10 +258,7 @@ export function generateSecondaryLabels(
 			while (current <= max + UNIT_SECONDS.month) {
 				labels.push({
 					timestamp: current,
-					label: d.toLocaleDateString("de-DE", {
-						month: "2-digit",
-						year: "numeric",
-					}),
+					label: formatMonthYear(d),
 				});
 				d.setMonth(d.getMonth() + 1);
 				current = d.getTime() / 1000;
@@ -268,15 +288,7 @@ export function generateSecondaryLabels(
 }
 
 export function formatFullDate(ts: number): string {
-	const s = new Date(ts * 1000).toLocaleString("de-DE", {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		fractionalSecondDigits: 3,
-	});
+	const s = formatFullDateTime(new Date(ts * 1000));
 	// Remove trailing zeros from fractional seconds, and the comma if all zeros
 	return s.replace(/,(\d*?[1-9])0+$/, ",$1").replace(/,0+$/, "");
 }

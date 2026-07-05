@@ -627,6 +627,7 @@ export class RendererCore {
 				this.buffers,
 				this.segParams,
 				s.segKey,
+				this.interacting,
 			);
 			drawSeriesPoints(
 				st,

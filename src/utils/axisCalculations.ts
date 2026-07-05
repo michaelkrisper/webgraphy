@@ -171,3 +171,61 @@ export function syncAxesWithTargets(
 
 	return { xUpdates, yUpdates, hasUpdates };
 }
+
+/** Fraction of the remaining distance covered per rAF frame when easing
+ * wheel-zoom toward its target. */
+export const ZOOM_EASE_FACTOR = 0.35;
+
+/** Relative distance (vs. target span) below which easing snaps onto the
+ * target — ~0.25px on a typical chart width. */
+const EASE_SNAP_EPSILON = 2e-4;
+
+/**
+ * Eases the rendered viewport toward the targets in `updates`: moves each
+ * `displayed` entry `factor` of the remaining way and rewrites the update to
+ * that eased value, so the caller renders the eased range. `displayed` is the
+ * caller-owned record of what was last rendered, seeded from `axes` when an
+ * axis is first seen. With `factor >= 1` it only records the targets (no
+ * easing). Returns true once every update sits exactly on its target.
+ */
+export function easeAxisUpdates(
+	displayed: Record<string, { min: number; max: number }>,
+	updates: Record<string, { min: number; max: number }>,
+	axes: Array<{ id: string; min: number; max: number }>,
+	factor: number,
+): boolean {
+	let converged = true;
+	for (const id in updates) {
+		const target = updates[id];
+		let shown = displayed[id];
+		if (!shown) {
+			const axis = axes.find((a) => a.id === id);
+			shown = displayed[id] = {
+				min: axis ? axis.min : target.min,
+				max: axis ? axis.max : target.max,
+			};
+		}
+		if (factor >= 1) {
+			shown.min = target.min;
+			shown.max = target.max;
+			continue;
+		}
+		const span = Math.max(Math.abs(target.max - target.min), Number.MIN_VALUE);
+		const min = shown.min + (target.min - shown.min) * factor;
+		const max = shown.max + (target.max - shown.max) * factor;
+		if (
+			Math.abs(target.min - min) <= span * EASE_SNAP_EPSILON &&
+			Math.abs(target.max - max) <= span * EASE_SNAP_EPSILON
+		) {
+			shown.min = target.min;
+			shown.max = target.max;
+		} else {
+			shown.min = min;
+			shown.max = max;
+			target.min = min;
+			target.max = max;
+			converged = false;
+		}
+	}
+	return converged;
+}

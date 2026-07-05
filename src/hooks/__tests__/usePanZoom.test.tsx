@@ -57,6 +57,7 @@ describe("usePanZoom", () => {
 			handleAutoScaleY: mockHandleAutoScaleY,
 			pressedKeys: { current: new Set() },
 			onPanEnd: mockOnPanEnd,
+			smoothZoomRef: { current: false },
 			panStateRef: {
 				current: {
 					active: false,

@@ -1,6 +1,5 @@
 import type React from "react";
 import { useState } from "react";
-import packageJson from "../../../package.json";
 import { HelpModal } from "./HelpModal";
 import { ImprintModal } from "./ImprintModal";
 import { LicenseModal } from "./LicenseModal";
@@ -32,7 +31,7 @@ export const SidebarFooter: React.FC = () => {
 						color: "var(--text-muted-color)",
 					}}
 				>
-					<span style={{ opacity: 0.8 }}>v{packageJson.version}</span>
+					<span style={{ opacity: 0.8 }}>v{__APP_VERSION__}</span>
 					<span style={{ opacity: 0.5 }}>|</span>
 					<button
 						onClick={() => setShowHelp(true)}

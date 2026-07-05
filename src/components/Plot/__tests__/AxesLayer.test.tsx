@@ -12,6 +12,8 @@ const mockCtx = {
 	restore: vi.fn(),
 	fillText: vi.fn(),
 	measureText: vi.fn(() => ({ width: 10 })),
+	drawImage: vi.fn(),
+	setTransform: vi.fn(),
 	fillRect: vi.fn(),
 	beginPath: vi.fn(),
 	moveTo: vi.fn(),

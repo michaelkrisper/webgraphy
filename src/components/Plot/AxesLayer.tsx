@@ -10,6 +10,7 @@ import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
+import { LabelSpriteCache } from "./labelSprites";
 
 export interface AxesLayerHandle {
 	redraw: (xAxes: XAxisLayout[], yAxes: YAxisLayout[]) => void;
@@ -51,6 +52,7 @@ interface DrawXAxisOptions {
 	getLabel: (axisKey: string, precision: number, value: number) => string;
 	secLabelBg: string;
 	seriesByXAxisId: Record<string, SeriesConfig[]>;
+	sprites: LabelSpriteCache;
 }
 
 interface DrawYAxisOptions {
@@ -66,6 +68,7 @@ interface DrawYAxisOptions {
 	chartHeight: number;
 	getLabel: (axisKey: string, precision: number, value: number) => string;
 	seriesByYAxisId: Record<string, SeriesConfig[]>;
+	sprites: LabelSpriteCache;
 }
 
 function drawXAxis({
@@ -81,16 +84,14 @@ function drawXAxis({
 	getLabel,
 	secLabelBg,
 	seriesByXAxisId,
+	sprites,
 }: DrawXAxisOptions) {
 	if (!metrics) return;
 	const baseY = height - padding.bottom + metrics.cumulativeOffset;
 	const lblColor = axis.color || labelColor;
 
 	// Primary Labels
-	ctx.font = `9px ${fontFamily}`;
-	ctx.fillStyle = lblColor;
-	ctx.textAlign = "center";
-	ctx.textBaseline = "alphabetic";
+	const primaryFont = `9px ${fontFamily}`;
 	const primaryY = baseY + metrics.labelBottom;
 	axis.ticks.result.forEach((t) => {
 		const timestamp = typeof t === "number" ? t : t.timestamp;
@@ -112,13 +113,21 @@ function drawXAxis({
 					? getLabel(`x:${axis.id}`, axis.ticks.precision ?? 0, t)
 					: t.label;
 		}
-		ctx.fillText(label, x, primaryY);
+		sprites.draw(
+			ctx,
+			label,
+			primaryFont,
+			lblColor,
+			x,
+			primaryY,
+			"center",
+			"alphabetic",
+		);
 	});
 
 	// Secondary Labels
 	if (axis.ticks.secondaryLabels) {
-		ctx.font = `bold 10px ${fontFamily}`;
-		ctx.textAlign = "left";
+		const secFont = `bold 10px ${fontFamily}`;
 		const rectY = baseY + metrics.secLabelBottom - 14;
 		const secList = axis.ticks.secondaryLabels;
 		secList.forEach((sl: SecondaryLabel, i: number) => {
@@ -136,7 +145,7 @@ function drawXAxis({
 
 			const x = Math.max(currentX + 5, padding.left + 5);
 
-			const textWidth = ctx.measureText(sl.label).width;
+			const textWidth = sprites.measure(ctx, sl.label, secFont, lblColor);
 			ctx.fillStyle = secLabelBg;
 			ctx.fillRect(x - 2, rectY, textWidth + 4, 14);
 
@@ -149,8 +158,16 @@ function drawXAxis({
 				ctx.stroke();
 			}
 
-			ctx.fillStyle = lblColor;
-			ctx.fillText(sl.label, x, baseY + metrics.secLabelBottom - 2);
+			sprites.draw(
+				ctx,
+				sl.label,
+				secFont,
+				lblColor,
+				x,
+				baseY + metrics.secLabelBottom - 2,
+				"left",
+				"alphabetic",
+			);
 		});
 	}
 
@@ -185,6 +202,7 @@ function drawYAxis({
 	chartHeight,
 	getLabel,
 	seriesByYAxisId,
+	sprites,
 }: DrawYAxisOptions) {
 	const isLeft = axis.position === "left";
 	const metrics = axisLayout[axis.id] || { total: 40, label: 30 };
@@ -197,10 +215,7 @@ function drawYAxis({
 	const labelX = isLeft ? spineX - 7 : spineX + 7;
 	const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
 
-	ctx.font = `9px ${fontFamily}`;
-	ctx.fillStyle = labelColor;
-	ctx.textAlign = isLeft ? "right" : "left";
-	ctx.textBaseline = "middle";
+	const tickFont = `9px ${fontFamily}`;
 	axis.ticks.forEach((t) => {
 		const normY = (t - axis.min) / (axis.max - axis.min);
 		if (normY < 0 || normY > 1) return;
@@ -214,7 +229,16 @@ function drawYAxis({
 		} else {
 			label = getLabel(`y:${axis.id}`, axis.precision, t);
 		}
-		ctx.fillText(label, labelX, y);
+		sprites.draw(
+			ctx,
+			label,
+			tickFont,
+			labelColor,
+			labelX,
+			y,
+			isLeft ? "right" : "left",
+			"middle",
+		);
 	});
 
 	// Y Axis Title (canvas — multicolor segments, rotated)
@@ -277,6 +301,10 @@ const AxesLayer = React.memo(
 			ref,
 		) => {
 			const canvasRef = useRef<HTMLCanvasElement>(null);
+			// Rendered-label sprite cache: fillText once per unique label, then
+			// drawImage per frame. See labelSprites.ts.
+			const spritesRef = useRef<LabelSpriteCache | null>(null);
+			if (!spritesRef.current) spritesRef.current = new LabelSpriteCache();
 			// Label string cache: per-axis (id+precision) → tickValue → string.
 			// Avoids per-frame toFixed/toExponential calls in formatAxisLabel.
 			const labelCacheRef = useRef<Map<string, Map<number, string>>>(new Map());
@@ -354,6 +382,8 @@ const AxesLayer = React.memo(
 					ctx.scale(dpr, dpr);
 
 					labelCacheUsedRef.current.clear();
+					const sprites = spritesRef.current as LabelSpriteCache;
+					sprites.beginFrame(dpr);
 
 					// X Axes Labels (canvas)
 					xAxes.forEach((axis, axisIdx) => {
@@ -370,6 +400,7 @@ const AxesLayer = React.memo(
 							getLabel,
 							secLabelBg,
 							seriesByXAxisId,
+							sprites,
 						});
 					});
 
@@ -388,6 +419,7 @@ const AxesLayer = React.memo(
 							chartHeight,
 							getLabel,
 							seriesByYAxisId,
+							sprites,
 						});
 					});
 

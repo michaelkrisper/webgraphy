@@ -114,6 +114,12 @@ export interface SeriesDrawBundle {
  * bucket boundaries fixed while xRange varies within an octave, and nests
  * grids across octaves — so the chosen extrema stay put during smooth zoom
  * instead of re-bucketing (and visually jumping) every frame.
+ *
+ * With `interacting` set, a covering entry whose bucket width is within two
+ * octaves of the ideal is served as-is: recomputing M4 over a large window
+ * mid-gesture costs tens of ms and causes visible hitches, while a ≤4x
+ * coarser grid is at most ~1.3px buckets for line decimation (divisor 3) and
+ * a finer grid is exact. The settle redraw runs strict and recomputes.
  */
 export function getOrComputeM4(
 	gl: WebGL2RenderingContext,
@@ -127,6 +133,7 @@ export function getOrComputeM4(
 	xRange: number,
 	numBuckets: number,
 	bucketDivisor: number,
+	interacting = false,
 ): DecimEntry {
 	// Pad the computed window so panning within ±½ viewport reuses the result.
 	const pad = xRange * 0.5;
@@ -152,10 +159,13 @@ export function getOrComputeM4(
 	let entry = byX.get(xData);
 	if (
 		entry &&
-		entry.bucketWidth === bucketWidth &&
 		entry.xRef === xRef &&
 		entry.qMin <= xAxisMin &&
-		entry.qMax >= xAxisMax
+		entry.qMax >= xAxisMax &&
+		(entry.bucketWidth === bucketWidth ||
+			(interacting &&
+				entry.bucketWidth <= bucketWidth * 4 &&
+				entry.bucketWidth >= bucketWidth / 4))
 	) {
 		return entry;
 	}
@@ -277,6 +287,7 @@ function drawDecimatedLines(
 	lineDecimCache: DecimCache,
 	scratch: { x: Float32Array; y: Float32Array },
 	numBuckets: number,
+	isInteracting: boolean,
 ): void {
 	const { gl } = st;
 	const entry = getOrComputeM4(
@@ -291,6 +302,7 @@ function drawDecimatedLines(
 		bundle.xRange,
 		numBuckets,
 		3,
+		isInteracting,
 	);
 	if (!entry.xBuf || !entry.yBuf || entry.count < 2) return;
 
@@ -444,6 +456,7 @@ export function drawSeriesLines(
 	segBuffersRef: Map<string, WebGLBuffer>,
 	segParamsRef: Map<string, SegParams>,
 	segBufferKey: string,
+	isInteracting = false,
 ): void {
 	if (bundle.lineStyle === "none") return;
 	const lineLocs = st.lineLocs;
@@ -478,6 +491,7 @@ export function drawSeriesLines(
 				lineDecimCache,
 				lineDecimScratch,
 				numBuckets,
+				isInteracting,
 			);
 		} else {
 			drawPlainLines(st, bundle);
@@ -538,6 +552,7 @@ export function drawSeriesPoints(
 			bundle.xRange,
 			numBuckets,
 			1,
+			isInteracting,
 		);
 		if (entry.xBuf && entry.yBuf && entry.count >= 1) {
 			const xArr = entry.xArr;

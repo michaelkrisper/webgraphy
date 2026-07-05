@@ -2,8 +2,12 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
+import { resolveAppVersion } from "./appVersion";
 
 export default defineConfig({
+	define: {
+		__APP_VERSION__: JSON.stringify(resolveAppVersion()),
+	},
 	plugins: [
 		react(),
 		VitePWA({
