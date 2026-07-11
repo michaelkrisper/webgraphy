@@ -142,10 +142,20 @@ export function computeXAxisCategoryLabels(
 					if (uniq.size > MAX_DERIVED_CATEGORY_LABELS) break outer;
 				}
 			}
-			const sorted = Array.from(uniq).sort((a, b) => a - b);
+			const size = uniq.size;
+			const ticks = new Array(size);
+			let i = 0;
+			for (const v of uniq) {
+				ticks[i++] = v;
+			}
+			ticks.sort((a, b) => a - b);
+			const labels = new Array(size);
+			for (let j = 0; j < size; j++) {
+				labels[j] = String(ticks[j]);
+			}
 			out.set(axisId, {
-				labels: sorted.map((v) => String(v)),
-				ticks: sorted,
+				labels,
+				ticks,
 			});
 			return;
 		}
