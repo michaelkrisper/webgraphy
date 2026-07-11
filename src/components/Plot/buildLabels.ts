@@ -8,6 +8,7 @@
 
 import type { SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
+import { findExact } from "../../utils/binarySearch";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import type { RenderLabel } from "./rendererCore";
@@ -89,7 +90,7 @@ function buildXAxisLabels(
 		if (axis.categoryLabels) {
 			const v = typeof t === "number" ? t : t.timestamp;
 			const idx = axis.categoryTicks
-				? axis.categoryTicks.indexOf(v)
+				? findExact(axis.categoryTicks, v)
 				: Math.round(v);
 			const name = idx >= 0 ? axis.categoryLabels[idx] : undefined;
 			if (name === undefined) return;

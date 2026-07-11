@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findClosest,
+  findExact,
   findFirstGE,
   findLastLE,
   findSegmentStartIndex,
@@ -104,5 +105,25 @@ describe("findSegmentStartIndex", () => {
     expect(findSegmentStartIndex(segments, 15)).toBe(0);
     expect(findSegmentStartIndex(segments, 5)).toBe(0);
     expect(findSegmentStartIndex(segments, 25)).toBe(0);
+  });
+});
+
+describe("findExact", () => {
+  it("returns index of target", () => {
+    const arr = [0, 1.5, 3, 4.5, 6];
+    expect(findExact(arr, 3)).toBe(2);
+    expect(findExact(arr, 6)).toBe(4);
+    expect(findExact(arr, 0)).toBe(0);
+  });
+
+  it("returns -1 if target is not found", () => {
+    const arr = [0, 1.5, 3, 4.5, 6];
+    expect(findExact(arr, 5)).toBe(-1);
+    expect(findExact(arr, -1)).toBe(-1);
+    expect(findExact(arr, 7)).toBe(-1);
+  });
+
+  it("returns -1 on empty array", () => {
+    expect(findExact([], 5)).toBe(-1);
   });
 });
