@@ -1,0 +1,237 @@
+import { describe, expect, it, vi } from "vitest";
+import type { DecimCache } from "../decimationCache";
+import { getOrComputeM4 } from "../decimationCache";
+
+describe("getOrComputeM4", () => {
+	function makeMockGl() {
+		const createBuffer = vi.fn(() => ({}));
+		const bindBuffer = vi.fn();
+		const bufferData = vi.fn();
+		return {
+			gl: {
+				createBuffer,
+				bindBuffer,
+				bufferData,
+				ARRAY_BUFFER: 34962,
+				DYNAMIC_DRAW: 35048,
+			} as unknown as WebGL2RenderingContext,
+			createBuffer,
+			bufferData,
+		};
+	}
+
+	it("returns the same cached entry when called with identical params (no string sig allocation)", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+
+		expect(e2).toBe(e1); // referential equality — cache hit returned the same object
+		expect(bufferData).toHaveBeenCalledTimes(2); // only on the first (miss) call: one for x, one for y
+	});
+
+	it("recomputes when bucketWidth crosses an octave (2x zoom)", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// Halved xRange → bucketWidth drops an octave → cache miss
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 5, 5, 8, 3);
+
+		expect(bufferData).toHaveBeenCalledTimes(4); // 2 calls × 2 buffers each
+	});
+
+	it("serves a covering entry within two octaves while interacting", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// 2x zoom-in crosses an octave — strict mode would recompute, but the
+		// interacting path tolerates the coarser covered entry.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3, true);
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2);
+
+		// The settle redraw runs strict and recomputes exactly.
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3);
+		expect(e3).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("recomputes while interacting once the bucket width is more than two octaves off", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// 10x zoom-in: ideal bucket width is 8x finer — beyond the 4x tolerance.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4.5, 5.5, 1, 8, 3, true);
+		expect(e2).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("reuses the entry while zooming within a bucket-width octave", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		// Slight zoom-in: same quantized bucketWidth, viewport still covered.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0.5, 9.5, 9, 8, 3);
+
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2); // only the initial miss uploaded
+	});
+
+	it("reuses the entry while panning inside the padded window, recomputes beyond it", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		// Span [-10, 50] is wide enough that a [0,10] viewport stays on the
+		// windowed path (window < half the span) instead of becoming a
+		// full-span pyramid level.
+		const xData = new Float32Array(300);
+		const yData = new Float32Array(300);
+		for (let i = 0; i < 300; i++) {
+			xData[i] = i * 0.2 - 10;
+			yData[i] = i;
+		}
+
+		// Entry computed for viewport [0,10] covers roughly [-5,15].
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4, 14, 10, 8, 3);
+		expect(e2).toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(2);
+
+		// Viewport exits the cached window → recompute.
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 8, 18, 10, 8, 3);
+		expect(e3).not.toBe(e1);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("keeps a full-span pyramid level alive across intermediate zooms", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array(64);
+		const yData = new Float32Array(64);
+		for (let i = 0; i < 64; i++) {
+			xData[i] = i;
+			yData[i] = (i * 29) % 17;
+		}
+
+		// Full view → stored as a full-span level.
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		// Deep zoom-in → separate windowed entry.
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 30, 32, 2, 8, 3);
+		expect(e2).not.toBe(e1);
+
+		// Back at full view: the level is served again without any re-upload.
+		const calls = bufferData.mock.calls.length;
+		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		expect(e3).toBe(e1);
+		expect(bufferData.mock.calls.length).toBe(calls);
+	});
+
+	it("derives coarser zoom-out levels by octave merge, matching a raw scan", () => {
+		const { gl } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array(256);
+		const yData = new Float32Array(256);
+		for (let i = 0; i < 256; i++) {
+			xData[i] = i;
+			yData[i] = Math.sin(i / 5) * ((i % 7) + 1);
+		}
+
+		// Establish a fine full-span level, then zoom out one octave.
+		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 256, 256, 8, 3);
+		const merged = getOrComputeM4(gl, cache, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+
+		// A cold cache at the same zoom must produce identical points.
+		const cold: DecimCache = new WeakMap();
+		const direct = getOrComputeM4(gl, cold, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+		expect(Array.from(merged.xArr)).toEqual(Array.from(direct.xArr));
+		expect(Array.from(merged.yArr)).toEqual(Array.from(direct.yArr));
+	});
+
+	it("keeps separate entries for the same yData under different xData", () => {
+		const { gl, bufferData } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+		const xA = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const xB = new Float32Array([0, 2, 4, 6, 8, 10, 12, 14, 16, 18]);
+
+		const eA = getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3);
+		const eB = getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3);
+		expect(eB).not.toBe(eA);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+
+		// Alternating between the two series must not evict either entry.
+		expect(getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3)).toBe(eA);
+		expect(getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3)).toBe(eB);
+		expect(bufferData).toHaveBeenCalledTimes(4);
+	});
+
+	it("emits identical points for buckets shared across a zoom recompute", () => {
+		const { gl } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		// Dense noisy data so each bucket has distinct extrema representatives.
+		const n = 4000;
+		const xData = new Float32Array(n);
+		const yData = new Float32Array(n);
+		for (let i = 0; i < n; i++) {
+			xData[i] = i * 0.005;
+			yData[i] = Math.sin(i * 1.7) * 100 + Math.sin(i * 0.13) * 10;
+		}
+
+		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 20, 20, 8, 3);
+		const pts1 = new Map<number, number>();
+		for (let i = 0; i < e1.count; i++) pts1.set(e1.xArr[i], e1.yArr[i]);
+
+		// Force a recompute at the same bucket width by moving the viewport far
+		// right, then check every point in the overlap region is unchanged —
+		// the absolute power-of-two grid must pick the same representatives.
+		cache.delete(yData);
+		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 5, 25, 20, 8, 3);
+		let overlap = 0;
+		for (let i = 0; i < e2.count; i++) {
+			const x = e2.xArr[i];
+			if (x < 5 || x > 15) continue;
+			expect(pts1.get(x)).toBe(e2.yArr[i]);
+			overlap++;
+		}
+		expect(overlap).toBeGreaterThan(50);
+	});
+
+	it("stores numeric signature fields on the entry", () => {
+		const { gl } = makeMockGl();
+		const cache: DecimCache = new WeakMap();
+		const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+		const e = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+
+		expect(typeof e.bucketWidth).toBe("number");
+		expect(typeof e.qMin).toBe("number");
+		expect(typeof e.qMax).toBe("number");
+		expect(e.xRef).toBe(0);
+	});
+});

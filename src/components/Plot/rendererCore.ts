@@ -18,12 +18,13 @@
 
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { cssToRgbaWithAlpha } from "../../utils/colors";
+import { type DecimCache } from "./decimationCache";
+import { drawOverlay, type OverlayState } from "./drawOverlay";
 import {
-	type DecimCache,
-	drawOverlay,
+
 	drawSeriesLines,
 	drawSeriesPoints,
-	type OverlayState,
+
 	type SegParams,
 	type SeriesDrawBundle,
 } from "./drawSeries";

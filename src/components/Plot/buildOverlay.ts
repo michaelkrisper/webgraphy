@@ -8,7 +8,7 @@
  */
 
 import { hexToRgbaWithAlpha } from "../../utils/colors";
-import type { OverlayState } from "./drawSeries";
+import type { OverlayState } from "./drawOverlay";
 import { estimateOverlayVertexCount } from "./overlayAxes";
 import {
 	writeAxisArrows,

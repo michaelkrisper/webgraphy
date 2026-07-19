@@ -14,7 +14,7 @@
  * the next worker rAF tick, so a burst of pan events costs one draw.
  */
 
-import type { OverlayState } from "../components/Plot/drawSeries";
+import type { OverlayState } from "../components/Plot/drawOverlay";
 import {
 	buildFrameScene,
 	createFrameSceneCaches,
