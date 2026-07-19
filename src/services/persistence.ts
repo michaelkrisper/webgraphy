@@ -147,7 +147,9 @@ async function getDB() {
 function fixDatasetTypes(dataset: Dataset): Dataset {
   if (!dataset.data || !Array.isArray(dataset.data)) return dataset;
 
-  dataset.data = dataset.data.map((col: DataColumn) => {
+  const data = dataset.data;
+  for (let i = 0; i < data.length; i++) {
+    const col = data[i];
     if (!col.bounds) col.bounds = { min: 0, max: 0 };
     if (!(col.data instanceof Float32Array)) {
       col.data =
@@ -156,8 +158,7 @@ function fixDatasetTypes(dataset: Dataset): Dataset {
           : new Float32Array(0);
     }
     if (col.refPoint === undefined) col.refPoint = 0;
-    return col;
-  });
+  }
   if (dataset.xAxisColumn === undefined) {
     const potentialX =
       dataset.columns.find((c) => {
