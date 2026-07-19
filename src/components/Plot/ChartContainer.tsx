@@ -1,6 +1,6 @@
 // src/components/Plot/ChartContainer.tsx
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
@@ -565,9 +565,10 @@ export default function ChartContainer() {
 
 	// Latest-callback ref: keep syncViewportRef pointing at the current
 	// syncViewport so the stable imperative handle and RAF closures call the
-	// up-to-date version. The write is intentional during render.
-	// eslint-disable-next-line react-hooks/refs
-	syncViewportRef.current = syncViewport;
+	// up-to-date version. We use useLayoutEffect to safely update the ref.
+	useLayoutEffect(() => {
+		syncViewportRef.current = syncViewport;
+	}, [syncViewport]);
 
 	// 6. Effects
 	// Keep the render worker's scene context current (shared-viewport mode
