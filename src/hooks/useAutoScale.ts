@@ -81,6 +81,7 @@ interface AutoScaleDeps {
 	datasetsById: Map<string, Dataset>;
 	activeDatasetIdsSet: Set<string>;
 	seriesByYAxisId: Map<string, SeriesConfig[]>;
+	yBoundsByAxisId: Map<string, { min: number; max: number }>;
 }
 
 function computeAutoScaleY(
@@ -99,6 +100,7 @@ function computeAutoScaleY(
 		datasetsById: dsById,
 		xAxes,
 		seriesByYAxisId: sByY,
+		yBoundsByAxisId,
 	} = deps;
 
 	const axisSeries = sByY.get(axisId);
@@ -107,20 +109,21 @@ function computeAutoScaleY(
 	let yMin = Infinity,
 		yMax = -Infinity;
 
-	axisSeries.forEach((s) => {
-		const ds = dsById.get(s.sourceId);
-		if (!ds) return;
-		const yIdx = getColumnIndex(ds, s.yColumn);
-		if (yIdx === -1) return;
-		const colY = ds.data[yIdx];
-		if (!colY) return;
+	if (mouseY === undefined) {
+		const cached = yBoundsByAxisId.get(axisId);
+		if (cached) {
+			yMin = cached.min;
+			yMax = cached.max;
+		}
+	} else {
+		axisSeries.forEach((s) => {
+			const ds = dsById.get(s.sourceId);
+			if (!ds) return;
+			const yIdx = getColumnIndex(ds, s.yColumn);
+			if (yIdx === -1) return;
+			const colY = ds.data[yIdx];
+			if (!colY) return;
 
-		if (mouseY === undefined) {
-			if (colY.bounds) {
-				if (colY.bounds.min < yMin) yMin = colY.bounds.min;
-				if (colY.bounds.max > yMax) yMax = colY.bounds.max;
-			}
-		} else {
 			const xAxis = getAxisById(xAxes, ds?.xAxisId || DEFAULT_X_AXIS_ID);
 			if (!xAxis) return;
 			const xIdx = getColumnIndex(ds, ds.xAxisColumn);
@@ -137,8 +140,8 @@ function computeAutoScaleY(
 				if (bounds.min < yMin) yMin = bounds.min;
 				if (bounds.max > yMax) yMax = bounds.max;
 			}
-		}
-	});
+		});
+	}
 
 	if (yMin !== Infinity) {
 		let nMin: number, nMax: number;
@@ -342,6 +345,27 @@ export function useAutoScale({
 		return map;
 	}, [series]);
 
+	const yBoundsByAxisId = useMemo(() => {
+		const boundsMap = new Map<string, { min: number; max: number }>();
+		seriesByYAxisId.forEach((axisSeries, axisId) => {
+			let yMin = Infinity,
+				yMax = -Infinity;
+			axisSeries.forEach((s) => {
+				const ds = datasetsById.get(s.sourceId);
+				if (!ds) return;
+				const yIdx = getColumnIndex(ds, s.yColumn);
+				const col = ds.data[yIdx];
+				if (!col?.bounds || !Number.isFinite(col.bounds.min)) return;
+				if (col.bounds.min < yMin) yMin = col.bounds.min;
+				if (col.bounds.max > yMax) yMax = col.bounds.max;
+			});
+			if (yMin !== Infinity) {
+				boundsMap.set(axisId, { min: yMin, max: yMax });
+			}
+		});
+		return boundsMap;
+	}, [seriesByYAxisId, datasetsById]);
+
 	// Use refs for dependencies to keep callbacks stable
 	const depsRef = useRef({
 		padding,
@@ -355,6 +379,7 @@ export function useAutoScale({
 		datasetsById,
 		activeDatasetIdsSet,
 		seriesByYAxisId,
+		yBoundsByAxisId,
 	});
 
 	useEffect(() => {
@@ -370,6 +395,7 @@ export function useAutoScale({
 			datasetsById,
 			activeDatasetIdsSet,
 			seriesByYAxisId,
+		yBoundsByAxisId,
 		};
 	});
 
@@ -476,23 +502,10 @@ export function useAutoScale({
 			// Calculate Y bounds per axis
 			const ys = targetYs.current;
 			activeYAxes.forEach((axis) => {
-				const axisSeries = seriesByYAxisId.get(axis.id) || [];
-				if (axisSeries.length === 0) return;
-				let yMin = Infinity,
-					yMax = -Infinity;
-				axisSeries.forEach((s) => {
-					const ds = datasetsById.get(s.sourceId);
-					if (!ds) return;
-					const yIdx = getColumnIndex(ds, s.yColumn);
-					const yCol = ds.data[yIdx];
-					if (!yCol?.bounds || !Number.isFinite(yCol.bounds.min)) return;
-					if (yCol.bounds.min < yMin) yMin = yCol.bounds.min;
-					if (yCol.bounds.max > yMax) yMax = yCol.bounds.max;
-				});
-
-				if (yMin !== Infinity && !Number.isNaN(yMin) && !Number.isNaN(yMax)) {
-					const pad = axisPadding(yMin, yMax);
-					const nextY = { min: yMin - pad, max: yMax + pad };
+				const bounds = depsRef.current.yBoundsByAxisId.get(axis.id);
+				if (bounds && bounds.min !== Infinity && !Number.isNaN(bounds.min) && !Number.isNaN(bounds.max)) {
+					const pad = axisPadding(bounds.min, bounds.max);
+					const nextY = { min: bounds.min - pad, max: bounds.max + pad };
 					if (!Number.isNaN(nextY.min) && !Number.isNaN(nextY.max)) {
 						ys[axis.id] = nextY;
 						yUpdates[axis.id] = nextY;
