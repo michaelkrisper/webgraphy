@@ -145,23 +145,11 @@ const Crosshair = React.memo(
 				const closestIdxByDataset = new Map<string, number>();
 
 				seriesMetadata.forEach(({ ds, xAxis, xCol }) => {
-					let cachedIdx = closestIdxByDataset.get(ds.id);
+					if (closestIdxByDataset.has(ds.id)) return;
+
 					const xData = xCol.data;
 					const refX = xCol.refPoint;
-					if (cachedIdx === undefined) {
-						const sVp = {
-							xMin: xAxis.min,
-							xMax: xAxis.max,
-							yMin: 0,
-							yMax: 100,
-							width,
-							height,
-							padding,
-						};
-						const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-						cachedIdx = findClosest(xData, sMouseWorld.x, refX);
-						closestIdxByDataset.set(ds.id, cachedIdx);
-					}
+
 					const sVp = {
 						xMin: xAxis.min,
 						xMax: xAxis.max,
@@ -172,6 +160,10 @@ const Crosshair = React.memo(
 						padding,
 					};
 					const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
+
+					const cachedIdx = findClosest(xData, sMouseWorld.x, refX);
+					closestIdxByDataset.set(ds.id, cachedIdx);
+
 					for (const i of [cachedIdx - 1, cachedIdx, cachedIdx + 1]) {
 						if (i < 0 || i >= xData.length) continue;
 						const wx = xData[i] + refX;
