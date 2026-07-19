@@ -595,12 +595,18 @@ export default function ChartContainer() {
 			seriesByYAxisId,
 			xAxesMeta: activeXAxesUsed.map((a) => {
 				const cat = xAxisCategoryLabels.get(a.id);
+				const dses = dsByX[a.id];
+				const len = dses ? dses.length : 0;
+				const columnNames = new Array(len);
+				for (let i = 0; i < len; i++) {
+					columnNames[i] = dses[i].xAxisColumn;
+				}
 				return {
 					id: a.id,
 					name: a.name,
 					showGrid: a.showGrid,
 					xMode: a.xMode,
-					columnNames: (dsByX[a.id] || []).map((d) => d.xAxisColumn),
+					columnNames,
 					categoryLabels: cat?.labels,
 					categoryTicks: cat?.ticks,
 				};
