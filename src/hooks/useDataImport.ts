@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import type { WorkBook } from "xlsx";
 import type { ParsedDataset, SeriesConfig } from "../services/persistence";
 import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
 import { buildSeriesConfig } from "../utils/series";
 import { parseDataInWorker } from "../workers/parserClient";
+import { readExcelFileInWorker, changeSheetInWorker } from "../workers/excelClient";
 
 const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
@@ -15,38 +15,7 @@ export type PendingFile = {
 	type: "csv" | "json" | "excel";
 	sheets?: string[];
 	selectedSheet?: string;
-	workbook?: WorkBook;
-};
-
-const readExcelFile = async (file: File): Promise<PendingFile> => {
-	const XLSX = await import("xlsx");
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			try {
-				const data = new Uint8Array(e.target?.result as ArrayBuffer);
-				const workbook = XLSX.read(data, { type: "array" });
-				const sheets = workbook.SheetNames;
-				const selectedSheet = sheets[0];
-				const fullCsv = XLSX.utils.sheet_to_csv(workbook.Sheets[selectedSheet]);
-				const preview = fullCsv.split("\n").slice(0, 500).join("\n");
-
-				resolve({
-					file,
-					preview,
-					fullCsv,
-					type: "excel",
-					sheets,
-					selectedSheet,
-					workbook,
-				});
-			} catch {
-				reject(new Error("Failed to parse Excel file."));
-			}
-		};
-		reader.onerror = () => reject(new Error("Failed to read file."));
-		reader.readAsArrayBuffer(file);
-	});
+	workbookData?: ArrayBuffer;
 };
 
 const readTextFile = (
@@ -110,8 +79,16 @@ export const useDataImport = () => {
 
 		try {
 			if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-				const pendingFile = await readExcelFile(file);
-				setPendingFile(pendingFile);
+				const res = await readExcelFileInWorker(file);
+				setPendingFile({
+					file,
+					preview: res.preview || "",
+					fullCsv: res.fullCsv,
+					type: "excel",
+					sheets: res.sheets,
+					selectedSheet: res.selectedSheet,
+					workbookData: res.workbookData,
+				});
 			} else {
 				const type = file.name.endsWith(".csv") ? "csv" : "json";
 				const pendingFile = await readTextFile(file, type);
@@ -123,14 +100,23 @@ export const useDataImport = () => {
 	}, []);
 
 	const changeSheet = useCallback(async (sheetName: string) => {
-		const XLSX = await import("xlsx");
-		setPendingFile((prev) => {
-			if (!prev || prev.type !== "excel" || !prev.workbook) return prev;
-			const fullCsv = XLSX.utils.sheet_to_csv(prev.workbook.Sheets[sheetName]);
-			const preview = fullCsv.split("\n").slice(0, 500).join("\n");
-			return { ...prev, selectedSheet: sheetName, preview, fullCsv };
-		});
-	}, []);
+		if (!pendingFile || pendingFile.type !== "excel" || !pendingFile.workbookData) return;
+		try {
+			const res = await changeSheetInWorker(pendingFile.workbookData, sheetName);
+			setPendingFile((prev) => {
+				if (!prev) return prev;
+				return {
+					...prev,
+					selectedSheet: sheetName,
+					preview: res.preview || "",
+					fullCsv: res.fullCsv,
+					workbookData: res.workbookData,
+				};
+			});
+		} catch (err: unknown) {
+			setError(err instanceof Error ? err.message : String(err));
+		}
+	}, [pendingFile]);
 
 	const confirmImport = useCallback(
 		async (settings: ImportSettings) => {
