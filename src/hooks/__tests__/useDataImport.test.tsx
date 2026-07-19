@@ -792,7 +792,10 @@ describe("useDataImport hook", () => {
     global.FileReader = originalFileReader;
   });
 
-  it("should handle file reading errors in initiateImport with a string error", async () => {
+  it.each([
+    { label: "an Error", thrown: new Error("File read failed"), expected: "File read failed" },
+    { label: "a string", thrown: "String error", expected: "String error" },
+  ])("surfaces $label thrown synchronously during initiateImport", async ({ thrown, expected }) => {
     const { result } = renderHook(() => useDataImport());
 
     const file = new File([""], "test.csv", { type: "text/csv" });
@@ -800,7 +803,7 @@ describe("useDataImport hook", () => {
     const originalFileReader = global.FileReader;
     class MockFileReader {
       readAsText() {
-        throw "String error";
+        throw thrown;
       }
     }
     global.FileReader = MockFileReader as unknown as typeof FileReader;
@@ -809,7 +812,7 @@ describe("useDataImport hook", () => {
       await result.current.importFile(file);
     });
 
-    expect(result.current.error).toBe("String error");
+    expect(result.current.error).toBe(expected);
 
     global.FileReader = originalFileReader;
   });
