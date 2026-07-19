@@ -3,13 +3,13 @@ import { computeYAxisCategoryLabels, computeXAxisCategoryLabels } from "./catego
 import { measureYAxisGutter, sumGutterTotals, computeAxisOffsets } from "./axisGutters";
 import { computeXAxesMetrics } from "./xAxisMetrics";
 import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
-import type { SeriesConfig, DatasetConfig, XAxisConfig, YAxisConfig } from "../../services/persistence";
+import type { SeriesConfig, Dataset, XAxisConfig, YAxisConfig } from "../../services/persistence";
 
 const BASE_PADDING_DESKTOP = { top: 20, right: 20, bottom: 60, left: 20 };
 
 export function useChartLayout(
 	series: SeriesConfig[],
-	datasets: DatasetConfig[],
+	datasets: Dataset[],
 	xAxes: XAxisConfig[],
 	yAxes: YAxisConfig[],
 	width: number,
