@@ -15,7 +15,6 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import {
 	type AxesFrame,
-	DEFAULT_X_AXIS_ID,
 	easeAxisUpdates,
 	syncAxesWithTargets,
 	ZOOM_EASE_FACTOR,
@@ -50,7 +49,7 @@ import {
 	groupActiveDatasetsByXAxis,
 } from "./computeAxesLayout";
 import { Crosshair } from "./Crosshair";
-import type { XAxisLayout, YAxisLayout } from "./chartTypes";
+import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
 import { syncStoreUpdates } from "./syncStoreUpdates";
 import {
