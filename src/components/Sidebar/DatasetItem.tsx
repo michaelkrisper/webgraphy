@@ -1,6 +1,6 @@
 import { Calculator, Pencil, Trash2 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
@@ -52,6 +52,14 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 		col: string;
 		value: string;
 	} | null>(null);
+
+	const usedColumns = useMemo(() => {
+		const set = new Set<string>();
+		for (const s of series) {
+			if (s.sourceId === ds.id) set.add(s.yColumn);
+		}
+		return set;
+	}, [series, ds.id]);
 
 	const createSeries = (datasetId: string, columnName: string) => {
 		const dataset = datasets.find((d) => d.id === datasetId);
@@ -231,9 +239,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 				}}
 			>
 				{ds.columns.map((col, colIdx) => {
-					const isUsed = series.some(
-						(s) => s.sourceId === ds.id && s.yColumn === col,
-					);
+					const isUsed = usedColumns.has(col);
 					const isX = ds.xAxisColumn === col;
 					if (isX) return null;
 					const colData = ds.data[colIdx];
