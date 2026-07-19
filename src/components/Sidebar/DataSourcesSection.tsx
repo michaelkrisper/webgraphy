@@ -43,6 +43,21 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 }) => {
 	const datasets = useGraphStore((s) => s.datasets);
 	const series = useGraphStore((s) => s.series);
+
+	const usedColumnsByDataset = useMemo(() => {
+		const map = new Map<string, Set<string>>();
+		for (let i = 0; i < series.length; i++) {
+			const s = series[i];
+			let set = map.get(s.sourceId);
+			if (!set) {
+				set = new Set<string>();
+				map.set(s.sourceId, set);
+			}
+			set.add(s.yColumn);
+		}
+		return map;
+	}, [series]);
+
 	const removeDataset = useGraphStore((s) => s.removeDataset);
 	const updateDataset = useGraphStore((s) => s.updateDataset);
 	const addSeries = useGraphStore((s) => s.addSeries);
@@ -317,9 +332,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 									}}
 								>
 									{ds.columns.map((col, colIdx) => {
-										const isUsed = series.some(
-											(s) => s.sourceId === ds.id && s.yColumn === col,
-										);
+										const isUsed = usedColumnsByDataset.get(ds.id)?.has(col);
 										const isX = ds.xAxisColumn === col;
 										if (isX) return null;
 										const colData = ds.data[colIdx];
