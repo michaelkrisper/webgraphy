@@ -4,6 +4,7 @@ import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { getColumnIndex } from "../../utils/columns";
 import { computeSnap, drawCanvas, renderTooltipHTML } from "./crosshair";
 import type { SnapResult, SeriesMetadata } from "./crosshair";
+import type { Dataset } from "../../services/persistence";
 
 const Crosshair = React.memo(
 	({
