@@ -21,7 +21,7 @@ import type {
 	RenderWorkerRequest,
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
-import type { OverlayState } from "./drawSeries";
+import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
 	type RenderAxis,

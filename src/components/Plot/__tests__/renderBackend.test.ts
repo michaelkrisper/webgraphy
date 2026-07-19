@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { OverlayState } from "../drawSeries";
+import type { OverlayState } from "../drawOverlay";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
 import type { RendererSeriesInput } from "../rendererCore";
 import { makeCanvasMock, makeGl2Mock } from "./glMock";

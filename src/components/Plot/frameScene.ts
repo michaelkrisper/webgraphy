@@ -20,7 +20,7 @@ import {
 import { buildOverlay } from "./buildOverlay";
 import { buildXAxisLayout } from "./buildXAxisLayout";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
-import type { OverlayState } from "./drawSeries";
+import type { OverlayState } from "./drawOverlay";
 import { applyOverlayContext, updateOverlayAxes } from "./overlayAxes";
 import type { OverlayXEntry, OverlayYEntry } from "./overlayAxes";
 import type { RenderLabel } from "./rendererCore";

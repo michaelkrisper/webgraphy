@@ -15,7 +15,7 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
-import type { OverlayState } from "./drawSeries";
+import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
 	acquireRenderBackend,
