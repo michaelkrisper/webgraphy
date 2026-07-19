@@ -121,23 +121,29 @@ export function computeXAxesLayoutCached({
 
 	const activeXAxisIds = new Set(activeXAxesUsed.map((ax) => ax.id));
 
-	return liveXAxes
-		.filter((axis) => activeXAxisIds.has(axis.id))
-		.map((axis) => {
-			const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
-			const cached = cache.entries.get(axis.id);
-			if (cached && cached.key === cacheKey) return cached.layout;
+	const out: XAxisLayout[] = [];
+	for (let i = 0; i < liveXAxes.length; i++) {
+		const axis = liveXAxes[i];
+		if (!activeXAxisIds.has(axis.id)) continue;
 
-			const layout = buildXAxisLayoutFor(
-				axis,
-				chartWidth,
-				labelColor,
-				xAxisCategoryLabels,
-				dsByX,
-			);
-			cache.entries.set(axis.id, { key: cacheKey, layout });
-			return layout;
-		});
+		const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
+		const cached = cache.entries.get(axis.id);
+		if (cached && cached.key === cacheKey) {
+			out.push(cached.layout);
+			continue;
+		}
+
+		const layout = buildXAxisLayoutFor(
+			axis,
+			chartWidth,
+			labelColor,
+			xAxisCategoryLabels,
+			dsByX,
+		);
+		cache.entries.set(axis.id, { key: cacheKey, layout });
+		out.push(layout);
+	}
+	return out;
 }
 
 export interface ComputeYAxesLayoutParams {
@@ -160,18 +166,23 @@ export function computeYAxesLayoutCached({
 		cache.entries.clear();
 		cache.depsKey = depsKey;
 	}
-	return liveYAxes
-		.filter((a) => usedYAxisIdsSet.has(a.id))
-		.map((axis) => {
-			const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
-			const cached = cache.entries.get(axis.id);
-			if (cached && cached.key === cacheKey) return cached.layout;
-			const layout = buildYAxisLayoutFor(
-				axis,
-				chartHeight,
-				yAxisCategoryLabels,
-			);
-			cache.entries.set(axis.id, { key: cacheKey, layout });
-			return layout;
-		});
+	const out: YAxisLayout[] = [];
+	for (let i = 0; i < liveYAxes.length; i++) {
+		const axis = liveYAxes[i];
+		if (!usedYAxisIdsSet.has(axis.id)) continue;
+		const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
+		const cached = cache.entries.get(axis.id);
+		if (cached && cached.key === cacheKey) {
+			out.push(cached.layout);
+			continue;
+		}
+		const layout = buildYAxisLayoutFor(
+			axis,
+			chartHeight,
+			yAxisCategoryLabels,
+		);
+		cache.entries.set(axis.id, { key: cacheKey, layout });
+		out.push(layout);
+	}
+	return out;
 }
