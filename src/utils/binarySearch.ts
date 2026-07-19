@@ -88,3 +88,20 @@ export function findSegmentStartIndex(
 	}
 	return startSegIdx;
 }
+
+/** Exact search for target. Returns -1 if not found. */
+export function findExact(
+	arr: ArrayLike<number>,
+	target: number,
+): number {
+	let lo = 0;
+	let hi = arr.length - 1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >>> 1;
+		const val = arr[mid];
+		if (val === target) return mid;
+		if (val < target) lo = mid + 1;
+		else hi = mid - 1;
+	}
+	return -1;
+}
