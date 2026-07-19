@@ -30,24 +30,11 @@ export function computeSnap({
 	let bestSeriesXConf: XAxisConfig | null = null;
 	const closestIdxByDataset = new Map<string, number>();
 
+	// Series sharing a dataset share xCol/xAxis, so one evaluation per dataset suffices.
 	seriesMetadata.forEach(({ ds, xAxis, xCol }) => {
-		let cachedIdx = closestIdxByDataset.get(ds.id);
+		if (closestIdxByDataset.has(ds.id)) return;
 		const xData = xCol.data;
 		const refX = xCol.refPoint;
-		if (cachedIdx === undefined) {
-			const sVp = {
-				xMin: xAxis.min,
-				xMax: xAxis.max,
-				yMin: 0,
-				yMax: 100,
-				width,
-				height,
-				padding,
-			};
-			const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-			cachedIdx = findClosest(xData, sMouseWorld.x, refX);
-			closestIdxByDataset.set(ds.id, cachedIdx);
-		}
 		const sVp = {
 			xMin: xAxis.min,
 			xMax: xAxis.max,
@@ -58,7 +45,9 @@ export function computeSnap({
 			padding,
 		};
 		const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
-		for (const i of [cachedIdx - 1, cachedIdx, cachedIdx + 1]) {
+		const cachedIdx = findClosest(xData, sMouseWorld.x, refX);
+		closestIdxByDataset.set(ds.id, cachedIdx);
+		for (let i = cachedIdx - 1; i <= cachedIdx + 1; i++) {
 			if (i < 0 || i >= xData.length) continue;
 			const wx = xData[i] + refX;
 			const d = Math.abs(wx - sMouseWorld.x);
