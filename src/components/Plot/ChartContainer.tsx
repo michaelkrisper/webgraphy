@@ -397,7 +397,10 @@ export default function ChartContainer() {
 	}, [series]);
 
 	const seriesByXAxisId = useMemo(() => {
-		const dsXAxis = new Map(datasets.map((d) => [d.id, d.xAxisId]));
+		const dsXAxis = new Map();
+		for (let i = 0; i < datasets.length; i++) {
+			dsXAxis.set(datasets[i].id, datasets[i].xAxisId);
+		}
 		const grouped: Record<string, SeriesConfig[]> = {};
 		const seen: Record<string, Set<string>> = {};
 		for (const s of series) {
