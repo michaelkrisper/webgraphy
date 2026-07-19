@@ -166,8 +166,10 @@ function ColorPickerInputs({
 	};
 
 	const rgbRef = useRef({ r, g, b });
-	// eslint-disable-next-line react-hooks/refs
-	rgbRef.current = { r, g, b };
+
+	useEffect(() => {
+		rgbRef.current = { r, g, b };
+	}, [r, g, b]);
 
 	useEffect(() => {
 		const el = rgbInputsRef.current;
