@@ -21,6 +21,7 @@ import type {
 	RenderWorkerRequest,
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
+import { getAxisById } from "../../utils/axisCalculations";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
@@ -275,7 +276,7 @@ class WorkerBackend implements RenderBackend {
 	): { min: number; max: number }[] {
 		scratch.length = order.length;
 		for (let i = 0; i < order.length; i++) {
-			const axis = axes.find((a) => a.id === order[i]);
+			const axis = getAxisById(axes, order[i]);
 			let entry = scratch[i];
 			if (!entry) {
 				entry = { min: 0, max: 1 };
