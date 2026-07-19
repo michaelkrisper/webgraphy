@@ -195,11 +195,18 @@ export function easeAxisUpdates(
 	factor: number,
 ): boolean {
 	let converged = true;
+	let axesById: Record<string, { id: string; min: number; max: number }> | null = null;
 	for (const id in updates) {
 		const target = updates[id];
 		let shown = displayed[id];
 		if (!shown) {
-			const axis = axes.find((a) => a.id === id);
+			if (!axesById) {
+				axesById = {};
+				for (let i = 0; i < axes.length; i++) {
+					axesById[axes[i].id] = axes[i];
+				}
+			}
+			const axis = axesById[id];
 			shown = displayed[id] = {
 				min: axis ? axis.min : target.min,
 				max: axis ? axis.max : target.max,
