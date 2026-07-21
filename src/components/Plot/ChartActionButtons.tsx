@@ -58,6 +58,7 @@ export function ChartActionButtons({
 				onClick={onStackedFit}
 				type="button"
 				title="Stacked Fit — each Y-axis fitted to its own slice"
+				aria-label="Stacked Fit"
 				style={buttonStyle(28, padding, themeColors.textMuted)}
 				onMouseEnter={handleEnter}
 				onMouseLeave={handleLeave}
@@ -68,6 +69,7 @@ export function ChartActionButtons({
 				onClick={onFitAll}
 				type="button"
 				title="Fit All"
+				aria-label="Fit All"
 				style={buttonStyle(0, padding, themeColors.textMuted)}
 				onMouseEnter={handleEnter}
 				onMouseLeave={handleLeave}

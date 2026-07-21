@@ -1,35 +1,16 @@
 import { useSyncExternalStore } from "react";
+import { type FontSet, loadFontSet } from "../fonts";
 import { THEME_CYCLE, THEMES, type ThemeName } from "../themes";
 
 const STORAGE_KEY = "theme";
-const loadedFonts = new Set<string>();
 
-const PLEX_URL =
-	"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap";
-const JETBRAINS_URL =
-	"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap";
-const SERIF_URL =
-	"https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap";
-const COMIC_URL =
-	"https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap";
-
-const FONT_URLS: Partial<Record<ThemeName, string>> = {
-	light: PLEX_URL,
-	dark: PLEX_URL,
-	matrix: JETBRAINS_URL,
-	winnie: SERIF_URL,
-	unicorn: COMIC_URL,
+const THEME_FONT: Record<ThemeName, FontSet> = {
+	light: "plex",
+	dark: "plex",
+	matrix: "jetbrains",
+	winnie: "serif",
+	unicorn: "comic",
 };
-
-function loadFont(theme: ThemeName) {
-	const url = FONT_URLS[theme];
-	if (!url || loadedFonts.has(theme)) return;
-	loadedFonts.add(theme);
-	const link = document.createElement("link");
-	link.rel = "stylesheet";
-	link.href = url;
-	document.head.appendChild(link);
-}
 
 function getSnapshot(): ThemeName {
 	if (typeof localStorage === "undefined") return "light";
@@ -105,7 +86,7 @@ function notifyListeners() {
 }
 
 function applyTheme(t: ThemeName) {
-	loadFont(t);
+	loadFontSet(THEME_FONT[t]);
 	persistTheme(t);
 	updateThemeDOM(t);
 	updateThemeVariables(t);

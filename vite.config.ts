@@ -5,8 +5,8 @@ import { resolveAppVersion } from "./appVersion";
 
 // Cross-origin isolation enables SharedArrayBuffer, which the render worker
 // uses for the per-frame viewport handoff (falls back to postMessage without
-// it). `credentialless` (not `require-corp`) keeps Google Fonts + GoatCounter
-// loading; Safari lacks it and simply stays on the fallback path. GitHub
+// it). `credentialless` (not `require-corp`) keeps the cross-origin GoatCounter
+// beacon loading; Safari lacks it and simply stays on the fallback path. GitHub
 // Pages cannot set response headers, so production also uses the fallback.
 const coiHeaders = {
 	"Cross-Origin-Opener-Policy": "same-origin",
@@ -28,8 +28,8 @@ export default defineConfig({
 				return html
 					.replace(/script-src 'self';/g, "script-src 'self' 'unsafe-inline';")
 					.replace(
-						/style-src 'self' https/g,
-						"style-src 'self' 'unsafe-inline' https",
+						/style-src 'self'/g,
+						"style-src 'self' 'unsafe-inline'",
 					);
 			},
 		},
@@ -38,6 +38,11 @@ export default defineConfig({
 			registerType: "autoUpdate",
 			injectRegister: null,
 			includeAssets: ["favicon.svg", "pwa-192x192.png", "pwa-512x512.png"],
+			// Precache self-hosted fonts (default globs omit woff2) so every
+			// theme's typography is available fully offline.
+			workbox: {
+				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+			},
 			manifest: {
 				name: "WebGraphy",
 				short_name: "WebGraphy",

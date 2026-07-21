@@ -147,6 +147,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 									}
 									type="button"
 									title="Select X-Axis (1-9)"
+									aria-label="Select X-Axis"
 									disabled={datasets.length === 1}
 									style={{
 										padding: "0 5px",
@@ -209,6 +210,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						}}
 						type="button"
 						title="Add Calculated Column"
+						aria-label="Add Calculated Column"
 					>
 						<Calculator size={16} />
 					</button>
@@ -223,6 +225,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							color: t.danger,
 						}}
 						title="Delete Dataset"
+						aria-label="Delete Dataset"
 					>
 						<Trash2 size={16} />
 					</button>
@@ -337,6 +340,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 											}}
 											type="button"
 											title="Rename column"
+											aria-label="Rename column"
 										>
 											<Pencil size={10} />
 										</button>
@@ -361,6 +365,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 													}}
 													type="button"
 													title="Edit formula"
+													aria-label="Edit formula"
 												>
 													✎
 												</button>
@@ -380,6 +385,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 													}}
 													type="button"
 													title="Delete calculated column"
+													aria-label="Delete calculated column"
 												>
 													<Trash2 size={10} />
 												</button>

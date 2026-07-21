@@ -22,6 +22,7 @@ import type {
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
 import { getAxisById } from "../../utils/axisCalculations";
+import { logger } from "../../utils/logger";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
@@ -179,7 +180,7 @@ class WorkerBackend implements RenderBackend {
 		const offscreen = canvas.transferControlToOffscreen();
 		this.worker = createWorker();
 		this.worker.onerror = (ev) => {
-			console.error("Render worker error:", ev.message ?? ev);
+			logger.error("Render worker error:", ev.message ?? ev);
 		};
 		let viewportSab: SharedArrayBuffer | undefined;
 		if (
@@ -353,7 +354,7 @@ function createBackend(
 				);
 			});
 		} catch (err) {
-			console.error(
+			logger.error(
 				"OffscreenCanvas render worker unavailable, falling back to main-thread rendering:",
 				err,
 			);

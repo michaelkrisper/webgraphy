@@ -90,6 +90,7 @@ const HeaderButton = ({
 		type="button"
 		onClick={onClick}
 		title={title}
+		aria-label={title}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
 		style={color ? { color } : undefined}
 	>
@@ -168,6 +169,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 							type="button"
 							onClick={onClick}
 							title="Export Image"
+							aria-label="Export Image"
 							className="sb-hdr-btn"
 						>
 							<Image size={24} />
@@ -210,6 +212,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 							type="button"
 							onClick={onClick}
 							title={THEME_LABELS[themeName]}
+							aria-label={`Theme: ${THEME_LABELS[themeName]}`}
 							className="sb-hdr-btn"
 						>
 							{THEME_ICONS[themeName]}

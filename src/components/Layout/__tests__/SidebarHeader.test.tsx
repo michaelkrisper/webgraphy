@@ -110,8 +110,8 @@ describe("SidebarHeader", () => {
 		expect(screen.getByTitle("Hide Crosshair")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Legend")).toBeInTheDocument();
 		expect(screen.getByTitle("Collapse Sidebar")).toBeInTheDocument();
-		// Webgraphy logo button (first button)
-		expect(screen.getByLabelText("Collapse Sidebar")).toBeInTheDocument();
+		// Webgraphy logo button (first button) — identified by its logo image
+		expect(screen.getByAltText("webgraphy logo")).toBeInTheDocument();
 	});
 
 	it("calls onCollapse when logo button is clicked", () => {
@@ -124,7 +124,7 @@ describe("SidebarHeader", () => {
 			/>
 		);
 
-		fireEvent.click(screen.getByLabelText("Collapse Sidebar"));
+		fireEvent.click(screen.getByAltText("webgraphy logo"));
 		expect(mockOnCollapse).toHaveBeenCalled();
 	});
 

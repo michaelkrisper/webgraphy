@@ -18,6 +18,7 @@
 
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { cssToRgbaWithAlpha } from "../../utils/colors";
+import { logger } from "../../utils/logger";
 import { type DecimCache } from "./decimationCache";
 import { drawOverlay, type OverlayState } from "./drawOverlay";
 import {
@@ -128,7 +129,7 @@ function compileProgram(
 	gl.shaderSource(vs, vsSource);
 	gl.compileShader(vs);
 	if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-		console.error(`${label} VS Error:`, gl.getShaderInfoLog(vs));
+		logger.error(`${label} VS Error:`, gl.getShaderInfoLog(vs));
 		return null;
 	}
 
@@ -137,7 +138,7 @@ function compileProgram(
 	gl.shaderSource(fs, fsSource);
 	gl.compileShader(fs);
 	if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-		console.error(`${label} FS Error:`, gl.getShaderInfoLog(fs));
+		logger.error(`${label} FS Error:`, gl.getShaderInfoLog(fs));
 		return null;
 	}
 
@@ -147,7 +148,7 @@ function compileProgram(
 	gl.attachShader(program, fs);
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		console.error(`${label} Link Error:`, gl.getProgramInfoLog(program));
+		logger.error(`${label} Link Error:`, gl.getProgramInfoLog(program));
 		return null;
 	}
 	return { program, vs, fs };
