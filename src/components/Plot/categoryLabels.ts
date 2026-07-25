@@ -131,30 +131,38 @@ export function computeXAxisCategoryLabels(
 		}
 		if (forced) {
 			const uniq = new Set<number>();
+			let size = 0;
 			outer: for (const d of dss) {
 				const colIdx = getColumnIndex(d, d.xAxisColumn);
 				const col = colIdx >= 0 ? d.data[colIdx] : undefined;
 				if (!col) continue;
 				const ref = col.refPoint;
 				const arr = col.data;
-				for (let i = 0; i < arr.length; i++) {
-					uniq.add(arr[i] + ref);
-					if (uniq.size > MAX_DERIVED_CATEGORY_LABELS) break outer;
+				for (let i = 0; i < arr.length; i += 4096) {
+					const end = Math.min(i + 4096, arr.length);
+					for (let j = i; j < end; j++) {
+						const val = arr[j] + ref;
+						if (!uniq.has(val)) {
+							uniq.add(val);
+							size++;
+							if (size > MAX_DERIVED_CATEGORY_LABELS) break outer;
+						}
+					}
 				}
 			}
-			const size = uniq.size;
-			const ticks = new Array(size);
+			const finalSize = uniq.size;
+			const ticks = new Array(finalSize);
 			let i = 0;
 			for (const v of uniq) {
 				ticks[i++] = v;
 			}
 			ticks.sort((a, b) => a - b);
-			const labels = new Array(size);
-			for (let j = 0; j < size; j++) {
-				labels[j] = String(ticks[j]);
+			const finalLabels = new Array(finalSize);
+			for (let j = 0; j < finalSize; j++) {
+				finalLabels[j] = String(ticks[j]);
 			}
 			out.set(axisId, {
-				labels,
+				labels: finalLabels,
 				ticks,
 			});
 			return;
