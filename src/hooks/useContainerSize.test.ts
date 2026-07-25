@@ -5,8 +5,10 @@ import type React from "react";
 
 describe("useContainerSize", () => {
 	let mockElement: HTMLElement;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let mockResizeObserver: any;
 	let resizeCallback: ResizeObserverCallback;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let originalResizeObserver: any;
 
 	beforeEach(() => {
