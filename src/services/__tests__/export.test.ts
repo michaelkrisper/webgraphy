@@ -710,11 +710,11 @@ describe("formatDate", () => {
 	it("formats correctly for minute steps (< 3600)", () => {
 		const date1 = new Date(2023, 0, 15, 9, 5, 0);
 		const val1 = Math.floor(date1.getTime() / 1000);
-		expect(formatDate(val1, 60)).toBe("09:05");
+		expect(formatDate(val1, UNIT_SECONDS.minute)).toBe("09:05");
 
 		const date2 = new Date(2023, 0, 15, 14, 30, 0);
 		const val2 = Math.floor(date2.getTime() / 1000);
-		expect(formatDate(val2, 1)).toBe("14:30");
+		expect(formatDate(val2, UNIT_SECONDS.second)).toBe("14:30");
 	});
 });
 
