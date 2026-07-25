@@ -205,10 +205,26 @@ describe("PopupPicker", () => {
 	});
 
 	it("calculates coordinates based on window size and trigger position", () => {
+		const WINDOW_WIDTH = 1000;
+		const SCROLL_X = 0;
+		const SCROLL_Y = 0;
+
+		const TRIGGER_WIDTH = 100;
+		const TRIGGER_HEIGHT = 40;
+		const TRIGGER_TOP = 100;
+		const TRIGGER_LEFT = 900;
+		const TRIGGER_BOTTOM = 140;
+		const TRIGGER_RIGHT = 1000;
+		const TRIGGER_X = 900;
+		const TRIGGER_Y = 100;
+
+		const EXPECTED_LEFT = 860;
+		const EXPECTED_TOP = 144;
+
 		// Mock innerWidth
-		vi.stubGlobal("innerWidth", 1000);
-		vi.stubGlobal("scrollX", 0);
-		vi.stubGlobal("scrollY", 0);
+		vi.stubGlobal("innerWidth", WINDOW_WIDTH);
+		vi.stubGlobal("scrollX", SCROLL_X);
+		vi.stubGlobal("scrollY", SCROLL_Y);
 
 		render(
 			<PopupPicker
@@ -227,14 +243,14 @@ describe("PopupPicker", () => {
 
 		// Mock getBoundingClientRect
 		Element.prototype.getBoundingClientRect = vi.fn(() => ({
-			width: 100,
-			height: 40,
-			top: 100,
-			left: 900,
-			bottom: 140,
-			right: 1000,
-			x: 900,
-			y: 100,
+			width: TRIGGER_WIDTH,
+			height: TRIGGER_HEIGHT,
+			top: TRIGGER_TOP,
+			left: TRIGGER_LEFT,
+			bottom: TRIGGER_BOTTOM,
+			right: TRIGGER_RIGHT,
+			x: TRIGGER_X,
+			y: TRIGGER_Y,
 			toJSON: () => {}
 		}));
 
@@ -242,24 +258,39 @@ describe("PopupPicker", () => {
 
 		const popover = document.getElementById("popup-picker-popover");
 		expect(popover).toBeInTheDocument();
-		expect(popover).toHaveStyle("left: 860px");
-		expect(popover).toHaveStyle("top: 144px");
+		expect(popover).toHaveStyle(`left: ${EXPECTED_LEFT}px`);
+		expect(popover).toHaveStyle(`top: ${EXPECTED_TOP}px`);
 	});
 
     it("calculates left position with padding constraint", () => {
-        vi.stubGlobal("innerWidth", 500);
-		vi.stubGlobal("scrollX", 0);
-		vi.stubGlobal("scrollY", 0);
+		const WINDOW_WIDTH = 500;
+		const SCROLL_X = 0;
+		const SCROLL_Y = 0;
+
+		const TRIGGER_WIDTH = 10;
+		const TRIGGER_HEIGHT = 10;
+		const TRIGGER_TOP = 0;
+		const TRIGGER_LEFT = 0;
+		const TRIGGER_BOTTOM = 10;
+		const TRIGGER_RIGHT = 10;
+		const TRIGGER_X = 0;
+		const TRIGGER_Y = 0;
+
+		const EXPECTED_LEFT = 10;
+
+        vi.stubGlobal("innerWidth", WINDOW_WIDTH);
+		vi.stubGlobal("scrollX", SCROLL_X);
+		vi.stubGlobal("scrollY", SCROLL_Y);
 
         Element.prototype.getBoundingClientRect = vi.fn(() => ({
-			width: 10,
-			height: 10,
-			top: 0,
-			left: 0,
-			bottom: 10,
-			right: 10,
-			x: 0,
-			y: 0,
+			width: TRIGGER_WIDTH,
+			height: TRIGGER_HEIGHT,
+			top: TRIGGER_TOP,
+			left: TRIGGER_LEFT,
+			bottom: TRIGGER_BOTTOM,
+			right: TRIGGER_RIGHT,
+			x: TRIGGER_X,
+			y: TRIGGER_Y,
 			toJSON: () => {}
 		}));
 
@@ -278,6 +309,6 @@ describe("PopupPicker", () => {
 
         fireEvent.click(screen.getByTestId("trigger"));
         const popover = document.getElementById("popup-picker-popover");
-		expect(popover).toHaveStyle("left: 10px");
+		expect(popover).toHaveStyle(`left: ${EXPECTED_LEFT}px`);
     });
 });
