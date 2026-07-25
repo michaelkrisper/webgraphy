@@ -34,6 +34,8 @@ import {
 } from "./rendererCore";
 import { VIEWPORT_SAB_BYTES, ViewportWriter } from "./viewportChannel";
 
+const IDLE_WAKE_THRESHOLD_MS = 1000;
+
 export interface RenderBackend {
 	setViewport(viewport: RendererViewport): void;
 	setPlotBg(rgb: number[]): void;
@@ -309,7 +311,7 @@ class WorkerBackend implements RenderBackend {
 			// The worker's render loop parks itself when idle; nudge it back to
 			// life when writes resume after a pause.
 			const now = Date.now();
-			if (now - this.lastWriteAt > 1000) this.post({ t: "wake" });
+			if (now - this.lastWriteAt > IDLE_WAKE_THRESHOLD_MS) this.post({ t: "wake" });
 			this.lastWriteAt = now;
 			return;
 		}
