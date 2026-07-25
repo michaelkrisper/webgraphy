@@ -63,8 +63,8 @@ describe("parseDate", () => {
 describe("parseValue", () => {
 	it("should return NaN for empty, null, or undefined values", () => {
 		expect(parseValue("", null, false, new Map())).toBeNaN();
-		expect(parseValue(undefined as any, null, false, new Map())).toBeNaN();
-		expect(parseValue(null as any, null, false, new Map())).toBeNaN();
+		expect(parseValue(undefined as unknown as string, null, false, new Map())).toBeNaN();
+		expect(parseValue(null as unknown as string, null, false, new Map())).toBeNaN();
 	});
 
 	it("should parse date type", () => {
