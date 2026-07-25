@@ -697,24 +697,24 @@ describe("formatDate", () => {
 		const date = new Date(2023, 0, 15, 12, 0, 0);
 		const val = Math.floor(date.getTime() / 1000);
 		expect(formatDate(val, UNIT_SECONDS.day)).toBe("15.1.");
-		expect(formatDate(val, 90000)).toBe("15.1.");
+		expect(formatDate(val, UNIT_SECONDS.day + UNIT_SECONDS.hour)).toBe("15.1.");
 	});
 
 	it("formats correctly for hourly steps (>= 3600 but < 86400)", () => {
 		const date = new Date(2023, 0, 15, 9, 30, 0);
 		const val = Math.floor(date.getTime() / 1000);
 		expect(formatDate(val, UNIT_SECONDS.hour)).toBe("9:00");
-		expect(formatDate(val, 7200)).toBe("9:00");
+		expect(formatDate(val, UNIT_SECONDS.hour * 2)).toBe("9:00");
 	});
 
 	it("formats correctly for minute steps (< 3600)", () => {
 		const date1 = new Date(2023, 0, 15, 9, 5, 0);
 		const val1 = Math.floor(date1.getTime() / 1000);
-		expect(formatDate(val1, 60)).toBe("09:05");
+		expect(formatDate(val1, UNIT_SECONDS.minute)).toBe("09:05");
 
 		const date2 = new Date(2023, 0, 15, 14, 30, 0);
 		const val2 = Math.floor(date2.getTime() / 1000);
-		expect(formatDate(val2, 1)).toBe("14:30");
+		expect(formatDate(val2, UNIT_SECONDS.second)).toBe("14:30");
 	});
 });
 
