@@ -6,6 +6,13 @@ import type {
 	YAxisConfig,
 } from "./persistence";
 
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const DAYS_PER_YEAR = 365;
+const MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY;
+
 export function generateDemoDataset(rowCount = 10000): Dataset {
 	const columns = [
 		"Timestamp",
@@ -17,7 +24,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	const datasetId = "demo-dataset";
 
 	const currentYear = new Date().getFullYear();
-	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / MS_PER_SECOND);
 
 	const data: DataColumn[] = columns.map((colName) => ({
 		isFloat64: colName === "Timestamp",
@@ -27,14 +34,14 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	}));
 
 	for (let i = 0; i < rowCount; i++) {
-		const ts = startTime + i * 60; // 1 minute resolution
+		const ts = startTime + i * SECONDS_PER_MINUTE; // 1 minute resolution
 		const minutesElapsed = i;
-		const hourOfDay = (minutesElapsed / 60) % 24;
-		const dayOfYear = (minutesElapsed / (24 * 60)) % 365;
+		const hourOfDay = (minutesElapsed / MINUTES_PER_HOUR) % HOURS_PER_DAY;
+		const dayOfYear = (minutesElapsed / MINUTES_PER_DAY) % DAYS_PER_YEAR;
 
 		// --- Temperature (Smooth Sine with Day/Night) ---
-		const seasonal = Math.sin((dayOfYear / 365) * 2 * Math.PI - Math.PI / 2);
-		const daily = Math.sin(((hourOfDay - 6) / 24) * 2 * Math.PI - Math.PI / 2);
+		const seasonal = Math.sin((dayOfYear / DAYS_PER_YEAR) * 2 * Math.PI - Math.PI / 2);
+		const daily = Math.sin(((hourOfDay - 6) / HOURS_PER_DAY) * 2 * Math.PI - Math.PI / 2);
 		let temp = 15 + seasonal * 10 + daily * 5;
 		temp += (secureRandom() - 0.5) * 0.5; // low noise
 
