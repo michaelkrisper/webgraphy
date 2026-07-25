@@ -6,6 +6,8 @@ import type {
 	YAxisConfig,
 } from "./persistence";
 
+export const RESOLUTION_SECONDS = 60;
+
 export function generateDemoDataset(rowCount = 10000): Dataset {
 	const columns = [
 		"Timestamp",
@@ -27,7 +29,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 	}));
 
 	for (let i = 0; i < rowCount; i++) {
-		const ts = startTime + i * 60; // 1 minute resolution
+		const ts = startTime + i * RESOLUTION_SECONDS; // 1 minute resolution
 		const minutesElapsed = i;
 		const hourOfDay = (minutesElapsed / 60) % 24;
 		const dayOfYear = (minutesElapsed / (24 * 60)) % 365;
