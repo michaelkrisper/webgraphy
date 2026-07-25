@@ -569,6 +569,36 @@ describe("useDataImport hook", () => {
     expect(result.current.pendingFile).toBeNull();
   });
 
+  it.each([
+    { label: "an Error", thrown: new Error("changeSheet failed"), expected: "changeSheet failed" },
+    { label: "a string", thrown: "String error in changeSheet", expected: "String error in changeSheet" },
+  ])("surfaces $label thrown by changeSheetInWorker during changeSheet", async ({ thrown, expected }) => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    vi.mocked(readExcelFileInWorker).mockResolvedValueOnce({
+      preview: "A,B\n1,2",
+      fullCsv: "A,B\n1,2",
+      sheets: ["Sheet1", "Sheet2"],
+      selectedSheet: "Sheet1",
+      workbookData: new ArrayBuffer(8),
+    });
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    vi.mocked(changeSheetInWorker).mockRejectedValueOnce(thrown);
+
+    await act(async () => {
+      await result.current.changeSheet("Sheet2");
+    });
+
+    expect(result.current.error).toBe(expected);
+  });
+
   it("should handle confirmImport for an Excel file", async () => {
     const { result } = renderHook(() => useDataImport());
     const file = new File(["dummy"], "test.xlsx", {
