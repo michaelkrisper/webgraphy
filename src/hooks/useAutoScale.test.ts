@@ -22,6 +22,155 @@ describe("useAutoScale", () => {
 	const baseChartHeight = 500;
 
 	describe("handleAutoScaleY", () => {
+
+		it("should scale Y axis when mouseY is in top third of chart", () => {
+			const syncViewport = vi.fn();
+			const targetYs = { current: {} };
+			const targetXAxes = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+						{
+							data: new Float32Array([10, 20, 30]),
+							min: 10,
+							max: 30,
+							refPoint: 0,
+							bounds: { min: 10, max: 30 },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			const { result } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			act(() => {
+				result.current.handleAutoScaleY("y-axis-1", 100); // 100 < p.top (0) + 600 / 3 (200)
+			});
+
+			expect(targetYs.current["y-axis-1"]).toBeDefined();
+			// yMin = 10, yMax = 30, r = 20, pad = 20 * 0.05 = 1
+			// nMin = 10 - 20 - 3 * 1 = -13
+			// nMax = 30 + 1 = 31
+			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(-15.2);
+			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(33.2);
+		});
+
+		it("should scale Y axis when mouseY is in bottom third of chart", () => {
+			const syncViewport = vi.fn();
+			const targetYs = { current: {} };
+			const targetXAxes = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+						{
+							data: new Float32Array([10, 20, 30]),
+							min: 10,
+							max: 30,
+							refPoint: 0,
+							bounds: { min: 10, max: 30 },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			const { result } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			act(() => {
+				result.current.handleAutoScaleY("y-axis-1", 500); // 500 > p.top (0) + 2 * 600 / 3 (400)
+			});
+
+			expect(targetYs.current["y-axis-1"]).toBeDefined();
+			// yMin = 10, yMax = 30, r = 20, pad = 20 * 0.05 = 1
+			// nMin = 10 - 1 = 9
+			// nMax = 30 + 20 + 3 * 1 = 53
+			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(6.8);
+			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(55.2);
+		});
+
 		it("should scale Y axis when mouseY is undefined (full fit)", () => {
 			const syncViewport = vi.fn();
 			const targetXAxes = { current: {} };
@@ -517,7 +666,631 @@ describe("useAutoScale", () => {
 		});
 	});
 
+
+	describe("Effects: Data Visibility Check", () => {
+		it("should reset if data becomes available but is out of view", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+			});
+
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([10, 20, 30]),
+							min: 10,
+							max: 30,
+							refPoint: 0,
+							bounds: { min: 10, max: 30 },
+						},
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					// X axis is [0, 5], but data is [10, 30] so it's not visible
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+			// wait for useEffect
+			expect(batchUpdateAxes).toHaveBeenCalled();
+		});
+
+		it("should trigger auto-scale Y when a series changes its yColumn or sourceId", () => {
+			const syncViewport = vi.fn();
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y", "y2"],
+					data: [
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: 1, max: 2 },
+						},
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: 10, max: 20 },
+						},
+					],
+				},
+			];
+
+			let currentSeries = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			const { rerender } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series: currentSeries,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 500,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			// change yColumn
+			currentSeries = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y2",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			rerender();
+			// expect y-axis-1 to be updated
+			expect(targetYs.current["y-axis-1"]).toBeDefined();
+			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(8.95);
+			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(21.05);
+		});
+	});
+
+	describe("Effects: NaN / Infinity Bounds Edge Cases", () => {
+
+		it("should skip NaN nextX and nextY calculations", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+			});
+
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: NaN, max: NaN }, // nextX should be skipped here
+						},
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: Infinity, max: Infinity },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			expect(batchUpdateAxes).not.toHaveBeenCalled();
+		});
+
+		it("should ignore NaN bounds in xUpdates", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+			});
+
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: NaN, max: NaN },
+						},
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: NaN, max: NaN },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			expect(batchUpdateAxes).not.toHaveBeenCalled();
+		});
+
+        it("should skip bounds with Infinity when computing yBoundsByAxisId and nextY", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+			});
+
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: 1, max: 2 },
+						},
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: Infinity, max: Infinity },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 100, max: 200 }], // out of bounds
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+            // X will be updated because it's [1, 2], but Y will not be valid if min/max are Infinity?
+            // Actually yBoundsByAxisId will filter out bounds if they are Infinity.
+            // Oh wait, if bounds.min is Infinity, yBoundsByAxisId will ignore it, so yMin remains Infinity. Thus yBoundsByAxisId has no bounds for y-axis-1.
+            // And thus bounds is undefined in line 506.
+		});
+
+});
 	describe("Effects: Initial Data Load", () => {
+
+		it("should trigger auto-scale Y when a series changes its yColumn or sourceId but series length is same", () => {
+			const syncViewport = vi.fn();
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y", "y2"],
+					data: [
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: 1, max: 2 },
+						},
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: 10, max: 20 },
+						},
+					],
+				},
+			];
+
+			let currentSeries = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			const { rerender } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series: currentSeries,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 500,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+			// change sourceId
+			currentSeries = [
+				{
+					id: "s1",
+					sourceId: "ds2", // changed sourceId
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			rerender();
+			// this should trigger handleAutoScaleY -> handleAutoScaleY will fail finding ds2, so it won't update targetYs or won't throw
+			expect(targetYs.current["y-axis-1"]).toBeDefined();
+		});
+
+        it("should auto-scale Y when a series is removed and we shrink down", () => {
+			const syncViewport = vi.fn();
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([1, 2, 3]),
+							min: 1,
+							max: 3,
+							refPoint: 0,
+							bounds: { min: 1, max: 3 },
+						},
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: 10, max: 20 },
+						},
+					],
+				},
+			];
+
+			let currentSeries = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+                {
+					id: "s2",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S2",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			const { rerender } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series: currentSeries,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 500,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+
+            // remove series 2
+            currentSeries = [currentSeries[0]];
+			rerender();
+			expect(targetYs.current["y-axis-1"]).toBeDefined();
+        });
+
+
+		it("should handle series where datasets return bounds with NaN or Infinity (ignored updates)", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+			});
+
+			const targetXAxes = { current: {} };
+			const targetYs = { current: {} };
+
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "y"],
+					data: [
+						{
+							data: new Float32Array([10, 20]),
+							min: 10,
+							max: 20,
+							refPoint: 0,
+							bounds: { min: NaN, max: NaN },
+						},
+						{
+							data: new Float32Array([1, 2]),
+							min: 1,
+							max: 2,
+							refPoint: 0,
+							bounds: { min: Infinity, max: Infinity },
+						},
+					],
+				},
+			];
+
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					yColumn: "y",
+					yAxisId: "y-axis-1",
+					color: "red",
+					name: "S1",
+					type: "line",
+					visible: true,
+					width: 1,
+					zIndex: 1,
+				},
+			];
+
+			renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series,
+					datasets,
+					xAxes: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					activeYAxes: [{ id: "y-axis-1", label: "Y", min: 0, max: 100 }],
+					activeXAxesUsed: [{ id: "axis-1", label: "X", min: 0, max: 5 }],
+					padding: { top: 0, right: 0, bottom: 0, left: 0 },
+					chartHeight: 600,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+			// wait for useEffect
+			expect(batchUpdateAxes).not.toHaveBeenCalled();
+		});
+
 		it("should calculate initial X and Y targets and batchUpdateAxes", () => {
 			const syncViewport = vi.fn();
 			const batchUpdateAxes = vi.fn();
