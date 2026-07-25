@@ -205,8 +205,10 @@ describe("PopupPicker", () => {
 	});
 
 	it("calculates coordinates based on window size and trigger position", () => {
+		const WINDOW_WIDTH = 1000;
+
 		// Mock innerWidth
-		vi.stubGlobal("innerWidth", 1000);
+		vi.stubGlobal("innerWidth", WINDOW_WIDTH);
 		vi.stubGlobal("scrollX", 0);
 		vi.stubGlobal("scrollY", 0);
 
@@ -232,7 +234,7 @@ describe("PopupPicker", () => {
 			top: 100,
 			left: 900,
 			bottom: 140,
-			right: 1000,
+			right: WINDOW_WIDTH,
 			x: 900,
 			y: 100,
 			toJSON: () => {}
