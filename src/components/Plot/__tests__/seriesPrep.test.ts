@@ -116,11 +116,13 @@ describe("computeDataSlice", () => {
 		// stored values are deltas; absolute = stored + ref
 		const xData = new Float32Array([0, 1, 2, 3]);
 		const ref = 1000;
+		const windowStart = ref + 1;
+		const windowEnd = ref + 2;
 		// window in absolute coords
-		const r = computeDataSlice(xData, 1001, 1002, ref, true);
+		const r = computeDataSlice(xData, windowStart, windowEnd, ref, true);
 		// absolute values are [1000, 1001, 1002, 1003]
-		// findLastLE(1001) -> idx 1, -1 padding -> 0
-		// findFirstGE(1002) -> idx 2, +1 padding -> 3
+		// findLastLE(windowStart) -> idx 1, -1 padding -> 0
+		// findFirstGE(windowEnd) -> idx 2, +1 padding -> 3
 		expect(r).toEqual({ sliceStart: 0, sliceEnd: 3 });
 	});
 });
