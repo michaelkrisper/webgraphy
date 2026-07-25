@@ -190,8 +190,8 @@ describe("demoData", () => {
 
 		// Verify solar irradiance reduction due to clouds (hour 12 is daytime)
 		// rowCount = 1000 -> 1000 minutes = 16.6 hours. Hour of day starts at 0.
-		// Let's check row index 720 (12 hours * 60 mins). This is definitely daytime.
-		const daytimeIdx = 720;
+		// Let's check row index corresponding to 12 hours * 60 mins. This is definitely daytime.
+		const daytimeIdx = 12 * 60;
 
 		const baseSolarCol = baseDataset.data[3];
 		const edgeSolarCol = edgeDataset.data[3];
