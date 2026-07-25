@@ -3,6 +3,15 @@ import * as randomUtils from "../../utils/random";
 import { generateDemoDataset, getDemoAppState } from "../demoData";
 import type { Dataset } from "../persistence";
 
+const ROW_COUNT = 1000;
+const BASE_RANDOMNESS = 0.5;
+const HIGH_RANDOMNESS = 0.99;
+const DAYTIME_IDX = 720;
+const CLOUD_REDUCTION_FACTOR = 0.3;
+const PEAK_WIND_THRESHOLD_DIFF = 8;
+const SOLAR_COL_IDX = 3;
+const WIND_COL_IDX = 4;
+
 describe("demoData", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -173,7 +182,7 @@ describe("demoData", () => {
 				cloudySolarCol.refPoint + cloudySolarCol.data[noonIndex];
 
 			// Verify the cloud passing reduced the solar irradiance to 30%
-			expect(cloudyNoonVal).toBeCloseTo(clearNoonVal * 0.3, 1);
+			expect(cloudyNoonVal).toBeCloseTo(clearNoonVal * CLOUD_REDUCTION_FACTOR, 1);
 
 			vi.restoreAllMocks();
 		});
@@ -181,20 +190,20 @@ describe("demoData", () => {
 
 	it("should apply cloud passing effect on solar irradiance and trigger wind peaks", () => {
 		// First, generate base dataset with predictable randomness (e.g. 0.5) to act as a control.
-		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
-		const baseDataset = generateDemoDataset(1000);
+		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(BASE_RANDOMNESS);
+		const baseDataset = generateDemoDataset(ROW_COUNT);
 
 		// Then generate another dataset with high randomness (0.99) to trigger edge cases.
-		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.99);
-		const edgeDataset = generateDemoDataset(1000);
+		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(HIGH_RANDOMNESS);
+		const edgeDataset = generateDemoDataset(ROW_COUNT);
 
 		// Verify solar irradiance reduction due to clouds (hour 12 is daytime)
 		// rowCount = 1000 -> 1000 minutes = 16.6 hours. Hour of day starts at 0.
 		// Let's check row index 720 (12 hours * 60 mins). This is definitely daytime.
-		const daytimeIdx = 720;
+		const daytimeIdx = DAYTIME_IDX;
 
-		const baseSolarCol = baseDataset.data[3];
-		const edgeSolarCol = edgeDataset.data[3];
+		const baseSolarCol = baseDataset.data[SOLAR_COL_IDX];
+		const edgeSolarCol = edgeDataset.data[SOLAR_COL_IDX];
 		const baseSolarValue =
 			baseSolarCol.data[daytimeIdx] + baseSolarCol.refPoint;
 		const edgeSolarValue =
@@ -204,18 +213,18 @@ describe("demoData", () => {
 		expect(baseSolarValue).toBeGreaterThan(0);
 		// Edge solar should be scaled down by 0.3 since 0.99 > 0.95
 		// Because randomness contributes 0 noise to solar in the base, we can directly compare them.
-		expect(edgeSolarValue).toBeCloseTo(baseSolarValue * 0.3, 1);
+		expect(edgeSolarValue).toBeCloseTo(baseSolarValue * CLOUD_REDUCTION_FACTOR, 1);
 
 		// Verify wind speed peaks
-		const baseWindCol = baseDataset.data[4];
-		const edgeWindCol = edgeDataset.data[4];
+		const baseWindCol = baseDataset.data[WIND_COL_IDX];
+		const edgeWindCol = edgeDataset.data[WIND_COL_IDX];
 		const baseWindValue = baseWindCol.data[daytimeIdx] + baseWindCol.refPoint;
 		const edgeWindValue = edgeWindCol.data[daytimeIdx] + edgeWindCol.refPoint;
 
 		// Base wind (0.5) is just windBase + 0.5 * 2
 		// Edge wind (0.99) should trigger peak: windBase + 0.99 * 10
 		// Diff is roughly 8.98
-		expect(edgeWindValue).toBeGreaterThan(baseWindValue + 8);
+		expect(edgeWindValue).toBeGreaterThan(baseWindValue + PEAK_WIND_THRESHOLD_DIFF);
 
 		vi.restoreAllMocks();
 	});
