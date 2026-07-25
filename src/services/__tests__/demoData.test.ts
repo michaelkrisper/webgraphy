@@ -180,13 +180,14 @@ describe("demoData", () => {
 	});
 
 	it("should apply cloud passing effect on solar irradiance and trigger wind peaks", () => {
+		const ROW_COUNT = 1000;
 		// First, generate base dataset with predictable randomness (e.g. 0.5) to act as a control.
 		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
-		const baseDataset = generateDemoDataset(1000);
+		const baseDataset = generateDemoDataset(ROW_COUNT);
 
 		// Then generate another dataset with high randomness (0.99) to trigger edge cases.
 		vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.99);
-		const edgeDataset = generateDemoDataset(1000);
+		const edgeDataset = generateDemoDataset(ROW_COUNT);
 
 		// Verify solar irradiance reduction due to clouds (hour 12 is daytime)
 		// rowCount = 1000 -> 1000 minutes = 16.6 hours. Hour of day starts at 0.
