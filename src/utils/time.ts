@@ -48,6 +48,8 @@ const formatFullDateTime = lazyFmt({
 	fractionalSecondDigits: 3,
 });
 
+export const MS_PER_SECOND = 1000;
+
 export const UNIT_SECONDS = {
 	second: 1,
 	minute: 60,
