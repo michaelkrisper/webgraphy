@@ -4,7 +4,7 @@
 // auto-scale (x and y) or inline title rename (x only). Extracted from
 // ChartContainer so the per-axis JSX stops drowning the render block.
 
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import type { XAxisMetrics, XAxisLayout } from "./chartTypes";
 import { useGraphStore } from "../../store/useGraphStore";
 
@@ -47,11 +47,19 @@ export function XAxisInteractionZones({
 	onTouchStart,
 	onAutoScaleX,
 }: XInteractionProps) {
+	const layoutMap = useMemo(() => {
+		const m = new Map();
+		for (let i = 0; i < xAxesLayout.length; i++) {
+			m.set(xAxesLayout[i].id, xAxesLayout[i]);
+		}
+		return m;
+	}, [xAxesLayout]);
+
 	return (
 		<>
 			{xAxesMetrics.map((m) => {
 				const bY = padding.bottom - m.cumulativeOffset - m.height;
-				const title = xAxesLayout.find((a) => a.id === m.id)?.title || "";
+				const title = layoutMap.get(m.id)?.title || "";
 				return (
 					<Fragment key={`wheel-x-${m.id}`}>
 						<div
