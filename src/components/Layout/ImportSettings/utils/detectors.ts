@@ -1,5 +1,8 @@
 import type { ColumnType } from "../../../../types/import";
 
+const CONSISTENCY_WEIGHT = 1000;
+const MAX_LINES_TO_SAMPLE = 100;
+
 export function calculateDelimiterScore(lines: string[], delimiter: string): number {
 	let totalCount = 0;
 	const counts = new Map<number, number>();
@@ -17,7 +20,7 @@ export function calculateDelimiterScore(lines: string[], delimiter: string): num
 
 	// Score: number of lines with the most consistent non-zero count,
 	// plus a small bonus for total count to break ties.
-	return maxConsistency * 1000 + totalCount;
+	return maxConsistency * CONSISTENCY_WEIGHT + totalCount;
 }
 
 export function detectDelimiter(
@@ -29,7 +32,7 @@ export function detectDelimiter(
 
 	const lines = fileContent
 		.split(/\r?\n/)
-		.slice(0, 100)
+		.slice(0, MAX_LINES_TO_SAMPLE)
 		.filter((l) => l.trim());
 	if (lines.length === 0) return ",";
 
@@ -51,7 +54,7 @@ export function detectDecimalPoint(fileContent: string, delimiter: string): stri
 	if (!fileContent) return ".";
 	const lines = fileContent
 		.split(/\r?\n/)
-		.slice(0, 100)
+		.slice(0, MAX_LINES_TO_SAMPLE)
 		.filter((l) => l.trim());
 	let dotCount = 0;
 	let commaCount = 0;
