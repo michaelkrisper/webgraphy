@@ -14,7 +14,7 @@ import {
 import { getColumnIndex } from "../../utils/columns";
 
 /** Cap on x-values sampled when deriving categorical labels for a forced axis. */
-export const MAX_DERIVED_CATEGORY_LABELS = 1000;
+export const MAX_DERIVED_CATEGORY_LABELS = 1_000;
 
 export interface XAxisCategoryInfo {
 	labels: string[];
