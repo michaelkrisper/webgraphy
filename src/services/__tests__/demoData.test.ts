@@ -232,10 +232,12 @@ describe("demoData", () => {
 				randomUUID: () => mockUUID,
 			});
 
+			const MOCK_ROW_COUNT = 10;
+
 			const mockDataset = {
 				id: "mock-dataset-id",
 				name: "Mock Dataset",
-				rowCount: 10,
+				rowCount: MOCK_ROW_COUNT,
 				xAxisColumn: "A: Timestamp",
 				xAxisId: "axis-1",
 				columns: [
@@ -250,31 +252,31 @@ describe("demoData", () => {
 						isFloat64: true,
 						refPoint: 0,
 						bounds: { min: 1000000, max: 2000000 },
-						data: new Float64Array(10),
+						data: new Float64Array(MOCK_ROW_COUNT),
 					},
 					{
 						isFloat64: false,
 						refPoint: 0,
 						bounds: { min: 0, max: 10 },
-						data: new Float32Array(10),
+						data: new Float32Array(MOCK_ROW_COUNT),
 					},
 					{
 						isFloat64: false,
 						refPoint: 0,
 						bounds: { min: 0, max: 100 },
-						data: new Float32Array(10),
+						data: new Float32Array(MOCK_ROW_COUNT),
 					},
 					{
 						isFloat64: false,
 						refPoint: 0,
 						bounds: { min: 0, max: 1000 },
-						data: new Float32Array(10),
+						data: new Float32Array(MOCK_ROW_COUNT),
 					},
 					{
 						isFloat64: false,
 						refPoint: 0,
 						bounds: { min: 0, max: 20 },
-						data: new Float32Array(10),
+						data: new Float32Array(MOCK_ROW_COUNT),
 					},
 				],
 			} as unknown as Dataset;
