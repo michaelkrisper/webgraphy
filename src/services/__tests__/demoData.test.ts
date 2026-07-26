@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as randomUtils from "../../utils/random";
-import { generateDemoDataset, getDemoAppState } from "../demoData";
+import {
+	RESOLUTION_SECONDS,
+	generateDemoDataset,
+	getDemoAppState,
+} from "../demoData";
 import type { Dataset } from "../persistence";
 
 describe("demoData", () => {
@@ -91,7 +95,7 @@ describe("demoData", () => {
 			});
 		});
 
-		it("should generate deterministic timestamps strictly increasing by 60", () => {
+		it(`should generate deterministic timestamps strictly increasing by ${RESOLUTION_SECONDS}`, () => {
 			const dataset = generateDemoDataset(100);
 			const tsCol = dataset.data[0];
 
@@ -101,15 +105,15 @@ describe("demoData", () => {
 
 			// Timestamp bounds check
 			expect(tsCol.bounds.max - tsCol.bounds.min).toBe(
-				(dataset.rowCount - 1) * 60,
+				(dataset.rowCount - 1) * RESOLUTION_SECONDS,
 			);
 
 			// Relative data check
 			expect(tsCol.data[0]).toBe(0);
-			expect(tsCol.data[1]).toBe(60);
-			expect(tsCol.data[2]).toBe(120);
+			expect(tsCol.data[1]).toBe(RESOLUTION_SECONDS);
+			expect(tsCol.data[2]).toBe(RESOLUTION_SECONDS * 2);
 			expect(tsCol.data[dataset.rowCount - 1]).toBe(
-				(dataset.rowCount - 1) * 60,
+				(dataset.rowCount - 1) * RESOLUTION_SECONDS,
 			);
 		});
 
