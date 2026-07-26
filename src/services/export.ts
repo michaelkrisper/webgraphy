@@ -4,7 +4,7 @@ import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
-import { UNIT_SECONDS } from "../utils/time";
+import { MS_PER_SECOND, UNIT_SECONDS } from "../utils/time";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -432,7 +432,7 @@ export const exportToSVG = (
  * @returns {string} Formatted date/time label (e.g., "14.3." or "15:30")
  */
 export const formatDate = (val: number, step: number) => {
-	const d = new Date(val * 1000);
+	const d = new Date(val * MS_PER_SECOND);
 	if (step >= UNIT_SECONDS.day) return `${d.getDate()}.${d.getMonth() + 1}.`;
 	if (step >= UNIT_SECONDS.hour) return `${d.getHours()}:00`;
 	return (
