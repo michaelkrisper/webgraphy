@@ -10,7 +10,7 @@ import {
 	Rows3,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { SeriesConfig } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
 import { SeriesConfigUI } from "./SeriesConfig";
@@ -33,6 +33,20 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 	const [dropIndex, setDropIndex] = useState<number | null>(null);
 	const seriesListRef = useRef<HTMLDivElement>(null);
 	const rowRectsRef = useRef<{ top: number; height: number; id: string }[]>([]);
+
+	const { dragSeries, baseList } = useMemo(() => {
+		let dragSeries: SeriesConfig | null = null;
+		const baseList: Array<{ s: SeriesConfig; isGhost: boolean }> = [];
+		for (let i = 0; i < series.length; i++) {
+			const s = series[i];
+			if (dragId && s.id === dragId) {
+				dragSeries = s;
+			} else {
+				baseList.push({ s, isGhost: false });
+			}
+		}
+		return { dragSeries, baseList };
+	}, [series, dragId]);
 
 	const startDrag = useCallback(
 		(seriesId: string, startEvent: React.MouseEvent) => {
@@ -164,16 +178,9 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 							</div>
 							<ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
 								{(() => {
-									const dragSeries = dragId
-										? series.find((s) => s.id === dragId)
-										: null;
-									const withoutDrag = series.filter((s) => s.id !== dragId);
-									const previewList: Array<{
-										s: SeriesConfig;
-										isGhost: boolean;
-									}> = withoutDrag.map((s) => ({ s, isGhost: false }));
+									const previewList = baseList.slice();
 									if (dragSeries && dropIndex !== null) {
-										const clampedDrop = Math.min(dropIndex, withoutDrag.length);
+										const clampedDrop = Math.min(dropIndex, baseList.length);
 										previewList.splice(clampedDrop, 0, {
 											s: dragSeries,
 											isGhost: true,
