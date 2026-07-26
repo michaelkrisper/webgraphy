@@ -489,5 +489,25 @@ describe("persistence", () => {
 			);
 			consoleSpy.mockRestore();
 		});
+
+		it("should catch error when loadAppState fails", async () => {
+			const consoleSpy = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			const error = new Error("Load failed");
+			const mockDb = {
+				get: vi.fn().mockRejectedValue(error),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+
+			const result = await persistence.loadAppState();
+
+			expect(result).toBeNull();
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Failed to load state",
+				{ error: expect.any(Error) },
+			);
+			consoleSpy.mockRestore();
+		});
 	});
 });
