@@ -520,6 +520,28 @@ describe("exportToPNG", () => {
 		expect(mockCtx.drawImage).toHaveBeenCalled();
 		expect(URL.revokeObjectURL).toHaveBeenCalled();
 	});
+
+	it("should reject if getContext returns null", async () => {
+		mockCanvas.getContext = vi.fn(() => null);
+		await expect(
+			exportToPNG([], [], [], [], 800, 600, THEMES.light)
+		).rejects.toThrow("Could not get 2D context");
+	});
+
+	it("should reject if image fails to load", async () => {
+		class MockImageError {
+			onerror: (() => void) | null = null;
+			set src(_val: string) {
+				if (this.onerror) setTimeout(this.onerror, 0);
+			}
+		}
+		vi.stubGlobal("Image", MockImageError);
+
+		await expect(
+			exportToPNG([], [], [], [], 800, 600, THEMES.light)
+		).rejects.toThrow("Failed to load SVG into image for PNG export");
+		expect(URL.revokeObjectURL).toHaveBeenCalled();
+	});
 });
 
 describe("downloadFile", () => {
