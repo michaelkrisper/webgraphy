@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import {
 	CONSTANTS,
 	FUNCTIONS,
+	FUNCTION_BY_NAME,
 	type FormulaFunctionMeta,
 } from "../utils/formulaFunctions";
 
@@ -83,7 +84,7 @@ export function signatureContext(
 				const name = text.substring(j + 1, i).toLowerCase();
 				if (!name) return null;
 				const meta =
-					FUNCTIONS.find((f) => f.name === name) ?? lookupLegacy(name);
+					FUNCTION_BY_NAME.get(name) ?? lookupLegacy(name);
 				if (!meta) return null;
 				return { fn: meta, argIndex };
 			}
@@ -100,14 +101,14 @@ export function signatureContext(
 /** Best-effort metadata lookup for legacy short forms (avgN, avg5s, …). */
 function lookupLegacy(name: string): FormulaFunctionMeta | null {
 	if (/^avg\d+[lcr]?$/.test(name)) {
-		return FUNCTIONS.find((f) => f.name === "rolling") ?? null;
+		return FUNCTION_BY_NAME.get("rolling") ?? null;
 	}
 	if (/^avg\d+[smhd][lcr]?$/.test(name)) {
-		return FUNCTIONS.find((f) => f.name === "rollingtime") ?? null;
+		return FUNCTION_BY_NAME.get("rollingtime") ?? null;
 	}
 	if (/^(avg|sum)(day|hour|minute|second)[lcr]?$/.test(name)) {
 		const root = name.replace(/[lcr]$/, "");
-		return FUNCTIONS.find((f) => f.name === root) ?? null;
+		return FUNCTION_BY_NAME.get(root) ?? null;
 	}
 	return null;
 }
