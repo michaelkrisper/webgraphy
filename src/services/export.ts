@@ -3,6 +3,7 @@ import { formatAxisLabel, getAxisById } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
+import DOMPurify from "dompurify";
 import { escapeHTML } from "../utils/dom";
 import { MS_PER_SECOND, UNIT_SECONDS } from "../utils/time";
 import type {
@@ -544,8 +545,7 @@ export const downloadFile = (
 			}
 			const lowerMimeType = mimeType.toLowerCase();
 			if (
-				lowerMimeType.includes("svg") ||
-				lowerMimeType.includes("xml") ||
+				(lowerMimeType.includes("xml") && lowerMimeType !== "image/svg+xml") ||
 				lowerMimeType.includes("html")
 			) {
 				throw new Error(`Unsafe MIME type detected: ${mimeType}`);
@@ -555,9 +555,25 @@ export const downloadFile = (
 			const isBase64 = parts.includes("base64");
 
 			const byteString = isBase64 ? atob(data) : decodeURIComponent(data);
-			const arrayBuffer = new Uint8Array(byteString.length);
+			let arrayBuffer = new Uint8Array(byteString.length);
 			for (let i = 0; i < byteString.length; i++) {
 				arrayBuffer[i] = byteString.charCodeAt(i);
+			}
+
+			if (lowerMimeType.includes("svg")) {
+				let svgString = new TextDecoder().decode(arrayBuffer);
+
+				// Preserve embedded payloads if any
+				const payloadRegex = /<!-- payload-start -->[\s\S]*?<!-- payload-end -->/;
+				const payloadMatch = svgString.match(payloadRegex);
+
+				svgString = DOMPurify.sanitize(svgString, { USE_PROFILES: { svg: true } }) as string;
+
+				if (payloadMatch) {
+					svgString += `\n${payloadMatch[0]}`;
+				}
+
+				arrayBuffer = new TextEncoder().encode(svgString);
 			}
 
 			const blob = new Blob([arrayBuffer], { type: contentType || mimeType });
@@ -566,7 +582,18 @@ export const downloadFile = (
 			throw new Error("Unsafe data URL scheme detected", { cause: error });
 		}
 	} else {
-		const file = new Blob([content], { type: contentType });
+		let finalContent = content;
+		if (contentType.toLowerCase().includes("svg")) {
+			const payloadRegex = /<!-- payload-start -->[\s\S]*?<!-- payload-end -->/;
+			const payloadMatch = finalContent.match(payloadRegex);
+
+			finalContent = DOMPurify.sanitize(finalContent, { USE_PROFILES: { svg: true } }) as string;
+
+			if (payloadMatch) {
+				finalContent += `\n${payloadMatch[0]}`;
+			}
+		}
+		const file = new Blob([finalContent], { type: contentType });
 		urlToDownload = URL.createObjectURL(file);
 	}
 
