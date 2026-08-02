@@ -6,14 +6,24 @@ export class WorkerClient<Req, Res extends { id?: number }, ParsedRes> {
         { resolve: (value: ParsedRes) => void; reject: (reason: unknown) => void }
     >();
 
+    private workerFactory: () => Worker;
+    private onMessage: (
+        data: Res,
+        resolve: (value: ParsedRes) => void,
+        reject: (reason: unknown) => void,
+    ) => void;
+
     constructor(
-        private workerFactory: () => Worker,
-        private onMessage: (
+        workerFactory: () => Worker,
+        onMessage: (
             data: Res,
             resolve: (value: ParsedRes) => void,
             reject: (reason: unknown) => void,
         ) => void,
-    ) {}
+    ) {
+        this.workerFactory = workerFactory;
+        this.onMessage = onMessage;
+    }
 
     private ensureWorker(): Worker {
         if (this.worker) return this.worker;
