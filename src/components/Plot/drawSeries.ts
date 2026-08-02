@@ -14,7 +14,7 @@
  */
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
-import type { GLStateCache } from "./GLStateCache";
+import type { GLStateCache, LineProgramLocations } from "./GLStateCache";
 import { type DecimCache, type DecimEntry, getOrComputeM4 } from "./decimationCache";
 
 export interface SegParams {
@@ -160,16 +160,48 @@ const STEPS_SCRATCH: number[] = [];
 const DASH_FLOATS = 5;
 const DASH_STRIDE = DASH_FLOATS * 4;
 
-function drawDashedLines(
-	st: GLStateCache,
+function calculateDashedLineSegments(drawRanges: DrawRange[]): number {
+	STEPS_SCRATCH.length = drawRanges.length;
+	let totalLineSegs = 0;
+	for (let i = 0; i < drawRanges.length; i++) {
+		const n = Math.max(0, drawRanges[i].count - 1);
+		const step = Math.max(1, Math.floor(n / 4000));
+		STEPS_SCRATCH[i] = step;
+		totalLineSegs += Math.ceil(n / step);
+	}
+	return totalLineSegs;
+}
+
+function needsDashedLineRebuild(
+	prev: SegParams | undefined,
 	bundle: SeriesDrawBundle,
-	segBuffersRef: Map<string, WebGLBuffer>,
+	totalLineSegs: number,
+	rangesLen: number,
+	firstStart: number,
+): boolean {
+	return (
+		!prev ||
+		prev.xRange !== bundle.xRange ||
+		prev.yRange !== bundle.yRange ||
+		prev.chartWidth !== bundle.chartWidth ||
+		prev.chartHeight !== bundle.chartHeight ||
+		prev.dpr !== bundle.dpr ||
+		prev.totalLineSegs !== totalLineSegs ||
+		prev.rangesLen !== rangesLen ||
+		prev.firstStart !== firstStart
+	);
+}
+
+function buildDashedLineBuffer(
+	gl: WebGL2RenderingContext,
+	segBuffer: WebGLBuffer,
+	bundle: SeriesDrawBundle,
+	totalLineSegs: number,
 	segParamsRef: Map<string, SegParams>,
 	segBufferKey: string,
+	rangesLen: number,
+	firstStart: number,
 ): void {
-	const { gl } = st;
-	const lineLocs = st.lineLocs;
-	if (!lineLocs) return;
 	const {
 		drawRanges,
 		xData,
@@ -180,87 +212,56 @@ function drawDashedLines(
 		chartHeight,
 		dpr,
 	} = bundle;
-	STEPS_SCRATCH.length = drawRanges.length;
-	let totalLineSegs = 0;
-	for (let i = 0; i < drawRanges.length; i++) {
-		const n = Math.max(0, drawRanges[i].count - 1);
-		const step = Math.max(1, Math.floor(n / 4000));
-		STEPS_SCRATCH[i] = step;
-		totalLineSegs += Math.ceil(n / step);
-	}
-	if (totalLineSegs === 0) return;
-	const rangesLen = drawRanges.length;
-	const firstStart = drawRanges[0]?.start ?? 0;
-	// Pan = translation (xRange/yRange constant) so cache hits every frame.
-	// Zoom changes them, miss is amortized over many frames. Exact === is
-	// fine because pan preserves range exactly in floating point.
-	const prev = segParamsRef.get(segBufferKey);
-	const needsRebuild =
-		!prev ||
-		prev.xRange !== xRange ||
-		prev.yRange !== yRange ||
-		prev.chartWidth !== chartWidth ||
-		prev.chartHeight !== chartHeight ||
-		prev.dpr !== dpr ||
-		prev.totalLineSegs !== totalLineSegs ||
-		prev.rangesLen !== rangesLen ||
-		prev.firstStart !== firstStart;
+	const sharedArr = new Float32Array(totalLineSegs * DASH_FLOATS);
+	const scaleX = (chartWidth * dpr) / xRange;
+	const scaleY = (chartHeight * dpr) / yRange;
 
-	let segBuffer = segBuffersRef.get(segBufferKey);
-	if (!segBuffer) {
-		const b = gl.createBuffer();
-		if (!b) return;
-		segBuffer = b;
-		segBuffersRef.set(segBufferKey, segBuffer);
-	}
+	let outIdx = 0;
+	for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
+		const r = drawRanges[rIdx];
+		const step = STEPS_SCRATCH[rIdx];
+		let cumDist = 0;
+		const n = r.count - 1;
+		for (let i = 0; i < n; i += step) {
+			const ai = r.start + i;
+			let bi = ai + step;
+			if (bi > r.start + n) bi = r.start + n;
 
-	if (needsRebuild) {
-		const sharedArr = new Float32Array(totalLineSegs * DASH_FLOATS);
-		const scaleX = (chartWidth * dpr) / xRange;
-		const scaleY = (chartHeight * dpr) / yRange;
-
-		let outIdx = 0;
-		for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
-			const r = drawRanges[rIdx];
-			const step = STEPS_SCRATCH[rIdx];
-			let cumDist = 0;
-			const n = r.count - 1;
-			for (let i = 0; i < n; i += step) {
-				const ai = r.start + i;
-				let bi = ai + step;
-				if (bi > r.start + n) bi = r.start + n;
-
-				const ax = xData[ai];
-				const ay = yData[ai];
-				const bx = xData[bi];
-				const by = yData[bi];
-				const off = outIdx * DASH_FLOATS;
-				sharedArr[off] = ax;
-				sharedArr[off + 1] = ay;
-				sharedArr[off + 2] = bx;
-				sharedArr[off + 3] = by;
-				sharedArr[off + 4] = cumDist;
-				cumDist += Math.sqrt(
-					((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
-				);
-				outIdx++;
-			}
+			const ax = xData[ai];
+			const ay = yData[ai];
+			const bx = xData[bi];
+			const by = yData[bi];
+			const off = outIdx * DASH_FLOATS;
+			sharedArr[off] = ax;
+			sharedArr[off + 1] = ay;
+			sharedArr[off + 2] = bx;
+			sharedArr[off + 3] = by;
+			sharedArr[off + 4] = cumDist;
+			cumDist += Math.sqrt(
+				((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
+			);
+			outIdx++;
 		}
-		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
-		segParamsRef.set(segBufferKey, {
-			xRange,
-			yRange,
-			chartWidth,
-			chartHeight,
-			dpr,
-			totalLineSegs,
-			rangesLen,
-			firstStart,
-		});
-	} else {
-		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
 	}
+	gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
+	segParamsRef.set(segBufferKey, {
+		xRange,
+		yRange,
+		chartWidth,
+		chartHeight,
+		dpr,
+		totalLineSegs,
+		rangesLen,
+		firstStart,
+	});
+}
+
+function bindDashedLineAttributes(
+	st: GLStateCache,
+	lineLocs: LineProgramLocations,
+): void {
+	const { gl } = st;
 	st.enableAttrib(lineLocs.x0Loc, 1);
 	gl.vertexAttribPointer(lineLocs.x0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 0);
 	st.enableAttrib(lineLocs.y0Loc, 1);
@@ -278,6 +279,57 @@ function drawDashedLines(
 		DASH_STRIDE,
 		16,
 	);
+}
+
+function drawDashedLines(
+	st: GLStateCache,
+	bundle: SeriesDrawBundle,
+	segBuffersRef: Map<string, WebGLBuffer>,
+	segParamsRef: Map<string, SegParams>,
+	segBufferKey: string,
+): void {
+	const { gl, lineLocs } = st;
+	if (!lineLocs) return;
+
+	const totalLineSegs = calculateDashedLineSegments(bundle.drawRanges);
+	if (totalLineSegs === 0) return;
+
+	const rangesLen = bundle.drawRanges.length;
+	const firstStart = bundle.drawRanges[0]?.start ?? 0;
+
+	const prev = segParamsRef.get(segBufferKey);
+	const needsRebuild = needsDashedLineRebuild(
+		prev,
+		bundle,
+		totalLineSegs,
+		rangesLen,
+		firstStart,
+	);
+
+	let segBuffer = segBuffersRef.get(segBufferKey);
+	if (!segBuffer) {
+		const b = gl.createBuffer();
+		if (!b) return;
+		segBuffer = b;
+		segBuffersRef.set(segBufferKey, segBuffer);
+	}
+
+	if (needsRebuild) {
+		buildDashedLineBuffer(
+			gl,
+			segBuffer,
+			bundle,
+			totalLineSegs,
+			segParamsRef,
+			segBufferKey,
+			rangesLen,
+			firstStart,
+		);
+	} else {
+		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+	}
+
+	bindDashedLineAttributes(st, lineLocs);
 	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, totalLineSegs);
 }
 
