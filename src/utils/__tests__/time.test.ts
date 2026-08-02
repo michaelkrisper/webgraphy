@@ -478,4 +478,21 @@ describe("generateSecondaryLabels", () => {
 
 		expect(labels.length).toBe(101);
 	});
+
+	it("caps the number of labels to prevent infinite loops (day unit with fitsMonths)", () => {
+		const min = 1673784000; // 2023-01-15
+		const max = 1673784000 + 200 * 2592000; // +200 months
+
+		const labels = generateSecondaryLabels(
+			min,
+			max,
+			{
+				unit: "day",
+				value: 1,
+			},
+			100000
+		);
+
+		expect(labels.length).toBe(101);
+	});
 });
