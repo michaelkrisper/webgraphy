@@ -24,7 +24,7 @@ export function processRawColumn(
 	// Any NaNs before the reference point are copied as NaN
 	for (; startIdx < rowCount; startIdx++) {
 		const val = sourceData[startIdx];
-		if (val !== null && !Number.isNaN(val)) {
+		if (val !== null && typeof val === "number" && !Number.isNaN(val)) {
 			refPoint = val;
 			break;
 		}
@@ -34,7 +34,7 @@ export function processRawColumn(
 	// Single pass for the rest of the data: calculate bounds and relative data
 	for (let i = startIdx; i < rowCount; i++) {
 		const val = sourceData[i];
-		if (val !== null && !Number.isNaN(val)) {
+		if (val !== null && typeof val === "number" && !Number.isNaN(val)) {
 			if (val < min) min = val;
 			if (val > max) max = val;
 

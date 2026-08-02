@@ -70,4 +70,37 @@ describe("processRawColumn", () => {
 		expect(Number.isNaN(result.data[1])).toBe(true);
 		expect(Number.isNaN(result.data[2])).toBe(true);
 	});
+
+	it("should handle an empty array", () => {
+		const data: number[] = [];
+		const result = processRawColumn(data);
+
+		expect(result.refPoint).toBe(0);
+		expect(result.bounds).toEqual({ min: Infinity, max: -Infinity });
+		expect(result.data.length).toBe(0);
+	});
+
+	it("should handle arrays with strings that cannot be parsed as numbers", () => {
+		// @ts-expect-error - Expected to test bad data resilience
+		const data: number[] = [10, "foo", 20];
+		const result = processRawColumn(data);
+
+		expect(result.refPoint).toBe(10);
+		expect(result.bounds).toEqual({ min: 10, max: 20 });
+
+		expect(result.data[0]).toBe(0);
+		expect(Number.isNaN(result.data[1])).toBe(true);
+		expect(result.data[2]).toBe(10);
+	});
+
+	it("should handle arrays with strings at the beginning", () => {
+		// @ts-expect-error - Expected to test bad data resilience
+		const data: number[] = ["foo", 20];
+		const result = processRawColumn(data);
+
+		expect(result.refPoint).toBe(20);
+		expect(result.bounds).toEqual({ min: 20, max: 20 });
+		expect(Number.isNaN(result.data[0])).toBe(true);
+		expect(result.data[1]).toBe(0);
+	});
 });
