@@ -566,9 +566,11 @@ describe("downloadFile", () => {
 			) {}
 		}
 		vi.stubGlobal("Blob", MockBlob);
+		vi.useFakeTimers();
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		vi.clearAllMocks();
 	});
@@ -576,7 +578,7 @@ describe("downloadFile", () => {
 	it("should handle data URLs correctly", () => {
 		const content =
 			"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-		const cleanup = downloadFile(content, "test.png", "image/png");
+		downloadFile(content, "test.png", "image/png");
 
 		const mockedCreate = document.createElement as unknown as ReturnType<
 			typeof vi.fn
@@ -594,9 +596,7 @@ describe("downloadFile", () => {
 
 		expect(URL.revokeObjectURL).not.toHaveBeenCalled();
 
-		if (cleanup) {
-			cleanup();
-		}
+		vi.runAllTimers();
 
 		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
 	});
@@ -688,7 +688,7 @@ describe("downloadFile", () => {
 	});
 
 	it("should handle normal strings using Blob correctly", () => {
-		const cleanup = downloadFile("Hello, world!", "test.txt", "text/plain");
+		downloadFile("Hello, world!", "test.txt", "text/plain");
 
 		const mockedCreate = document.createElement as unknown as ReturnType<
 			typeof vi.fn
@@ -706,9 +706,7 @@ describe("downloadFile", () => {
 
 		expect(URL.revokeObjectURL).not.toHaveBeenCalled();
 
-		if (cleanup) {
-			cleanup();
-		}
+		vi.runAllTimers();
 
 		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
 	});

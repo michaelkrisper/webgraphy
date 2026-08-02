@@ -1,9 +1,8 @@
 import type React from "react";
 import { useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
-import { useFileDownload } from "../../hooks/useFileDownload";
 import { useTheme } from "../../hooks/useTheme";
-import { exportToPNG, exportToSVG } from "../../services/export";
+import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
@@ -41,7 +40,6 @@ export const Sidebar: React.FC = () => {
 
 	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
 		useDataImport();
-	const downloadFile = useFileDownload();
 
 	const handleExportSVG = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
