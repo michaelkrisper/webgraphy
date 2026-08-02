@@ -36,7 +36,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 	setCalculatingDatasetId,
 	setEditingColumn,
 }) => {
-	const datasets = useGraphStore((s) => s.datasets);
+	const datasets = useGraphStore((s) => Object.values(s.datasets));
 	const series = useGraphStore((s) => s.series);
 	const removeDataset = useGraphStore((s) => s.removeDataset);
 	const updateDataset = useGraphStore((s) => s.updateDataset);

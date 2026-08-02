@@ -94,8 +94,8 @@ describe("useGraphStore Alignment", () => {
 		useGraphStore.getState().addDataset(ds2); // Should get axis-2, min: 100, max: 200, xMode: numeric
 
 		const state1 = useGraphStore.getState();
-		expect(state1.datasets[0].xAxisId).toBe("axis-1");
-		expect(state1.datasets[1].xAxisId).toBe("axis-2");
+		expect(Object.values(state1.datasets)[0].xAxisId).toBe("axis-1");
+		expect(Object.values(state1.datasets)[1].xAxisId).toBe("axis-2");
 		expect(state1.xAxes[0].min).toBe(10);
 		expect(state1.xAxes[0].xMode).toBe("date");
 		expect(state1.xAxes[1].min).toBe(100);
@@ -105,7 +105,7 @@ describe("useGraphStore Alignment", () => {
 		useGraphStore.getState().updateDataset("ds-2", { xAxisId: "axis-1" });
 
 		const state2 = useGraphStore.getState();
-		expect(state2.datasets[1].xAxisId).toBe("axis-1");
+		expect(Object.values(state2.datasets)[1].xAxisId).toBe("axis-1");
 		// axis-1 should now be updated to ds2's bounds and mode because it was the last one assigned/updated
 		expect(state2.xAxes[0].min).toBe(100);
 		expect(state2.xAxes[0].max).toBe(200);

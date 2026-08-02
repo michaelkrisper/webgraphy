@@ -17,7 +17,7 @@ import { SidebarHeader } from "./SidebarHeader";
  * Sidebar Component
  */
 export const Sidebar: React.FC = () => {
-	const datasets = useGraphStore((s) => s.datasets);
+	const datasets = useGraphStore((s) => Object.values(s.datasets));
 	const series = useGraphStore((s) => s.series);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);

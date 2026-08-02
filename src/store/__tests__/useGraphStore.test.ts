@@ -133,8 +133,8 @@ describe("useGraphStore", () => {
 		useGraphStore.getState().addDataset(ds2);
 
 		const state = useGraphStore.getState();
-		expect(state.datasets[0].xAxisId).toBe("axis-1");
-		expect(state.datasets[1].xAxisId).toBe("axis-2");
+		expect(Object.values(state.datasets)[0].xAxisId).toBe("axis-1");
+		expect(Object.values(state.datasets)[1].xAxisId).toBe("axis-2");
 
 		// Verify bounds and xMode were updated correctly
 		const xAxis1 = state.xAxes.find((a) => a.id === "axis-1");
@@ -191,7 +191,7 @@ describe("useGraphStore", () => {
 		store.addDataset(ds10);
 
 		const state = useGraphStore.getState();
-		expect(state.datasets[9].xAxisId).toBe("axis-1");
+		expect(Object.values(state.datasets)[9].xAxisId).toBe("axis-1");
 	});
 
 	it("should update dataset correctly", () => {
@@ -216,7 +216,7 @@ describe("useGraphStore", () => {
 
 		store.updateDataset("ds-1", { name: "Updated Name" });
 		const state = useGraphStore.getState();
-		expect(state.datasets[0].name).toBe("Updated Name");
+		expect(Object.values(state.datasets)[0].name).toBe("Updated Name");
 	});
 
 	it("should remove dataset correctly and clear app state if empty", () => {
@@ -238,10 +238,10 @@ describe("useGraphStore", () => {
 			xAxisId: "axis-1",
 		};
 		store.addDataset(ds1);
-		expect(useGraphStore.getState().datasets).toHaveLength(1);
+		expect(Object.keys(useGraphStore.getState().datasets)).toHaveLength(1);
 
 		store.removeDataset("ds-1");
-		expect(useGraphStore.getState().datasets).toHaveLength(0);
+		expect(Object.keys(useGraphStore.getState().datasets)).toHaveLength(0);
 	});
 
 	it("should manage series correctly", () => {
@@ -354,7 +354,7 @@ describe("useGraphStore", () => {
 		store.removeCalculatedColumn("ds-1", "Calc");
 
 		const state = useGraphStore.getState();
-		expect(state.datasets[0].columns).not.toContain("Calc");
+		expect(Object.values(state.datasets)[0].columns).not.toContain("Calc");
 	});
 
 	it("should handle removeCalculatedColumn when dataset or column not found", () => {
@@ -373,7 +373,7 @@ describe("useGraphStore", () => {
 		store.removeCalculatedColumn("ds-not-found", "Time");
 		store.removeCalculatedColumn("ds-1", "NotFound");
 
-		expect(useGraphStore.getState().datasets[0].columns).toEqual(["Time"]);
+		expect(Object.values(useGraphStore.getState().datasets)[0].columns).toEqual(["Time"]);
 	});
 
 	it("should set xMode to categorical if categoryLabels exist in addDataset", () => {
@@ -480,7 +480,7 @@ describe("useGraphStore", () => {
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
-		expect(state.datasets[0].id).toBe("ds1");
+		expect(Object.values(state.datasets)[0].id).toBe("ds1");
 		expect(state.series[0].hidden).toBe(false);
 	});
 
@@ -496,7 +496,7 @@ describe("useGraphStore", () => {
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
-		expect(state.datasets[0].id).toBe("ds2");
+		expect(Object.values(state.datasets)[0].id).toBe("ds2");
 	});
 
 	it("should handle webgraphy-cleared flag", async () => {
@@ -539,7 +539,7 @@ describe("useGraphStore", () => {
 		await store.loadDemoData();
 		const state = useGraphStore.getState();
 		expect(state.isLoaded).toBe(true);
-		expect(state.datasets.length).toBeGreaterThan(0);
+		expect(Object.keys(state.datasets).length).toBeGreaterThan(0);
 	});
 
 	it("should handle addCalculatedColumn errors and validation", async () => {
@@ -630,7 +630,7 @@ describe("useGraphStore", () => {
 
 		let result = await store.addCalculatedColumn("ds-1", "NewCol", "[Val] * 2");
 		expect(result.success).toBe(true);
-		expect(useGraphStore.getState().datasets[0].columns).toContain("NewCol");
+		expect(Object.values(useGraphStore.getState().datasets)[0].columns).toContain("NewCol");
 
 		// "[Val] * 3" triggers MockWorker.onerror — the store must surface that
 		// as a failed result rather than throwing.
@@ -678,9 +678,9 @@ describe("useGraphStore", () => {
 		expect(result.success).toBe(true);
 
 		const state = useGraphStore.getState();
-		expect(state.datasets.length).toBe(2);
-		expect(state.datasets[1].id).toContain("sparse-SparseCol");
-		expect(state.datasets[1].columns[1]).toContain("SparseCol");
+		expect(Object.keys(state.datasets).length).toBe(2);
+		expect(Object.values(state.datasets)[1].id).toContain("sparse-SparseCol");
+		expect(Object.values(state.datasets)[1].columns[1]).toContain("SparseCol");
 	});
 
 	it("should handle linreg correctly", async () => {
@@ -759,7 +759,7 @@ describe("useGraphStore", () => {
 		};
 		store.addDataset(ds);
 		store.updateDataset("ds-test", { xAxisColumn: "MissingCol" });
-		expect(useGraphStore.getState().datasets[0].xAxisColumn).toBe("MissingCol");
+		expect(Object.values(useGraphStore.getState().datasets)[0].xAxisColumn).toBe("MissingCol");
 	});
 
 	it("should surface Error objects when evaluateFormulaInWorker throws", async () => {

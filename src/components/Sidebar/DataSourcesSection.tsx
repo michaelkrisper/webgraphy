@@ -24,7 +24,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 	fileInputRef,
 	importFile,
 }) => {
-	const datasets = useGraphStore((s) => s.datasets);
+	const datasets = useGraphStore((s) => Object.values(s.datasets));
 
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];

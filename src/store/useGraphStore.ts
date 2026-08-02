@@ -15,7 +15,7 @@ import { compileFormula } from "../utils/formula";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
 
 interface GraphState {
-	datasets: Dataset[];
+	datasets: Record<string, Dataset>;
 	series: SeriesConfig[];
 	xAxes: XAxisConfig[];
 	yAxes: YAxisConfig[];
@@ -100,14 +100,14 @@ const xModeFor = (col?: DataColumn): XAxisConfig["xMode"] =>
 	col?.categoryLabels ? "categorical" : col?.isFloat64 ? "date" : "numeric";
 
 const createEmptyState = () => ({
-	datasets: [],
+	datasets: {},
 	series: [],
 	xAxes: createInitialXAxes(),
 	yAxes: createInitialYAxes(),
 });
 
 export const useGraphStore = create<GraphState>((set, get) => ({
-	datasets: [],
+	datasets: {},
 	series: [],
 	xAxes: createInitialXAxes(),
 	yAxes: createInitialYAxes(),
@@ -130,7 +130,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	addCalculatedColumn: async (datasetId, name, formula) => {
 		const state = get();
-		const dataset = state.datasets.find((d) => d.id === datasetId);
+		const dataset = state.datasets[datasetId];
 		if (!dataset) return { success: false, error: "Dataset not found" };
 
 		const trimmedName = name.trim();
@@ -219,9 +219,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					data: [...dataset.data, { ...newColumn, formula }],
 				};
 				set((state) => ({
-					datasets: state.datasets.map((d) =>
-						d.id === datasetId ? updatedDataset : d,
-					),
+					datasets: {
+						...state.datasets,
+						[datasetId]: updatedDataset,
+					},
 				}));
 				persistence.saveDataset(updatedDataset);
 			}
@@ -237,7 +238,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	removeCalculatedColumn: (datasetId, columnName) => {
 		set((state) => {
-			const dataset = state.datasets.find((d) => d.id === datasetId);
+			const dataset = state.datasets[datasetId];
 			if (!dataset) return state;
 			const colIdx = getColumnIndex(dataset, columnName);
 			if (colIdx === -1) return state;
@@ -251,9 +252,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				(s) => !(s.sourceId === datasetId && s.yColumn === columnName),
 			);
 			return {
-				datasets: state.datasets.map((d) =>
-					d.id === datasetId ? updatedDataset : d,
-				),
+				datasets: {
+					...state.datasets,
+					[datasetId]: updatedDataset,
+				},
 				series: newSeries,
 			};
 		});
@@ -276,7 +278,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (!xAxisId) {
 			xAxisId =
 				state.xAxes.find(
-					(a) => !state.datasets.some((d) => d.xAxisId === a.id),
+					(a) => !Object.values(state.datasets).some((d) => d.xAxisId === a.id),
 				)?.id || state.xAxes[0].id;
 		}
 
@@ -288,7 +290,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const xMode = xModeFor(col);
 
 		set((s) => ({
-			datasets: [...s.datasets, newDataset],
+			datasets: { ...s.datasets, [newDataset.id]: newDataset },
 			xAxes: s.xAxes.map((a) =>
 				a.id === xAxisId
 					? { ...a, min: bounds.min, max: bounds.max, xMode }
@@ -304,7 +306,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === oldName) return;
 		set((state) => {
-			const dataset = state.datasets.find((d) => d.id === datasetId);
+			const dataset = state.datasets[datasetId];
 			if (!dataset) return state;
 			if (dataset.columns.includes(trimmed) && trimmed !== oldName)
 				return state;
@@ -325,9 +327,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					: s,
 			);
 			return {
-				datasets: state.datasets.map((d) =>
-					d.id === datasetId ? updatedDataset : d,
-				),
+				datasets: {
+					...state.datasets,
+					[datasetId]: updatedDataset,
+				},
 				series: updatedSeries,
 			};
 		});
@@ -336,13 +339,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	updateDataset: (id, updates) => {
 		set((state) => {
-			const dataset = state.datasets.find((d) => d.id === id);
+			const dataset = state.datasets[id];
 			if (!dataset) return state;
 
 			const updatedDataset = { ...dataset, ...updates };
-			const nextDatasets = state.datasets.map((d) =>
-				d.id === id ? updatedDataset : d,
-			);
+			const nextDatasets = {
+				...state.datasets,
+				[id]: updatedDataset,
+			};
 
 			let nextXAxes = state.xAxes;
 			if (updates.xAxisId !== undefined || updates.xAxisColumn !== undefined) {
@@ -381,9 +385,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	removeDataset: (id) => {
 		persistence.deleteDataset(id);
 		set((state) => {
-			const newDatasets = state.datasets.filter((d) => d.id !== id);
+			const newDatasets = { ...state.datasets };
+			delete newDatasets[id];
 			const newSeries = state.series.filter((s) => s.sourceId !== id);
-			if (newDatasets.length === 0 && newSeries.length === 0) {
+			if (Object.keys(newDatasets).length === 0 && newSeries.length === 0) {
 				persistence.clearAppState();
 				return createEmptyState();
 			}
@@ -414,7 +419,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	removeSeries: (id) => {
 		set((state) => {
 			const newSeries = state.series.filter((s) => s.id !== id);
-			if (newSeries.length === 0 && state.datasets.length === 0) {
+			if (newSeries.length === 0 && Object.keys(state.datasets).length === 0) {
 				persistence.clearAppState();
 				return createEmptyState();
 			}
@@ -498,10 +503,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					hidden: s.hidden ?? false,
 				}));
 			}
-			set({ ...savedState, datasets: allDatasets, isLoaded: true });
+			const dsRecord: Record<string, Dataset> = {};
+			for (const ds of allDatasets) dsRecord[ds.id] = ds;
+			set({ ...savedState, datasets: dsRecord, isLoaded: true });
 			// Don't call debouncedSaveState immediately to avoid overwriting with incomplete data
 		} else if (allDatasets.length > 0) {
-			set({ datasets: allDatasets, isLoaded: true });
+			const dsRecord: Record<string, Dataset> = {};
+			for (const ds of allDatasets) dsRecord[ds.id] = ds;
+			set({ datasets: dsRecord, isLoaded: true });
 		} else if (localStorage.getItem("webgraphy-cleared")) {
 			localStorage.removeItem("webgraphy-cleared");
 			set({ isLoaded: true });
