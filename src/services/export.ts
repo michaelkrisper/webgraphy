@@ -507,13 +507,13 @@ export const exportToPNG = async (
  * @param {string} content - File content (data URL or text) to download
  * @param {string} fileName - Name for the downloaded file (e.g., "chart.svg")
  * @param {string} contentType - MIME type (e.g., "image/svg+xml", "application/json")
- * @returns {(() => void) | void} Cleanup function to revoke the object URL
+ * @returns {void}
  */
 export const downloadFile = (
 	content: string,
 	fileName: string,
 	contentType: string,
-): (() => void) | void => {
+): void => {
 	const a = document.createElement("a");
 	const isDataUrl = content.startsWith("data:");
 	let urlToDownload: string;
@@ -574,6 +574,7 @@ export const downloadFile = (
 	a.download = fileName;
 	a.click();
 
-	// Security/Memory leak prevention: return cleanup function to revoke the object URL after download.
-	return () => URL.revokeObjectURL(urlToDownload);
+	// Security/Memory leak prevention: automatically revoke the object URL after a short delay
+	// to ensure the browser has time to start the download.
+	setTimeout(() => URL.revokeObjectURL(urlToDownload), 100);
 };
