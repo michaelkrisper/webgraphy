@@ -23,11 +23,13 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text", "json", "html"],
 			exclude: ["node_modules", "dist"],
+			// Kept just under the current actuals so coverage can only go up.
+			// Ratchet these when they rise; never lower them.
 			thresholds: {
-				statements: 85,
-				branches: 73,
-				functions: 85,
-				lines: 85,
+				statements: 91,
+				branches: 80,
+				functions: 86,
+				lines: 92,
 			},
 		},
 	},

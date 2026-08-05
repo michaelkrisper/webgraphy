@@ -9,6 +9,11 @@ import {
 	makeCanvasMock,
 	makeGl2Mock,
 } from "../../components/Plot/__tests__/glMock";
+import type { SceneContext } from "../../components/Plot/frameScene";
+import {
+	VIEWPORT_SAB_BYTES,
+	ViewportWriter,
+} from "../../components/Plot/viewportChannel";
 import type { RenderWorkerRequest } from "../render.worker";
 import "../render.worker";
 
@@ -208,5 +213,183 @@ describe("render.worker", () => {
 		send({ t: "dispose" });
 		expect(gl.deleteProgram).toHaveBeenCalledTimes(3);
 		expect(closeSpy).toHaveBeenCalled();
+	});
+
+	it("redraws on plotBg and highlight messages", async () => {
+		const { gl } = initWorker();
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
+		await nextFrame();
+
+		gl.clear.mockClear();
+		send({ t: "plotBg", rgb: [0, 0, 0] });
+		await nextFrame();
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+
+		gl.clear.mockClear();
+		send({ t: "highlight", id: "s1" });
+		await nextFrame();
+		// highlight alone does not queue a frame draw; it only marks the shared
+		// scene dirty for the SAB loop.
+		expect(gl.clear).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * When the page is crossOriginIsolated the host hands the worker a
+ * SharedArrayBuffer and stops sending per-frame messages entirely: the worker
+ * polls the viewport itself and derives the whole scene. That path never runs
+ * in the message-driven tests above, so it is driven explicitly here.
+ */
+describe("render.worker — SharedArrayBuffer viewport path", () => {
+	const sceneCtx: SceneContext = {
+		width: 200,
+		height: 100,
+		padding: { top: 10, right: 10, bottom: 10, left: 10 },
+		axisLayout: { "axis-1": { total: 40, label: 30 } },
+		xAxesMetrics: [
+			{
+				id: "axis-1",
+				height: 50,
+				labelBottom: 10,
+				secLabelBottom: 25,
+				titleBottom: 40,
+				cumulativeOffset: 0,
+			},
+		],
+		leftOffsets: {},
+		rightOffsets: {},
+		axisColor: "#3a3a35",
+		zeroLineColor: "#a09c93",
+		gridColor: "#ececea",
+		plotBg: "#ffffff",
+		labelColor: "#6b6760",
+		secLabelBg: "rgba(255,255,255,0.93)",
+		fontFamily: "sans-serif",
+		seriesByXAxisId: {},
+		seriesByYAxisId: {
+			"axis-1": [{ name: "Temp", yColumn: "t", lineColor: "#4589ff" }],
+		},
+		xAxesMeta: [
+			{
+				id: "axis-1",
+				name: "",
+				showGrid: true,
+				xMode: "numeric",
+				columnNames: ["Time"],
+			},
+		],
+		yAxesMeta: [
+			{
+				id: "axis-1",
+				name: "Axis 1",
+				color: "#475569",
+				position: "left",
+				showGrid: true,
+			},
+		],
+	};
+
+	function initShared() {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const sab = new ArrayBuffer(VIEWPORT_SAB_BYTES);
+		send({
+			t: "init",
+			canvas: canvas as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+			// ViewportReader accepts a plain ArrayBuffer, which keeps the test
+			// independent of crossOriginIsolated / COOP+COEP headers.
+			viewportSab: sab as unknown as SharedArrayBuffer,
+		});
+		send({ t: "series", list: [] });
+		return { gl, canvas, writer: new ViewportWriter(sab) };
+	}
+
+	it("draws a frame from the shared viewport once the scene version matches", async () => {
+		const { gl, writer } = initShared();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 7 });
+
+		writer.write(7, true, [{ min: 0, max: 10 }], [{ min: 0, max: 50 }]);
+		send({ t: "wake" });
+		await nextFrame();
+		await nextFrame();
+
+		expect(gl.clear).toHaveBeenCalled();
+	});
+
+	it("ignores snapshots whose version does not match the current scene", async () => {
+		const { gl, writer } = initShared();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 7 });
+		await nextFrame();
+		await nextFrame();
+		gl.clear.mockClear();
+
+		// Host published a viewport for a scene the worker has not received
+		// yet. Drawing it would mix new ranges with stale axis metadata.
+		writer.write(99, false, [{ min: 0, max: 10 }], [{ min: 0, max: 50 }]);
+		send({ t: "wake" });
+		await nextFrame();
+		await nextFrame();
+
+		expect(gl.clear).not.toHaveBeenCalled();
+	});
+
+	it("clamps the axis count to the scene metadata", async () => {
+		const { gl, writer } = initShared();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 3 });
+
+		// Four axes published, but the scene only knows about one of each. The
+		// extra slots must be dropped rather than read past the metadata array.
+		writer.write(
+			3,
+			false,
+			[
+				{ min: 0, max: 10 },
+				{ min: 10, max: 20 },
+			],
+			[
+				{ min: 0, max: 5 },
+				{ min: 5, max: 9 },
+			],
+		);
+		send({ t: "wake" });
+		await nextFrame();
+		await nextFrame();
+
+		expect(gl.clear).toHaveBeenCalled();
+	});
+
+	it("keeps redrawing as the host publishes new viewports", async () => {
+		const { gl, writer } = initShared();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 11 });
+		send({ t: "wake" });
+
+		// Each published snapshot must produce its own draw — this is the pan
+		// path, where the host writes once per frame and sends nothing else.
+		for (let i = 0; i < 3; i++) {
+			gl.clear.mockClear();
+			writer.write(
+				11,
+				true,
+				[{ min: i, max: 10 + i }],
+				[{ min: 0, max: 50 }],
+			);
+			await nextFrame();
+			await nextFrame();
+			expect(gl.clear).toHaveBeenCalled();
+		}
+
+		// A tick with no new snapshot must not redraw.
+		gl.clear.mockClear();
+		await nextFrame();
+		await nextFrame();
+		expect(gl.clear).not.toHaveBeenCalled();
 	});
 });

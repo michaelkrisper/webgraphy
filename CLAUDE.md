@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-WebGraphy — client-only PWA for high-performance data visualization with WebGL. React 19 + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Deployed to GitHub Pages from `master`.
+WebGraphy — client-only PWA for high-performance data visualization with WebGL. React 19 + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Deployed to GitHub Pages from `main`.
 
 ## Commands
 
@@ -13,6 +13,7 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 - `npm run dev` — Vite dev server.
 - `npm run build` — `tsc -b && vite build` (type-check then bundle).
 - `npm run lint` — ESLint over the repo.
+- `npm run format` / `npm run format:check` — Biome formatter (tabs, 80 cols); CI enforces `format:check`.
 - `npm test` — Vitest run (one-shot).
 - `npx vitest run --coverage` — tests with coverage thresholds enforced (what CI runs). Thresholds live in `vitest.config.ts`; the build fails if coverage drops below them. Ratchet up, never down.
 - Single test file: `npx vitest run src/utils/__tests__/formula.test.ts`
@@ -21,7 +22,7 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 
 `@` is aliased to `./src` (see `vitest.config.ts`). Tests run in jsdom; `src/__tests__/setup.ts` mocks `localStorage`.
 
-CI (`.github/workflows/ci.yml`): lint → coverage test → build, then deploy `dist` to Pages on `master`. All four gates must pass.
+CI (`.github/workflows/ci.yml`): format check → lint → coverage test → build, then deploy `dist` to Pages on `main`. All gates must pass.
 
 ## Architecture
 
