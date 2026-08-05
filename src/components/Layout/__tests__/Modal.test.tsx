@@ -128,14 +128,17 @@ describe("Modal", () => {
 			</Modal>,
 		);
 
-		const modalCard = container.querySelector(".modal-card");
+		const modalCard = container.querySelector(".modal-card") as HTMLElement;
 		expect(modalCard).toHaveStyle({
 			padding: "10px",
 			borderRadius: "5px",
 			maxWidth: "500px",
 			width: "80%",
 			height: "400px",
-			maxHeight: "80vh",
 		});
+		// Asserted on the inline declaration rather than via toHaveStyle: that
+		// matcher goes through getComputedStyle, and jsdom >=30 resolves viewport
+		// units against its default 768px viewport (80vh -> 614.4px).
+		expect(modalCard.style.maxHeight).toBe("80vh");
 	});
 });
