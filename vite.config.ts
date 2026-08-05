@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 import { resolveAppVersion } from "./appVersion";
@@ -31,6 +32,16 @@ export default defineConfig({
 			},
 		},
 		react(),
+		// Opt-in bundle composition report: ANALYZE=1 npm run build
+		...(process.env.ANALYZE
+			? [
+					visualizer({
+						filename: "dist/bundle-report.html",
+						gzipSize: true,
+						brotliSize: true,
+					}),
+				]
+			: []),
 		VitePWA({
 			registerType: "autoUpdate",
 			injectRegister: null,
@@ -39,6 +50,21 @@ export default defineConfig({
 			// theme's typography is available fully offline.
 			workbox: {
 				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+				// The Excel worker carries the whole spreadsheet library and is
+				// only constructed on the first .xlsx import, which most sessions
+				// never do. Precaching it would put that cost on every cold load,
+				// so it is fetched on demand and cached from then on instead.
+				globIgnores: ["**/excel.worker-*.js"],
+				runtimeCaching: [
+					{
+						urlPattern: /\/assets\/excel\.worker-.*\.js$/,
+						handler: "CacheFirst",
+						options: {
+							cacheName: "excel-worker",
+							expiration: { maxEntries: 2 },
+						},
+					},
+				],
 			},
 			manifest: {
 				name: "WebGraphy",
