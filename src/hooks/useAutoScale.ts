@@ -189,13 +189,24 @@ function computeAutoScaleX(
 
 	if (allDs.length === 0) return;
 
-	const axesToScale = xAxisId ? [xAxisId] : axUsed.map((a) => a.id);
+	const axesToScale = xAxisId ? new Set([xAxisId]) : new Set(axUsed.map((a) => a.id));
+
+	const activeDsByAxis = new Map<string, Dataset[]>();
+	for (const d of allDs) {
+		const id = d.xAxisId || DEFAULT_X_AXIS_ID;
+		if (axesToScale.has(id) && activeDsIds.has(d.id)) {
+			let arr = activeDsByAxis.get(id);
+			if (!arr) {
+				arr = [];
+				activeDsByAxis.set(id, arr);
+			}
+			arr.push(d);
+		}
+	}
 
 	axesToScale.forEach((id) => {
-		const activeDs = allDs.filter(
-			(d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === id && activeDsIds.has(d.id),
-		);
-		if (activeDs.length === 0) return;
+		const activeDs = activeDsByAxis.get(id);
+		if (!activeDs || activeDs.length === 0) return;
 		let xMin = Infinity,
 			xMax = -Infinity;
 		activeDs.forEach((ds) => {
