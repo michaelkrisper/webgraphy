@@ -850,4 +850,95 @@ describe("useDataImport hook", () => {
 
     expect(result.current.error).toBe("Primitive error in initiateImport");
   });
+
+  it("should handle empty preview from readExcelFileInWorker", async () => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    vi.mocked(readExcelFileInWorker).mockResolvedValueOnce({
+      preview: undefined as unknown as string,
+      fullCsv: "A,B\n1,2",
+      sheets: ["Sheet1"],
+      selectedSheet: "Sheet1",
+      workbookData: new ArrayBuffer(8),
+    });
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    expect(result.current.pendingFile?.preview).toBe("");
+  });
+
+  it("should handle empty preview from changeSheetInWorker", async () => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    vi.mocked(readExcelFileInWorker).mockResolvedValueOnce({
+      preview: "A,B\n1,2",
+      fullCsv: "A,B\n1,2",
+      sheets: ["Sheet1", "Sheet2"],
+      selectedSheet: "Sheet1",
+      workbookData: new ArrayBuffer(8),
+    });
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    vi.mocked(changeSheetInWorker).mockResolvedValueOnce({
+      preview: undefined as unknown as string,
+      fullCsv: "C,D\n5,6\n7,8",
+      selectedSheet: "Sheet2",
+      workbookData: new ArrayBuffer(8),
+    });
+
+    await act(async () => {
+      await result.current.changeSheet("Sheet2");
+    });
+
+    expect(result.current.pendingFile?.preview).toBe("");
+  });
+
+  it("should do nothing if prev is null in changeSheet callback", async () => {
+    const { result } = renderHook(() => useDataImport());
+    const file = new File(["dummy"], "test.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    vi.mocked(readExcelFileInWorker).mockResolvedValueOnce({
+      preview: "A,B\n1,2",
+      fullCsv: "A,B\n1,2",
+      sheets: ["Sheet1", "Sheet2"],
+      selectedSheet: "Sheet1",
+      workbookData: new ArrayBuffer(8),
+    });
+
+    await act(async () => {
+      await result.current.importFile(file);
+    });
+
+    vi.mocked(changeSheetInWorker).mockImplementationOnce(async () => {
+        // Clear pendingFile before the callback is executed
+        act(() => {
+            result.current.cancelImport();
+        });
+        return {
+          preview: "C,D\n5,6",
+          fullCsv: "C,D\n5,6",
+          selectedSheet: "Sheet2",
+          workbookData: new ArrayBuffer(8),
+        };
+    });
+
+    await act(async () => {
+      await result.current.changeSheet("Sheet2");
+    });
+
+    expect(result.current.pendingFile).toBeNull();
+  });
 });
