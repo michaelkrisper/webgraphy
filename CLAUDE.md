@@ -15,6 +15,7 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 - `npm run lint` — ESLint over the repo.
 - `npm run format` / `npm run format:check` — Biome formatter (tabs, 80 cols); CI enforces `format:check`.
 - `npm test` — Vitest run (one-shot).
+- `npm run bench:check` — hot-path benchmarks vs. the committed baseline (what CI runs). Results are normalised against a control workload measured in the same run, so they survive runner noise. Refresh with `npm run bench:update` after a deliberate perf change; benchmarks live in `src/__bench__/`.
 - `npx vitest run --coverage` — tests with coverage thresholds enforced (what CI runs). Thresholds live in `vitest.config.ts`; the build fails if coverage drops below them. Ratchet up, never down.
 - Single test file: `npx vitest run src/utils/__tests__/formula.test.ts`
 - Single test by name: `npx vitest run -t "name substring"`

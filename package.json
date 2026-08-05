@@ -14,7 +14,10 @@
 		"format:check": "biome format .",
 		"lint": "eslint .",
 		"preview": "vite preview",
-		"test": "vitest run"
+		"test": "vitest run",
+		"bench": "vitest bench --run --outputJson=bench-result.json",
+		"bench:check": "npm run bench && node scripts/bench-check.mjs",
+		"bench:update": "npm run bench && node scripts/bench-check.mjs --update"
 	},
 	"dependencies": {
 		"@fontsource/comic-neue": "^5.3.0",
