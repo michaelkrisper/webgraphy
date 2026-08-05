@@ -13,7 +13,7 @@ export default defineConfig({
 		VitePWA({
 			registerType: "autoUpdate",
 			injectRegister: null,
-		})
+		}),
 	],
 	test: {
 		globals: true,
@@ -34,7 +34,10 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
-			"virtual:pwa-register": path.resolve(__dirname, "src/__tests__/mock-pwa-register.ts"),
+			"virtual:pwa-register": path.resolve(
+				__dirname,
+				"src/__tests__/mock-pwa-register.ts",
+			),
 		},
 	},
 });

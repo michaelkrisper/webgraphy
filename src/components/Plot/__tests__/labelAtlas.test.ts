@@ -24,9 +24,9 @@ function makeFake2d() {
 
 describe("GlLabelAtlas", () => {
 	beforeEach(() => {
-		vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-			() => makeFake2d(),
-		);
+		vi
+			.spyOn(HTMLCanvasElement.prototype, "getContext")
+			.mockImplementation(() => makeFake2d());
 	});
 	afterEach(() => {
 		vi.restoreAllMocks();

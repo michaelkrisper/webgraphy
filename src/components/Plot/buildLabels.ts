@@ -139,7 +139,8 @@ function buildXAxisLabels(
 				align: "left",
 				baseline: "alphabetic",
 				bg: ctx.secLabelBg,
-				tick: currentX > padding.left ? { x: currentX, color: lblColor } : undefined,
+				tick:
+					currentX > padding.left ? { x: currentX, color: lblColor } : undefined,
 			});
 		});
 	}
@@ -148,9 +149,7 @@ function buildXAxisLabels(
 	const axisSeries = ctx.seriesByXAxisId[axis.id] || [];
 	const uniqueColors = new Set(axisSeries.map((s) => s.lineColor));
 	const titleColor =
-		uniqueColors.size === 1
-			? (axisSeries[0].lineColor ?? labelColor)
-			: lblColor;
+		uniqueColors.size === 1 ? (axisSeries[0].lineColor ?? labelColor) : lblColor;
 	out.push({
 		text: axis.title,
 		color: titleColor,

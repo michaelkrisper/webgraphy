@@ -143,9 +143,7 @@ describe("useGraphStore Alignment", () => {
 		expect(state1.xAxes[0].xMode).toBe("date");
 
 		// Change X-Axis Column to NumericCol
-		useGraphStore
-			.getState()
-			.updateDataset("ds-1", { xAxisColumn: "NumericCol" });
+		useGraphStore.getState().updateDataset("ds-1", { xAxisColumn: "NumericCol" });
 
 		const state2 = useGraphStore.getState();
 		expect(state2.xAxes[0].min).toBe(50);

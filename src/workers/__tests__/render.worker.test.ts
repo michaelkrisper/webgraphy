@@ -88,9 +88,21 @@ describe("render.worker", () => {
 		expect(canvas.height).toBe(100);
 
 		send({ t: "series", list: [seriesMsg(101, 102, true)] });
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		// A second frame before the rAF tick must coalesce into one draw.
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		await nextFrame();
 
 		expect(gl.clear).toHaveBeenCalledTimes(1);
@@ -100,13 +112,25 @@ describe("render.worker", () => {
 	it("caches columns by id and redraws series sent without payload", async () => {
 		const { gl } = initWorker();
 		send({ t: "series", list: [seriesMsg(201, 202, true)] });
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		await nextFrame();
 		gl.drawArraysInstanced.mockClear();
 
 		// Same columns referenced by id only.
 		send({ t: "series", list: [seriesMsg(201, 202, false)] });
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		await nextFrame();
 		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
 	});
@@ -118,7 +142,13 @@ describe("render.worker", () => {
 		send({ t: "series", list: [] });
 		// ...so an id-only reference cannot be resolved and is skipped.
 		send({ t: "series", list: [seriesMsg(301, 302, false)] });
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		await nextFrame();
 
 		expect(gl.clear).toHaveBeenCalled();
@@ -153,7 +183,13 @@ describe("render.worker", () => {
 
 	it("resizes and redraws on viewport messages", async () => {
 		const { gl, canvas } = initWorker();
-		send({ t: "frame", xAxes: axes, yAxes: axes, interacting: false, highlight: null });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
 		await nextFrame();
 		gl.clear.mockClear();
 

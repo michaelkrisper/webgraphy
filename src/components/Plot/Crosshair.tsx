@@ -67,8 +67,7 @@ const Crosshair = React.memo(
 					uniqueSet.add(d.xAxisColumn);
 				}
 				const uniqueColumns = Array.from(uniqueSet);
-				out[xId] =
-					dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
+				out[xId] = dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
 			}
 			return out;
 		}, [datasets]);

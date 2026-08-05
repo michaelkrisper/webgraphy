@@ -164,8 +164,7 @@ export const WebGLRenderer = React.memo(
 				if (!colX || !colY) continue;
 
 				const isPreviewed = previewColor?.seriesId === s.id;
-				const stylePreview =
-					previewStyle?.seriesId === s.id ? previewStyle : null;
+				const stylePreview = previewStyle?.seriesId === s.id ? previewStyle : null;
 
 				result.push({
 					id: s.id,
@@ -177,12 +176,8 @@ export const WebGLRenderer = React.memo(
 					yData: colY.data,
 					xRef: colX.refPoint,
 					yRef: colY.refPoint,
-					lineColorRgba: hexToRgba(
-						isPreviewed ? previewColor.color : s.lineColor,
-					),
-					pointColorRgba: hexToRgba(
-						isPreviewed ? previewColor.color : s.pointColor,
-					),
+					lineColorRgba: hexToRgba(isPreviewed ? previewColor.color : s.lineColor),
+					pointColorRgba: hexToRgba(isPreviewed ? previewColor.color : s.pointColor),
 					lineStyle: stylePreview?.lineStyle ?? s.lineStyle,
 					pointStyle: stylePreview?.pointStyle ?? s.pointStyle,
 				});

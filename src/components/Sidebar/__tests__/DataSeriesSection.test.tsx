@@ -11,8 +11,17 @@ vi.mock("../../../store/useGraphStore", () => ({
 
 // Mock the child component to simplify testing
 vi.mock("../SeriesConfig", () => ({
-	SeriesConfigUI: ({ series, onHandleMouseDown }: { series: { id: string; name?: string; columnId?: string }; onHandleMouseDown?: (e: React.MouseEvent) => void }) => (
-		<div data-testid={`series-config-${series.id}`} onMouseDown={onHandleMouseDown}>
+	SeriesConfigUI: ({
+		series,
+		onHandleMouseDown,
+	}: {
+		series: { id: string; name?: string; columnId?: string };
+		onHandleMouseDown?: (e: React.MouseEvent) => void;
+	}) => (
+		<div
+			data-testid={`series-config-${series.id}`}
+			onMouseDown={onHandleMouseDown}
+		>
 			{series.name || series.columnId}
 		</div>
 	),
@@ -27,15 +36,26 @@ describe("DataSeriesSection", () => {
 		vi.clearAllMocks();
 
 		// Default store setup
-		vi.mocked(useGraphStore).mockImplementation((selector: (state: { series: unknown[]; datasets: unknown[]; setHighlightedSeries: (id: string | null) => void; reorderSeries: (id: string, index: number) => void }) => unknown) => {
-			const store = {
-				series: [],
-				datasets: [],
-				setHighlightedSeries: mockSetHighlightedSeries,
-				reorderSeries: mockReorderSeries,
-			};
-			return selector(store);
-		});
+		vi
+			.mocked(useGraphStore)
+			.mockImplementation(
+				(
+					selector: (state: {
+						series: unknown[];
+						datasets: unknown[];
+						setHighlightedSeries: (id: string | null) => void;
+						reorderSeries: (id: string, index: number) => void;
+					}) => unknown,
+				) => {
+					const store = {
+						series: [],
+						datasets: [],
+						setHighlightedSeries: mockSetHighlightedSeries,
+						reorderSeries: mockReorderSeries,
+					};
+					return selector(store);
+				},
+			);
 	});
 
 	it("renders empty state message when no series exist", () => {
@@ -51,19 +71,32 @@ describe("DataSeriesSection", () => {
 			{ id: "s2", columnId: "col2", name: "Series 2" },
 		];
 
-		vi.mocked(useGraphStore).mockImplementation((selector: (state: { series: unknown[]; datasets: unknown[]; setHighlightedSeries: (id: string | null) => void; reorderSeries: (id: string, index: number) => void }) => unknown) => {
-			const store = {
-				series: mockSeries,
-				datasets: [],
-				setHighlightedSeries: mockSetHighlightedSeries,
-				reorderSeries: mockReorderSeries,
-			};
-			return selector(store);
-		});
+		vi
+			.mocked(useGraphStore)
+			.mockImplementation(
+				(
+					selector: (state: {
+						series: unknown[];
+						datasets: unknown[];
+						setHighlightedSeries: (id: string | null) => void;
+						reorderSeries: (id: string, index: number) => void;
+					}) => unknown,
+				) => {
+					const store = {
+						series: mockSeries,
+						datasets: [],
+						setHighlightedSeries: mockSetHighlightedSeries,
+						reorderSeries: mockReorderSeries,
+					};
+					return selector(store);
+				},
+			);
 
 		render(<DataSeriesSection open={true} onToggle={mockOnToggle} />);
 
-		expect(screen.queryByText("Add columns from data sources")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("Add columns from data sources"),
+		).not.toBeInTheDocument();
 		expect(screen.getByTestId("series-config-s1")).toBeInTheDocument();
 		expect(screen.getByTestId("series-config-s2")).toBeInTheDocument();
 	});
@@ -78,19 +111,28 @@ describe("DataSeriesSection", () => {
 	});
 
 	it("calls setHighlightedSeries on mouse enter/leave", () => {
-		const mockSeries = [
-			{ id: "s1", columnId: "col1", name: "Series 1" },
-		];
+		const mockSeries = [{ id: "s1", columnId: "col1", name: "Series 1" }];
 
-		vi.mocked(useGraphStore).mockImplementation((selector: (state: { series: unknown[]; datasets: unknown[]; setHighlightedSeries: (id: string | null) => void; reorderSeries: (id: string, index: number) => void }) => unknown) => {
-			const store = {
-				series: mockSeries,
-				datasets: [],
-				setHighlightedSeries: mockSetHighlightedSeries,
-				reorderSeries: mockReorderSeries,
-			};
-			return selector(store);
-		});
+		vi
+			.mocked(useGraphStore)
+			.mockImplementation(
+				(
+					selector: (state: {
+						series: unknown[];
+						datasets: unknown[];
+						setHighlightedSeries: (id: string | null) => void;
+						reorderSeries: (id: string, index: number) => void;
+					}) => unknown,
+				) => {
+					const store = {
+						series: mockSeries,
+						datasets: [],
+						setHighlightedSeries: mockSetHighlightedSeries,
+						reorderSeries: mockReorderSeries,
+					};
+					return selector(store);
+				},
+			);
 
 		render(<DataSeriesSection open={true} onToggle={mockOnToggle} />);
 
@@ -112,6 +154,8 @@ describe("DataSeriesSection", () => {
 
 		expect(screen.getByText("Data Series")).toBeInTheDocument();
 		// The list container should not be there
-		expect(screen.queryByText("Add columns from data sources")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("Add columns from data sources"),
+		).not.toBeInTheDocument();
 	});
 });

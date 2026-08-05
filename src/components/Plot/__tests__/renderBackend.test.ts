@@ -72,9 +72,12 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		expect(canvas.height).toBe(100);
 
 		backend.setSeries([makeSeries()]);
-		backend.redraw([{ id: "axis-1", min: 0, max: 10 }], [
-			{ id: "axis-1", min: 0, max: 10 },
-		], false, null);
+		backend.redraw(
+			[{ id: "axis-1", min: 0, max: 10 }],
+			[{ id: "axis-1", min: 0, max: 10 }],
+			false,
+			null,
+		);
 		expect(gl.clear).toHaveBeenCalled();
 		expect(gl.drawArraysInstanced).toHaveBeenCalled();
 
@@ -111,8 +114,11 @@ describe("WorkerBackend protocol", () => {
 		expect(init.viewport).toEqual(viewport);
 		expect(init.plotBg).toEqual([0, 0, 0]);
 		expect(
-			(canvas as unknown as { transferControlToOffscreen: ReturnType<typeof vi.fn> })
-				.transferControlToOffscreen,
+			(
+				canvas as unknown as {
+					transferControlToOffscreen: ReturnType<typeof vi.fn>;
+				}
+			).transferControlToOffscreen,
 		).toHaveBeenCalledTimes(1);
 		releaseRenderBackend(canvas);
 	});

@@ -6,7 +6,11 @@ import {
 	logisticRegression,
 	polynomialRegression,
 } from "../regression";
-import type { FormulaWorkerParams, FormulaEvaluationResult, Granularity } from "./types";
+import type {
+	FormulaWorkerParams,
+	FormulaEvaluationResult,
+	Granularity,
+} from "./types";
 import { compileFormula } from "./compile";
 import { toMillis } from "./date";
 
@@ -76,7 +80,6 @@ export function tryRegressionFormula(
 	return null;
 }
 
-
 export function evaluateGroupAverage(
 	groupAvgMatch: RegExpMatchArray,
 	formula: string,
@@ -104,9 +107,7 @@ export function evaluateGroupAverage(
 	const valueGlobalIdx = (() => {
 		let idx = columns.indexOf(colName);
 		if (idx === -1)
-			idx = columns.findIndex(
-				(c) => c.endsWith(`: ${colName}`) || c === colName,
-			);
+			idx = columns.findIndex((c) => c.endsWith(`: ${colName}`) || c === colName);
 		return idx;
 	})();
 	if (valueGlobalIdx === -1) {
@@ -285,8 +286,7 @@ export function applyRollingAverageAlignment(
 					const medianIntervalSec = totalInterval / count / 1000;
 					const halfRows = Math.round(windowSec / 2 / medianIntervalSec);
 					shift = align === "c" ? halfRows : windowSec / medianIntervalSec - 1;
-					if (align === "r")
-						shift = Math.round(windowSec / medianIntervalSec) - 1;
+					if (align === "r") shift = Math.round(windowSec / medianIntervalSec) - 1;
 				}
 			}
 		}
@@ -346,8 +346,10 @@ export function evaluateFormulaSync(
 			);
 		}
 
-		const { evaluate, usedColumnIndices, error, createContext } =
-			compileFormula(formula, columns);
+		const { evaluate, usedColumnIndices, error, createContext } = compileFormula(
+			formula,
+			columns,
+		);
 		if (error) return { type: "error", error };
 
 		const resultData = new Float64Array(rowCount);

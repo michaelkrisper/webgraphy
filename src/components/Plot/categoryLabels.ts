@@ -7,10 +7,7 @@ import type {
 	SeriesConfig,
 	XAxisConfig,
 } from "../../services/persistence";
-import {
-	DEFAULT_X_AXIS_ID,
-	getAxisById,
-} from "../../utils/axisCalculations";
+import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { getColumnIndex } from "../../utils/columns";
 
 /** Cap on x-values sampled when deriving categorical labels for a forced axis. */
@@ -60,10 +57,7 @@ export function computeYAxisCategoryLabels(
 				break;
 			}
 			if (!labels) labels = cl;
-			else if (
-				labels.length !== cl.length ||
-				labels.some((v, i) => v !== cl[i])
-			) {
+			else if (labels.length !== cl.length || labels.some((v, i) => v !== cl[i])) {
 				mismatch = true;
 				break;
 			}
@@ -117,10 +111,7 @@ export function computeXAxisCategoryLabels(
 				break;
 			}
 			if (!labels) labels = cl;
-			else if (
-				labels.length !== cl.length ||
-				labels.some((v, i) => v !== cl[i])
-			) {
+			else if (labels.length !== cl.length || labels.some((v, i) => v !== cl[i])) {
 				mismatch = true;
 				break;
 			}

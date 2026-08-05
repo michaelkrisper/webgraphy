@@ -24,7 +24,10 @@ describe("viewportChannel", () => {
 		writer.write(
 			3,
 			true,
-			[{ min: 0, max: 100 }, { min: -5, max: 5 }],
+			[
+				{ min: 0, max: 100 },
+				{ min: -5, max: 5 },
+			],
 			[{ min: 10, max: 20 }],
 		);
 		expect(reader.read(out)).toBe(true);
@@ -32,9 +35,7 @@ describe("viewportChannel", () => {
 		expect(out.interacting).toBe(true);
 		expect(out.xCount).toBe(2);
 		expect(out.yCount).toBe(1);
-		expect(Array.from(out.ranges.slice(0, 6))).toEqual([
-			0, 100, -5, 5, 10, 20,
-		]);
+		expect(Array.from(out.ranges.slice(0, 6))).toEqual([0, 100, -5, 5, 10, 20]);
 	});
 
 	it("reports nothing new until the next write", () => {

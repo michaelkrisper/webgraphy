@@ -20,7 +20,7 @@ export function generatePreviewData(
 ): PreviewData {
 	const HEAD = 25;
 	const TAIL = 25;
-	const trim = <T,>(
+	const trim = <T>(
 		arr: T[],
 	): { rows: T[]; gapStart: number | null; totalRows: number } => {
 		if (arr.length <= HEAD + TAIL) {
@@ -40,9 +40,7 @@ export function generatePreviewData(
 				string,
 				string
 			>[];
-			const headers = Object.keys(
-				(allRows[0] as Record<string, unknown>) || {},
-			);
+			const headers = Object.keys((allRows[0] as Record<string, unknown>) || {});
 			const { rows, gapStart, totalRows } = trim(allRows);
 			return {
 				headers,
@@ -104,13 +102,15 @@ export function generateColumnConfigs(
 
 		const firstVal =
 			fileType === "json"
-				? (previewData.rows as Record<string, string>[]).find(
-						(row) => row[name],
-					)?.[name]
+				? (previewData.rows as Record<string, string>[]).find((row) => row[name])?.[
+						name
+					]
 				: (previewData.rows as string[][])[0]?.[index];
 
-		const { type: autoType, dateFormat: autoFormat } =
-			detectColumnTypeAndFormat(firstVal, decimalPoint);
+		const { type: autoType, dateFormat: autoFormat } = detectColumnTypeAndFormat(
+			firstVal,
+			decimalPoint,
+		);
 
 		if (override) {
 			return {

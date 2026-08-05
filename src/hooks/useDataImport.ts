@@ -4,7 +4,10 @@ import { useGraphStore } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
 import { buildSeriesConfig } from "../utils/series";
 import { parseDataInWorker } from "../workers/parserClient";
-import { readExcelFileInWorker, changeSheetInWorker } from "../workers/excelClient";
+import {
+	readExcelFileInWorker,
+	changeSheetInWorker,
+} from "../workers/excelClient";
 
 const AUTO_ADD_COLUMN_THRESHOLD = 5;
 
@@ -52,12 +55,7 @@ const processImportedDatasets = (
 				const colIdx = ds.columns.indexOf(col);
 				const isCategorical = colIdx >= 0 && !!ds.data[colIdx]?.categoryLabels;
 				addSeries(
-					buildSeriesConfig(
-						col,
-						ds.id,
-						seriesBeforeAdd.length + i,
-						isCategorical,
-					),
+					buildSeriesConfig(col, ds.id, seriesBeforeAdd.length + i, isCategorical),
 				);
 			});
 		}
@@ -99,24 +97,32 @@ export const useDataImport = () => {
 		}
 	}, []);
 
-	const changeSheet = useCallback(async (sheetName: string) => {
-		if (!pendingFile || pendingFile.type !== "excel" || !pendingFile.workbookData) return;
-		try {
-			const res = await changeSheetInWorker(pendingFile.workbookData, sheetName);
-			setPendingFile((prev) => {
-				if (!prev) return prev;
-				return {
-					...prev,
-					selectedSheet: sheetName,
-					preview: res.preview || "",
-					fullCsv: res.fullCsv,
-					workbookData: res.workbookData,
-				};
-			});
-		} catch (err: unknown) {
-			setError(err instanceof Error ? err.message : String(err));
-		}
-	}, [pendingFile]);
+	const changeSheet = useCallback(
+		async (sheetName: string) => {
+			if (
+				!pendingFile ||
+				pendingFile.type !== "excel" ||
+				!pendingFile.workbookData
+			)
+				return;
+			try {
+				const res = await changeSheetInWorker(pendingFile.workbookData, sheetName);
+				setPendingFile((prev) => {
+					if (!prev) return prev;
+					return {
+						...prev,
+						selectedSheet: sheetName,
+						preview: res.preview || "",
+						fullCsv: res.fullCsv,
+						workbookData: res.workbookData,
+					};
+				});
+			} catch (err: unknown) {
+				setError(err instanceof Error ? err.message : String(err));
+			}
+		},
+		[pendingFile],
+	);
 
 	const confirmImport = useCallback(
 		async (settings: ImportSettings) => {
@@ -136,11 +142,7 @@ export const useDataImport = () => {
 			}
 
 			try {
-				const datasets = await parseDataInWorker(
-					workerFile,
-					workerType,
-					settings,
-				);
+				const datasets = await parseDataInWorker(workerFile, workerType, settings);
 				const incoming = datasets ?? [];
 
 				processImportedDatasets(incoming, addDataset, addSeries);

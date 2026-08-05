@@ -1,7 +1,4 @@
-import {
-	ChevronDown,
-	ChevronRight,
-} from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
@@ -105,8 +102,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 									fontStyle: "italic",
 								}}
 							>
-								Add datasources by importing or drag and drop on the graph
-								surface
+								Add datasources by importing or drag and drop on the graph surface
 							</div>
 						)}
 

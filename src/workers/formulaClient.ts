@@ -1,22 +1,25 @@
 import type {
-    FormulaEvaluationResult,
-    FormulaWorkerParams,
+	FormulaEvaluationResult,
+	FormulaWorkerParams,
 } from "../utils/formula";
 import { WorkerClient } from "./WorkerClient";
 
 const client = new WorkerClient<
-    FormulaWorkerParams & { id: number },
-    FormulaEvaluationResult,
-    FormulaEvaluationResult
+	FormulaWorkerParams & { id: number },
+	FormulaEvaluationResult,
+	FormulaEvaluationResult
 >(
-    () => new Worker(new URL("./formula.worker.ts", import.meta.url), { type: "module" }),
-    (data, resolve) => {
-        resolve(data);
-    }
+	() =>
+		new Worker(new URL("./formula.worker.ts", import.meta.url), {
+			type: "module",
+		}),
+	(data, resolve) => {
+		resolve(data);
+	},
 );
 
 export function evaluateFormulaInWorker(
-    params: FormulaWorkerParams,
+	params: FormulaWorkerParams,
 ): Promise<FormulaEvaluationResult> {
-    return client.request((id) => ({ ...params, id }));
+	return client.request((id) => ({ ...params, id }));
 }

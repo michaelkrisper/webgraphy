@@ -10,10 +10,10 @@ const mockOptions = [
 ];
 
 describe("PopupPicker", () => {
-    afterEach(() => {
-        vi.unstubAllGlobals();
-        vi.restoreAllMocks();
-    });
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
 
 	it("renders trigger correctly", () => {
 		render(
@@ -26,7 +26,7 @@ describe("PopupPicker", () => {
 						Trigger {isOpen ? "Open" : "Closed"}
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTestId("trigger")).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		expect(screen.queryByText("Option 1")).not.toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("trigger"));
@@ -95,7 +95,7 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("trigger"));
@@ -117,13 +117,13 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("trigger"));
 		const disabledOption = screen.getByText("Option 3").closest("button");
 
-        expect(disabledOption).toBeDisabled();
+		expect(disabledOption).toBeDisabled();
 
 		fireEvent.click(disabledOption!);
 
@@ -192,7 +192,7 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("trigger"));
@@ -224,7 +224,7 @@ describe("PopupPicker", () => {
 						</button>
 					);
 				}}
-			/>
+			/>,
 		);
 
 		// Mock getBoundingClientRect
@@ -237,7 +237,7 @@ describe("PopupPicker", () => {
 			right: WINDOW_WIDTH,
 			x: 900,
 			y: 100,
-			toJSON: () => {}
+			toJSON: () => {},
 		}));
 
 		fireEvent.click(screen.getByTestId("trigger"));
@@ -248,12 +248,12 @@ describe("PopupPicker", () => {
 		expect(popover).toHaveStyle("top: 144px");
 	});
 
-    it("calculates left position with padding constraint", () => {
-        vi.stubGlobal("innerWidth", 500);
+	it("calculates left position with padding constraint", () => {
+		vi.stubGlobal("innerWidth", 500);
 		vi.stubGlobal("scrollX", 0);
 		vi.stubGlobal("scrollY", 0);
 
-        Element.prototype.getBoundingClientRect = vi.fn(() => ({
+		Element.prototype.getBoundingClientRect = vi.fn(() => ({
 			width: 10,
 			height: 10,
 			top: 0,
@@ -262,10 +262,10 @@ describe("PopupPicker", () => {
 			right: 10,
 			x: 0,
 			y: 0,
-			toJSON: () => {}
+			toJSON: () => {},
 		}));
 
-        render(
+		render(
 			<PopupPicker
 				options={mockOptions}
 				current="opt1"
@@ -275,11 +275,11 @@ describe("PopupPicker", () => {
 						Trigger
 					</button>
 				)}
-			/>
+			/>,
 		);
 
-        fireEvent.click(screen.getByTestId("trigger"));
-        const popover = document.getElementById("popup-picker-popover");
+		fireEvent.click(screen.getByTestId("trigger"));
+		const popover = document.getElementById("popup-picker-popover");
 		expect(popover).toHaveStyle("left: 10px");
-    });
+	});
 });

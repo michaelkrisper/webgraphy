@@ -15,7 +15,11 @@
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
 import type { GLStateCache } from "./GLStateCache";
-import { type DecimCache, type DecimEntry, getOrComputeM4 } from "./decimationCache";
+import {
+	type DecimCache,
+	type DecimEntry,
+	getOrComputeM4,
+} from "./decimationCache";
 
 export interface SegParams {
 	xRange: number;
@@ -240,9 +244,7 @@ function drawDashedLines(
 				sharedArr[off + 2] = bx;
 				sharedArr[off + 3] = by;
 				sharedArr[off + 4] = cumDist;
-				cumDist += Math.sqrt(
-					((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2,
-				);
+				cumDist += Math.sqrt(((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2);
 				outIdx++;
 			}
 		}
@@ -270,14 +272,7 @@ function drawDashedLines(
 	st.enableAttrib(lineLocs.y1Loc, 1);
 	gl.vertexAttribPointer(lineLocs.y1Loc, 1, gl.FLOAT, false, DASH_STRIDE, 12);
 	st.enableAttrib(lineLocs.dist0Loc, 1);
-	gl.vertexAttribPointer(
-		lineLocs.dist0Loc,
-		1,
-		gl.FLOAT,
-		false,
-		DASH_STRIDE,
-		16,
-	);
+	gl.vertexAttribPointer(lineLocs.dist0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 16);
 	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, totalLineSegs);
 }
 

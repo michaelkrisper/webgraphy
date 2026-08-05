@@ -121,22 +121,13 @@ describe("demoData", () => {
 			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.5);
 			const dataset = generateDemoDataset(100);
 
-			expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(
-				5,
-				2,
-			);
+			expect(dataset.data[1].refPoint + dataset.data[1].data[0]).toBeCloseTo(5, 2);
 			expect(dataset.data[2].refPoint + dataset.data[2].data[0]).toBeCloseTo(
 				70,
 				2,
 			);
-			expect(dataset.data[3].refPoint + dataset.data[3].data[0]).toBeCloseTo(
-				0,
-				2,
-			);
-			expect(dataset.data[4].refPoint + dataset.data[4].data[0]).toBeCloseTo(
-				4,
-				2,
-			);
+			expect(dataset.data[3].refPoint + dataset.data[3].data[0]).toBeCloseTo(0, 2);
+			expect(dataset.data[4].refPoint + dataset.data[4].data[0]).toBeCloseTo(4, 2);
 
 			vi.restoreAllMocks();
 		}, 10000);
@@ -154,17 +145,14 @@ describe("demoData", () => {
 			);
 			const clearSolarCol = clearDataset.data[clearSolarColIndex];
 			const noonIndex = 12 * 60; // 12:00 PM
-			const clearNoonVal =
-				clearSolarCol.refPoint + clearSolarCol.data[noonIndex];
+			const clearNoonVal = clearSolarCol.refPoint + clearSolarCol.data[noonIndex];
 
 			// Verify it's greater than 0 at noon
 			expect(clearNoonVal).toBeGreaterThan(0);
 
 			// Verify nighttime is 0
 			const midnightIndex = 0; // 0:00 AM
-			expect(clearSolarCol.refPoint + clearSolarCol.data[midnightIndex]).toBe(
-				0,
-			);
+			expect(clearSolarCol.refPoint + clearSolarCol.data[midnightIndex]).toBe(0);
 
 			// 2. Cloudy sky (random = 0.99)
 			vi.spyOn(randomUtils, "secureRandom").mockReturnValue(0.99);
@@ -199,10 +187,8 @@ describe("demoData", () => {
 
 		const baseSolarCol = baseDataset.data[3];
 		const edgeSolarCol = edgeDataset.data[3];
-		const baseSolarValue =
-			baseSolarCol.data[daytimeIdx] + baseSolarCol.refPoint;
-		const edgeSolarValue =
-			edgeSolarCol.data[daytimeIdx] + edgeSolarCol.refPoint;
+		const baseSolarValue = baseSolarCol.data[daytimeIdx] + baseSolarCol.refPoint;
+		const edgeSolarValue = edgeSolarCol.data[daytimeIdx] + edgeSolarCol.refPoint;
 
 		// Ensure it was daytime so there was actually solar irradiance to start with
 		expect(baseSolarValue).toBeGreaterThan(0);

@@ -1,4 +1,10 @@
-import { MATH_UNARY, mathModulo, isTruthy, sampleVariance, median } from "./math";
+import {
+	MATH_UNARY,
+	mathModulo,
+	isTruthy,
+	sampleVariance,
+	median,
+} from "./math";
 import { toMillis, dateKey, granularityOf, _scratchDate } from "./date";
 import type { Token, FormulaContext } from "./types";
 import {
@@ -16,7 +22,7 @@ import {
 	statefulCumprod,
 	statefulCummax,
 	statefulCummin,
-	statefulFilter
+	statefulFilter,
 } from "./stateful";
 
 // ── Function dispatch ──────────────────────────────────────────────────────

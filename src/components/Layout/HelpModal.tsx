@@ -53,8 +53,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Double Click:</strong> Auto-scale to fit all data
 				</li>
 				<li>
-					<strong>Drag & Drop file:</strong> Drop a CSV, JSON, or XLSX file onto
-					the chart to import
+					<strong>Drag & Drop file:</strong> Drop a CSV, JSON, or XLSX file onto the
+					chart to import
 				</li>
 			</Section>
 
@@ -69,8 +69,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Double Click:</strong> Auto-scale this axis
 				</li>
 				<li>
-					<strong>CTRL + Dbl Click (Y):</strong> Auto-scale to the upper or
-					lower half (based on click position)
+					<strong>CTRL + Dbl Click (Y):</strong> Auto-scale to the upper or lower
+					half (based on click position)
 				</li>
 				<li>
 					<strong>Click on title:</strong> Rename the axis
@@ -100,54 +100,52 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
 			<Section title="Sidebar — Data">
 				<li>
-					<strong>Import:</strong> Load CSV, JSON, or Excel (XLSX/XLS) files.
-					Large files stream through a worker; pick a sheet for Excel
+					<strong>Import:</strong> Load CSV, JSON, or Excel (XLSX/XLS) files. Large
+					files stream through a worker; pick a sheet for Excel
 				</li>
 				<li>
-					<strong>Skipped Rows Preview:</strong> Inspect rows skipped during
-					import
+					<strong>Skipped Rows Preview:</strong> Inspect rows skipped during import
 				</li>
 				<li>
 					<strong>Calculated Columns:</strong> Reference columns with{" "}
 					<code>[Column Name]</code>. Math/trig, conditional{" "}
-					<code>if(cond, a, b)</code> with comparison (<code>&lt; &gt; ==</code>)
-					and logical (<code>&amp;&amp; ||</code>) operators, aggregates{" "}
-					<code>median/std/var</code>, NaN handling{" "}
-					<code>isnan/coalesce</code>; rolling windows{" "}
-					<code>rolling(expr, n)</code> / <code>rollingTime</code> /
+					<code>if(cond, a, b)</code> with comparison (<code>&lt; &gt; ==</code>) and
+					logical (<code>&amp;&amp; ||</code>) operators, aggregates{" "}
+					<code>median/std/var</code>, NaN handling <code>isnan/coalesce</code>;
+					rolling windows <code>rolling(expr, n)</code> / <code>rollingTime</code> /
 					<code>rollingMed/Std/Min/Max</code> (plus legacy <code>avgN</code>{" "}
-					aliases); row-relative <code>lag/diff/cumsum/cumprod</code>;
-					per-bucket <code>avgDay/Hour/Minute/Second</code> and{" "}
-					<code>sum…</code> variants; Kalman <code>filter</code>; regressions{" "}
-					<code>linreg/polyreg/expreg/logreg/kde</code>. The editor has a
-					searchable function reference and live signature hints.
+					aliases); row-relative <code>lag/diff/cumsum/cumprod</code>; per-bucket{" "}
+					<code>avgDay/Hour/Minute/Second</code> and <code>sum…</code> variants;
+					Kalman <code>filter</code>; regressions{" "}
+					<code>linreg/polyreg/expreg/logreg/kde</code>. The editor has a searchable
+					function reference and live signature hints.
 				</li>
 				<li>
-					<strong>X-Axis per Dataset:</strong> Cycle the dataset's X-axis (1–9)
-					and toggle numeric/time mode
+					<strong>X-Axis per Dataset:</strong> Cycle the dataset's X-axis (1–9) and
+					toggle numeric/time mode
 				</li>
 			</Section>
 
 			<Section title="Sidebar — Series">
 				<li>
-					<strong>Drag to Reorder:</strong> Grab a series row to reorder
-					draw/legend order
+					<strong>Drag to Reorder:</strong> Grab a series row to reorder draw/legend
+					order
 				</li>
 				<li>
-					<strong>Multiple Y-Axes:</strong> Up to 9 Y-axes, each with
-					independent scale, position (left/right), and color
+					<strong>Multiple Y-Axes:</strong> Up to 9 Y-axes, each with independent
+					scale, position (left/right), and color
 				</li>
 				<li>
-					<strong>Style:</strong> Line style (solid/dashed/dotted), point
-					markers (circle/square/cross), color
+					<strong>Style:</strong> Line style (solid/dashed/dotted), point markers
+					(circle/square/cross), color
 				</li>
 				<li>
-					<strong>Regression:</strong> Add linear, polynomial, exponential,
-					logistic, or KDE fits
+					<strong>Regression:</strong> Add linear, polynomial, exponential, logistic,
+					or KDE fits
 				</li>
 				<li>
-					<strong>Visibility:</strong> Toggle per-series visibility; hover a row
-					to highlight it on the chart
+					<strong>Visibility:</strong> Toggle per-series visibility; hover a row to
+					highlight it on the chart
 				</li>
 			</Section>
 
@@ -157,26 +155,26 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					(theme-aware, device-pixel scaled)
 				</li>
 				<li>
-					<strong>Auto-Save:</strong> Datasets persist in IndexedDB; UI and
-					series state in LocalStorage — restored on next visit
+					<strong>Auto-Save:</strong> Datasets persist in IndexedDB; UI and series
+					state in LocalStorage — restored on next visit
 				</li>
 			</Section>
 
 			<Section title="UI">
 				<li>
-					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle
-					via the theme button
+					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle via
+					the theme button
 				</li>
 				<li>
-					<strong>Sidebar Collapse:</strong> Click the logo to collapse or
-					expand the sidebar
+					<strong>Sidebar Collapse:</strong> Click the logo to collapse or expand the
+					sidebar
 				</li>
 				<li>
 					<strong>Legend:</strong> Toggle the top-right legend overlay
 				</li>
 				<li>
-					<strong>Install as App:</strong> Webgraphy is a PWA — install it from
-					the browser for offline access
+					<strong>Install as App:</strong> Webgraphy is a PWA — install it from the
+					browser for offline access
 				</li>
 			</Section>
 		</Modal>

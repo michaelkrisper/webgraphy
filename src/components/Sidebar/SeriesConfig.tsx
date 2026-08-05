@@ -49,14 +49,7 @@ function lineIcon(style: LineStyle) {
 			{style === "none" && (
 				<>
 					<line {...common} strokeWidth="2.5" opacity="0.35" />
-					<line
-						x1="2"
-						y1="2"
-						x2="14"
-						y2="14"
-						stroke="#dc3545"
-						strokeWidth="1.5"
-					/>
+					<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="1.5" />
 				</>
 			)}
 		</svg>

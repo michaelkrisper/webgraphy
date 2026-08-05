@@ -77,11 +77,9 @@ export function renderTooltipHTML({
 		for (let iIdx = 0; iIdx < group.items.length; iIdx++) {
 			const item = group.items[iIdx];
 			const formatted =
-				item.valueLabel ??
-				parseFloat(item.value.toPrecision(7)).toLocaleString();
+				item.valueLabel ?? parseFloat(item.value.toPrecision(7)).toLocaleString();
 			const sepIdx = formatted.search(/[.,]/);
-			const intPart =
-				sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);
+			const intPart = sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);
 			const decPart = sepIdx === -1 ? "" : formatted.slice(sepIdx);
 
 			if (!itemNode) {

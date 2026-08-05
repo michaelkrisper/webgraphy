@@ -166,9 +166,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 							/>
 						)}
 					</svg>
-					<span
-						className={`legend-label${s.hidden ? " legend-label--hidden" : ""}`}
-					>
+					<span className={`legend-label${s.hidden ? " legend-label--hidden" : ""}`}>
 						{s.name}
 					</span>
 				</button>

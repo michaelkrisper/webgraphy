@@ -30,6 +30,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Format check
+        run: npm run format:check
       - name: Lint
         run: npm run lint
       - name: Test (with coverage thresholds)

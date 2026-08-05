@@ -1,25 +1,30 @@
 import type { Token, FormulaResult } from "./types";
 import { FormulaError } from "./types";
-import { KNOWN_FUNCTION_NAMES, resolveLegacyName, FUNCTION_BY_NAME } from "../formulaFunctions";
+import {
+	KNOWN_FUNCTION_NAMES,
+	resolveLegacyName,
+	FUNCTION_BY_NAME,
+} from "../formulaFunctions";
 
 // ── Precedence ─────────────────────────────────────────────────────────────
 
-export const OP_PRECEDENCE: Record<string, { prec: number; assoc: "L" | "R" }> = {
-	"||": { prec: 1, assoc: "L" },
-	"&&": { prec: 2, assoc: "L" },
-	"==": { prec: 3, assoc: "L" },
-	"!=": { prec: 3, assoc: "L" },
-	"<": { prec: 4, assoc: "L" },
-	">": { prec: 4, assoc: "L" },
-	"<=": { prec: 4, assoc: "L" },
-	">=": { prec: 4, assoc: "L" },
-	"+": { prec: 5, assoc: "L" },
-	"-": { prec: 5, assoc: "L" },
-	"*": { prec: 6, assoc: "L" },
-	"/": { prec: 6, assoc: "L" },
-	"%": { prec: 6, assoc: "L" },
-	"^": { prec: 7, assoc: "R" },
-};
+export const OP_PRECEDENCE: Record<string, { prec: number; assoc: "L" | "R" }> =
+	{
+		"||": { prec: 1, assoc: "L" },
+		"&&": { prec: 2, assoc: "L" },
+		"==": { prec: 3, assoc: "L" },
+		"!=": { prec: 3, assoc: "L" },
+		"<": { prec: 4, assoc: "L" },
+		">": { prec: 4, assoc: "L" },
+		"<=": { prec: 4, assoc: "L" },
+		">=": { prec: 4, assoc: "L" },
+		"+": { prec: 5, assoc: "L" },
+		"-": { prec: 5, assoc: "L" },
+		"*": { prec: 6, assoc: "L" },
+		"/": { prec: 6, assoc: "L" },
+		"%": { prec: 6, assoc: "L" },
+		"^": { prec: 7, assoc: "R" },
+	};
 
 export const UNARY_PREC = 8;
 

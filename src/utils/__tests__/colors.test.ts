@@ -336,22 +336,18 @@ describe("colors", () => {
 				expectedH: 0,
 				name: "very dark color (linear sRGB)",
 			},
-		])("should correctly convert $name", ({
-			r,
-			g,
-			b,
-			expectedL,
-			expectedC,
-			expectedH,
-		}) => {
-			const { L, C, h } = rgbToLch(r, g, b);
-			expect(L).toBeCloseTo(expectedL, 1);
-			expect(C).toBeCloseTo(expectedC, 1);
-			if (expectedC > 0 || (r === 0 && g === 0 && b === 0)) {
-				// hue is only relevant if chroma > 0, except for black test case specifically checking it to be 0
-				expect(h).toBeCloseTo(expectedH, 1);
-			}
-		});
+		])(
+			"should correctly convert $name",
+			({ r, g, b, expectedL, expectedC, expectedH }) => {
+				const { L, C, h } = rgbToLch(r, g, b);
+				expect(L).toBeCloseTo(expectedL, 1);
+				expect(C).toBeCloseTo(expectedC, 1);
+				if (expectedC > 0 || (r === 0 && g === 0 && b === 0)) {
+					// hue is only relevant if chroma > 0, except for black test case specifically checking it to be 0
+					expect(h).toBeCloseTo(expectedH, 1);
+				}
+			},
+		);
 
 		it("should wrap negative hue values", () => {
 			const { h } = rgbToLch(0, 0, 255);
@@ -387,14 +383,15 @@ describe("cssToRgbaWithAlpha", () => {
 	});
 
 	it("parses rgba() colors, preferring their own alpha", () => {
-		expect(cssToRgbaWithAlpha("rgba(255,255,255,0.93)")).toEqual([
-			1, 1, 1, 0.93,
-		]);
+		expect(cssToRgbaWithAlpha("rgba(255,255,255,0.93)")).toEqual([1, 1, 1, 0.93]);
 	});
 
 	it("parses rgb() colors with the fallback alpha", () => {
 		expect(cssToRgbaWithAlpha("rgb(0, 128, 255)", 1)).toEqual([
-			0, 128 / 255, 1, 1,
+			0,
+			128 / 255,
+			1,
+			1,
 		]);
 	});
 

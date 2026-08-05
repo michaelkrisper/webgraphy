@@ -20,8 +20,7 @@ export const MAX_AXES = 9;
 
 const HEADER_I32 = 6; // seq, version, interacting, xCount, yCount, (pad)
 const FLOATS_OFFSET_BYTES = HEADER_I32 * 4; // 24, 8-byte aligned
-export const VIEWPORT_SAB_BYTES =
-	FLOATS_OFFSET_BYTES + MAX_AXES * 2 * 2 * 8;
+export const VIEWPORT_SAB_BYTES = FLOATS_OFFSET_BYTES + MAX_AXES * 2 * 2 * 8;
 
 const SEQ = 0;
 const VERSION = 1;

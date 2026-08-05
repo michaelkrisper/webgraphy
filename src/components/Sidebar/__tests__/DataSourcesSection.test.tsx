@@ -10,14 +10,19 @@ import { useGraphStore } from "../../../store/useGraphStore";
 vi.mock("../../Layout/CalculatedColumnModal", () => ({
 	CalculatedColumnModal: ({ onClose }: { onClose: () => void }) => (
 		<div data-testid="calc-modal">
-			Calc Modal <button onClick={onClose} data-testid="close-calc-modal">Close</button>
+			Calc Modal{" "}
+			<button onClick={onClose} data-testid="close-calc-modal">
+				Close
+			</button>
 		</div>
 	),
 }));
 
 // Mock ErrorBoundary
 vi.mock("../../ErrorBoundary", () => ({
-	default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
+	default: ({ children }: { children: React.ReactNode }) => (
+		<div>{children}</div>
+	),
 }));
 
 // Mock PopupPicker
@@ -80,14 +85,18 @@ describe("DataSourcesSection", () => {
 				onToggle={mockOnToggle}
 				fileInputRef={mockFileInputRef}
 				importFile={mockImportFile}
-			/>
+			/>,
 		);
 	};
 
 	it("renders correctly with no datasets", () => {
 		renderComponent();
 		expect(screen.getByText("Data Sources")).toBeInTheDocument();
-		expect(screen.getByText(/Add datasources by importing or drag and drop on the graph surface/)).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				/Add datasources by importing or drag and drop on the graph surface/,
+			),
+		).toBeInTheDocument();
 	});
 
 	it("toggles section when header is clicked", () => {
@@ -99,17 +108,27 @@ describe("DataSourcesSection", () => {
 
 	it("renders datasets and handles dataset deletion", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent();
 
@@ -123,17 +142,27 @@ describe("DataSourcesSection", () => {
 
 	it("allows changing X-axis column", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y", "z"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y", "z"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent();
 
@@ -144,17 +173,27 @@ describe("DataSourcesSection", () => {
 
 	it("shows Add Calculated Column modal when button is clicked", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent();
 
@@ -170,17 +209,27 @@ describe("DataSourcesSection", () => {
 
 	it("does not render dataset details if section is not open", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent(false);
 
@@ -190,17 +239,27 @@ describe("DataSourcesSection", () => {
 
 	it("allows renaming a column", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent();
 
@@ -216,17 +275,27 @@ describe("DataSourcesSection", () => {
 
 	it("handles creating a series from a column", () => {
 		const datasets = [
-			{ id: "ds1", name: "Dataset 1", rowCount: 100, columns: ["x", "y"], xAxisColumn: "x", xAxisId: "axis-1", data: [{}, {}] }
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}],
+			},
 		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) => sel({
-			datasets,
-			series: [],
-			removeDataset: mockRemoveDataset,
-			updateDataset: mockUpdateDataset,
-			addSeries: mockAddSeries,
-			removeCalculatedColumn: mockRemoveCalculatedColumn,
-			renameColumn: mockRenameColumn,
-		}));
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
 
 		renderComponent();
 
@@ -235,5 +304,4 @@ describe("DataSourcesSection", () => {
 
 		expect(mockAddSeries).toHaveBeenCalled();
 	});
-
 });

@@ -26,9 +26,7 @@ interface GraphState {
 	crosshairVisible: boolean;
 	setCrosshairVisible: (visible: boolean) => void;
 	previewColor: { seriesId: string; color: string } | null;
-	setPreviewColor: (
-		preview: { seriesId: string; color: string } | null,
-	) => void;
+	setPreviewColor: (preview: { seriesId: string; color: string } | null) => void;
 	previewStyle: {
 		seriesId: string;
 		lineStyle?: SeriesConfig["lineStyle"];
@@ -266,18 +264,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const xAxisColumn =
 			dataset.xAxisColumn ||
 			dataset.columns.find(
-				(c) =>
-					c.toLowerCase().includes("time") ||
-					c.toLowerCase().includes("date"),
+				(c) => c.toLowerCase().includes("time") || c.toLowerCase().includes("date"),
 			) ||
 			dataset.columns[0];
 
 		let xAxisId = dataset.xAxisId;
 		if (!xAxisId) {
 			xAxisId =
-				state.xAxes.find(
-					(a) => !state.datasets.some((d) => d.xAxisId === a.id),
-				)?.id || state.xAxes[0].id;
+				state.xAxes.find((a) => !state.datasets.some((d) => d.xAxisId === a.id))
+					?.id || state.xAxes[0].id;
 		}
 
 		const newDataset: Dataset = { ...dataset, xAxisColumn, xAxisId };
@@ -290,9 +285,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((s) => ({
 			datasets: [...s.datasets, newDataset],
 			xAxes: s.xAxes.map((a) =>
-				a.id === xAxisId
-					? { ...a, min: bounds.min, max: bounds.max, xMode }
-					: a,
+				a.id === xAxisId ? { ...a, min: bounds.min, max: bounds.max, xMode } : a,
 			),
 		}));
 
@@ -306,8 +299,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			if (dataset.columns.includes(trimmed) && trimmed !== oldName)
-				return state;
+			if (dataset.columns.includes(trimmed) && trimmed !== oldName) return state;
 			const updatedDataset = {
 				...dataset,
 				columns: dataset.columns.map((c) => (c === oldName ? trimmed : c)),
@@ -346,10 +338,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 			let nextXAxes = state.xAxes;
 			if (updates.xAxisId !== undefined || updates.xAxisColumn !== undefined) {
-				const xColIdx = getColumnIndex(
-					updatedDataset,
-					updatedDataset.xAxisColumn,
-				);
+				const xColIdx = getColumnIndex(updatedDataset, updatedDataset.xAxisColumn);
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
 					const bounds = col.bounds || { min: 0, max: 100 };
@@ -414,7 +403,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	removeSeries: (id) => {
 		set((state) => {
 			const index = state.series.findIndex((s) => s.id === id);
-			const newSeries = index !== -1 ? state.series.toSpliced(index, 1) : state.series;
+			const newSeries =
+				index !== -1 ? state.series.toSpliced(index, 1) : state.series;
 			if (newSeries.length === 0 && state.datasets.length === 0) {
 				persistence.clearAppState();
 				return createEmptyState();

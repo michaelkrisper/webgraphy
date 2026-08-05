@@ -69,9 +69,7 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 				if (!hasMoved && Math.abs(e.clientY - startY) > 5) {
 					hasMoved = true;
 					setDragId(seriesId);
-					const origIdx = rowRectsRef.current.findIndex(
-						(r) => r.id === seriesId,
-					);
+					const origIdx = rowRectsRef.current.findIndex((r) => r.id === seriesId);
 					setDropIndex(origIdx);
 				}
 
@@ -168,10 +166,7 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								<div title="Color" className="sb-series-header-cell">
 									<Palette size={12} />
 								</div>
-								<div
-									title="Data Column"
-									className="sb-series-header-cell--text"
-								>
+								<div title="Data Column" className="sb-series-header-cell--text">
 									Column
 								</div>
 								<div />
@@ -191,24 +186,16 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 										<li
 											key={isGhost ? `ghost-${s.id}` : s.id}
 											{...(!isGhost ? { "data-series-id": s.id } : {})}
-											onMouseEnter={() =>
-												!isGhost && setHighlightedSeries(s.id)
-											}
-											onMouseLeave={() =>
-												!isGhost && setHighlightedSeries(null)
-											}
+											onMouseEnter={() => !isGhost && setHighlightedSeries(s.id)}
+											onMouseLeave={() => !isGhost && setHighlightedSeries(null)}
 											className={`sb-series-row${
-												!isGhost && dragId === s.id
-													? " sb-series-row--dragging"
-													: ""
+												!isGhost && dragId === s.id ? " sb-series-row--dragging" : ""
 											}${isGhost ? " sb-series-row--ghost" : ""}`}
 										>
 											<SeriesConfigUI
 												series={s}
 												datasets={datasets}
-												onHandleMouseDown={
-													!isGhost ? (e) => startDrag(s.id, e) : undefined
-												}
+												onHandleMouseDown={!isGhost ? (e) => startDrag(s.id, e) : undefined}
 											/>
 										</li>
 									));

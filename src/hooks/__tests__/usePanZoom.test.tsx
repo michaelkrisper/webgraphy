@@ -15,9 +15,8 @@ describe("usePanZoom", () => {
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.stubGlobal(
-			"requestAnimationFrame",
-			(cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0),
+		vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) =>
+			setTimeout(() => cb(performance.now()), 0),
 		);
 		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
 
@@ -94,7 +93,7 @@ describe("usePanZoom", () => {
 		act(() => {
 			result.current.handleMouseDown(
 				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
-				"all"
+				"all",
 			);
 		});
 
@@ -108,7 +107,7 @@ describe("usePanZoom", () => {
 		act(() => {
 			result.current.handleMouseDown(
 				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
-				"all"
+				"all",
 			);
 		});
 
@@ -134,7 +133,7 @@ describe("usePanZoom", () => {
 		act(() => {
 			result.current.handleMouseDown(
 				{ clientX: 100, clientY: 100, button: 0 } as unknown as React.MouseEvent,
-				"all"
+				"all",
 			);
 		});
 
@@ -159,7 +158,7 @@ describe("usePanZoom", () => {
 					deltaY: 100,
 					preventDefault,
 				} as unknown as React.WheelEvent,
-				"all"
+				"all",
 			);
 		});
 
@@ -178,8 +177,10 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
-				"all"
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				"all",
 			);
 		});
 
@@ -191,16 +192,20 @@ describe("usePanZoom", () => {
 
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
-				"all"
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				"all",
 			);
 		});
 
 		// Trigger another touch immediately
 		act(() => {
 			result.current.handleTouchStart(
-				{ touches: [{ clientX: 100, clientY: 100 }] } as unknown as React.TouchEvent,
-				"all"
+				{
+					touches: [{ clientX: 100, clientY: 100 }],
+				} as unknown as React.TouchEvent,
+				"all",
 			);
 		});
 

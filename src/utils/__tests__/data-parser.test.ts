@@ -119,9 +119,7 @@ describe("data-parser", () => {
 
 		it("should handle empty CSV files", async () => {
 			const file = createMockFile("", "empty.csv", "text/csv");
-			await expect(parseData(file, "csv", {})).rejects.toThrow(
-				"Empty CSV file",
-			);
+			await expect(parseData(file, "csv", {})).rejects.toThrow("Empty CSV file");
 		});
 
 		it("should parse date formats", async () => {
@@ -218,11 +216,7 @@ describe("data-parser", () => {
 		});
 
 		it("should throw error for empty array JSON", async () => {
-			const file = createMockFile(
-				"[]",
-				"test.json",
-				"application/json",
-			);
+			const file = createMockFile("[]", "test.json", "application/json");
 			await expect(parseData(file, "json", {})).rejects.toThrow(
 				"Invalid JSON format: Expected a non-empty array of objects",
 			);
@@ -258,20 +252,18 @@ describe("data-parser", () => {
 		});
 
 		it("should throw error for invalid JSON format", async () => {
-			const file = createMockFile(
-				"[not json]",
-				"test.json",
-				"application/json",
-			);
+			const file = createMockFile("[not json]", "test.json", "application/json");
 			await expect(parseData(file, "json", {})).rejects.toThrow(
-				/^Invalid JSON format: /
+				/^Invalid JSON format: /,
 			);
 		});
 
 		it("should handle non-Error instances when parsing JSON", async () => {
-			const parseSpy = vi.spyOn(jsonUtils, "secureJSONParse").mockImplementation(() => {
-				throw "String error thrown";
-			});
+			const parseSpy = vi
+				.spyOn(jsonUtils, "secureJSONParse")
+				.mockImplementation(() => {
+					throw "String error thrown";
+				});
 
 			const file = createMockFile("[{}]", "test.json", "application/json");
 

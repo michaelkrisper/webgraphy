@@ -8,9 +8,7 @@ describe("LicenseModal", () => {
 		const onClose = vi.fn();
 		render(<LicenseModal onClose={onClose} />);
 
-		expect(
-			screen.getByRole("heading", { name: "License" }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "License" })).toBeInTheDocument();
 		expect(screen.getByText(/MIT License/i)).toBeInTheDocument();
 	});
 

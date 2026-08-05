@@ -42,7 +42,11 @@ interface ZoomBoxOverlayProps {
 	rectRef: React.RefObject<SVGRectElement | null>;
 }
 
-export function ZoomBoxOverlay({ visible, svgRef, rectRef }: ZoomBoxOverlayProps) {
+export function ZoomBoxOverlay({
+	visible,
+	svgRef,
+	rectRef,
+}: ZoomBoxOverlayProps) {
 	if (!visible) return null;
 	return (
 		<svg

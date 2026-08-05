@@ -409,8 +409,12 @@ describe("compileFormula — new language features", () => {
 		expect(compileFormula("median(1, 2, 3)", columns).evaluate([])).toBe(2);
 		expect(compileFormula("median(1, 2, 3, 4)", columns).evaluate([])).toBe(2.5);
 		// Sample (n-1) variance / std.
-		expect(compileFormula("var(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([])).toBeCloseTo(32 / 7);
-		expect(compileFormula("std(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([])).toBeCloseTo(Math.sqrt(32 / 7));
+		expect(
+			compileFormula("var(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([]),
+		).toBeCloseTo(32 / 7);
+		expect(
+			compileFormula("std(2, 4, 4, 4, 5, 5, 7, 9)", columns).evaluate([]),
+		).toBeCloseTo(Math.sqrt(32 / 7));
 	});
 
 	it("aggregates with no args fall back to all numeric row columns", () => {
@@ -476,10 +480,7 @@ describe("compileFormula — new language features", () => {
 
 	it("lag(expr, n)", () => {
 		const cols = ["Timestamp", "Temp"];
-		const { evaluate, createContext } = compileFormula(
-			"lag([Temp], 2)",
-			cols,
-		);
+		const { evaluate, createContext } = compileFormula("lag([Temp], 2)", cols);
 		const ctx = createContext?.();
 		expect(evaluate([10], ctx)).toBeNaN();
 		expect(evaluate([20], ctx)).toBeNaN();
@@ -613,7 +614,14 @@ describe("evaluateFormulaSync — success paths", () => {
 			data: Float32Array.from(fullColumns[idx]),
 			refPoint: 0,
 		}));
-		return { datasetId: "d1", name: "calc", formula, columns, rowCount, columnData };
+		return {
+			datasetId: "d1",
+			name: "calc",
+			formula,
+			columns,
+			rowCount,
+			columnData,
+		};
 	}
 
 	function decode(col: {
@@ -726,9 +734,7 @@ describe("evaluateFormulaSync — success paths", () => {
 			// Unaligned avg3 = [0,5,10,20,30]; center shift of 1 pulls each value
 			// one row earlier, clamping the tail.
 			const decoded = decode(result.newColumn);
-			[5, 10, 20, 30, 30].forEach((v, i) =>
-				expect(decoded[i]).toBeCloseTo(v, 2),
-			);
+			[5, 10, 20, 30, 30].forEach((v, i) => expect(decoded[i]).toBeCloseTo(v, 2));
 		}
 	});
 
@@ -746,9 +752,7 @@ describe("evaluateFormulaSync — success paths", () => {
 		if (result.type === "success") {
 			// Right shift of 2 over avg3 = [0,5,10,20,30] ⇒ [10,20,30,30,30].
 			const decoded = decode(result.newColumn);
-			[10, 20, 30, 30, 30].forEach((v, i) =>
-				expect(decoded[i]).toBeCloseTo(v, 2),
-			);
+			[10, 20, 30, 30, 30].forEach((v, i) => expect(decoded[i]).toBeCloseTo(v, 2));
 		}
 	});
 

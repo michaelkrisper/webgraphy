@@ -31,9 +31,7 @@ interface UsePanZoomOptions {
 	targetXAxes: React.MutableRefObject<
 		Record<string, { min: number; max: number }>
 	>;
-	targetYs: React.MutableRefObject<
-		Record<string, { min: number; max: number }>
-	>;
+	targetYs: React.MutableRefObject<Record<string, { min: number; max: number }>>;
 	syncViewport: (force?: boolean, immediate?: boolean) => void;
 	xAxesMetrics: Array<{ id: string; height: number; cumulativeOffset: number }>;
 	axisLayout: Record<string, { total: number; label: number }>;
@@ -283,8 +281,7 @@ export function usePanZoom({
 						padding,
 					};
 					const worldMouse = screenToWorld(mouseX, 0, vp);
-					const zfX =
-						typeof zoomFactor === "number" ? zoomFactor : zoomFactor.x;
+					const zfX = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.x;
 					const weight = (mouseX - padding.left) / chartWidth;
 					targetXAxes.current[axis.id] = applyZoomToRange(
 						worldMouse.x,
@@ -324,8 +321,7 @@ export function usePanZoom({
 						padding,
 					};
 					const worldMouse = screenToWorld(0, mouseY, axisVp);
-					const zfY =
-						typeof zoomFactor === "number" ? zoomFactor : zoomFactor.y;
+					const zfY = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.y;
 					const weight = (height - padding.bottom - mouseY) / chartHeight;
 					targetYs.current[axis.id] = applyZoomToRange(
 						worldMouse.y,
@@ -380,7 +376,15 @@ export function usePanZoom({
 				e.shiftKey,
 			);
 		},
-		[containerRef, width, height, performZoom, onPanEnd, panStateRef, smoothZoomRef],
+		[
+			containerRef,
+			width,
+			height,
+			performZoom,
+			onPanEnd,
+			panStateRef,
+			smoothZoomRef,
+		],
 	);
 
 	const handleMouseDown = useCallback(
@@ -505,8 +509,7 @@ export function usePanZoom({
 		const handlePinchZoom = (e: TouchEvent, target: PanTarget | null) => {
 			if (e.cancelable) e.preventDefault();
 			const rect =
-				containerRectRef.current ||
-				containerRef.current?.getBoundingClientRect();
+				containerRectRef.current || containerRef.current?.getBoundingClientRect();
 			if (!rect) return;
 			if (!lastPinchDist.current) return;
 			const gesture = computePinchGesture(
@@ -587,8 +590,7 @@ export function usePanZoom({
 			pendingMouseEvent = null;
 			if (!e) return;
 			const rect =
-				containerRectRef.current ||
-				containerRef.current?.getBoundingClientRect();
+				containerRectRef.current || containerRef.current?.getBoundingClientRect();
 			if (!rect) return;
 			const mx = e.clientX - rect.left,
 				my = e.clientY - rect.top;
@@ -704,9 +706,9 @@ export function usePanZoom({
 		onPanEnd,
 		panStateRef,
 		updateZoomBoxDom,
-	chartWidth,
-			chartHeight,
-		]);
+		chartWidth,
+		chartHeight,
+	]);
 
 	usePanZoomKeyboard({
 		pressedKeys,

@@ -77,9 +77,7 @@ describe("ColorPicker", () => {
 		fireEvent.click(button);
 
 		// Find a color palette button, e.g. the grayscale primary (black)
-		const blackButton = document.querySelector(
-			".color-picker-main-color button",
-		);
+		const blackButton = document.querySelector(".color-picker-main-color button");
 		if (blackButton) {
 			fireEvent.click(blackButton);
 		}
@@ -96,9 +94,7 @@ describe("ColorPicker", () => {
 		const button = screen.getByRole("button", { name: "Test Color Picker" });
 		fireEvent.click(button);
 
-		const blackButton = document.querySelector(
-			".color-picker-main-color button",
-		);
+		const blackButton = document.querySelector(".color-picker-main-color button");
 		if (blackButton) {
 			fireEvent.mouseEnter(blackButton);
 			expect(defaultProps.onHover).toHaveBeenCalledWith("#000000");
@@ -132,9 +128,7 @@ describe("ColorPicker", () => {
 		fireEvent.click(button);
 
 		// R, G, B inputs are type=number
-		const rgbInputs = document.querySelectorAll(
-			".color-picker-rgb-inputs input",
-		);
+		const rgbInputs = document.querySelectorAll(".color-picker-rgb-inputs input");
 		expect(rgbInputs.length).toBe(3);
 
 		const gInput = rgbInputs[1]; // Green
@@ -150,12 +144,8 @@ describe("ColorPicker", () => {
 		const button = screen.getByRole("button", { name: "Test Color Picker" });
 		fireEvent.click(button);
 
-		const rgbInputsContainer = document.querySelector(
-			".color-picker-rgb-inputs",
-		);
-		const rInput = document.querySelectorAll(
-			".color-picker-rgb-inputs input",
-		)[0]; // Red
+		const rgbInputsContainer = document.querySelector(".color-picker-rgb-inputs");
+		const rInput = document.querySelectorAll(".color-picker-rgb-inputs input")[0]; // Red
 
 		if (rgbInputsContainer && rInput) {
 			// Simulate wheel event

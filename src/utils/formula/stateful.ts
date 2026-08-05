@@ -163,7 +163,11 @@ export function statefulLag(
 	return buf[0];
 }
 
-export function statefulDiff(ctx: FormulaContext, id: number, val: number): number {
+export function statefulDiff(
+	ctx: FormulaContext,
+	id: number,
+	val: number,
+): number {
 	if (!ctx.hasPrev[id]) {
 		ctx.hasPrev[id] = true;
 		ctx.prevVals[id] = val;

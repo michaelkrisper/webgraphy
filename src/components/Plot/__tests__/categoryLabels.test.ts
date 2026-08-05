@@ -39,9 +39,7 @@ function makeDataset(
 		id,
 		name: id,
 		columns: columns.map((c) => c.name),
-		data: columns.map((c) =>
-			makeColumn(c.categoryLabels, c.data, c.refPoint),
-		),
+		data: columns.map((c) => makeColumn(c.categoryLabels, c.data, c.refPoint)),
 		rowCount: 0,
 		xAxisColumn: xOpts.xAxisColumn ?? "x",
 		xAxisId: xOpts.xAxisId ?? "X",
@@ -166,16 +164,10 @@ describe("computeXAxisCategoryLabels", () => {
 	});
 
 	it("ignores datasets that are not in the active set", () => {
-		const ds = makeDataset(
-			"inactive",
-			[{ name: "x", categoryLabels: ["a"] }],
-			{ xAxisId: "X" },
-		);
-		const result = computeXAxisCategoryLabels(
-			new Set(),
-			[ds],
-			[makeXAxis("X")],
-		);
+		const ds = makeDataset("inactive", [{ name: "x", categoryLabels: ["a"] }], {
+			xAxisId: "X",
+		});
+		const result = computeXAxisCategoryLabels(new Set(), [ds], [makeXAxis("X")]);
 		expect(result.size).toBe(0);
 	});
 
@@ -196,11 +188,9 @@ describe("computeXAxisCategoryLabels", () => {
 
 	it("auto-detects when two datasets agree on the same labels", () => {
 		const labels = ["A", "B"];
-		const ds1 = makeDataset(
-			"ds1",
-			[{ name: "x", categoryLabels: labels }],
-			{ xAxisId: "X" },
-		);
+		const ds1 = makeDataset("ds1", [{ name: "x", categoryLabels: labels }], {
+			xAxisId: "X",
+		});
 		const ds2 = makeDataset(
 			"ds2",
 			[{ name: "x", categoryLabels: labels.slice() }],
@@ -215,16 +205,12 @@ describe("computeXAxisCategoryLabels", () => {
 	});
 
 	it("returns undefined for a non-forced axis when datasets disagree", () => {
-		const ds1 = makeDataset(
-			"ds1",
-			[{ name: "x", categoryLabels: ["A", "B"] }],
-			{ xAxisId: "X" },
-		);
-		const ds2 = makeDataset(
-			"ds2",
-			[{ name: "x", categoryLabels: ["A", "C"] }],
-			{ xAxisId: "X" },
-		);
+		const ds1 = makeDataset("ds1", [{ name: "x", categoryLabels: ["A", "B"] }], {
+			xAxisId: "X",
+		});
+		const ds2 = makeDataset("ds2", [{ name: "x", categoryLabels: ["A", "C"] }], {
+			xAxisId: "X",
+		});
 		const result = computeXAxisCategoryLabels(
 			new Set(["ds1", "ds2"]),
 			[ds1, ds2],

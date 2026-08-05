@@ -23,9 +23,9 @@ describe("getOrComputeMonotonicity", () => {
 	});
 
 	it("treats single-element and empty arrays as monotonic", () => {
-		expect(
-			getOrComputeMonotonicity(new Float32Array([42]), new WeakMap()),
-		).toBe(true);
+		expect(getOrComputeMonotonicity(new Float32Array([42]), new WeakMap())).toBe(
+			true,
+		);
 		expect(getOrComputeMonotonicity(new Float32Array(), new WeakMap())).toBe(
 			true,
 		);
@@ -178,13 +178,7 @@ describe("computeDrawRanges", () => {
 			{ start: 999, count: 999 },
 			{ start: 999, count: 999 },
 		];
-		computeDrawRanges(
-			[{ start: 0, end: 5 }],
-			true,
-			0,
-			10,
-			out,
-		);
+		computeDrawRanges([{ start: 0, end: 5 }], true, 0, 10, out);
 		// One range written; scratch truncated to length 1.
 		expect(out).toEqual([{ start: 0, count: 6 }]);
 	});

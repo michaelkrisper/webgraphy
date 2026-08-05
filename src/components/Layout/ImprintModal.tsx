@@ -28,8 +28,8 @@ export const ImprintModal: React.FC<ImprintModalProps> = ({ onClose }) => {
 			</p>
 
 			<p className="imprint-note">
-				This open-source project provides high-performance data visualization in
-				the browser.
+				This open-source project provides high-performance data visualization in the
+				browser.
 			</p>
 		</Modal>
 	);

@@ -222,4 +222,3 @@ describe("drawSeriesLines", () => {
 		expect(mockGl.bufferData).toHaveBeenCalledTimes(2);
 	});
 });
-

@@ -24,11 +24,13 @@ const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 interface DatasetItemProps {
 	dataset: Dataset;
 	setCalculatingDatasetId: (id: string) => void;
-	setEditingColumn: (col: {
-		datasetId: string;
-		name: string;
-		formula: string;
-	} | null) => void;
+	setEditingColumn: (
+		col: {
+			datasetId: string;
+			name: string;
+			formula: string;
+		} | null,
+	) => void;
 }
 
 export const DatasetItem: React.FC<DatasetItemProps> = ({
@@ -128,23 +130,14 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 					>
 						<PopupPicker
 							options={X_AXIS_OPTIONS}
-							current={
-								parseInt(
-									(ds.xAxisId || "axis-1").split("-")[1],
-									10,
-								) || 1
-							}
-							onChange={(n) =>
-								updateDataset(ds.id, { xAxisId: `axis-${n}` })
-							}
+							current={parseInt((ds.xAxisId || "axis-1").split("-")[1], 10) || 1}
+							onChange={(n) => updateDataset(ds.id, { xAxisId: `axis-${n}` })}
 							popoverId={`x-axis-popover-${ds.id}`}
 							renderTrigger={({ onClick, ref }) => (
 								<button
 									ref={ref}
 									className="sb-xaxis-btn-mono"
-									onClick={
-										datasets.length === 1 ? undefined : onClick
-									}
+									onClick={datasets.length === 1 ? undefined : onClick}
 									type="button"
 									title="Select X-Axis (1-9)"
 									aria-label="Select X-Axis"
@@ -158,8 +151,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										borderBottom: `1px solid ${t.border}`,
 										borderLeft: `1px solid ${t.border}`,
 										borderRight: "none",
-										cursor:
-											datasets.length === 1 ? "default" : "pointer",
+										cursor: datasets.length === 1 ? "default" : "pointer",
 										color: t.accent,
 										display: "flex",
 										alignItems: "center",
@@ -249,8 +241,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 					const isCalc = !!colData?.formula;
 					const label = col;
 					const isRenaming =
-						renamingColumn?.datasetId === ds.id &&
-						renamingColumn?.col === col;
+						renamingColumn?.datasetId === ds.id && renamingColumn?.col === col;
 					return (
 						<div
 							key={col}
@@ -267,9 +258,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 									value={renamingColumn.value}
 									onChange={(e) =>
 										setRenamingColumn((prev) =>
-											prev
-												? { ...prev, value: e.target.value }
-												: prev,
+											prev ? { ...prev, value: e.target.value } : prev,
 										)
 									}
 									onBlur={() => {
@@ -311,11 +300,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 											cursor: "pointer",
 											fontWeight: "600",
 										}}
-										title={
-											isCalc
-												? `${label}\nFormula: ${colData.formula}`
-												: label
-										}
+										title={isCalc ? `${label}\nFormula: ${colData.formula}` : label}
 									>
 										{isCalc ? `ƒ ${label}` : label}
 									</button>
@@ -370,9 +355,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 													✎
 												</button>
 												<button
-													onClick={() =>
-														removeCalculatedColumn(ds.id, col)
-													}
+													onClick={() => removeCalculatedColumn(ds.id, col)}
 													style={{
 														display: "flex",
 														alignItems: "center",

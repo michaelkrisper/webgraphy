@@ -11,14 +11,20 @@ describe("preview", () => {
 		it("should parse basic CSV", () => {
 			const data = generatePreviewData("A,B\n1,2\n3,4", "csv", ",", 1, "#");
 			expect(data.headers).toEqual(["A", "B"]);
-			expect(data.rows).toEqual([["1", "2"], ["3", "4"]]);
+			expect(data.rows).toEqual([
+				["1", "2"],
+				["3", "4"],
+			]);
 			expect(data.totalRows).toBe(2);
 		});
 		it("should parse basic JSON", () => {
 			const jsonStr = '[{"A":"1","B":"2"},{"A":"3","B":"4"}]';
 			const data = generatePreviewData(jsonStr, "json", ",", 1, "#");
 			expect(data.headers).toEqual(["A", "B"]);
-			expect(data.rows).toEqual([{ A: "1", B: "2" }, { A: "3", B: "4" }]);
+			expect(data.rows).toEqual([
+				{ A: "1", B: "2" },
+				{ A: "3", B: "4" },
+			]);
 			expect(data.totalRows).toBe(2);
 		});
 	});
@@ -33,7 +39,9 @@ describe("preview", () => {
 				totalRows: 1,
 			};
 			const configs = generateColumnConfigs(previewData, {}, ".", "csv");
-			expect(configs).toEqual([{ index: 0, name: "Col1", type: "numeric", dateFormat: undefined }]);
+			expect(configs).toEqual([
+				{ index: 0, name: "Col1", type: "numeric", dateFormat: undefined },
+			]);
 		});
 		it("should use overrides", () => {
 			const previewData = {
@@ -43,8 +51,15 @@ describe("preview", () => {
 				gapStart: null,
 				totalRows: 1,
 			};
-			const configs = generateColumnConfigs(previewData, { 0: { type: "categorical" } }, ".", "csv");
-			expect(configs).toEqual([{ index: 0, name: "Col1", type: "categorical", dateFormat: undefined }]);
+			const configs = generateColumnConfigs(
+				previewData,
+				{ 0: { type: "categorical" } },
+				".",
+				"csv",
+			);
+			expect(configs).toEqual([
+				{ index: 0, name: "Col1", type: "categorical", dateFormat: undefined },
+			]);
 		});
 	});
 

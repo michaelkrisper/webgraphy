@@ -50,8 +50,14 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 				{/* Hidden buttons to trigger specific onChange calls in tests */}
 				{popoverId === "export-popover" && (
 					<>
-						<button data-testid="export-svg-trigger" onClick={() => onChange("svg")} />
-						<button data-testid="export-png-trigger" onClick={() => onChange("png")} />
+						<button
+							data-testid="export-svg-trigger"
+							onClick={() => onChange("svg")}
+						/>
+						<button
+							data-testid="export-png-trigger"
+							onClick={() => onChange("png")}
+						/>
 					</>
 				)}
 				{popoverId === "theme-popover" && (
@@ -91,7 +97,11 @@ describe("SidebarHeader", () => {
 				sel ? sel(defaultState) : defaultState,
 		);
 
-		(useTheme as unknown as Mock).mockReturnValue(["light", vi.fn(), mockSetTheme]);
+		(useTheme as unknown as Mock).mockReturnValue([
+			"light",
+			vi.fn(),
+			mockSetTheme,
+		]);
 	});
 
 	it("renders correctly", () => {
@@ -101,7 +111,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTitle("Import Data Source")).toBeInTheDocument();
@@ -121,7 +131,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByAltText("webgraphy logo"));
@@ -135,7 +145,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Collapse Sidebar"));
@@ -149,7 +159,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Import Data Source"));
@@ -163,7 +173,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Load Demo Data"));
@@ -177,7 +187,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Hide Vertical Grid"));
@@ -191,7 +201,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Hide Crosshair"));
@@ -205,7 +215,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Hide Legend"));
@@ -219,7 +229,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("export-svg-trigger"));
@@ -236,7 +246,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("theme-trigger"));
@@ -264,7 +274,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
-			/>
+			/>,
 		);
 
 		expect(screen.getByTitle("Show Vertical Grid")).toBeInTheDocument();

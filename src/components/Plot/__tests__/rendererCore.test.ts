@@ -82,9 +82,7 @@ describe("RendererCore", () => {
 
 		expect(gl.drawArraysInstanced).not.toHaveBeenCalled();
 		// Halo + foreground pass over the single visible range.
-		const pointCalls = gl.drawArrays.mock.calls.filter(
-			(c) => c[0] === gl.POINTS,
-		);
+		const pointCalls = gl.drawArrays.mock.calls.filter((c) => c[0] === gl.POINTS);
 		expect(pointCalls).toHaveLength(2);
 		expect(pointCalls[0]).toEqual([gl.POINTS, 0, 10]);
 	});
@@ -158,26 +156,24 @@ describe("RendererCore", () => {
 		});
 
 		const mockCanvas2d = () =>
-			vi
-				.spyOn(HTMLCanvasElement.prototype, "getContext")
-				.mockImplementation(
-					() =>
-						({
-							measureText: vi.fn((text: string) => ({
-								width: text.length * 5,
-								actualBoundingBoxAscent: 7,
-								actualBoundingBoxDescent: 2,
-							})),
-							fillText: vi.fn(),
-							clearRect: vi.fn(),
-							scale: vi.fn(),
-							setTransform: vi.fn(),
-							set font(_v: string) {},
-							set fillStyle(_v: string) {},
-							set textAlign(_v: string) {},
-							set textBaseline(_v: string) {},
-						}) as unknown as CanvasRenderingContext2D,
-				);
+			vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+				() =>
+					({
+						measureText: vi.fn((text: string) => ({
+							width: text.length * 5,
+							actualBoundingBoxAscent: 7,
+							actualBoundingBoxDescent: 2,
+						})),
+						fillText: vi.fn(),
+						clearRect: vi.fn(),
+						scale: vi.fn(),
+						setTransform: vi.fn(),
+						set font(_v: string) {},
+						set fillStyle(_v: string) {},
+						set textAlign(_v: string) {},
+						set textBaseline(_v: string) {},
+					}) as unknown as CanvasRenderingContext2D,
+			);
 
 		const labels: RenderLabel[] = [
 			{
@@ -233,11 +229,11 @@ describe("RendererCore", () => {
 		});
 
 		it("skips the label pass entirely when rasterization is unavailable", () => {
-			vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-				function (this: HTMLCanvasElement, kind: string) {
+			vi
+				.spyOn(HTMLCanvasElement.prototype, "getContext")
+				.mockImplementation(function (this: HTMLCanvasElement, kind: string) {
 					return kind === "2d" ? null : null;
-				} as never,
-			);
+				} as never);
 			const { gl, core } = makeCore();
 			core.setViewport(viewport);
 			core.setSeries([]);

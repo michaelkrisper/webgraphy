@@ -2,7 +2,11 @@ import type { FormulaResult, FormulaContext } from "./types";
 import { FormulaError } from "./types";
 import { mathModulo, isTruthy } from "./math";
 import { evaluateFuncToken } from "./evaluate";
-import { resolveBracketedReferences, tokenizeFormula, shuntingYard } from "./parser";
+import {
+	resolveBracketedReferences,
+	tokenizeFormula,
+	shuntingYard,
+} from "./parser";
 
 export function compileFormula(
 	formula: string,
@@ -42,8 +46,7 @@ export function compileFormula(
 		const ensureTimeColumn = () => {
 			if (timeVarIdx !== -1) return timeVarIdx;
 			let colIndex = availableColumns.findIndex(
-				(c) =>
-					c.toLowerCase().includes("time") || c.toLowerCase().includes("date"),
+				(c) => c.toLowerCase().includes("time") || c.toLowerCase().includes("date"),
 			);
 			if (colIndex === -1) colIndex = 0;
 			timeVarIdx = usedColumnIndices.indexOf(colIndex);
@@ -130,8 +133,7 @@ export function compileFormula(
 					} else if (type === "FUNC") {
 						const argCount = token.args ?? 1;
 						argsScratch.length = argCount;
-						for (let j = argCount - 1; j >= 0; j--)
-							argsScratch[j] = stack[--sp];
+						for (let j = argCount - 1; j >= 0; j--) argsScratch[j] = stack[--sp];
 						stack[sp++] = evaluateFuncToken(
 							token,
 							argsScratch,

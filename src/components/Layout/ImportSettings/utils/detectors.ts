@@ -3,7 +3,10 @@ import type { ColumnType } from "../../../../types/import";
 const CONSISTENCY_WEIGHT = 1000;
 const MAX_LINES_TO_SAMPLE = 100;
 
-export function calculateDelimiterScore(lines: string[], delimiter: string): number {
+export function calculateDelimiterScore(
+	lines: string[],
+	delimiter: string,
+): number {
 	let totalCount = 0;
 	const counts = new Map<number, number>();
 	let maxConsistency = 0;
@@ -50,7 +53,10 @@ export function detectDelimiter(
 	return best;
 }
 
-export function detectDecimalPoint(fileContent: string, delimiter: string): string {
+export function detectDecimalPoint(
+	fileContent: string,
+	delimiter: string,
+): string {
 	if (!fileContent) return ".";
 	const lines = fileContent
 		.split(/\r?\n/)
@@ -93,10 +99,8 @@ export function detectColumnTypeAndFormat(
 		) {
 			type = "date";
 			if (firstVal.match(/^\d{4}-\d{2}-\d{2}$/)) dateFormat = "YYYY-MM-DD";
-			else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/))
-				dateFormat = "DD.MM.YYYY";
-			else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/))
-				dateFormat = "DD/MM/YYYY";
+			else if (firstVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) dateFormat = "DD.MM.YYYY";
+			else if (firstVal.match(/^\d{2}\/\d{2}\/\d{4}$/)) dateFormat = "DD/MM/YYYY";
 		} else {
 			type = "categorical";
 		}

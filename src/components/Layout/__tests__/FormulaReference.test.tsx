@@ -16,7 +16,9 @@ describe("FormulaReference", () => {
 		expect(screen.getByPlaceholderText(/Search functions/)).toBeInTheDocument();
 		expect(screen.getByRole("combobox")).toHaveValue("all");
 		expect(screen.getByRole("heading", { name: "Math" })).toBeInTheDocument();
-		expect(screen.getByRole("heading", { name: "Constants" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Constants" }),
+		).toBeInTheDocument();
 	});
 
 	it("filters items by a text search query", () => {
@@ -27,8 +29,12 @@ describe("FormulaReference", () => {
 		fireEvent.change(searchInput, { target: { value: "rolling" } });
 
 		// Checking heading text which is more reliable
-		expect(screen.queryByRole("heading", { name: "Math" })).not.toBeInTheDocument();
-		expect(screen.getByRole("heading", { name: "Rolling / smoothing" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", { name: "Math" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Rolling / smoothing" }),
+		).toBeInTheDocument();
 	});
 
 	it("filters items by category select", () => {
@@ -39,7 +45,9 @@ describe("FormulaReference", () => {
 		fireEvent.change(select, { target: { value: "math" } });
 
 		expect(screen.getByRole("heading", { name: "Math" })).toBeInTheDocument();
-		expect(screen.queryByRole("heading", { name: "Logic" })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", { name: "Logic" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("shows an empty state message when a search query yields no results", () => {
@@ -59,9 +67,7 @@ describe("FormulaReference", () => {
 		render(<FormulaReference onInsert={onInsert} />);
 
 		const insertButtons = screen.getAllByRole("button");
-		const mathInsertButton = insertButtons.find((b) =>
-			b.title.includes("abs("),
-		);
+		const mathInsertButton = insertButtons.find((b) => b.title.includes("abs("));
 		if (!mathInsertButton)
 			throw new Error("Could not find insert button for abs");
 

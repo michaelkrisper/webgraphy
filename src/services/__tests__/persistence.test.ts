@@ -65,9 +65,7 @@ describe("persistence", () => {
 			expect(mockDb.createObjectStore).toHaveBeenCalledWith("datasets", {
 				keyPath: "id",
 			});
-			expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith(
-				"app_state",
-			);
+			expect(mockDb.objectStoreNames.contains).toHaveBeenCalledWith("app_state");
 			expect(mockDb.createObjectStore).toHaveBeenCalledWith("app_state");
 		});
 
@@ -301,10 +299,7 @@ describe("persistence", () => {
 				crosshairVisible: true,
 			});
 			expect(mockDb.put).toHaveBeenCalledTimes(2);
-			expect(mockDb.delete).toHaveBeenCalledWith(
-				"app_state",
-				"webgraphy-state",
-			);
+			expect(mockDb.delete).toHaveBeenCalledWith("app_state", "webgraphy-state");
 		});
 
 		it("should return null when no state present", async () => {
@@ -334,9 +329,7 @@ describe("persistence", () => {
 					.mockResolvedValueOnce(undefined),
 			};
 			openDBMock.mockResolvedValueOnce(mockDb);
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			try {
 				const loaded = await persistence.loadAppState();
 				expect(loaded).toBeNull();
@@ -354,14 +347,8 @@ describe("persistence", () => {
 				"app_state",
 				"webgraphy-viewport",
 			);
-			expect(mockDb.delete).toHaveBeenCalledWith(
-				"app_state",
-				"webgraphy-config",
-			);
-			expect(mockDb.delete).toHaveBeenCalledWith(
-				"app_state",
-				"webgraphy-state",
-			);
+			expect(mockDb.delete).toHaveBeenCalledWith("app_state", "webgraphy-config");
+			expect(mockDb.delete).toHaveBeenCalledWith("app_state", "webgraphy-state");
 		});
 	});
 
@@ -371,9 +358,7 @@ describe("persistence", () => {
 			const idbMock = await import("idb");
 			const openDBMockInner = vi.mocked(idbMock.openDB);
 			openDBMockInner.mockRejectedValue(new Error("Failed to open IndexedDB"));
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			try {
 				const persistenceModule = await import("../persistence");
 				const localPersistence = persistenceModule.persistence;
@@ -392,10 +377,9 @@ describe("persistence", () => {
 				await vi.advanceTimersByTimeAsync(400);
 				await vi.runAllTimersAsync();
 
-				expect(consoleSpy).toHaveBeenCalledWith(
-					"saveDataset failed",
-					{ error: expect.any(Error) },
-				);
+				expect(consoleSpy).toHaveBeenCalledWith("saveDataset failed", {
+					error: expect.any(Error),
+				});
 			} finally {
 				consoleSpy.mockRestore();
 			}
@@ -453,9 +437,7 @@ describe("persistence", () => {
 		});
 
 		it("should catch error when clearAppState fails", async () => {
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			const error = new Error("Delete failed");
 			const mockDb = {
 				delete: vi.fn().mockRejectedValue(error),
@@ -464,17 +446,14 @@ describe("persistence", () => {
 
 			await persistence.clearAppState();
 
-			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to clear state",
-				{ error: expect.any(Error) },
-			);
+			expect(consoleSpy).toHaveBeenCalledWith("Failed to clear state", {
+				error: expect.any(Error),
+			});
 			consoleSpy.mockRestore();
 		});
 
 		it("should catch error when putAppState fails", async () => {
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			const error = new Error("Put failed");
 			const mockDb = {
 				put: vi.fn().mockRejectedValue(error),
@@ -483,17 +462,15 @@ describe("persistence", () => {
 
 			await persistence.saveViewport({ xAxes: [], yAxes: [] });
 
-			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to save state",
-				{ label: "viewport", error: expect.any(Error) },
-			);
+			expect(consoleSpy).toHaveBeenCalledWith("Failed to save state", {
+				label: "viewport",
+				error: expect.any(Error),
+			});
 			consoleSpy.mockRestore();
 		});
 
 		it("should catch error when loadAppState fails", async () => {
-			const consoleSpy = vi
-				.spyOn(console, "error")
-				.mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			const error = new Error("Load failed");
 			const mockDb = {
 				get: vi.fn().mockRejectedValue(error),
@@ -503,10 +480,9 @@ describe("persistence", () => {
 			const result = await persistence.loadAppState();
 
 			expect(result).toBeNull();
-			expect(consoleSpy).toHaveBeenCalledWith(
-				"Failed to load state",
-				{ error: expect.any(Error) },
-			);
+			expect(consoleSpy).toHaveBeenCalledWith("Failed to load state", {
+				error: expect.any(Error),
+			});
 			consoleSpy.mockRestore();
 		});
 	});

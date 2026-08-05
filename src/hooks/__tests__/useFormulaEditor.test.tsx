@@ -51,7 +51,6 @@ const colSuggestion = (label: string, insert: string): Suggestion => ({
 });
 
 describe("useFormulaEditor", () => {
-
 	it("suggests constants and returns empty on non-identifiers", () => {
 		const { textareaRef } = createMockTextarea();
 		const { result } = renderHook(() =>
@@ -93,7 +92,11 @@ describe("useFormulaEditor", () => {
 
 	it("inserts text correctly when textareaRef is empty", () => {
 		const { result } = renderHook(() =>
-			useFormulaEditor({ initialFormula: "a + ", columns, textareaRef: { current: null } }),
+			useFormulaEditor({
+				initialFormula: "a + ",
+				columns,
+				textareaRef: { current: null },
+			}),
 		);
 
 		act(() => {
@@ -358,12 +361,10 @@ describe("useFormulaEditor", () => {
 });
 
 describe("signatureContext", () => {
-
 	it("resolves legacy suffix root aliases", () => {
 		const ctx = signatureContext("sumhourl([t])", 9);
 		expect(ctx?.fn.name).toBe("sumhour");
 	});
-
 
 	it("returns null when function name cannot be extracted", () => {
 		const ctx = signatureContext("([t])", 1);

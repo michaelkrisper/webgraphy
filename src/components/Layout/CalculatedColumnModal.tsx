@@ -220,9 +220,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 					{validation.msg && (
 						<div className="calc-formula-msg calc-formula-msg--error">
 							{validation.pos >= 0 && (
-								<span className="calc-formula-msg-pos">
-									col {validation.pos + 1}:
-								</span>
+								<span className="calc-formula-msg-pos">col {validation.pos + 1}:</span>
 							)}{" "}
 							{validation.msg}
 						</div>
@@ -242,17 +240,11 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 									onMouseDown={(e) => {
 										e.preventDefault();
 										if (textareaRef.current) {
-											applySuggestion(
-												s,
-												formula,
-												textareaRef.current.selectionStart,
-											);
+											applySuggestion(s, formula, textareaRef.current.selectionStart);
 										}
 									}}
 									className={`calc-suggestion-item calc-suggestion-item--${s.kind} ${
-										i === selectedSuggestion
-											? "calc-suggestion-item--active"
-											: ""
+										i === selectedSuggestion ? "calc-suggestion-item--active" : ""
 									}`}
 									role="option"
 									aria-selected={i === selectedSuggestion}
@@ -315,8 +307,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 						disabled={isCalculating || !!validation.msg}
 						className="calc-btn-submit"
 						style={{
-							cursor:
-								isCalculating || validation.msg ? "not-allowed" : "pointer",
+							cursor: isCalculating || validation.msg ? "not-allowed" : "pointer",
 							opacity: isCalculating ? 0.8 : validation.msg ? 0.6 : 1,
 						}}
 					>

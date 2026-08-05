@@ -83,8 +83,7 @@ export function signatureContext(
 				while (j >= 0 && /[a-zA-Z0-9_]/.test(text[j])) j--;
 				const name = text.substring(j + 1, i).toLowerCase();
 				if (!name) return null;
-				const meta =
-					FUNCTION_BY_NAME.get(name) ?? lookupLegacy(name);
+				const meta = FUNCTION_BY_NAME.get(name) ?? lookupLegacy(name);
 				if (!meta) return null;
 				return { fn: meta, argIndex };
 			}
@@ -204,8 +203,8 @@ export function useFormulaEditor({
 			const newPos = replaceStart + cursorOffset;
 			requestAnimationFrame(() => {
 				if (textareaRef.current) {
-					textareaRef.current.selectionStart =
-						textareaRef.current.selectionEnd = newPos;
+					textareaRef.current.selectionStart = textareaRef.current.selectionEnd =
+						newPos;
 					textareaRef.current.focus();
 					setCursorPos(newPos);
 				}
@@ -228,8 +227,7 @@ export function useFormulaEditor({
 				const newFormula = before + e.key + selected + closing + after;
 				setFormula(newFormula);
 				requestAnimationFrame(() => {
-					ta.selectionStart = ta.selectionEnd =
-						selectionStart + 1 + selected.length;
+					ta.selectionStart = ta.selectionEnd = selectionStart + 1 + selected.length;
 					setCursorPos(selectionStart + 1 + selected.length);
 				});
 				return;
@@ -258,11 +256,7 @@ export function useFormulaEditor({
 				if (e.key === "Tab" || e.key === "Enter") {
 					if (suggestions[selectedSuggestion]) {
 						e.preventDefault();
-						applySuggestion(
-							suggestions[selectedSuggestion],
-							value,
-							selectionStart,
-						);
+						applySuggestion(suggestions[selectedSuggestion], value, selectionStart);
 						return;
 					}
 				}
@@ -305,16 +299,14 @@ export function useFormulaEditor({
 			const cursorOffset = endsWithParen ? text.length : insertion.length;
 
 			setFormula((prev) => {
-				if (ta && pos >= 0)
-					return prev.slice(0, pos) + insertion + prev.slice(pos);
+				if (ta && pos >= 0) return prev.slice(0, pos) + insertion + prev.slice(pos);
 				return prev + insertion;
 			});
 
 			requestAnimationFrame(() => {
 				if (ta) {
 					const newPos =
-						(pos >= 0 ? pos : ta.value.length - insertion.length) +
-						cursorOffset;
+						(pos >= 0 ? pos : ta.value.length - insertion.length) + cursorOffset;
 					ta.selectionStart = ta.selectionEnd = newPos;
 					ta.focus();
 					setCursorPos(newPos);

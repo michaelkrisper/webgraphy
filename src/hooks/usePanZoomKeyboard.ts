@@ -6,12 +6,7 @@
 
 import { useEffect } from "react";
 
-const PAN_KEYS = new Set([
-	"ArrowLeft",
-	"ArrowRight",
-	"ArrowUp",
-	"ArrowDown",
-]);
+const PAN_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 const ZOOM_KEYS = new Set(["+", "-"]);
 const ZOOM_PREVENT_DEFAULT_KEYS = new Set(["+", "-", "=", "_"]);
 

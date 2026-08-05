@@ -25,12 +25,12 @@ beforeEach(() => {
 		return mockContext as unknown as CanvasRenderingContext2D;
 	});
 
-	vi.spyOn(window, "requestAnimationFrame").mockImplementation(
-		(cb: FrameRequestCallback) => {
+	vi
+		.spyOn(window, "requestAnimationFrame")
+		.mockImplementation((cb: FrameRequestCallback) => {
 			cb(performance.now());
 			return 1;
-		},
-	);
+		});
 
 	vi.spyOn(window, "cancelAnimationFrame").mockImplementation(vi.fn());
 
@@ -79,11 +79,7 @@ describe("Crosshair", () => {
 		const containerRef = React.createRef<HTMLDivElement>();
 		render(
 			<div ref={containerRef} style={{ width: "800px", height: "600px" }}>
-				<Crosshair
-					{...defaultProps}
-					containerRef={containerRef}
-					isPanning={true}
-				/>
+				<Crosshair {...defaultProps} containerRef={containerRef} isPanning={true} />
 			</div>,
 		);
 

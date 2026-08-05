@@ -1,6 +1,13 @@
 // src/components/Plot/ChartContainer.tsx
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
@@ -214,29 +221,26 @@ export default function ChartContainer() {
 		[usedYAxisIdsSet, chartHeight, yAxisCategoryLabels],
 	);
 
-	const syncViewportRef = useRef<
-		(force?: boolean, immediate?: boolean) => void
-	>(() => {});
+	const syncViewportRef = useRef<(force?: boolean, immediate?: boolean) => void>(
+		() => {},
+	);
 	const rafId = useRef<number | null>(null);
 	const overlayInitRef = useRef(false);
 
 	// 5. Hooks
-	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale(
-		{
-			isLoaded,
-			series,
-			datasets,
-			xAxes,
-			activeYAxes,
-			activeXAxesUsed,
-			padding,
-			chartHeight,
-			targetXAxes,
-			targetYs,
-			syncViewport: (force, immediate) =>
-				syncViewportRef.current(force, immediate),
-		},
-	);
+	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale({
+		isLoaded,
+		series,
+		datasets,
+		xAxes,
+		activeYAxes,
+		activeXAxesUsed,
+		padding,
+		chartHeight,
+		targetXAxes,
+		targetYs,
+		syncViewport: (force, immediate) => syncViewportRef.current(force, immediate),
+	});
 
 	const handleFitAll = useCallback(() => {
 		handleAutoScaleX();
@@ -269,8 +273,7 @@ export default function ChartContainer() {
 		yAxes,
 		targetXAxes,
 		targetYs,
-		syncViewport: (force, immediate) =>
-			syncViewportRef.current(force, immediate),
+		syncViewport: (force, immediate) => syncViewportRef.current(force, immediate),
 		xAxesMetrics,
 		axisLayout,
 		leftAxes,
@@ -343,13 +346,12 @@ export default function ChartContainer() {
 					targetYs.current,
 				);
 
-				const { xUpdates, yUpdates, hasUpdates }: AxesFrame =
-					syncAxesWithTargets(
-						state,
-						targetXAxes.current,
-						targetYs.current,
-						syncScratchRef.current,
-					);
+				const { xUpdates, yUpdates, hasUpdates }: AxesFrame = syncAxesWithTargets(
+					state,
+					targetXAxes.current,
+					targetYs.current,
+					syncScratchRef.current,
+				);
 
 				// Wheel zoom eases toward its target over a few frames; everything
 				// else (pan, keyboard, forced syncs) snaps via factor 1, which also
@@ -423,12 +425,7 @@ export default function ChartContainer() {
 					};
 					webglRef.current?.setOverlay(scratch);
 					webglRef.current?.setLabels(
-						buildLabels(
-							xLayout,
-							yLayout,
-							labelCtx,
-							labelStringCacheRef.current,
-						),
+						buildLabels(xLayout, yLayout, labelCtx, labelStringCacheRef.current),
 					);
 					webglRef.current?.redraw(liveX, liveY);
 
@@ -712,9 +709,7 @@ export default function ChartContainer() {
 						onToggleVisibility={(id, hidden) =>
 							useGraphStore.getState().updateSeriesVisibility(id, hidden)
 						}
-						onHighlight={(id) =>
-							useGraphStore.getState().setHighlightedSeries(id)
-						}
+						onHighlight={(id) => useGraphStore.getState().setHighlightedSeries(id)}
 					/>
 				)}
 			</main>

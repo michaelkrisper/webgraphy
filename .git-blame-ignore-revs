@@ -1,0 +1,3 @@
+# Repo-wide Biome reformat; no behavioural change.
+# Configure once with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+9225217deb0aca16f850bb7665c3bedc1ca8cc38

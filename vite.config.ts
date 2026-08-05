@@ -27,10 +27,7 @@ export default defineConfig({
 			transformIndexHtml(html) {
 				return html
 					.replace(/script-src 'self';/g, "script-src 'self' 'unsafe-inline';")
-					.replace(
-						/style-src 'self'/g,
-						"style-src 'self' 'unsafe-inline'",
-					);
+					.replace(/style-src 'self'/g, "style-src 'self' 'unsafe-inline'");
 			},
 		},
 		react(),
