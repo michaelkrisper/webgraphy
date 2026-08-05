@@ -179,6 +179,9 @@ function needsDashedLineRebuild(
 	rangesLen: number,
 	firstStart: number,
 ): boolean {
+	// Pan = translation (xRange/yRange constant) so cache hits every frame.
+	// Zoom changes them, miss is amortized over many frames. Exact === is
+	// fine because pan preserves range exactly in floating point.
 	return (
 		!prev ||
 		prev.xRange !== bundle.xRange ||
@@ -192,16 +195,27 @@ function needsDashedLineRebuild(
 	);
 }
 
+interface BuildBufferContext {
+	totalLineSegs: number;
+	segParamsRef: Map<string, SegParams>;
+	segBufferKey: string;
+	rangesLen: number;
+	firstStart: number;
+}
+
 function buildDashedLineBuffer(
 	gl: WebGL2RenderingContext,
 	segBuffer: WebGLBuffer,
 	bundle: SeriesDrawBundle,
-	totalLineSegs: number,
-	segParamsRef: Map<string, SegParams>,
-	segBufferKey: string,
-	rangesLen: number,
-	firstStart: number,
+	ctx: BuildBufferContext,
 ): void {
+	const {
+		totalLineSegs,
+		segParamsRef,
+		segBufferKey,
+		rangesLen,
+		firstStart,
+	} = ctx;
 	const {
 		drawRanges,
 		xData,
@@ -319,11 +333,13 @@ function drawDashedLines(
 			gl,
 			segBuffer,
 			bundle,
-			totalLineSegs,
-			segParamsRef,
-			segBufferKey,
-			rangesLen,
-			firstStart,
+			{
+				totalLineSegs,
+				segParamsRef,
+				segBufferKey,
+				rangesLen,
+				firstStart,
+			}
 		);
 	} else {
 		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
