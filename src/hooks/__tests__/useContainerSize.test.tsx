@@ -45,7 +45,8 @@ describe("useContainerSize", () => {
 	beforeEach(() => {
 		MockResizeObserver.instances = [];
 		origRO = globalThis.ResizeObserver;
-		globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+		globalThis.ResizeObserver =
+			MockResizeObserver as unknown as typeof ResizeObserver;
 	});
 
 	afterEach(() => {

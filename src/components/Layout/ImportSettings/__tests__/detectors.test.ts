@@ -42,13 +42,22 @@ describe("detectors", () => {
 			expect(detectColumnTypeAndFormat("", ".")).toEqual({ type: "ignore" });
 		});
 		it("should detect numeric", () => {
-			expect(detectColumnTypeAndFormat("1.23", ".")).toEqual({ type: "numeric", dateFormat: undefined });
+			expect(detectColumnTypeAndFormat("1.23", ".")).toEqual({
+				type: "numeric",
+				dateFormat: undefined,
+			});
 		});
 		it("should detect date", () => {
-			expect(detectColumnTypeAndFormat("2023-01-01", ".")).toEqual({ type: "date", dateFormat: "YYYY-MM-DD" });
+			expect(detectColumnTypeAndFormat("2023-01-01", ".")).toEqual({
+				type: "date",
+				dateFormat: "YYYY-MM-DD",
+			});
 		});
 		it("should detect categorical", () => {
-			expect(detectColumnTypeAndFormat("abc", ".")).toEqual({ type: "categorical", dateFormat: undefined });
+			expect(detectColumnTypeAndFormat("abc", ".")).toEqual({
+				type: "categorical",
+				dateFormat: undefined,
+			});
 		});
 	});
 });

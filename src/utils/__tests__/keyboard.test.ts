@@ -4,7 +4,9 @@ import { applyKeyboardPan, applyKeyboardZoom } from "../keyboard";
 
 describe("applyKeyboardPan", () => {
 	it("should return false when no matching keys are pressed", () => {
-		const state = { xAxes: [], yAxes: [] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = { xAxes: [], yAxes: [] } as unknown as ReturnType<
+			typeof useGraphStore.getState
+		>;
 		const keys = new Set(["a", "b"]);
 		const targetXAxes = {};
 		const targetYs = {};
@@ -15,7 +17,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should pan xAxes left and return true", () => {
-		const state = { xAxes: [{ id: "x1", min: 0, max: 100 }], yAxes: [] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowLeft"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -28,7 +33,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should pan xAxes right and return true", () => {
-		const state = { xAxes: [{ id: "x1", min: 0, max: 100 }], yAxes: [] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowRight"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -41,7 +49,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should pan yAxes up and return true", () => {
-		const state = { xAxes: [], yAxes: [{ id: "y1", min: 0, max: 100 }] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowUp"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -54,7 +65,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should pan yAxes down and return true", () => {
-		const state = { xAxes: [], yAxes: [{ id: "y1", min: 0, max: 100 }] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowDown"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -91,7 +105,7 @@ describe("applyKeyboardPan", () => {
 	it("should pan diagonally when two non-conflicting keys are pressed", () => {
 		const state = {
 			xAxes: [{ id: "x1", min: 0, max: 100 }],
-			yAxes: [{ id: "y1", min: 0, max: 100 }]
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
 		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowLeft", "ArrowUp"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
@@ -107,7 +121,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should handle conflicting x-axis keys (ArrowLeft + ArrowRight) by prioritizing right (1)", () => {
-		const state = { xAxes: [{ id: "x1", min: 0, max: 100 }], yAxes: [] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowLeft", "ArrowRight"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -120,7 +137,10 @@ describe("applyKeyboardPan", () => {
 	});
 
 	it("should handle conflicting y-axis keys (ArrowUp + ArrowDown) by prioritizing up (1)", () => {
-		const state = { xAxes: [], yAxes: [{ id: "y1", min: 0, max: 100 }] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = {
+			xAxes: [],
+			yAxes: [{ id: "y1", min: 0, max: 100 }],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
 		const keys = new Set(["ArrowUp", "ArrowDown"]);
 		const targetXAxes: Record<string, { min: number; max: number }> = {};
 		const targetYs: Record<string, { min: number; max: number }> = {};
@@ -135,7 +155,9 @@ describe("applyKeyboardPan", () => {
 
 describe("applyKeyboardZoom", () => {
 	it("should return false when no matching keys are pressed", () => {
-		const state = { xAxes: [], yAxes: [] } as unknown as ReturnType<typeof useGraphStore.getState>;
+		const state = { xAxes: [], yAxes: [] } as unknown as ReturnType<
+			typeof useGraphStore.getState
+		>;
 		const keys = new Set(["a", "b"]);
 		const targetXAxes = {};
 		const targetYs = {};

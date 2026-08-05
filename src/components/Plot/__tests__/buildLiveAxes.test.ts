@@ -155,12 +155,7 @@ describe("resetAxisTargets", () => {
 		const targetX: Record<string, { min: number; max: number }> = {
 			X: { min: 99, max: 99 },
 		};
-		resetAxisTargets(
-			[{ id: "X", min: 0, max: 10 }],
-			[],
-			targetX,
-			{},
-		);
+		resetAxisTargets([{ id: "X", min: 0, max: 10 }], [], targetX, {});
 		expect(targetX.X).toEqual({ min: 0, max: 10 });
 	});
 

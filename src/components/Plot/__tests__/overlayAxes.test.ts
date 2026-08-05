@@ -148,7 +148,11 @@ describe("updateOverlayAxes", () => {
 
 	it("reuses existing scratch entries in place across calls", () => {
 		const scratch = makeScratch();
-		updateOverlayAxes(scratch, [makeNumericX("X", [0, 10])], [makeY("Y", [0, 50])]);
+		updateOverlayAxes(
+			scratch,
+			[makeNumericX("X", [0, 10])],
+			[makeY("Y", [0, 50])],
+		);
 		const xEntryFirstCall = scratch.xAxes[0];
 		const yEntryFirstCall = scratch.yAxes[0];
 
@@ -234,9 +238,7 @@ describe("applyOverlayContext", () => {
 			gridColor: "",
 			plotBg: "",
 		};
-		const xAxesMetrics = [
-			{ id: "X", cumulativeOffset: 0, height: 30 },
-		];
+		const xAxesMetrics = [{ id: "X", cumulativeOffset: 0, height: 30 }];
 		const axisLayout = { Y: { total: 40, label: 20 } };
 		const leftOffsets = { Y: 0 };
 		const rightOffsets = {};

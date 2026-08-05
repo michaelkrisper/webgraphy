@@ -524,7 +524,7 @@ describe("exportToPNG", () => {
 	it("should reject if getContext returns null", async () => {
 		mockCanvas.getContext = vi.fn(() => null);
 		await expect(
-			exportToPNG([], [], [], [], 800, 600, THEMES.light)
+			exportToPNG([], [], [], [], 800, 600, THEMES.light),
 		).rejects.toThrow("Could not get 2D context");
 	});
 
@@ -538,7 +538,7 @@ describe("exportToPNG", () => {
 		vi.stubGlobal("Image", MockImageError);
 
 		await expect(
-			exportToPNG([], [], [], [], 800, 600, THEMES.light)
+			exportToPNG([], [], [], [], 800, 600, THEMES.light),
 		).rejects.toThrow("Failed to load SVG into image for PNG export");
 		expect(URL.revokeObjectURL).toHaveBeenCalled();
 	});
@@ -602,8 +602,7 @@ describe("downloadFile", () => {
 	});
 
 	it("should throw an error for unsafe data URLs", () => {
-		const content =
-			"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTs8L3NjcmlwdD4=";
+		const content = "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTs8L3NjcmlwdD4=";
 		expect(() => downloadFile(content, "test.html", "text/html")).toThrow(
 			"Unsafe data URL scheme detected",
 		);

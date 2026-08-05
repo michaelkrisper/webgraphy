@@ -71,8 +71,7 @@ export function useChartLayout(
 		return xAxes
 			.filter((a) => axisToMinDsIdx.has(a.id))
 			.sort(
-				(a, b) =>
-					(axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0),
+				(a, b) => (axisToMinDsIdx.get(a.id) || 0) - (axisToMinDsIdx.get(b.id) || 0),
 			);
 	}, [xAxes, activeDsIdsSet, datasets]);
 

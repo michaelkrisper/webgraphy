@@ -89,7 +89,7 @@ describe("useContainerSize", () => {
 		expect(result.current).toEqual({ width: 500, height: 600 });
 	});
 
-    it("should not update state when ResizeObserver fires with empty entries", () => {
+	it("should not update state when ResizeObserver fires with empty entries", () => {
 		const mockElement = {
 			getBoundingClientRect: vi.fn().mockReturnValue({ width: 100, height: 100 }),
 		} as unknown as HTMLElement;

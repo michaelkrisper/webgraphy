@@ -31,9 +31,7 @@ export const hexToRgbaWithAlpha = (
 	alpha = 1,
 ): [number, number, number, number] => {
 	const c = parseHexChannels(hex);
-	return c
-		? [c.r / 255, c.g / 255, c.b / 255, alpha]
-		: [0, 0, 0, alpha];
+	return c ? [c.r / 255, c.g / 255, c.b / 255, alpha] : [0, 0, 0, alpha];
 };
 
 const RGB_FN_RE = /^rgba?\(([^)]+)\)$/;

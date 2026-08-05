@@ -80,7 +80,11 @@ describe("buildLabels", () => {
 	it("filters ticks outside the visible range", () => {
 		const cache = createLabelStringCache();
 		const labels = buildLabels(
-			[xAxis({ ticks: { result: [-50, 150], precision: 0 } as XAxisLayout["ticks"] })],
+			[
+				xAxis({
+					ticks: { result: [-50, 150], precision: 0 } as XAxisLayout["ticks"],
+				}),
+			],
 			[yAxis({ ticks: [-50, 150] })],
 			baseCtx,
 			cache,
@@ -161,11 +165,7 @@ describe("buildLabels", () => {
 		const title = labels.find((l) => l.segments);
 		expect(title?.rot).toBe(-1); // left axis reads bottom-up
 		expect(title?.segments?.map((s) => s.text)).toEqual(["S1", " / ", "S2"]);
-		expect(title?.segments?.map((s) => s.color)).toEqual([
-			"red",
-			"#444",
-			"blue",
-		]);
+		expect(title?.segments?.map((s) => s.color)).toEqual(["red", "#444", "blue"]);
 
 		const right = buildLabels(
 			[],
@@ -196,7 +196,11 @@ describe("buildLabels", () => {
 		expect(cache.byAxis.has("x:x1|0")).toBe(true);
 
 		buildLabels(
-			[xAxis({ ticks: { result: [0, 50, 100], precision: 1 } as XAxisLayout["ticks"] })],
+			[
+				xAxis({
+					ticks: { result: [0, 50, 100], precision: 1 } as XAxisLayout["ticks"],
+				}),
+			],
 			[],
 			baseCtx,
 			cache,

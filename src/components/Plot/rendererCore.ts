@@ -22,10 +22,8 @@ import { logger } from "../../utils/logger";
 import { type DecimCache } from "./decimationCache";
 import { drawOverlay, type OverlayState } from "./drawOverlay";
 import {
-
 	drawSeriesLines,
 	drawSeriesPoints,
-
 	type SegParams,
 	type SeriesDrawBundle,
 } from "./drawSeries";
@@ -50,8 +48,6 @@ import {
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
 } from "./seriesPrep";
-
-
 
 export interface RenderLabelSegment {
 	text: string;
@@ -302,7 +298,9 @@ export class RendererCore {
 
 	/** Create a core on any canvas (DOM or Offscreen); null when WebGL2 or
 	 * shader compilation is unavailable. */
-	static create(canvas: HTMLCanvasElement | OffscreenCanvas): RendererCore | null {
+	static create(
+		canvas: HTMLCanvasElement | OffscreenCanvas,
+	): RendererCore | null {
 		const gl = canvas.getContext("webgl2", {
 			preserveDrawingBuffer: true,
 			antialias: true,
@@ -433,11 +431,7 @@ export class RendererCore {
 			const yRange = yAxis.max - yAxis.min || 1;
 
 			const isMonotonic = getOrComputeMonotonicity(xData, this.monoCache);
-			const cachedSegments = getOrComputeSegments(
-				xData,
-				yData,
-				this.segmentCache,
-			);
+			const cachedSegments = getOrComputeSegments(xData, yData, this.segmentCache);
 			const { sliceStart, sliceEnd } = computeDataSlice(
 				xData,
 				xAxis.min,
@@ -659,13 +653,27 @@ export class RendererCore {
 		);
 		const ll = this.labelLocs;
 		st.enableAttrib(ll.anchorLoc, 1);
-		gl.vertexAttribPointer(ll.anchorLoc, 2, gl.FLOAT, false, LABEL_INST_STRIDE, 0);
+		gl.vertexAttribPointer(
+			ll.anchorLoc,
+			2,
+			gl.FLOAT,
+			false,
+			LABEL_INST_STRIDE,
+			0,
+		);
 		st.enableAttrib(ll.offLoc, 1);
 		gl.vertexAttribPointer(ll.offLoc, 2, gl.FLOAT, false, LABEL_INST_STRIDE, 8);
 		st.enableAttrib(ll.sizeLoc, 1);
 		gl.vertexAttribPointer(ll.sizeLoc, 2, gl.FLOAT, false, LABEL_INST_STRIDE, 16);
 		st.enableAttrib(ll.uvrectLoc, 1);
-		gl.vertexAttribPointer(ll.uvrectLoc, 4, gl.FLOAT, false, LABEL_INST_STRIDE, 24);
+		gl.vertexAttribPointer(
+			ll.uvrectLoc,
+			4,
+			gl.FLOAT,
+			false,
+			LABEL_INST_STRIDE,
+			24,
+		);
 		st.enableAttrib(ll.rotLoc, 1);
 		gl.vertexAttribPointer(ll.rotLoc, 1, gl.FLOAT, false, LABEL_INST_STRIDE, 40);
 

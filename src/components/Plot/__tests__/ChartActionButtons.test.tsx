@@ -14,7 +14,9 @@ describe("ChartActionButtons", () => {
 	it("renders buttons with correct layout based on padding", () => {
 		render(<ChartActionButtons {...defaultProps} />);
 
-		const stackedFitBtn = screen.getByTitle("Stacked Fit — each Y-axis fitted to its own slice");
+		const stackedFitBtn = screen.getByTitle(
+			"Stacked Fit — each Y-axis fitted to its own slice",
+		);
 		const fitAllBtn = screen.getByTitle("Fit All");
 
 		expect(stackedFitBtn).toBeInTheDocument();
@@ -24,15 +26,17 @@ describe("ChartActionButtons", () => {
 		expect(stackedFitBtn).toHaveStyle({ opacity: "0.6" });
 		expect(fitAllBtn).toHaveStyle({ opacity: "0.6" });
 
-        // Stacked fit should be shifted left by 28 compared to fit all
-        expect(stackedFitBtn).toHaveStyle({ bottom: "21px", left: "-7px" });
-        expect(fitAllBtn).toHaveStyle({ bottom: "21px", left: "21px" });
+		// Stacked fit should be shifted left by 28 compared to fit all
+		expect(stackedFitBtn).toHaveStyle({ bottom: "21px", left: "-7px" });
+		expect(fitAllBtn).toHaveStyle({ bottom: "21px", left: "21px" });
 	});
 
 	it("calls appropriate callbacks when buttons are clicked", () => {
 		render(<ChartActionButtons {...defaultProps} />);
 
-		const stackedFitBtn = screen.getByTitle("Stacked Fit — each Y-axis fitted to its own slice");
+		const stackedFitBtn = screen.getByTitle(
+			"Stacked Fit — each Y-axis fitted to its own slice",
+		);
 		const fitAllBtn = screen.getByTitle("Fit All");
 
 		fireEvent.click(stackedFitBtn);
@@ -45,7 +49,9 @@ describe("ChartActionButtons", () => {
 	it("updates opacity correctly on mouse enter and leave", () => {
 		render(<ChartActionButtons {...defaultProps} />);
 
-		const stackedFitBtn = screen.getByTitle("Stacked Fit — each Y-axis fitted to its own slice");
+		const stackedFitBtn = screen.getByTitle(
+			"Stacked Fit — each Y-axis fitted to its own slice",
+		);
 		const fitAllBtn = screen.getByTitle("Fit All");
 
 		// Test stacked fit hover

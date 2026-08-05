@@ -473,9 +473,9 @@ describe("useGraphStore", () => {
 			yAxes: [],
 			series: [{ id: "s1", hidden: false }],
 		} as unknown as Awaited<ReturnType<typeof persistence.loadAppState>>);
-		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([
-			{ id: "ds1" } as unknown as Dataset,
-		]);
+		vi
+			.mocked(persistence.getAllDatasets)
+			.mockResolvedValueOnce([{ id: "ds1" } as unknown as Dataset]);
 
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
@@ -489,9 +489,9 @@ describe("useGraphStore", () => {
 		const { persistence } = await import("../../services/persistence");
 
 		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
-		vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([
-			{ id: "ds2" } as unknown as Dataset,
-		]);
+		vi
+			.mocked(persistence.getAllDatasets)
+			.mockResolvedValueOnce([{ id: "ds2" } as unknown as Dataset]);
 
 		await store.loadPersistedState();
 		const state = useGraphStore.getState();
@@ -584,11 +584,7 @@ describe("useGraphStore", () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toBe('Column "Time" already exists');
 
-		result = await store.addCalculatedColumn(
-			"ds-1",
-			"NewVal",
-			"InvalidSyntax(",
-		);
+		result = await store.addCalculatedColumn("ds-1", "NewVal", "InvalidSyntax(");
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Unknown function or constant");
 
@@ -788,15 +784,11 @@ describe("useGraphStore", () => {
 		};
 		store.addDataset(ds1);
 
-		vi.spyOn(formulaClient, "evaluateFormulaInWorker").mockRejectedValueOnce(
-			new Error("Force failed"),
-		);
+		vi
+			.spyOn(formulaClient, "evaluateFormulaInWorker")
+			.mockRejectedValueOnce(new Error("Force failed"));
 
-		const result = await store.addCalculatedColumn(
-			"ds-1",
-			"ErrCol",
-			"[Val] * 5",
-		);
+		const result = await store.addCalculatedColumn("ds-1", "ErrCol", "[Val] * 5");
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Force failed");
 	});
@@ -827,15 +819,11 @@ describe("useGraphStore", () => {
 		};
 		store.addDataset(ds1);
 
-		vi.spyOn(formulaClient, "evaluateFormulaInWorker").mockRejectedValueOnce(
-			"String error",
-		);
+		vi
+			.spyOn(formulaClient, "evaluateFormulaInWorker")
+			.mockRejectedValueOnce("String error");
 
-		const result = await store.addCalculatedColumn(
-			"ds-1",
-			"ErrCol",
-			"[Val] * 5",
-		);
+		const result = await store.addCalculatedColumn("ds-1", "ErrCol", "[Val] * 5");
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("String error");
 	});

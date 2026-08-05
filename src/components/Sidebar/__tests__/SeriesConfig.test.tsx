@@ -26,8 +26,16 @@ vi.mock("../ColorPicker", () => ({
 		ariaLabel,
 	}: ColorPickerMockProps) => (
 		<div data-testid="color-picker" aria-label={ariaLabel}>
-			<button type="button" onClick={() => onChange("#000000")}>Change Color</button>
-			<button type="button" onMouseEnter={() => onHover("#111111")} onMouseLeave={onHoverEnd}>Hover Color</button>
+			<button type="button" onClick={() => onChange("#000000")}>
+				Change Color
+			</button>
+			<button
+				type="button"
+				onMouseEnter={() => onHover("#111111")}
+				onMouseLeave={onHoverEnd}
+			>
+				Hover Color
+			</button>
 			{color}
 		</div>
 	),
@@ -36,10 +44,7 @@ vi.mock("../ColorPicker", () => ({
 interface PopupPickerMockProps {
 	current: unknown;
 	onChange: (next: number) => void;
-	renderTrigger: (props: {
-		onClick: () => void;
-		ref: null;
-	}) => React.ReactNode;
+	renderTrigger: (props: { onClick: () => void; ref: null }) => React.ReactNode;
 }
 
 vi.mock("../PopupPicker", () => ({
@@ -63,7 +68,10 @@ describe("SeriesConfigUI", () => {
 		yAxes: [{ id: "axis-1", position: "left", showGrid: true }],
 		updateYAxis: mockUpdateYAxis,
 		updateSeriesVisibility: mockUpdateSeriesVisibility,
-		series: [{ id: "s1", yAxisId: "axis-1" }, { id: "s2", yAxisId: "axis-2" }], // multiple series to enable yAxis cycling
+		series: [
+			{ id: "s1", yAxisId: "axis-1" },
+			{ id: "s2", yAxisId: "axis-2" },
+		], // multiple series to enable yAxis cycling
 		setPreviewColor: mockSetPreviewColor,
 	};
 
@@ -71,8 +79,10 @@ describe("SeriesConfigUI", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(useGraphStore).mockImplementation(((selector: StoreSelector) =>
-			selector(defaultMockState)) as unknown as typeof useGraphStore);
+		vi
+			.mocked(useGraphStore)
+			.mockImplementation(((selector: StoreSelector) =>
+				selector(defaultMockState)) as unknown as typeof useGraphStore);
 	});
 
 	const defaultProps = {
@@ -100,12 +110,24 @@ describe("SeriesConfigUI", () => {
 	it("renders series configuration UI", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
 
-		expect(screen.getByRole("button", { name: "Hide Series" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Select Y-Axis" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Select Line Style" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Select Point Style" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Delete Series" })).toBeInTheDocument();
-		expect(screen.getByRole("combobox", { name: "Y Column for col1" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Hide Series" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Select Y-Axis" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Select Line Style" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Select Point Style" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Delete Series" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("combobox", { name: "Y Column for col1" }),
+		).toBeInTheDocument();
 	});
 
 	it("toggles series visibility", () => {
@@ -115,12 +137,17 @@ describe("SeriesConfigUI", () => {
 		expect(mockUpdateSeriesVisibility).toHaveBeenCalledWith("s1", true);
 	});
 
-    it("renders properly when hidden", () => {
-        render(<SeriesConfigUI {...defaultProps} series={{ ...defaultProps.series, hidden: true }} />);
+	it("renders properly when hidden", () => {
+		render(
+			<SeriesConfigUI
+				{...defaultProps}
+				series={{ ...defaultProps.series, hidden: true }}
+			/>,
+		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Show Series" }));
 		expect(mockUpdateSeriesVisibility).toHaveBeenCalledWith("s1", false);
-    });
+	});
 
 	it("removes series", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
@@ -135,17 +162,26 @@ describe("SeriesConfigUI", () => {
 		const select = screen.getByRole("combobox", { name: "Y Column for col1" });
 		fireEvent.change(select, { target: { value: "ds1::col2" } });
 
-		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { sourceId: "ds1", yColumn: "col2" });
+		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", {
+			sourceId: "ds1",
+			yColumn: "col2",
+		});
 	});
 
 	it("handles color changes via ColorPicker", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
 
 		fireEvent.click(screen.getByText("Change Color"));
-		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { lineColor: "#000000", pointColor: "#000000" });
+		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", {
+			lineColor: "#000000",
+			pointColor: "#000000",
+		});
 
 		fireEvent.mouseEnter(screen.getByText("Hover Color"));
-		expect(mockSetPreviewColor).toHaveBeenCalledWith({ seriesId: "s1", color: "#111111" });
+		expect(mockSetPreviewColor).toHaveBeenCalledWith({
+			seriesId: "s1",
+			color: "#111111",
+		});
 
 		fireEvent.mouseLeave(screen.getByText("Hover Color"));
 		expect(mockSetPreviewColor).toHaveBeenCalledWith(null);
@@ -154,7 +190,9 @@ describe("SeriesConfigUI", () => {
 	it("toggles left/right axis position", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Toggle Left/Right Axis" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Toggle Left/Right Axis" }),
+		);
 		expect(mockUpdateYAxis).toHaveBeenCalledWith("axis-1", { position: "right" });
 	});
 
@@ -196,7 +234,10 @@ describe("SeriesConfigUI", () => {
 		vi.mocked(useGraphStore).mockImplementation(((selector: StoreSelector) =>
 			selector({
 				...defaultMockState,
-				series: [{ id: "s1", yAxisId: "axis-1" }, { id: "s3", yAxisId: "axis-3" }],
+				series: [
+					{ id: "s1", yAxisId: "axis-1" },
+					{ id: "s3", yAxisId: "axis-3" },
+				],
 			})) as unknown as typeof useGraphStore);
 		render(<SeriesConfigUI {...defaultProps} />);
 

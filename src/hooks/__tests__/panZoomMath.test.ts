@@ -193,7 +193,11 @@ describe("applyZoomBoxToAxes", () => {
 describe("computePinchGesture", () => {
 	it("returns null when the touches coincide", () => {
 		expect(
-			computePinchGesture({ clientX: 100, clientY: 100 }, { clientX: 100, clientY: 100 }, 50),
+			computePinchGesture(
+				{ clientX: 100, clientY: 100 },
+				{ clientX: 100, clientY: 100 },
+				50,
+			),
 		).toBeNull();
 	});
 

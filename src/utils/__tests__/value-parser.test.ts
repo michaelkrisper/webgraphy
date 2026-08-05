@@ -63,8 +63,12 @@ describe("parseDate", () => {
 describe("parseValue", () => {
 	it("should return NaN for empty, null, or undefined values", () => {
 		expect(parseValue("", null, false, new Map())).toBeNaN();
-		expect(parseValue(undefined as unknown as string, null, false, new Map())).toBeNaN();
-		expect(parseValue(null as unknown as string, null, false, new Map())).toBeNaN();
+		expect(
+			parseValue(undefined as unknown as string, null, false, new Map()),
+		).toBeNaN();
+		expect(
+			parseValue(null as unknown as string, null, false, new Map()),
+		).toBeNaN();
 	});
 
 	it("should parse date type", () => {
@@ -74,7 +78,9 @@ describe("parseValue", () => {
 		expectedDate.setFullYear(2023, 9, 15);
 		expectedDate.setHours(0, 0, 0, 0);
 
-		expect(parseValue(val, config, false, new Map())).toBe(expectedDate.getTime() / 1000);
+		expect(parseValue(val, config, false, new Map())).toBe(
+			expectedDate.getTime() / 1000,
+		);
 	});
 
 	it("should parse categorical type and update map", () => {

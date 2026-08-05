@@ -27,8 +27,32 @@ describe("getOrComputeM4", () => {
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
 
 		expect(e2).toBe(e1); // referential equality — cache hit returned the same object
 		expect(bufferData).toHaveBeenCalledTimes(2); // only on the first (miss) call: one for x, one for y
@@ -55,15 +79,52 @@ describe("getOrComputeM4", () => {
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
 		// 2x zoom-in crosses an octave — strict mode would recompute, but the
 		// interacting path tolerates the coarser covered entry.
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3, true);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			2.5,
+			7.5,
+			5,
+			8,
+			3,
+			true,
+		);
 		expect(e2).toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(2);
 
 		// The settle redraw runs strict and recomputes exactly.
-		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 2.5, 7.5, 5, 8, 3);
+		const e3 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			2.5,
+			7.5,
+			5,
+			8,
+			3,
+		);
 		expect(e3).not.toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(4);
 	});
@@ -75,9 +136,34 @@ describe("getOrComputeM4", () => {
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
 		// 10x zoom-in: ideal bucket width is 8x finer — beyond the 4x tolerance.
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4.5, 5.5, 1, 8, 3, true);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			4.5,
+			5.5,
+			1,
+			8,
+			3,
+			true,
+		);
 		expect(e2).not.toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(4);
 	});
@@ -89,9 +175,33 @@ describe("getOrComputeM4", () => {
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
 		// Slight zoom-in: same quantized bucketWidth, viewport still covered.
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0.5, 9.5, 9, 8, 3);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0.5,
+			9.5,
+			9,
+			8,
+			3,
+		);
 
 		expect(e2).toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(2); // only the initial miss uploaded
@@ -112,13 +222,49 @@ describe("getOrComputeM4", () => {
 		}
 
 		// Entry computed for viewport [0,10] covers roughly [-5,15].
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 4, 14, 10, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			4,
+			14,
+			10,
+			8,
+			3,
+		);
 		expect(e2).toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(2);
 
 		// Viewport exits the cached window → recompute.
-		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 8, 18, 10, 8, 3);
+		const e3 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			8,
+			18,
+			10,
+			8,
+			3,
+		);
 		expect(e3).not.toBe(e1);
 		expect(bufferData).toHaveBeenCalledTimes(4);
 	});
@@ -135,14 +281,50 @@ describe("getOrComputeM4", () => {
 		}
 
 		// Full view → stored as a full-span level.
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			64,
+			64,
+			8,
+			3,
+		);
 		// Deep zoom-in → separate windowed entry.
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 30, 32, 2, 8, 3);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			30,
+			32,
+			2,
+			8,
+			3,
+		);
 		expect(e2).not.toBe(e1);
 
 		// Back at full view: the level is served again without any re-upload.
 		const calls = bufferData.mock.calls.length;
-		const e3 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 64, 64, 8, 3);
+		const e3 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			64,
+			64,
+			8,
+			3,
+		);
 		expect(e3).toBe(e1);
 		expect(bufferData.mock.calls.length).toBe(calls);
 	});
@@ -160,11 +342,35 @@ describe("getOrComputeM4", () => {
 
 		// Establish a fine full-span level, then zoom out one octave.
 		getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 256, 256, 8, 3);
-		const merged = getOrComputeM4(gl, cache, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+		const merged = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			-128,
+			384,
+			512,
+			8,
+			3,
+		);
 
 		// A cold cache at the same zoom must produce identical points.
 		const cold: DecimCache = new WeakMap();
-		const direct = getOrComputeM4(gl, cold, scratch, xData, yData, 0, -128, 384, 512, 8, 3);
+		const direct = getOrComputeM4(
+			gl,
+			cold,
+			scratch,
+			xData,
+			yData,
+			0,
+			-128,
+			384,
+			512,
+			8,
+			3,
+		);
 		expect(Array.from(merged.xArr)).toEqual(Array.from(direct.xArr));
 		expect(Array.from(merged.yArr)).toEqual(Array.from(direct.yArr));
 	});
@@ -183,8 +389,12 @@ describe("getOrComputeM4", () => {
 		expect(bufferData).toHaveBeenCalledTimes(4);
 
 		// Alternating between the two series must not evict either entry.
-		expect(getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3)).toBe(eA);
-		expect(getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3)).toBe(eB);
+		expect(
+			getOrComputeM4(gl, cache, scratch, xA, yData, 0, 0, 10, 10, 8, 3),
+		).toBe(eA);
+		expect(
+			getOrComputeM4(gl, cache, scratch, xB, yData, 0, 0, 20, 20, 8, 3),
+		).toBe(eB);
 		expect(bufferData).toHaveBeenCalledTimes(4);
 	});
 
@@ -201,7 +411,19 @@ describe("getOrComputeM4", () => {
 			yData[i] = Math.sin(i * 1.7) * 100 + Math.sin(i * 0.13) * 10;
 		}
 
-		const e1 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 20, 20, 8, 3);
+		const e1 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			20,
+			20,
+			8,
+			3,
+		);
 		const pts1 = new Map<number, number>();
 		for (let i = 0; i < e1.count; i++) pts1.set(e1.xArr[i], e1.yArr[i]);
 
@@ -209,7 +431,19 @@ describe("getOrComputeM4", () => {
 		// right, then check every point in the overlap region is unchanged —
 		// the absolute power-of-two grid must pick the same representatives.
 		cache.delete(yData);
-		const e2 = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 5, 25, 20, 8, 3);
+		const e2 = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			5,
+			25,
+			20,
+			8,
+			3,
+		);
 		let overlap = 0;
 		for (let i = 0; i < e2.count; i++) {
 			const x = e2.xArr[i];
@@ -227,7 +461,19 @@ describe("getOrComputeM4", () => {
 		const xData = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		const yData = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-		const e = getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, 10, 10, 8, 3);
+		const e = getOrComputeM4(
+			gl,
+			cache,
+			scratch,
+			xData,
+			yData,
+			0,
+			0,
+			10,
+			10,
+			8,
+			3,
+		);
 
 		expect(typeof e.bucketWidth).toBe("number");
 		expect(typeof e.qMin).toBe("number");

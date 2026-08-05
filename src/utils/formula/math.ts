@@ -1,4 +1,3 @@
-
 export const MATH_UNARY: Record<string, (a: number) => number> = {
 	sin: Math.sin,
 	cos: Math.cos,

@@ -57,10 +57,7 @@ const ctx: SceneContext = {
 	],
 };
 
-function snap(
-	x: [number, number],
-	y: [number, number],
-): ViewportSnapshot {
+function snap(x: [number, number], y: [number, number]): ViewportSnapshot {
 	const s = createViewportSnapshot();
 	s.version = 1;
 	s.xCount = 1;

@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { AXIS_EPSILON } from "../../../utils/axisCalculations";
 import { syncStoreUpdates } from "../syncStoreUpdates";
 
-function makeState(xAxes: Array<{ id: string; min: number; max: number }>, yAxes: Array<{ id: string; min: number; max: number }>) {
+function makeState(
+	xAxes: Array<{ id: string; min: number; max: number }>,
+	yAxes: Array<{ id: string; min: number; max: number }>,
+) {
 	return {
 		xAxes,
 		yAxes,
@@ -55,15 +58,8 @@ describe("syncStoreUpdates", () => {
 	});
 
 	it("commits updates for axes missing from the store", () => {
-		const state = makeState(
-			[{ id: "X", min: 0, max: 10 }],
-			[],
-		);
-		syncStoreUpdates(
-			state,
-			{ ghost: { min: 5, max: 6 } },
-			{},
-		);
+		const state = makeState([{ id: "X", min: 0, max: 10 }], []);
+		syncStoreUpdates(state, { ghost: { min: 5, max: 6 } }, {});
 		expect(state.batchUpdateAxes).toHaveBeenCalledExactlyOnceWith(
 			{ ghost: { min: 5, max: 6 } },
 			{},

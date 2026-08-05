@@ -7,8 +7,15 @@ import type {
 } from "../../types/import";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { Modal } from "./Modal";
-import { detectDelimiter, detectDecimalPoint } from "./ImportSettings/utils/detectors";
-import { generatePreviewData, generateColumnConfigs, getPreferredXAxisColumn } from "./ImportSettings/utils/preview";
+import {
+	detectDelimiter,
+	detectDecimalPoint,
+} from "./ImportSettings/utils/detectors";
+import {
+	generatePreviewData,
+	generateColumnConfigs,
+	getPreferredXAxisColumn,
+} from "./ImportSettings/utils/preview";
 
 const TYPE_OPTIONS_META = [
 	{ type: "numeric" as const, icon: Hash, label: "Numeric" },
@@ -101,12 +108,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	// Derived column configs: auto-detected type + user overrides (keyed by column name)
 	const columnConfigs = useMemo<ColumnConfig[]>(
 		() =>
-			generateColumnConfigs(
-				previewData,
-				columnOverrides,
-				decimalPoint,
-				fileType,
-			),
+			generateColumnConfigs(previewData, columnOverrides, decimalPoint, fileType),
 		[previewData, columnOverrides, decimalPoint, fileType],
 	);
 
@@ -116,10 +118,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		[columnConfigs, xAxisColumnOverride],
 	);
 
-	const handleUpdateColumn = (
-		index: number,
-		updates: Partial<ColumnConfig>,
-	) => {
+	const handleUpdateColumn = (index: number, updates: Partial<ColumnConfig>) => {
 		setColumnOverrides((prev) => ({
 			...prev,
 			[index]: { ...prev[index], ...updates },
@@ -213,19 +212,14 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 									type="number"
 									min="1"
 									value={startRow}
-									onChange={(e) =>
-										setStartRow(parseInt(e.target.value, 10) || 1)
-									}
+									onChange={(e) => setStartRow(parseInt(e.target.value, 10) || 1)}
 									className="isd-input"
 								/>
 							</div>
 						)}
 						{fileType === "csv" && (
 							<div className="isd-field-group-sm">
-								<label
-									htmlFor="import-comment-char"
-									className="isd-field-label"
-								>
+								<label htmlFor="import-comment-char" className="isd-field-label">
 									Comment:
 								</label>
 								<input
@@ -251,9 +245,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								columnConfigs,
 								xAxisColumn,
 								splitByColumns: splitByColumns.filter((name) =>
-									columnConfigs.some(
-										(c) => c.name === name && c.type === "categorical",
-									),
+									columnConfigs.some((c) => c.name === name && c.type === "categorical"),
 								),
 							})
 						}
@@ -313,9 +305,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 											</button>
 											{(() => {
 												const meta =
-													TYPE_OPTIONS_META.find(
-														(o) => o.type === config.type,
-													) || TYPE_OPTIONS_META[0];
+													TYPE_OPTIONS_META.find((o) => o.type === config.type) ||
+													TYPE_OPTIONS_META[0];
 												const Icon = meta.icon;
 												return (
 													<PopupPicker
@@ -332,13 +323,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 																className="isd-type-btn-trigger"
 															>
 																<Icon size={12} />
-																<span className="isd-type-btn-label">
-																	{meta.label}
-																</span>
-																<ChevronDown
-																	size={12}
-																	className="isd-type-btn-chevron"
-																/>
+																<span className="isd-type-btn-label">{meta.label}</span>
+																<ChevronDown size={12} className="isd-type-btn-chevron" />
 															</button>
 														)}
 													/>
@@ -389,12 +375,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 									<React.Fragment key={rowIndex}>
 										<tr
 											className={`${
-												rowIndex % 2 === 0
-													? "isd-data-row-even"
-													: "isd-data-row-odd"
+												rowIndex % 2 === 0 ? "isd-data-row-even" : "isd-data-row-odd"
 											}${
-												previewData.gapStart !== null &&
-												rowIndex === previewData.gapStart
+												previewData.gapStart !== null && rowIndex === previewData.gapStart
 													? " isd-row--gap-first-tail"
 													: ""
 											}`}
@@ -402,17 +385,13 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 											<td
 												className="isd-td isd-rownum-cell"
 												data-gap-label={
-													previewData.gapStart !== null &&
-													rowIndex === previewData.gapStart
+													previewData.gapStart !== null && rowIndex === previewData.gapStart
 														? `${previewData.totalRows - 50} more rows`
 														: undefined
 												}
 											>
-												{previewData.gapStart !== null &&
-												rowIndex >= previewData.gapStart
-													? previewData.totalRows -
-														(previewData.rows.length - rowIndex) +
-														1
+												{previewData.gapStart !== null && rowIndex >= previewData.gapStart
+													? previewData.totalRows - (previewData.rows.length - rowIndex) + 1
 													: rowIndex + 1}
 											</td>
 											{columnConfigs.map((config, colIndex) => (
@@ -429,9 +408,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 																? "var(--text-light)"
 																: "var(--text-color)",
 														backgroundColor:
-															config.type === "ignore"
-																? "var(--bg3)"
-																: undefined,
+															config.type === "ignore" ? "var(--bg3)" : undefined,
 														opacity: config.type === "ignore" ? 0.6 : 1,
 														maxWidth: "120px",
 														overflow: "hidden",
@@ -439,9 +416,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 													}}
 												>
 													{fileType === "json"
-														? (row as Record<string, string>)[
-																previewData.headers[colIndex]
-															]
+														? (row as Record<string, string>)[previewData.headers[colIndex]]
 														: (row as string[])[colIndex]}
 												</td>
 											))}

@@ -63,9 +63,7 @@ interface UseAutoScaleOptions {
 	targetXAxes: React.MutableRefObject<
 		Record<string, { min: number; max: number }>
 	>;
-	targetYs: React.MutableRefObject<
-		Record<string, { min: number; max: number }>
-	>;
+	targetYs: React.MutableRefObject<Record<string, { min: number; max: number }>>;
 	syncViewport: (force?: boolean, immediate?: boolean) => void;
 }
 
@@ -189,7 +187,9 @@ function computeAutoScaleX(
 
 	if (allDs.length === 0) return;
 
-	const axesToScale = xAxisId ? new Set([xAxisId]) : new Set(axUsed.map((a) => a.id));
+	const axesToScale = xAxisId
+		? new Set([xAxisId])
+		: new Set(axUsed.map((a) => a.id));
 
 	const activeDsByAxis = new Map<string, Dataset[]>();
 	for (const d of allDs) {
@@ -406,7 +406,7 @@ export function useAutoScale({
 			datasetsById,
 			activeDatasetIdsSet,
 			seriesByYAxisId,
-		yBoundsByAxisId,
+			yBoundsByAxisId,
 		};
 	});
 
@@ -514,7 +514,12 @@ export function useAutoScale({
 			const ys = targetYs.current;
 			activeYAxes.forEach((axis) => {
 				const bounds = depsRef.current.yBoundsByAxisId.get(axis.id);
-				if (bounds && bounds.min !== Infinity && !Number.isNaN(bounds.min) && !Number.isNaN(bounds.max)) {
+				if (
+					bounds &&
+					bounds.min !== Infinity &&
+					!Number.isNaN(bounds.min) &&
+					!Number.isNaN(bounds.max)
+				) {
 					const pad = axisPadding(bounds.min, bounds.max);
 					const nextY = { min: bounds.min - pad, max: bounds.max + pad };
 					if (!Number.isNaN(nextY.min) && !Number.isNaN(nextY.max)) {
@@ -554,10 +559,7 @@ export function useAutoScale({
 			const prevMap = new Map(prevSeriesRef.current.map((ps) => [ps.id, ps]));
 			series.forEach((s) => {
 				const prev = prevMap.get(s.id);
-				if (
-					prev &&
-					(prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId)
-				)
+				if (prev && (prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId))
 					handleAutoScaleY(s.yAxisId);
 			});
 		}

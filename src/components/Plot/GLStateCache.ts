@@ -250,8 +250,7 @@ export class GLStateCache {
 	}
 
 	lpSetXScaleOff(a: number, b: number): void {
-		if (this.lpXScaleSet && this.lpXScaleA === a && this.lpXScaleB === b)
-			return;
+		if (this.lpXScaleSet && this.lpXScaleA === a && this.lpXScaleB === b) return;
 		this.useLine();
 		this.gl.uniform2f(this.lineLocs?.xScaleOffLoc ?? null, a, b);
 		this.lpXScaleA = a;
@@ -260,8 +259,7 @@ export class GLStateCache {
 	}
 
 	lpSetYScaleOff(a: number, b: number): void {
-		if (this.lpYScaleSet && this.lpYScaleA === a && this.lpYScaleB === b)
-			return;
+		if (this.lpYScaleSet && this.lpYScaleA === a && this.lpYScaleB === b) return;
 		this.useLine();
 		this.gl.uniform2f(this.lineLocs?.yScaleOffLoc ?? null, a, b);
 		this.lpYScaleA = a;

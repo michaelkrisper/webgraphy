@@ -52,20 +52,20 @@ vi.mock("../../../hooks/useDataImport", () => ({
 
 // --- Mock Store ---
 vi.mock("../../../store/useGraphStore", () => {
-  const storeFn = vi.fn();
-  (storeFn as any).getState = vi.fn(() => ({
-    datasets: [],
-    series: [],
-    xAxes: [],
-    yAxes: [],
-    isLoaded: true,
-    highlightedSeriesId: null,
-    legendVisible: true,
-    crosshairVisible: true,
-    setCrosshairData: vi.fn(),
-    batchUpdateAxes: vi.fn(),
-  }));
-  return { useGraphStore: storeFn };
+	const storeFn = vi.fn();
+	(storeFn as any).getState = vi.fn(() => ({
+		datasets: [],
+		series: [],
+		xAxes: [],
+		yAxes: [],
+		isLoaded: true,
+		highlightedSeriesId: null,
+		legendVisible: true,
+		crosshairVisible: true,
+		setCrosshairData: vi.fn(),
+		batchUpdateAxes: vi.fn(),
+	}));
+	return { useGraphStore: storeFn };
 });
 
 // --- Mock Utilities ---
@@ -92,7 +92,7 @@ describe("ChartContainer", () => {
 				legendVisible: true,
 				crosshairVisible: true,
 				setCrosshairData: vi.fn(),
-        batchUpdateAxes: vi.fn(),
+				batchUpdateAxes: vi.fn(),
 			};
 			return selector(state);
 		});
@@ -101,20 +101,29 @@ describe("ChartContainer", () => {
 	it("renders EmptyState when there are no datasets or series", () => {
 		render(<ChartContainer width={800} height={600} themeName="light" />);
 		expect(screen.getByTestId("empty-state")).toBeInTheDocument();
-    // WebGLRenderer is always rendered (it returns null or empty inside if no datasets, but React component is there)
-    expect(screen.getByTestId("webgl-renderer")).toBeInTheDocument();
+		// WebGLRenderer is always rendered (it returns null or empty inside if no datasets, but React component is there)
+		expect(screen.getByTestId("webgl-renderer")).toBeInTheDocument();
 	});
 
 	it("renders chart layers when datasets/series exist", () => {
 		(useGraphStore as any).mockImplementation((selector: any) => {
 			const state = {
-        datasets: [{
-            id: "d1", name: "D1", columns: ["A: 1", "B: 2"],
-            data: [{ name: "A: 1", bounds: { min: 0, max: 10 } }, { name: "B: 2", bounds: { min: 0, max: 10 } }],
-            xAxisColumn: "A: 1",
-            xAxisId: "x1"
-        }],
-        series: [{ id: "s1", sourceId: "d1", type: "line", xCol: "A: 1", yCol: "B: 2" }],
+				datasets: [
+					{
+						id: "d1",
+						name: "D1",
+						columns: ["A: 1", "B: 2"],
+						data: [
+							{ name: "A: 1", bounds: { min: 0, max: 10 } },
+							{ name: "B: 2", bounds: { min: 0, max: 10 } },
+						],
+						xAxisColumn: "A: 1",
+						xAxisId: "x1",
+					},
+				],
+				series: [
+					{ id: "s1", sourceId: "d1", type: "line", xCol: "A: 1", yCol: "B: 2" },
+				],
 				xAxes: [{ id: "x1", min: 0, max: 10, position: "bottom" }],
 				yAxes: [{ id: "y1", min: 0, max: 10, position: "left" }],
 				isLoaded: true,
@@ -122,7 +131,7 @@ describe("ChartContainer", () => {
 				legendVisible: true,
 				crosshairVisible: true,
 				setCrosshairData: vi.fn(),
-        batchUpdateAxes: vi.fn(),
+				batchUpdateAxes: vi.fn(),
 			};
 			return selector(state);
 		});
@@ -152,13 +161,29 @@ describe("ChartContainer", () => {
 		const mockBatchUpdateAxes = vi.fn();
 		(useGraphStore as any).mockImplementation((selector: any) => {
 			const state = {
-        datasets: [{
-            id: "d1", name: "D1", columns: ["A: 1", "B: 2"],
-            data: [{ name: "A: 1", bounds: { min: 0, max: 10 } }, { name: "B: 2", bounds: { min: 0, max: 10 } }],
-            xAxisColumn: "A: 1",
-            xAxisId: "x1"
-        }],
-        series: [{ id: "s1", sourceId: "d1", type: "line", xCol: "A: 1", yCol: "B: 2", yAxisId: "y1" }],
+				datasets: [
+					{
+						id: "d1",
+						name: "D1",
+						columns: ["A: 1", "B: 2"],
+						data: [
+							{ name: "A: 1", bounds: { min: 0, max: 10 } },
+							{ name: "B: 2", bounds: { min: 0, max: 10 } },
+						],
+						xAxisColumn: "A: 1",
+						xAxisId: "x1",
+					},
+				],
+				series: [
+					{
+						id: "s1",
+						sourceId: "d1",
+						type: "line",
+						xCol: "A: 1",
+						yCol: "B: 2",
+						yAxisId: "y1",
+					},
+				],
 				xAxes: [{ id: "x1", min: 0, max: 10, position: "bottom" }],
 				yAxes: [{ id: "y1", min: 0, max: 10, position: "left" }],
 				isLoaded: true,
@@ -166,7 +191,7 @@ describe("ChartContainer", () => {
 				legendVisible: true,
 				crosshairVisible: true,
 				setCrosshairData: vi.fn(),
-        batchUpdateAxes: mockBatchUpdateAxes,
+				batchUpdateAxes: mockBatchUpdateAxes,
 			};
 			return selector(state);
 		});

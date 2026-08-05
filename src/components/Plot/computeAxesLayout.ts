@@ -176,11 +176,7 @@ export function computeYAxesLayoutCached({
 			out.push(cached.layout);
 			continue;
 		}
-		const layout = buildYAxisLayoutFor(
-			axis,
-			chartHeight,
-			yAxisCategoryLabels,
-		);
+		const layout = buildYAxisLayoutFor(axis, chartHeight, yAxisCategoryLabels);
 		cache.entries.set(axis.id, { key: cacheKey, layout });
 		out.push(layout);
 	}

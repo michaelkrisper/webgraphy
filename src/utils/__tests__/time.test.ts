@@ -129,9 +129,7 @@ describe("generateTimeTicks", () => {
 		// We use { unit: 'hour', value: 1 }, min = 0, max = 7200 (2 hours)
 		// Expected ticks: -3600 (margin), 0, 3600, 7200, 10800 (margin)
 		const ticks = generateTimeTicks(0, 7200, { unit: "hour", value: 1 });
-		expect(ticks.map((t) => t.timestamp)).toEqual([
-			-3600, 0, 3600, 7200, 10800,
-		]);
+		expect(ticks.map((t) => t.timestamp)).toEqual([-3600, 0, 3600, 7200, 10800]);
 		expect(ticks.map((t) => t.label)).toEqual([
 			"23:00",
 			"00:00",
@@ -417,12 +415,7 @@ describe("generateSecondaryLabels", () => {
 			{ unit: "day", value: 1 },
 			200,
 		);
-		expect(labels.map((l) => l.label)).toEqual([
-			"2022",
-			"2023",
-			"2024",
-			"2025",
-		]);
+		expect(labels.map((l) => l.label)).toEqual(["2022", "2023", "2024", "2025"]);
 		expect(labels[0].timestamp).toBe(1640995200); // 2022-01-01
 	});
 
@@ -446,12 +439,7 @@ describe("generateSecondaryLabels", () => {
 			value: 1,
 		});
 		expect(labels.length).toBeGreaterThan(0);
-		expect(labels.map((l) => l.label)).toEqual([
-			"2022",
-			"2023",
-			"2024",
-			"2025",
-		]);
+		expect(labels.map((l) => l.label)).toEqual(["2022", "2023", "2024", "2025"]);
 	});
 
 	it("caps the number of labels to prevent infinite loops (hour unit)", () => {
@@ -490,7 +478,7 @@ describe("generateSecondaryLabels", () => {
 				unit: "day",
 				value: 1,
 			},
-			100000
+			100000,
 		);
 
 		expect(labels.length).toBe(101);

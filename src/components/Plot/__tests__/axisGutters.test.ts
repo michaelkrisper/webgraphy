@@ -33,9 +33,9 @@ describe("computeAxisOffsets", () => {
 	});
 
 	it("places the first axis flush (offset 0) and stacks the rest outward", () => {
-		expect(computeAxisOffsets([{ id: "A" }, { id: "B" }, { id: "C" }], layout)).toEqual(
-			{ A: 0, B: 50, C: 80 },
-		);
+		expect(
+			computeAxisOffsets([{ id: "A" }, { id: "B" }, { id: "C" }], layout),
+		).toEqual({ A: 0, B: 50, C: 80 });
 	});
 
 	it("uses the default width for axes missing from the layout", () => {
@@ -65,11 +65,11 @@ describe("sumGutterTotals", () => {
 describe("measureYAxisGutter", () => {
 	it("sizes a categorical gutter from the widest category label", () => {
 		// widest is "Charlie" (7 chars) -> labelWidth = 7*6 = 42, total = 66
-		const r = measureYAxisGutter(
-			{ min: 0, max: 2 },
-			500,
-			["A", "Bee", "Charlie"],
-		);
+		const r = measureYAxisGutter({ min: 0, max: 2 }, 500, [
+			"A",
+			"Bee",
+			"Charlie",
+		]);
 		expect(r).toEqual({ label: 42, total: 66 });
 	});
 
@@ -79,9 +79,7 @@ describe("measureYAxisGutter", () => {
 	});
 
 	it("caps the categorical label width at 100px", () => {
-		const r = measureYAxisGutter({ min: 0, max: 1 }, 500, [
-			"a".repeat(50),
-		]);
+		const r = measureYAxisGutter({ min: 0, max: 1 }, 500, ["a".repeat(50)]);
 		expect(r).toEqual({ label: 100, total: 124 });
 	});
 

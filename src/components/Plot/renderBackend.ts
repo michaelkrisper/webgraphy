@@ -193,10 +193,9 @@ class WorkerBackend implements RenderBackend {
 			viewportSab = new SharedArrayBuffer(VIEWPORT_SAB_BYTES);
 			this.writer = new ViewportWriter(viewportSab);
 		}
-		this.post(
-			{ t: "init", canvas: offscreen, viewport, plotBg, viewportSab },
-			[offscreen],
-		);
+		this.post({ t: "init", canvas: offscreen, viewport, plotBg, viewportSab }, [
+			offscreen,
+		]);
 	}
 
 	private post(msg: RenderWorkerRequest, transfer?: Transferable[]): void {
@@ -311,7 +310,8 @@ class WorkerBackend implements RenderBackend {
 			// The worker's render loop parks itself when idle; nudge it back to
 			// life when writes resume after a pause.
 			const now = Date.now();
-			if (now - this.lastWriteAt > IDLE_WAKE_THRESHOLD_MS) this.post({ t: "wake" });
+			if (now - this.lastWriteAt > IDLE_WAKE_THRESHOLD_MS)
+				this.post({ t: "wake" });
 			this.lastWriteAt = now;
 			return;
 		}

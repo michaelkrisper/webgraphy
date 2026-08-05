@@ -22,7 +22,11 @@ interface XAxisHitTestParams {
 	width: number;
 	height: number;
 	padding: Padding;
-	xAxesMetrics: readonly { id: string; height: number; cumulativeOffset: number }[];
+	xAxesMetrics: readonly {
+		id: string;
+		height: number;
+		cumulativeOffset: number;
+	}[];
 }
 
 const DEFAULT_AXIS_TOTAL = 40;
@@ -31,7 +35,14 @@ const DEFAULT_AXIS_TOTAL = 40;
 export function hitTestYAxis(
 	mouseX: number,
 	mouseY: number,
-	{ width, height, padding, leftAxes, rightAxes, axisLayout }: YAxisHitTestParams,
+	{
+		width,
+		height,
+		padding,
+		leftAxes,
+		rightAxes,
+		axisLayout,
+	}: YAxisHitTestParams,
 ): string | null {
 	if (mouseY < padding.top || mouseY > height - padding.bottom) return null;
 	let lOff = 0;

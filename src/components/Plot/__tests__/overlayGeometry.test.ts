@@ -32,12 +32,18 @@ describe("writeBackgroundQuad", () => {
 		// Triangle 1: (x0,y0) (x1,y0) (x0,y1)
 		// Triangle 2: (x1,y0) (x1,y1) (x0,y1)
 		expect(Array.from(buf)).toEqual([
-			x0, y0,
-			x1, y0,
-			x0, y1,
-			x1, y0,
-			x1, y1,
-			x0, y1,
+			x0,
+			y0,
+			x1,
+			y0,
+			x0,
+			y1,
+			x1,
+			y0,
+			x1,
+			y1,
+			x0,
+			y1,
 		]);
 	});
 
@@ -297,9 +303,18 @@ describe("writeFramePlotBorder", () => {
 		const yT = 5;
 		const yB = 55;
 		expect(Array.from(buf)).toEqual([
-			xL, yT, xL, yB, // left spine
-			xL, yT, xR, yT, // top spine
-			xR, yT, xR, yB, // right spine
+			xL,
+			yT,
+			xL,
+			yB, // left spine
+			xL,
+			yT,
+			xR,
+			yT, // top spine
+			xR,
+			yT,
+			xR,
+			yB, // right spine
 		]);
 	});
 
@@ -318,17 +333,7 @@ describe("writeXAxisLines", () => {
 
 	it("writes the axis spine (4 floats) plus 4 floats per visible tick", () => {
 		const buf = new Float32Array(40);
-		const next = writeXAxisLines(
-			buf,
-			0,
-			[axis],
-			[metric],
-			pad,
-			130,
-			90,
-			100,
-			1,
-		);
+		const next = writeXAxisLines(buf, 0, [axis], [metric], pad, 130, 90, 100, 1);
 		// 4 spine + 3 ticks * 4 = 16
 		expect(next).toBe(16);
 	});

@@ -43,9 +43,7 @@ const MAX_REGIONS = 4096;
 const FONT_SIZE_RE = /(\d+(?:\.\d+)?)px/;
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
-type AnyCanvas2D =
-	| OffscreenCanvasRenderingContext2D
-	| CanvasRenderingContext2D;
+type AnyCanvas2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
 function makeCanvas(width: number, height: number): AnyCanvas | null {
 	if (typeof OffscreenCanvas !== "undefined") {

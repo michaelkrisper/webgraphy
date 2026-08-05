@@ -21,7 +21,7 @@ describe("ZoomBoxOverlay", () => {
 		const svgRef = React.createRef<SVGSVGElement>();
 		const rectRef = React.createRef<SVGRectElement>();
 		const { container } = render(
-			<ZoomBoxOverlay visible={false} svgRef={svgRef} rectRef={rectRef} />
+			<ZoomBoxOverlay visible={false} svgRef={svgRef} rectRef={rectRef} />,
 		);
 		expect(container).toBeEmptyDOMElement();
 	});

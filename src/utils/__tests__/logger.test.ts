@@ -23,7 +23,11 @@ describe("logger", () => {
 			const detail2 = [1, 2, 3];
 			logger.error("test error message", detail1, detail2);
 			expect(console.error).toHaveBeenCalledTimes(1);
-			expect(console.error).toHaveBeenCalledWith("test error message", detail1, detail2);
+			expect(console.error).toHaveBeenCalledWith(
+				"test error message",
+				detail1,
+				detail2,
+			);
 		});
 	});
 
@@ -39,7 +43,11 @@ describe("logger", () => {
 			const detail2 = [1, 2, 3];
 			logger.warn("test warn message", detail1, detail2);
 			expect(console.warn).toHaveBeenCalledTimes(1);
-			expect(console.warn).toHaveBeenCalledWith("test warn message", detail1, detail2);
+			expect(console.warn).toHaveBeenCalledWith(
+				"test warn message",
+				detail1,
+				detail2,
+			);
 		});
 	});
 });

@@ -101,10 +101,7 @@ export const downloadFile = (
 			// If no media type is specified, it defaults to text/plain;charset=US-ASCII
 			const mimeType = parts[0].trim().toLowerCase() || "text/plain";
 
-			if (
-				!mimeType.startsWith("image/") &&
-				!mimeType.startsWith("application/")
-			) {
+			if (!mimeType.startsWith("image/") && !mimeType.startsWith("application/")) {
 				throw new Error(
 					`Unsupported MIME type: ${mimeType}. Expected 'image/*' or 'application/*'`,
 				);

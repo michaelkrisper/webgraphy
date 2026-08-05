@@ -184,9 +184,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
 					}}
 					icon={<Columns3 size={24} />}
-					title={
-						xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"
-					}
+					title={xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
 					off={!xAxes[0]?.showGrid}
 				/>
 				<HeaderButton

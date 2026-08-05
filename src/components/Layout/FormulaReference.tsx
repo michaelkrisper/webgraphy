@@ -85,7 +85,8 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 		for (const f of FUNCTIONS) {
 			if (openCategory !== "all" && f.category !== openCategory) continue;
 			if (q) {
-				const hay = `${displayName(f)} ${f.signature} ${f.description}`.toLowerCase();
+				const hay =
+					`${displayName(f)} ${f.signature} ${f.description}`.toLowerCase();
 				if (!hay.includes(q)) continue;
 			}
 			byCategory[f.category].push(f);
@@ -159,18 +160,14 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 					if (!items.length) return null;
 					return (
 						<section key={cat} className="formula-ref-section">
-							<h4 className="formula-ref-section-title">
-								{CATEGORY_LABELS[cat]}
-							</h4>
+							<h4 className="formula-ref-section-title">{CATEGORY_LABELS[cat]}</h4>
 							<ul className="formula-ref-list">
 								{items.map((f) => (
 									<li key={f.name} className="formula-ref-item">
 										<button
 											type="button"
 											className="formula-ref-insert"
-											onClick={() =>
-												onInsert(`${displayName(f)}(`, true)
-											}
+											onClick={() => onInsert(`${displayName(f)}(`, true)}
 											title={`Insert ${displayName(f)}(…)`}
 										>
 											<code>{f.signature}</code>
@@ -186,9 +183,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 				{search.trim() &&
 					CATEGORY_ORDER.every((c) => filtered[c].length === 0) &&
 					matchedConstants.length === 0 && (
-						<div className="formula-ref-empty">
-							No functions match “{search}”.
-						</div>
+						<div className="formula-ref-empty">No functions match “{search}”.</div>
 					)}
 			</div>
 		</div>

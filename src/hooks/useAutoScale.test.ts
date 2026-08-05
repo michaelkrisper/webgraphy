@@ -22,7 +22,6 @@ describe("useAutoScale", () => {
 	const baseChartHeight = 500;
 
 	describe("handleAutoScaleY", () => {
-
 		it("should scale Y axis when mouseY is in top third of chart", () => {
 			const syncViewport = vi.fn();
 			const targetYs = { current: {} };
@@ -666,7 +665,6 @@ describe("useAutoScale", () => {
 		});
 	});
 
-
 	describe("Effects: Data Visibility Check", () => {
 		it("should reset if data becomes available but is out of view", () => {
 			const syncViewport = vi.fn();
@@ -833,7 +831,6 @@ describe("useAutoScale", () => {
 	});
 
 	describe("Effects: NaN / Infinity Bounds Edge Cases", () => {
-
 		it("should skip NaN nextX and nextY calculations", () => {
 			const syncViewport = vi.fn();
 			const batchUpdateAxes = vi.fn();
@@ -974,7 +971,7 @@ describe("useAutoScale", () => {
 			expect(batchUpdateAxes).not.toHaveBeenCalled();
 		});
 
-        it("should skip bounds with Infinity when computing yBoundsByAxisId and nextY", () => {
+		it("should skip bounds with Infinity when computing yBoundsByAxisId and nextY", () => {
 			const syncViewport = vi.fn();
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
@@ -1041,15 +1038,13 @@ describe("useAutoScale", () => {
 				}),
 			);
 
-            // X will be updated because it's [1, 2], but Y will not be valid if min/max are Infinity?
-            // Actually yBoundsByAxisId will filter out bounds if they are Infinity.
-            // Oh wait, if bounds.min is Infinity, yBoundsByAxisId will ignore it, so yMin remains Infinity. Thus yBoundsByAxisId has no bounds for y-axis-1.
-            // And thus bounds is undefined in line 506.
+			// X will be updated because it's [1, 2], but Y will not be valid if min/max are Infinity?
+			// Actually yBoundsByAxisId will filter out bounds if they are Infinity.
+			// Oh wait, if bounds.min is Infinity, yBoundsByAxisId will ignore it, so yMin remains Infinity. Thus yBoundsByAxisId has no bounds for y-axis-1.
+			// And thus bounds is undefined in line 506.
 		});
-
-});
+	});
 	describe("Effects: Initial Data Load", () => {
-
 		it("should trigger auto-scale Y when a series changes its yColumn or sourceId but series length is same", () => {
 			const syncViewport = vi.fn();
 			const targetXAxes = { current: {} };
@@ -1140,7 +1135,7 @@ describe("useAutoScale", () => {
 			expect(targetYs.current["y-axis-1"]).toBeDefined();
 		});
 
-        it("should auto-scale Y when a series is removed and we shrink down", () => {
+		it("should auto-scale Y when a series is removed and we shrink down", () => {
 			const syncViewport = vi.fn();
 			const targetXAxes = { current: {} };
 			const targetYs = { current: {} };
@@ -1184,7 +1179,7 @@ describe("useAutoScale", () => {
 					width: 1,
 					zIndex: 1,
 				},
-                {
+				{
 					id: "s2",
 					sourceId: "ds1",
 					yColumn: "y",
@@ -1214,12 +1209,11 @@ describe("useAutoScale", () => {
 				}),
 			);
 
-            // remove series 2
-            currentSeries = [currentSeries[0]];
+			// remove series 2
+			currentSeries = [currentSeries[0]];
 			rerender();
 			expect(targetYs.current["y-axis-1"]).toBeDefined();
-        });
-
+		});
 
 		it("should handle series where datasets return bounds with NaN or Infinity (ignored updates)", () => {
 			const syncViewport = vi.fn();

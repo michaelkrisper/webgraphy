@@ -14,7 +14,9 @@
 .modal-card {
 	background: var(--bg);
 	position: relative;
-	box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 4px 20px var(--shadow);
+	box-shadow:
+		0 12px 48px rgba(0, 0, 0, 0.5),
+		0 4px 20px var(--shadow);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -1106,7 +1108,9 @@
 	box-shadow: 0 2px 4px var(--shadow);
 	border: none;
 	cursor: pointer;
-	transition: background 0.15s ease, filter 0.15s ease;
+	transition:
+		background 0.15s ease,
+		filter 0.15s ease;
 }
 .isd-btn-confirm:hover {
 	filter: brightness(1.1);

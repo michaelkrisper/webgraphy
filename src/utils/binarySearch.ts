@@ -90,10 +90,7 @@ export function findSegmentStartIndex(
 }
 
 /** Exact search for target. Returns -1 if not found. */
-export function findExact(
-	arr: ArrayLike<number>,
-	target: number,
-): number {
+export function findExact(arr: ArrayLike<number>, target: number): number {
 	let lo = 0;
 	let hi = arr.length - 1;
 	while (lo <= hi) {

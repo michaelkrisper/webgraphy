@@ -83,7 +83,9 @@ describe("evaluateFormulaInWorker", () => {
 		expect(id1).not.toBe(id2);
 
 		// Respond to the second request first to prove correlation by id.
-		mockWorker.onmessage?.({ data: { id: id2, type: "success", name: "second" } });
+		mockWorker.onmessage?.({
+			data: { id: id2, type: "success", name: "second" },
+		});
 		mockWorker.onmessage?.({ data: { id: id1, type: "success", name: "first" } });
 
 		expect((await p1).name).toBe("first");

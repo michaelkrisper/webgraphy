@@ -195,7 +195,8 @@ export function easeAxisUpdates(
 	factor: number,
 ): boolean {
 	let converged = true;
-	let axesById: Record<string, { id: string; min: number; max: number }> | null = null;
+	let axesById: Record<string, { id: string; min: number; max: number }> | null =
+		null;
 	for (const id in updates) {
 		const target = updates[id];
 		let shown = displayed[id];

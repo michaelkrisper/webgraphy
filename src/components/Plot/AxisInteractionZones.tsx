@@ -103,9 +103,7 @@ export function XAxisInteractionZones({
 								defaultValue={title}
 								onBlur={(e) => {
 									const newName = e.target.value.trim();
-									useGraphStore
-										.getState()
-										.updateXAxis(m.id, { name: newName });
+									useGraphStore.getState().updateXAxis(m.id, { name: newName });
 									setEditingXAxisId(null);
 								}}
 								onKeyDown={(e) => {

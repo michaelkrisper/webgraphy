@@ -8,9 +8,7 @@ describe("ImprintModal", () => {
 		const onClose = vi.fn();
 		render(<ImprintModal onClose={onClose} />);
 
-		expect(
-			screen.getByRole("heading", { name: "Imprint" }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Imprint" })).toBeInTheDocument();
 		expect(screen.getByText("Michael Krisper")).toBeInTheDocument();
 		expect(
 			screen.getByRole("link", {

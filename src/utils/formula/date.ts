@@ -8,7 +8,6 @@ export function toMillis(t: number): number {
 	return t * 1000; // seconds
 }
 
-
 export function dateKey(d: Date, granularity: Granularity): string {
 	const y = d.getFullYear();
 	const mo = d.getMonth();
