@@ -1,3 +1,10 @@
+import { expect } from "vitest";
+import * as axeMatchers from "vitest-axe/matchers";
+
+// Register `toHaveNoViolations` globally so any component test can assert
+// accessibility without repeating the wiring.
+expect.extend(axeMatchers);
+
 // Mock localStorage for tests (runs before module imports)
 const localStorageMock = (() => {
 	let store: Record<string, string> = {};

@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
 import type React from "react";
+import { useRef } from "react";
+import { useDialogA11y } from "../../hooks/useDialogA11y";
 
 interface ModalProps {
 	onClose: () => void;
@@ -35,16 +37,30 @@ export const Modal: React.FC<ModalProps> = ({
 	ariaLabel,
 	hideHeader = false,
 }) => {
+	const cardRef = useRef<HTMLDivElement | null>(null);
+	// Focus containment, Escape-to-close and focus restore. Also supplies the
+	// id that names the dialog for assistive technology.
+	const titleId = useDialogA11y(cardRef, onClose);
+	const hasTextTitle = typeof title === "string" && !hideHeader;
+
 	return (
 		<div className="modal-overlay">
 			<div
+				ref={cardRef}
 				className="modal-card"
+				role="dialog"
+				aria-modal="true"
+				{...(hasTextTitle
+					? { "aria-labelledby": titleId }
+					: { "aria-label": ariaLabel || "Dialog" })}
 				style={{ padding, borderRadius, maxWidth, width, height, maxHeight }}
 			>
 				{!hideHeader && (
 					<div className="modal-header">
 						{typeof title === "string" ? (
-							<h2 className="modal-title">{title}</h2>
+							<h2 className="modal-title" id={titleId}>
+								{title}
+							</h2>
 						) : (
 							title
 						)}
