@@ -191,4 +191,152 @@ describe("Regression Utilities", () => {
 			expect(result[0]).toBe(1);
 		});
 	});
+
+	// Above 256 points kdeSmoothing switches from the exact O(N^2) evaluation
+	// to an O(N) grid-binning approximation. That second path produces the
+	// numbers users actually see (real datasets are far larger than 256), so
+	// it is checked here against the exact definition rather than against
+	// itself.
+	describe("kdeSmoothing — grid path (N > 256)", () => {
+		const GRID_PATH_THRESHOLD = 256;
+
+		/** Textbook Gaussian kernel smoother, used as the reference. */
+		const exactKde = (
+			x: Float64Array,
+			y: Float64Array,
+			h: number,
+		): Float64Array => {
+			const out = new Float64Array(x.length);
+			for (let i = 0; i < x.length; i++) {
+				let num = 0;
+				let den = 0;
+				for (let j = 0; j < x.length; j++) {
+					const dx = x[i] - x[j];
+					const w = Math.exp(-(dx * dx) / (2 * h * h));
+					num += w * y[j];
+					den += w;
+				}
+				out[i] = den > 0 ? num / den : y[i];
+			}
+			return out;
+		};
+
+		const evenlySpaced = (n: number, step = 1) =>
+			Float64Array.from({ length: n }, (_, i) => i * step);
+
+		it("takes the grid path above the threshold and stays close to the exact result", () => {
+			const n = GRID_PATH_THRESHOLD * 2;
+			const x = evenlySpaced(n);
+			// Deterministic pseudo-noise on top of a smooth signal.
+			const y = Float64Array.from({ length: n }, (_, i) => {
+				const signal = Math.sin(i / 20) * 10;
+				const noise = ((i * 37) % 11) - 5;
+				return signal + noise;
+			});
+			const h = 5;
+
+			const actual = kdeSmoothing(x, y, h);
+			const reference = exactKde(x, y, h);
+
+			expect(actual.length).toBe(n);
+			// The grid path bins and convolves rather than evaluating every
+			// pair, so it is an approximation — but a close one.
+			for (let i = 0; i < n; i++) {
+				expect(actual[i]).toBeCloseTo(reference[i], 1);
+			}
+		});
+
+		it("reproduces a constant signal exactly", () => {
+			const n = GRID_PATH_THRESHOLD + 100;
+			const x = evenlySpaced(n);
+			const y = new Float64Array(n).fill(7);
+
+			const result = kdeSmoothing(x, y, 3);
+
+			// A weighted average of identical values must be that value; any
+			// normalisation bug in the binning shows up here immediately.
+			for (let i = 0; i < n; i++) {
+				expect(result[i]).toBeCloseTo(7, 9);
+			}
+		});
+
+		it("reduces the spread of noise around a flat signal", () => {
+			const n = GRID_PATH_THRESHOLD * 4;
+			const x = evenlySpaced(n);
+			const y = Float64Array.from({ length: n }, (_, i) =>
+				i % 2 === 0 ? 10 : -10,
+			);
+
+			const result = kdeSmoothing(x, y, 4);
+
+			const spread = (arr: ArrayLike<number>) => {
+				let min = Infinity;
+				let max = -Infinity;
+				for (let i = 0; i < arr.length; i++) {
+					if (arr[i] < min) min = arr[i];
+					if (arr[i] > max) max = arr[i];
+				}
+				return max - min;
+			};
+
+			expect(spread(result)).toBeLessThan(spread(y));
+			// The alternating signal averages to zero away from the edges;
+			// binning leaves a residual on the order of 1e-5.
+			expect(result[Math.floor(n / 2)]).toBeCloseTo(0, 4);
+		});
+
+		it("returns the mean when all x collapse to one point", () => {
+			const n = GRID_PATH_THRESHOLD + 1;
+			const x = new Float64Array(n).fill(42);
+			const y = Float64Array.from({ length: n }, (_, i) => i);
+
+			// range < 1e-12, so there is no grid to bin onto and the whole
+			// column degenerates to its average.
+			const result = kdeSmoothing(x, y, 1);
+
+			const mean = (n - 1) / 2;
+			for (let i = 0; i < n; i++) {
+				expect(result[i]).toBeCloseTo(mean, 9);
+			}
+		});
+
+		it("keeps out-of-range points finite when x is not sorted ascending", () => {
+			// Bin indices are derived from x[0] and x[n-1]; unsorted input can
+			// therefore land below bin 0 or above the last bin. Those points
+			// must be clamped, not produce NaN or read out of bounds.
+			const n = GRID_PATH_THRESHOLD + 50;
+			const x = evenlySpaced(n);
+			x[10] = -500;
+			x[20] = 5000;
+			const y = Float64Array.from({ length: n }, (_, i) => i % 5);
+
+			const result = kdeSmoothing(x, y, 3);
+
+			expect(result.length).toBe(n);
+			for (let i = 0; i < n; i++) {
+				expect(Number.isFinite(result[i])).toBe(true);
+			}
+		});
+
+		it("derives a bandwidth automatically on the grid path", () => {
+			const n = GRID_PATH_THRESHOLD * 2;
+			const x = evenlySpaced(n, 0.5);
+			const y = Float64Array.from({ length: n }, (_, i) => Math.cos(i / 15) * 4);
+
+			const auto = kdeSmoothing(x, y);
+			const narrow = kdeSmoothing(x, y, 0.5);
+
+			expect(auto.length).toBe(n);
+			for (let i = 0; i < n; i++) {
+				expect(Number.isFinite(auto[i])).toBe(true);
+			}
+
+			const spread = (arr: Float64Array) => Math.max(...arr) - Math.min(...arr);
+			// Silverman's rule lands around h ~ 22 for this spacing, i.e. about
+			// half the cosine period, so the automatic bandwidth flattens the
+			// curve far more than a deliberately narrow one.
+			expect(spread(auto)).toBeLessThan(spread(narrow));
+			expect(spread(narrow)).toBeGreaterThan(4);
+		});
+	});
 });
