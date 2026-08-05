@@ -1,8 +1,10 @@
-// Pure vertex-buffer writers for the overlay primitives drawn by
-// WebGLRenderer.buildOverlay. Each helper appends its geometry to a packed
-// Float32Array starting at the supplied write index and returns the next
-// write index, so the caller can sum vertex counts and push draw groups
-// while the geometry itself stays testable in isolation.
+/**
+ * Pure vertex-buffer writers for the overlay primitives drawn by
+ * WebGLRenderer.buildOverlay. Each helper appends its geometry to a packed
+ * Float32Array starting at the supplied write index and returns the next
+ * write index, so the caller can sum vertex counts and push draw groups
+ * while the geometry itself stays testable in isolation.
+ */
 
 import { DEFAULT_GUTTER_TOTAL } from "./axisGutters";
 
