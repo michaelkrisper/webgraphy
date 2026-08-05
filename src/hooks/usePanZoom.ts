@@ -9,10 +9,14 @@ import {
 import type { XAxisConfig, YAxisConfig } from "../services/persistence";
 import { getAxisById } from "../utils/axisCalculations";
 import { screenToWorld } from "../utils/coords";
-import { applyZoomToRange, panRangeByPixels } from "./panZoomMath";
-import { usePanZoomEvents } from "./usePanZoomEvents";
-import { usePanZoomHandlers } from "./usePanZoomHandlers";
+import {
+	applyZoomBoxToAxes,
+	applyZoomToRange,
+	panRangeByPixels,
+} from "./panZoomMath";
 import { usePanZoomKeyboard } from "./usePanZoomKeyboard";
+import { useZoomBox } from "./useZoomBox";
+import { useTouchGesture } from "./useTouchGesture";
 
 interface UsePanZoomOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
@@ -96,32 +100,12 @@ export function usePanZoom({
 	const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
 	const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 	const [isShiftPressed, setIsShiftPressed] = useState(false);
-	const [isZooming, setIsZooming] = useState(false);
 	const [isWheeling, setIsWheeling] = useState(false);
 	const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const containerRectRef = useRef<DOMRect | null>(null);
-	const zoomBoxSvgRef = useRef<SVGSVGElement | null>(null);
-	const zoomBoxRectRef = useRef<SVGRectElement | null>(null);
 	const panTargetRef = useRef<PanTarget | null>(null);
 	const isShiftPressedRef = useRef(false);
 
-	const isInteracting = !!panTarget || isZooming || isWheeling;
-
-	const updateZoomBoxDom = useCallback(
-		(box: { startX: number; startY: number; endX: number; endY: number }) => {
-			const rect = zoomBoxRectRef.current;
-			if (!rect) return;
-			const x = Math.min(box.startX, box.endX);
-			const y = Math.min(box.startY, box.endY);
-			const w = Math.abs(box.endX - box.startX);
-			const h = Math.abs(box.endY - box.startY);
-			rect.setAttribute("x", String(x));
-			rect.setAttribute("y", String(y));
-			rect.setAttribute("width", String(w));
-			rect.setAttribute("height", String(h));
-		},
-		[],
-	);
 
 	// Track shift state in a ref so updatePan (called from rAF/event handlers) sees the latest value.
 	const shiftDownRef = useRef(false);
@@ -155,7 +139,7 @@ export function usePanZoom({
 				);
 				const cur = targetXAxes.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
-					// eslint-disable-next-line react-hooks/immutability
+									// eslint-disable-next-line react-hooks/immutability
 					targetXAxes.current[axis.id] = { ...cur, min: newMin, max: newMax };
 					changed = true;
 				}
@@ -190,7 +174,7 @@ export function usePanZoom({
 				);
 				const cur = targetYs.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
-					// eslint-disable-next-line react-hooks/immutability
+									// eslint-disable-next-line react-hooks/immutability
 					targetYs.current[axis.id] = { ...cur, min: newMin, max: newMax };
 					changed = true;
 				}
@@ -211,18 +195,11 @@ export function usePanZoom({
 		panStateRef,
 	]);
 
-	const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
-	const lastPinchDist = useRef<{ dist: number; cx: number; cy: number } | null>(
-		null,
-	);
-	const lastTouchTime = useRef<number>(0);
 	const lastMousePos = useRef<{ x: number; y: number } | null>(null);
-	const zoomBoxStartRef = useRef<{
-		startX: number;
-		startY: number;
-		endX: number;
-		endY: number;
-	} | null>(null);
+	const { zoomBoxSvgRef, zoomBoxRectRef, isZooming, startZoomBox, moveZoomBox, endZoomBox, hasZoomBox } = useZoomBox();
+	const { lastTouchPos, lastPinchDist, isDoubleTap, startSingleTouch, startPinch, getPinchGesture, endTouch } = useTouchGesture();
+
+	const isInteracting = !!panTarget || isZooming || isWheeling;
 	const hoveredAxisIdRef = useRef<string | null>(null);
 	const hoveredXAxisIdRef = useRef<string | null>(null);
 
@@ -353,32 +330,85 @@ export function usePanZoom({
 		],
 	);
 
-	const { handleWheel, handleMouseDown, handleTouchStart } = usePanZoomHandlers({
-		containerRef,
-		containerRectRef,
-		wheelTimeoutRef,
-		panStateRef,
-		smoothZoomRef,
-		zoomBoxStartRef,
-		shiftDownRef,
-		lastMousePos,
-		panTargetRef,
-		lastTouchTime,
-		lastTouchPos,
-		lastPinchDist,
-		width,
-		height,
-		padding,
-		activeYAxes,
-		setIsWheeling,
-		onPanEnd,
-		performZoom,
-		setIsZooming,
-		updateZoomBoxDom,
-		setPanTarget,
-		handleAutoScaleX,
-		handleAutoScaleY,
-	});
+	const handleWheel = useCallback(
+		(e: React.WheelEvent, target: PanTarget = "all") => {
+			setIsWheeling(true);
+			panStateRef.current.active = true;
+			if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+			wheelTimeoutRef.current = setTimeout(() => {
+				setIsWheeling(false);
+				panStateRef.current.active = false;
+				onPanEnd();
+				wheelTimeoutRef.current = null;
+			}, 300);
+
+			const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+			smoothZoomRef.current = true;
+			const rect = containerRef.current?.getBoundingClientRect();
+			if (rect) containerRectRef.current = rect;
+			performZoom(
+				zoomFactor,
+				rect ? e.clientX - rect.left : width / 2,
+				rect ? e.clientY - rect.top : height / 2,
+				target,
+				e.shiftKey,
+			);
+		},
+		[containerRef, width, height, performZoom, onPanEnd, panStateRef, smoothZoomRef],
+	);
+
+	const handleMouseDown = useCallback(
+		(e: React.MouseEvent, target: PanTarget = "all") => {
+			const rect = containerRef.current?.getBoundingClientRect();
+			if (!rect) return;
+			containerRectRef.current = rect;
+			const x = e.clientX - rect.left,
+				y = e.clientY - rect.top;
+			if (e.ctrlKey && target === "all") {
+				startZoomBox(x, y);
+			} else {
+				// A drag must track the cursor 1:1 — stop any running zoom easing.
+				smoothZoomRef.current = false;
+				setPanTarget(target);
+				panTargetRef.current = target;
+				shiftDownRef.current = e.shiftKey;
+				lastMousePos.current = { x: e.clientX, y: e.clientY };
+			}
+		},
+		[containerRef, startZoomBox, smoothZoomRef],
+	);
+
+	const handleTouchStart = useCallback(
+		(e: React.TouchEvent, target: PanTarget = "all") => {
+			const isDouble = isDoubleTap();
+			const rect = containerRef.current?.getBoundingClientRect();
+			if (rect) containerRectRef.current = rect;
+
+			if (e.touches.length === 1) {
+				const t = e.touches[0];
+				if (!rect) return;
+				if (isDouble) {
+					if (target === "all") {
+						handleAutoScaleX();
+						activeYAxes.forEach((a) => {
+							handleAutoScaleY(a.id);
+						});
+					} else if (typeof target === "object") {
+						if ("xAxisId" in target) handleAutoScaleX(target.xAxisId);
+						else if ("yAxisId" in target)
+							handleAutoScaleY(target.yAxisId, t.clientY - rect.top);
+					}
+					return;
+				}
+				setPanTarget(target);
+				startSingleTouch(t.clientX, t.clientY);
+			} else if (e.touches.length === 2) {
+				setPanTarget((prev) => (prev && prev !== "all" ? prev : target));
+				startPinch(e.touches[0], e.touches[1]);
+			}
+		},
+		[containerRef, activeYAxes, handleAutoScaleX, handleAutoScaleY, isDoubleTap, startSingleTouch, startPinch],
+	);
 
 	// Raw event listeners (non-React for passive:false touch)
 	useEffect(() => {
@@ -394,14 +424,207 @@ export function usePanZoom({
 		[],
 	);
 
-	usePanZoomEvents({
+	// eslint-disable-next-line react-hooks/immutability
+	useEffect(() => {
+		let mouseMoveRaf = 0;
+		let pendingMouseEvent: {
+			clientX: number;
+			clientY: number;
+			shiftKey: boolean;
+		} | null = null;
+		const snapshotAxesToPanState = (ps: typeof panStateRef.current) => {
+			activeXAxes.forEach((a) => {
+				ps.startTargetX[a.id] = { ...targetXAxes.current[a.id] };
+			});
+			activeYAxes.forEach((a) => {
+				ps.startTargetY[a.id] = { ...targetYs.current[a.id] };
+			});
+		};
+		const handleSingleTouchPan = (e: TouchEvent, target: PanTarget) => {
+			if (e.cancelable) e.preventDefault();
+			const t = e.touches[0];
+			const ps = panStateRef.current;
+			if (!ps.active) {
+				ps.active = true;
+				if (lastTouchPos.current) {
+					ps.startX = lastTouchPos.current.x;
+					ps.startY = lastTouchPos.current.y;
+				}
+				ps.target = target;
+				snapshotAxesToPanState(ps);
+			}
+			ps.currentX = t.clientX;
+			ps.currentY = t.clientY;
+			updatePan();
+		};
+
+		const handlePinchZoom = (e: TouchEvent, target: PanTarget | null) => {
+			if (e.cancelable) e.preventDefault();
+			const rect =
+				containerRectRef.current ||
+				containerRef.current?.getBoundingClientRect();
+			if (!rect) return;
+			const gesture = getPinchGesture(e.touches[0], e.touches[1]);
+			if (!gesture) return;
+			const { zfX, zfY, cx, cy, panDx, panDy } = gesture;
+
+			performZoom(
+				{ x: zfX, y: zfY },
+				cx - rect.left,
+				cy - rect.top,
+				target || "all",
+				e.shiftKey,
+			);
+
+			// Apply pan AFTER performZoom overwrites the refs
+			if (
+				target === "all" ||
+				(target && typeof target === "object" && "xAxisId" in target)
+			) {
+				activeXAxes.forEach((a) => {
+					const cur = targetXAxes.current[a.id];
+					if (cur) {
+						targetXAxes.current[a.id] = panRangeByPixels(
+							cur.min,
+							cur.max,
+							-panDx,
+							chartWidth,
+						);
+					}
+				});
+			}
+
+			if (
+				target === "all" ||
+				(target && typeof target === "object" && "yAxisId" in target)
+			) {
+				activeYAxes.forEach((a) => {
+					const cur = targetYs.current[a.id];
+					if (cur) {
+						targetYs.current[a.id] = panRangeByPixels(
+							cur.min,
+							cur.max,
+							panDy,
+							chartHeight,
+						);
+					}
+				});
+			}
+
+			// Important: performZoom calls syncViewport() at the end.
+			// Since we modify the refs *after* performZoom, we must sync the viewport again
+			// to flush our pan adjustments to the actual component state.
+			syncViewport();
+		};
+
+		const handleTouchMoveRaw = (e: TouchEvent) => {
+			const target = panTargetRef.current;
+			if (e.touches.length === 1 && target && lastTouchPos.current) {
+				handleSingleTouchPan(e, target);
+			} else if (e.touches.length === 2 && lastPinchDist.current) {
+				handlePinchZoom(e, target);
+			}
+		};
+
+		const processMouseMove = () => {
+			mouseMoveRaf = 0;
+			const e = pendingMouseEvent;
+			pendingMouseEvent = null;
+			if (!e) return;
+			const rect =
+				containerRectRef.current ||
+				containerRef.current?.getBoundingClientRect();
+			if (!rect) return;
+			const mx = e.clientX - rect.left,
+				my = e.clientY - rect.top;
+
+			const target = panTargetRef.current;
+			// Only update hover state when not actively panning — saves work per frame.
+			if (!target && !hasZoomBox()) {
+				hoveredAxisIdRef.current = getHoveredYAxis(mx, my);
+				hoveredXAxisIdRef.current = getHoveredXAxis(mx, my);
+			}
+
+			if (hasZoomBox()) {
+				moveZoomBox(mx, my, { left: padding.left, right: width - padding.right, top: padding.top, bottom: height - padding.bottom });
+				return;
+			}
+			if (!target || !lastMousePos.current) return;
+
+			shiftDownRef.current = e.shiftKey;
+
+			const ps = panStateRef.current;
+			if (!ps.active) {
+				ps.active = true;
+				ps.startX = lastMousePos.current.x;
+				ps.startY = lastMousePos.current.y;
+				ps.target = target;
+				snapshotAxesToPanState(ps);
+			}
+			ps.currentX = e.clientX;
+			ps.currentY = e.clientY;
+
+			updatePan();
+		};
+
+		const handleMouseMoveRaw = (e: MouseEvent) => {
+			pendingMouseEvent = {
+				clientX: e.clientX,
+				clientY: e.clientY,
+				shiftKey: e.shiftKey,
+			};
+			if (!mouseMoveRaf) {
+				mouseMoveRaf = requestAnimationFrame(processMouseMove);
+			}
+		};
+
+		const handleMouseUp = () => {
+			panStateRef.current.active = false;
+			containerRectRef.current = null;
+
+			const box = endZoomBox();
+			if (box) {
+				applyZoomBoxToAxes(
+					box,
+					activeXAxes,
+					activeYAxes,
+					width,
+					height,
+					padding,
+					targetXAxes.current,
+					targetYs.current,
+					isShiftPressedRef.current,
+				);
+				syncViewport();
+			}
+			onPanEnd();
+			setPanTarget(null);
+		};
+
+		const handleTouchEnd = () => {
+			onPanEnd();
+			setPanTarget(null);
+			endTouch();
+		};
+
+		window.addEventListener("mousemove", handleMouseMoveRaw);
+		window.addEventListener("mouseup", handleMouseUp);
+		window.addEventListener("touchmove", handleTouchMoveRaw, {
+			passive: false,
+		});
+		window.addEventListener("touchend", handleTouchEnd);
+		return () => {
+			window.removeEventListener("mousemove", handleMouseMoveRaw);
+			window.removeEventListener("mouseup", handleMouseUp);
+			window.removeEventListener("touchmove", handleTouchMoveRaw);
+			window.removeEventListener("touchend", handleTouchEnd);
+			if (mouseMoveRaf) cancelAnimationFrame(mouseMoveRaf);
+		};
+	}, [
 		containerRef,
-		containerRectRef,
 		padding,
 		width,
 		height,
-		chartWidth,
-		chartHeight,
 		activeXAxes,
 		activeYAxes,
 		targetXAxes,
@@ -413,19 +636,16 @@ export function usePanZoom({
 		updatePan,
 		onPanEnd,
 		panStateRef,
-		updateZoomBoxDom,
-		lastTouchPos,
+		hasZoomBox,
+		moveZoomBox,
+		endZoomBox,
+		getPinchGesture,
+		endTouch,
+		chartWidth,
+		chartHeight,
 		lastPinchDist,
-		zoomBoxStartRef,
-		hoveredAxisIdRef,
-		hoveredXAxisIdRef,
-		shiftDownRef,
-		lastMousePos,
-		panTargetRef,
-		setPanTarget,
-		setIsZooming,
-		isShiftPressedRef,
-	});
+		lastTouchPos,
+	]);
 
 	usePanZoomKeyboard({
 		pressedKeys,
