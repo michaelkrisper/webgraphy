@@ -48,6 +48,36 @@ jobs:
         with:
           path: dist
 
+  # Runs in the pinned Playwright container, not on the bare runner: screenshot
+  # baselines depend on the exact browser build, font set and rasteriser, and
+  # the image fixes all three. Baselines are generated here and committed —
+  # never generated on a developer machine.
+  e2e:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: End-to-end and visual regression
+        run: npx playwright test
+      - name: Upload report and any written snapshots
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+            e2e/**/*-snapshots/
+          retention-days: 7
+
   # Separate job so a noisy benchmark never blocks the deploy pipeline, and so
   # it runs concurrently with the quality gates rather than lengthening them.
   bench:

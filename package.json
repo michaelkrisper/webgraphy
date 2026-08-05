@@ -20,7 +20,9 @@
 		"bench:update": "npm run bench && node scripts/bench-check.mjs --update",
 		"size:check": "npm run build && node scripts/size-check.mjs",
 		"size:update": "npm run build && node scripts/size-check.mjs --update",
-		"analyze": "ANALYZE=1 npm run build"
+		"analyze": "ANALYZE=1 npm run build",
+		"e2e": "playwright test",
+		"e2e:ui": "playwright test --ui"
 	},
 	"dependencies": {
 		"@fontsource/comic-neue": "^5.3.0",
@@ -40,6 +42,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.7",
 		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.62.1",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/jest-dom": "^7.0.0",
 		"@testing-library/react": "^16.3.2",
