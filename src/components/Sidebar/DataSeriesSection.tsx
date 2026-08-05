@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
 	ArrowUpDown,
 	ChevronDown,
@@ -25,7 +26,7 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 	onToggle,
 }) => {
 	const series = useGraphStore((s) => s.series);
-	const datasets = useGraphStore((s) => Object.values(s.datasets));
+	const datasets = useGraphStore(useShallow((s) => Object.values(s.datasets)));
 	const setHighlightedSeries = useGraphStore((s) => s.setHighlightedSeries);
 	const reorderSeries = useGraphStore((s) => s.reorderSeries);
 

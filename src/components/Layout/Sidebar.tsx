@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import type React from "react";
 import { useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
@@ -17,7 +18,7 @@ import { SidebarHeader } from "./SidebarHeader";
  * Sidebar Component
  */
 export const Sidebar: React.FC = () => {
-	const datasets = useGraphStore((s) => Object.values(s.datasets));
+	const datasets = useGraphStore(useShallow((s) => Object.values(s.datasets)));
 	const series = useGraphStore((s) => s.series);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);

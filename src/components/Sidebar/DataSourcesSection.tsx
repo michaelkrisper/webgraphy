@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -24,7 +25,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 	fileInputRef,
 	importFile,
 }) => {
-	const datasets = useGraphStore((s) => Object.values(s.datasets));
+	const datasets = useGraphStore(useShallow((s) => Object.values(s.datasets)));
 
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];

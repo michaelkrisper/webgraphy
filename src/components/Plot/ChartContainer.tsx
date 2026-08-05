@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 // src/components/Plot/ChartContainer.tsx
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -123,7 +124,7 @@ export default function ChartContainer() {
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);
 	const isLoaded = useGraphStore((s) => s.isLoaded);
-	const datasets = useGraphStore((s) => Object.values(s.datasets));
+	const datasets = useGraphStore(useShallow((s) => Object.values(s.datasets)));
 	const highlightedSeriesId = useGraphStore((s) => s.highlightedSeriesId);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);

@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { Calculator, Pencil, Trash2 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
@@ -36,7 +37,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 	setCalculatingDatasetId,
 	setEditingColumn,
 }) => {
-	const datasets = useGraphStore((s) => Object.values(s.datasets));
+	const datasets = useGraphStore(useShallow((s) => Object.values(s.datasets)));
 	const series = useGraphStore((s) => s.series);
 	const removeDataset = useGraphStore((s) => s.removeDataset);
 	const updateDataset = useGraphStore((s) => s.updateDataset);
