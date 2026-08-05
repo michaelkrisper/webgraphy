@@ -15,6 +15,7 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
+import { describeChart } from "./chartDescription";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
@@ -223,12 +224,23 @@ export const WebGLRenderer = React.memo(
 			if (!isInteractingRef.current) redrawNowRef.current(false);
 		}, [highlightedSeriesId]);
 
+		// A canvas exposes nothing to assistive technology, so the plot carries a
+		// generated description of what it is currently showing. Rebuilt only
+		// when the series or axis identities change — never on the per-frame
+		// path, which mutates axis ranges through refs without re-rendering.
+		const ariaLabel = useMemo(
+			() => describeChart({ series, datasets, xAxes, yAxes }),
+			[series, datasets, xAxes, yAxes],
+		);
+
 		// No width/height attributes here: once the canvas is transferred to the
 		// render worker, only the worker may size its drawing buffer. CSS keeps
 		// the element filling its layer; backends resize via setViewport.
 		return (
 			<canvas
 				ref={canvasRef}
+				role="img"
+				aria-label={ariaLabel}
 				style={{ display: "block", width: "100%", height: "100%" }}
 			/>
 		);
