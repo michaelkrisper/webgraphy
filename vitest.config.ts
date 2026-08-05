@@ -19,10 +19,13 @@ export default defineConfig({
 		globals: true,
 		environment: "jsdom",
 		setupFiles: ["src/__tests__/setup.ts"],
+		// e2e/ holds Playwright specs. They match Vitest's default *.spec
+		// pattern but must only ever run under `npx playwright test`.
+		exclude: ["**/node_modules/**", "dist/**", "e2e/**"],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
-			exclude: ["node_modules", "dist"],
+			exclude: ["node_modules", "dist", "e2e"],
 			// Kept just under the current actuals so coverage can only go up.
 			// Ratchet these when they rise; never lower them.
 			thresholds: {

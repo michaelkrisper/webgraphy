@@ -43,3 +43,7 @@ bench-result.json
 
 # Bundle composition report from `npm run analyze`.
 dist/bundle-report.html
+
+# Playwright output; baselines under e2e/**-snapshots are committed.
+test-results/
+playwright-report/
