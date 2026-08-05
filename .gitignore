@@ -37,3 +37,6 @@ graphify-out/
 .gemini/
 .remember/
 .ruff_cache/
+
+# Benchmark run output; the committed baseline is bench-baseline.json.
+bench-result.json

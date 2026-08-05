@@ -1,0 +1,22 @@
+{
+	"note": "Costs are normalised against the control workload in the same run, so they are comparable across machines. Regenerate with `npm run bench:update`.",
+	"costs": {
+		"m4Float32 10k -> 512": 0.127683,
+		"m4Float32 1M -> 2048": 9.92473,
+		"m4ByXFloat32 1M full span": 7.80781,
+		"m4ByXFloat32 1M zoomed to 1%": 0.174149,
+		"m4MergeOctave": 0.647336,
+		"compile a mixed expression": 0.0103744,
+		"simple expression x100000 rows": 6.38555,
+		"mixed expression x100000 rows": 81.1737,
+		"findFirstGE x1000": 0.0742334,
+		"findLastLE x1000": 0.0783504,
+		"findClosest x1000": 0.0684147,
+		"monotonicity scan 1M (cold)": 7.91139,
+		"monotonicity lookup (warm)": 0.000127196,
+		"segment split 1M with NaN runs (cold)": 5.28282,
+		"computeDataSlice 1M monotonic": 0.000289642,
+		"computeDataSlice 1M non-monotonic": 0.00013282,
+		"computeDrawRanges over gappy slice": 0.000457883
+	}
+}

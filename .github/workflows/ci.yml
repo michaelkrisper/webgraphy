@@ -44,6 +44,22 @@ jobs:
         with:
           path: dist
 
+  # Separate job so a noisy benchmark never blocks the deploy pipeline, and so
+  # it runs concurrently with the quality gates rather than lengthening them.
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Benchmark hot path against the baseline
+        # Results are normalised against a control workload measured in the
+        # same run, so they survive the spread between runner classes.
+        run: npm run bench:check
+
   deploy:
     # Only deploy a green build of main; reuses the artifact from quality.
     needs: quality
