@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	evaluateGroupAverage,
-	tryRegressionFormula,
-} from "../wholeColumn";
+import { evaluateGroupAverage, tryRegressionFormula } from "../wholeColumn";
 
 /**
  * `tryRegressionFormula` and `evaluateGroupAverage` produce columns the user
@@ -53,9 +50,7 @@ describe("tryRegressionFormula", () => {
 		// The caller passes [x, y] positionally; a single column means the
 		// regression has nothing to fit against.
 		expect(
-			tryRegressionFormula("linreg([Value])", columns, x.length, [
-				asColumn(x),
-			]),
+			tryRegressionFormula("linreg([Value])", columns, x.length, [asColumn(x)]),
 		).toBeNull();
 	});
 
@@ -85,12 +80,7 @@ describe("tryRegressionFormula", () => {
 			"kde([Value], 1.5)",
 		];
 		for (const formula of formulas) {
-			const result = tryRegressionFormula(
-				formula,
-				columns,
-				x.length,
-				columnData,
-			);
+			const result = tryRegressionFormula(formula, columns, x.length, columnData);
 			expect(result, formula).not.toBeNull();
 			expect(result?.length, formula).toBe(x.length);
 			for (let i = 0; i < x.length; i++) {

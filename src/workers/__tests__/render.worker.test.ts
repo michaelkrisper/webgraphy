@@ -375,12 +375,7 @@ describe("render.worker — SharedArrayBuffer viewport path", () => {
 		// path, where the host writes once per frame and sends nothing else.
 		for (let i = 0; i < 3; i++) {
 			gl.clear.mockClear();
-			writer.write(
-				11,
-				true,
-				[{ min: i, max: 10 + i }],
-				[{ min: 0, max: 50 }],
-			);
+			writer.write(11, true, [{ min: i, max: 10 + i }], [{ min: 0, max: 50 }]);
 			await nextFrame();
 			await nextFrame();
 			expect(gl.clear).toHaveBeenCalled();

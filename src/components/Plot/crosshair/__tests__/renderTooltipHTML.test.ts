@@ -15,7 +15,11 @@ const COLORS = {
 	tooltipColor: "#111111",
 };
 
-const item = (label: string, value: number, over: Record<string, unknown> = {}) => ({
+const item = (
+	label: string,
+	value: number,
+	over: Record<string, unknown> = {},
+) => ({
 	label,
 	value,
 	color: "#ff0000",
@@ -25,7 +29,11 @@ const item = (label: string, value: number, over: Record<string, unknown> = {}) 
 	...over,
 });
 
-const group = (xLabel: string, xAxisName: string, items: SnapGroup["items"]) => ({
+const group = (
+	xLabel: string,
+	xAxisName: string,
+	items: SnapGroup["items"],
+) => ({
 	xLabel,
 	xAxisName,
 	items,
@@ -104,9 +112,7 @@ describe("renderTooltipHTML", () => {
 
 	it("renders one labelled row per item", () => {
 		render(
-			snapWith(
-				group("4", "Time", [item("Temp", 40), item("Humidity", 55)]),
-			),
+			snapWith(group("4", "Time", [item("Temp", 40), item("Humidity", 55)])),
 		);
 
 		const [first, second] = visibleRows();
@@ -137,9 +143,9 @@ describe("renderTooltipHTML", () => {
 		// is still correct — only the styling boundary is off.
 		expect(row.children[1].textContent).toBe("1");
 		expect(row.children[2].textContent).toBe(",234.5");
-		expect(
-			`${row.children[1].textContent}${row.children[2].textContent}`,
-		).toBe("1,234.5");
+		expect(`${row.children[1].textContent}${row.children[2].textContent}`).toBe(
+			"1,234.5",
+		);
 	});
 
 	it("leaves the decimal span empty for a whole number", () => {
@@ -162,9 +168,9 @@ describe("renderTooltipHTML", () => {
 
 	it("prefixes the axis name only when several axes are shown", () => {
 		render(snapWith(group("4", "Time", [item("Temp", 40)])));
-		expect(
-			tooltip.querySelector(".chart-tooltip-x-label")?.textContent,
-		).toBe("4");
+		expect(tooltip.querySelector(".chart-tooltip-x-label")?.textContent).toBe(
+			"4",
+		);
 
 		tooltip = document.createElement("div");
 		render(

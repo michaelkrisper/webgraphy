@@ -71,8 +71,7 @@ function meta(over: Partial<SeriesMetadata> = {}): SeriesMetadata {
 
 /** Screen x for a world x under the fixture's axis and padding. */
 const screenX = (worldX: number) =>
-	PADDING.left +
-	((worldX - 0) / 10) * (WIDTH - PADDING.left - PADDING.right);
+	PADDING.left + ((worldX - 0) / 10) * (WIDTH - PADDING.left - PADDING.right);
 
 const base = {
 	seriesMetadata: [meta()],
@@ -84,7 +83,9 @@ const base = {
 
 describe("computeSnap", () => {
 	it("returns null when there is nothing to snap to", () => {
-		expect(computeSnap({ ...base, pos: { x: 50, y: 50 }, seriesMetadata: [] })).toBeNull();
+		expect(
+			computeSnap({ ...base, pos: { x: 50, y: 50 }, seriesMetadata: [] }),
+		).toBeNull();
 	});
 
 	it("returns null when the series has no x axis", () => {
@@ -174,10 +175,7 @@ describe("computeSnap", () => {
 		});
 
 		expect(result?.entries).toHaveLength(2);
-		expect(result?.entries.map((e) => e.xAxisName)).toEqual([
-			"Time",
-			"Distance",
-		]);
+		expect(result?.entries.map((e) => e.xAxisName)).toEqual(["Time", "Distance"]);
 	});
 
 	it("falls back to a placeholder for an axis with no registered name", () => {

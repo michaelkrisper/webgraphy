@@ -321,9 +321,7 @@ describe("Regression Utilities", () => {
 		it("derives a bandwidth automatically on the grid path", () => {
 			const n = GRID_PATH_THRESHOLD * 2;
 			const x = evenlySpaced(n, 0.5);
-			const y = Float64Array.from({ length: n }, (_, i) =>
-				Math.cos(i / 15) * 4,
-			);
+			const y = Float64Array.from({ length: n }, (_, i) => Math.cos(i / 15) * 4);
 
 			const auto = kdeSmoothing(x, y);
 			const narrow = kdeSmoothing(x, y, 0.5);
@@ -333,8 +331,7 @@ describe("Regression Utilities", () => {
 				expect(Number.isFinite(auto[i])).toBe(true);
 			}
 
-			const spread = (arr: Float64Array) =>
-				Math.max(...arr) - Math.min(...arr);
+			const spread = (arr: Float64Array) => Math.max(...arr) - Math.min(...arr);
 			// Silverman's rule lands around h ~ 22 for this spacing, i.e. about
 			// half the cosine period, so the automatic bandwidth flattens the
 			// curve far more than a deliberately narrow one.
