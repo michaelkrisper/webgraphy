@@ -1,0 +1,14 @@
+{
+	"note": "Gzipped byte budgets, roughly 5% above the measured build. Regenerate with `npm run size:update` and justify any increase in the pull request.",
+	"precacheGzip": 551936,
+	"assets": {
+		"excel.worker.js": 167936,
+		"index.js": 158720,
+		"render.worker.js": 18432,
+		"formula.worker.js": 11264,
+		"index.css": 5120,
+		"parser.worker.js": 4096,
+		"workbox-window.prod.es5.js": 3072,
+		"latin.css": 1024
+	}
+}

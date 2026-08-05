@@ -40,3 +40,6 @@ graphify-out/
 
 # Benchmark run output; the committed baseline is bench-baseline.json.
 bench-result.json
+
+# Bundle composition report from `npm run analyze`.
+dist/bundle-report.html
