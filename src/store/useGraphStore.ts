@@ -413,7 +413,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 	removeSeries: (id) => {
 		set((state) => {
-			const newSeries = state.series.filter((s) => s.id !== id);
+			const index = state.series.findIndex((s) => s.id === id);
+			const newSeries = index !== -1 ? state.series.toSpliced(index, 1) : state.series;
 			if (newSeries.length === 0 && state.datasets.length === 0) {
 				persistence.clearAppState();
 				return createEmptyState();
