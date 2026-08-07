@@ -18,7 +18,6 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 const RESULT_FILE = "bench-result.json";
 const BASELINE_FILE = "bench-baseline.json";
 const CONTROL_COMPUTE = "reference workload";
-const CONTROL_MEMORY = "reference workload memory";
 const CONTROL_END = "reference workload end";
 
 /**
@@ -49,17 +48,12 @@ function loadRun(path) {
 	const raw = JSON.parse(readFileSync(path, "utf8"));
 	const out = {};
 	let compute = null;
-	let memory = null;
 	let controlEnd = null;
 	for (const file of raw.files ?? []) {
 		for (const group of file.groups ?? []) {
 			for (const b of group.benchmarks ?? []) {
 				if (b.name === CONTROL_COMPUTE) {
 					compute = b.hz;
-					continue;
-				}
-				if (b.name === CONTROL_MEMORY) {
-					memory = b.hz;
 					continue;
 				}
 				if (b.name === CONTROL_END) {
@@ -72,17 +66,14 @@ function loadRun(path) {
 			}
 		}
 	}
-	if (compute === null || memory === null) {
+	if (compute === null) {
 		console.error(
-			`Both control benchmarks ("${CONTROL_COMPUTE}", "${CONTROL_MEMORY}")` +
-				" must be present so results can be normalised.",
+			`No control benchmark named "${CONTROL_COMPUTE}" in the run. It must` +
+				" be present so results can be normalised.",
 		);
 		process.exit(1);
 	}
-	// Geometric mean of a compute-bound and a memory-bound reference. Using
-	// either alone mis-normalises the other class of benchmark whenever the
-	// machine is contended for that resource; the mean tracks both.
-	const control = Math.sqrt(compute * memory);
+	const control = compute;
 	const costs = {};
 	for (const [name, { hz, rme }] of Object.entries(out)) {
 		// Cost relative to the control: higher means slower.
@@ -90,7 +81,7 @@ function loadRun(path) {
 	}
 	const drift =
 		controlEnd === null ? 0 : Math.abs(controlEnd - compute) / compute;
-	return { costs, controlHz: { compute, memory, combined: control }, drift };
+	return { costs, controlHz: { compute }, drift };
 }
 
 const run = loadRun(RESULT_FILE);
@@ -98,15 +89,12 @@ const run = loadRun(RESULT_FILE);
 if (update) {
 	const baseline = {
 		note:
-			"Costs are normalised against the geometric mean of the two control" +
-			" workloads measured in the same run, so they are comparable across" +
-			" machines. Regenerate with `npm run bench:update`, or from CI's" +
-			" bench-result artifact with `node scripts/bench-check.mjs --update`.",
+			"Costs are normalised against the control workload measured in the" +
+			" same run, so they are comparable across machines. Regenerate with" +
+			" `npm run bench:update`, or from CI's bench-result artifact with" +
+			" `node scripts/bench-check.mjs --update`.",
 		// Recorded for diagnostics only; the checker never compares these.
-		controlHzAtBaseline: {
-			compute: Math.round(run.controlHz.compute),
-			memory: Math.round(run.controlHz.memory),
-		},
+		controlHzAtBaseline: { compute: Math.round(run.controlHz.compute) },
 		costs: Object.fromEntries(
 			Object.entries(run.costs).map(([k, v]) => [
 				k,
