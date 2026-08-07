@@ -5,6 +5,7 @@ import {
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
 } from "../components/Plot/seriesPrep";
+import { controlWorkload } from "./control";
 import { LARGE, makeGappySeries, makeSeries } from "./fixtures";
 
 /**
@@ -49,5 +50,15 @@ describe("seriesPrep", () => {
 
 	bench("computeDrawRanges over gappy slice", () => {
 		computeDrawRanges(segments, true, 400_000, 410_000, scratch);
+	});
+});
+
+// Repeat of the compute control, run last. Comparing it with the same workload
+// measured at the start of the suite tells the checker whether the machine's
+// throughput held steady for the duration — if it did not, nothing measured in
+// between can be compared to a baseline.
+describe("control tail", () => {
+	bench("reference workload end", () => {
+		controlWorkload();
 	});
 });

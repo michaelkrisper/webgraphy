@@ -1,6 +1,6 @@
 import { bench, describe } from "vitest";
 import { m4ByXFloat32, m4Float32, m4MergeOctave } from "../utils/decimation";
-import { controlWorkload } from "./control";
+import { controlMemoryWorkload, controlWorkload } from "./control";
 import { LARGE, makeSeries, SMALL } from "./fixtures";
 
 /**
@@ -17,9 +17,15 @@ const large = makeSeries(LARGE);
 const outSmall = { x: new Float32Array(4096), y: new Float32Array(4096) };
 const outLarge = { x: new Float32Array(16384), y: new Float32Array(16384) };
 
+// Both controls live here so a single bench file run still produces a usable
+// normaliser; the checker requires both to be present.
 describe("control", () => {
 	bench("reference workload", () => {
 		controlWorkload();
+	});
+
+	bench("reference workload memory", () => {
+		controlMemoryWorkload();
 	});
 });
 

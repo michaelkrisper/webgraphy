@@ -22,6 +22,13 @@ export default defineConfig({
 		// e2e/ holds Playwright specs. They match Vitest's default *.spec
 		// pattern but must only ever run under `npx playwright test`.
 		exclude: ["**/node_modules/**", "dist/**", "e2e/**"],
+		// Benchmark files must not run concurrently: parallel workers compete
+		// for CPU and memory bandwidth, so each file measures the others'
+		// contention rather than its own code.
+		benchmark: {
+			include: ["src/**/*.bench.ts"],
+		},
+		fileParallelism: false,
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
