@@ -608,6 +608,52 @@ describe("downloadFile", () => {
 		);
 	});
 
+	/** The bytes handed to the Blob for the most recent download. */
+	const lastBlobBytes = (): Uint8Array => {
+		const created = (
+			URL.createObjectURL as unknown as ReturnType<typeof vi.fn>
+		).mock.calls.at(-1)?.[0] as { content: unknown[] };
+		return created.content[0] as Uint8Array;
+	};
+
+	it("encodes a percent-escaped data URL as UTF-8", () => {
+		// decodeURIComponent turns the escapes back into text, so the bytes have
+		// to be re-encoded. Reading char codes instead would emit Latin-1 here.
+		const text = "Grüße";
+		downloadFile(
+			`data:application/json,${encodeURIComponent(text)}`,
+			"test.json",
+			"application/json",
+		);
+
+		const bytes = lastBlobBytes();
+		expect(new TextDecoder().decode(bytes)).toBe(text);
+		// "ü" is two bytes in UTF-8 and one in Latin-1; the length pins which.
+		expect(bytes.length).toBe(new TextEncoder().encode(text).length);
+	});
+
+	it("keeps characters above U+00FF intact in a data URL", () => {
+		// A char-code loop truncates these to a single byte, silently corrupting
+		// the file rather than failing.
+		const text = "温度 → 25°C";
+		downloadFile(
+			`data:application/json,${encodeURIComponent(text)}`,
+			"test.json",
+			"application/json",
+		);
+
+		expect(new TextDecoder().decode(lastBlobBytes())).toBe(text);
+	});
+
+	it("still reads base64 data URLs as raw bytes", () => {
+		// The binary path must not be re-encoded: atob already yields bytes.
+		const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+		const base64 = btoa(String.fromCharCode(...bytes));
+		downloadFile(`data:image/png;base64,${base64}`, "test.png", "image/png");
+
+		expect(Array.from(lastBlobBytes())).toEqual(Array.from(bytes));
+	});
+
 	it("should throw an error if atob fails on invalid base64 data", () => {
 		expect(() =>
 			downloadFile(
