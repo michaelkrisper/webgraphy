@@ -105,6 +105,49 @@ test("dragging pans the viewport", async ({ page }) => {
 	expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
 });
 
+test("ctrl-drag zooms to the selected box", async ({ page }) => {
+	const { errors } = await freshApp(page);
+
+	const before = await axisLabel(page);
+	const box = await page.locator(".plot-area").boundingBox();
+	const cx = box!.x + box!.width / 2;
+	const cy = box!.y + box!.height / 2;
+
+	await page.keyboard.down("Control");
+	await page.mouse.move(cx - 120, cy - 80);
+	await page.mouse.down();
+	await page.mouse.move(cx + 120, cy + 80, { steps: 10 });
+	await page.mouse.up();
+	await page.keyboard.up("Control");
+
+	await expect.poll(() => axisLabel(page), { timeout: 5_000 }).not.toBe(before);
+	expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
+});
+
+test("a ctrl-click without a drag leaves the viewport alone", async ({
+	page,
+}) => {
+	const { errors } = await freshApp(page);
+
+	const before = await axisLabel(page);
+	const box = await page.locator(".plot-area").boundingBox();
+	const cx = box!.x + box!.width / 2;
+	const cy = box!.y + box!.height / 2;
+
+	// Below the minimum drag size: a mis-click must not throw the viewport
+	// somewhere arbitrary.
+	await page.keyboard.down("Control");
+	await page.mouse.move(cx, cy);
+	await page.mouse.down();
+	await page.mouse.move(cx + 2, cy + 2);
+	await page.mouse.up();
+	await page.keyboard.up("Control");
+
+	await page.waitForTimeout(500);
+	expect(await axisLabel(page)).toBe(before);
+	expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
+});
+
 test("exports a well-formed SVG", async ({ page }) => {
 	await freshApp(page);
 
