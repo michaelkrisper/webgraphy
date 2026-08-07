@@ -90,9 +90,19 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Benchmark hot path against the baseline
-        # Results are normalised against a control workload measured in the
-        # same run, so they survive the spread between runner classes.
+        # Normalised against control workloads measured in the same run, so
+        # results survive the spread between runner classes. Fails the build
+        # only here: CI has a dedicated runner, developer machines do not.
         run: npm run bench:check
+      - name: Upload raw benchmark result
+        # Lets a clean baseline be regenerated from a run on an idle runner,
+        # without measuring on a contended developer machine.
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: bench-result
+          path: bench-result.json
+          retention-days: 7
 
   deploy:
     # Only deploy a green build of main; reuses the artifact from quality.
