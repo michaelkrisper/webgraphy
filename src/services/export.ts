@@ -118,10 +118,24 @@ export const downloadFile = (
 			const data = url.pathname.slice(commaIndex + 1);
 			const isBase64 = parts.includes("base64");
 
-			const byteString = isBase64 ? atob(data) : decodeURIComponent(data);
-			const arrayBuffer = new Uint8Array(byteString.length);
-			for (let i = 0; i < byteString.length; i++) {
-				arrayBuffer[i] = byteString.charCodeAt(i);
+			let arrayBuffer: Uint8Array<ArrayBuffer>;
+			if (isBase64) {
+				// atob yields a binary string — one byte per code unit — so
+				// charCodeAt is the correct way to recover the bytes.
+				const byteString = atob(data);
+				arrayBuffer = new Uint8Array(byteString.length);
+				for (let i = 0; i < byteString.length; i++) {
+					arrayBuffer[i] = byteString.charCodeAt(i);
+				}
+			} else {
+				// decodeURIComponent has already decoded the percent-escapes as
+				// UTF-8, so `data` is text, not bytes. Re-encoding it keeps that
+				// intact; a charCodeAt loop would emit Latin-1 for U+0080..U+00FF
+				// and truncate anything above U+00FF outright.
+				// Copied into a plain ArrayBuffer because TextEncoder returns an
+				// ArrayBufferLike view, which Blob does not accept.
+				const encoded = new TextEncoder().encode(decodeURIComponent(data));
+				arrayBuffer = new Uint8Array(encoded);
 			}
 
 			const blob = new Blob([arrayBuffer], { type: contentType || mimeType });

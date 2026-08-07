@@ -1,5 +1,6 @@
 // src/hooks/usePanZoom.ts
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useZoomBox } from "./useZoomBox";
 import { hitTestXAxis, hitTestYAxis } from "../components/Plot/axisHitTest";
 import {
 	type PanTarget,
@@ -101,27 +102,18 @@ export function usePanZoom({
 	const [isWheeling, setIsWheeling] = useState(false);
 	const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const containerRectRef = useRef<DOMRect | null>(null);
-	const zoomBoxSvgRef = useRef<SVGSVGElement | null>(null);
-	const zoomBoxRectRef = useRef<SVGRectElement | null>(null);
+	// Owns the ctrl-drag rectangle: its DOM refs, the in-flight drag and the
+	// geometry. Nothing about it leaks back into this hook.
+	const zoomBox = useZoomBox();
 	const panTargetRef = useRef<PanTarget | null>(null);
 	const isShiftPressedRef = useRef(false);
 
 	const isInteracting = !!panTarget || isZooming || isWheeling;
 
-	const updateZoomBoxDom = useCallback(
-		(box: { startX: number; startY: number; endX: number; endY: number }) => {
-			const rect = zoomBoxRectRef.current;
-			if (!rect) return;
-			const x = Math.min(box.startX, box.endX);
-			const y = Math.min(box.startY, box.endY);
-			const w = Math.abs(box.endX - box.startX);
-			const h = Math.abs(box.endY - box.startY);
-			rect.setAttribute("x", String(x));
-			rect.setAttribute("y", String(y));
-			rect.setAttribute("width", String(w));
-			rect.setAttribute("height", String(h));
-		},
-		[],
+	// Plot rectangle, shared by the zoom-box calls below.
+	const plotBounds = useMemo(
+		() => ({ width, height, padding }),
+		[width, height, padding],
 	);
 
 	// Track shift state in a ref so updatePan (called from rAF/event handlers) sees the latest value.
@@ -218,12 +210,6 @@ export function usePanZoom({
 	);
 	const lastTouchTime = useRef<number>(0);
 	const lastMousePos = useRef<{ x: number; y: number } | null>(null);
-	const zoomBoxStartRef = useRef<{
-		startX: number;
-		startY: number;
-		endX: number;
-		endY: number;
-	} | null>(null);
 	const hoveredAxisIdRef = useRef<string | null>(null);
 	const hoveredXAxisIdRef = useRef<string | null>(null);
 
@@ -395,17 +381,7 @@ export function usePanZoom({
 			const x = e.clientX - rect.left,
 				y = e.clientY - rect.top;
 			if (e.ctrlKey && target === "all") {
-				if (
-					x >= padding.left &&
-					x <= width - padding.right &&
-					y >= padding.top &&
-					y <= height - padding.bottom
-				) {
-					const box = { startX: x, startY: y, endX: x, endY: y };
-					zoomBoxStartRef.current = box;
-					setIsZooming(true);
-					updateZoomBoxDom(box);
-				}
+				if (zoomBox.begin(x, y, plotBounds)) setIsZooming(true);
 			} else {
 				// A drag must track the cursor 1:1 — stop any running zoom easing.
 				smoothZoomRef.current = false;
@@ -415,7 +391,7 @@ export function usePanZoom({
 				lastMousePos.current = { x: e.clientX, y: e.clientY };
 			}
 		},
-		[containerRef, padding, width, height, updateZoomBoxDom, smoothZoomRef],
+		[containerRef, plotBounds, zoomBox, smoothZoomRef],
 	);
 
 	const handleTouchStart = useCallback(
@@ -597,16 +573,13 @@ export function usePanZoom({
 
 			const target = panTargetRef.current;
 			// Only update hover state when not actively panning — saves work per frame.
-			if (!target && !zoomBoxStartRef.current) {
+			if (!target && !zoomBox.isDragging()) {
 				hoveredAxisIdRef.current = getHoveredYAxis(mx, my);
 				hoveredXAxisIdRef.current = getHoveredXAxis(mx, my);
 			}
 
-			if (zoomBoxStartRef.current) {
-				const box = zoomBoxStartRef.current;
-				box.endX = Math.max(padding.left, Math.min(width - padding.right, mx));
-				box.endY = Math.max(padding.top, Math.min(height - padding.bottom, my));
-				updateZoomBoxDom(box);
+			if (zoomBox.isDragging()) {
+				zoomBox.dragTo(mx, my, plotBounds);
 				return;
 			}
 			if (!target || !lastMousePos.current) return;
@@ -642,17 +615,14 @@ export function usePanZoom({
 			panStateRef.current.active = false;
 			containerRectRef.current = null;
 
-			if (zoomBoxStartRef.current) {
-				const box = zoomBoxStartRef.current;
-				zoomBoxStartRef.current = null;
+			// isDragging before end(): a drag that was too small still has to
+			// clear the zooming flag, it just must not move the viewport.
+			if (zoomBox.isDragging()) {
+				const bounds = zoomBox.end();
 				setIsZooming(false);
-				const minX = Math.min(box.startX, box.endX);
-				const maxX = Math.max(box.startX, box.endX);
-				const minY = Math.min(box.startY, box.endY);
-				const maxY = Math.max(box.startY, box.endY);
-				if (maxX - minX > 5 && maxY - minY > 5) {
+				if (bounds) {
 					applyZoomBoxToAxes(
-						{ minX, maxX, minY, maxY },
+						bounds,
 						activeXAxes,
 						activeYAxes,
 						width,
@@ -705,7 +675,8 @@ export function usePanZoom({
 		updatePan,
 		onPanEnd,
 		panStateRef,
-		updateZoomBoxDom,
+		zoomBox,
+		plotBounds,
 		chartWidth,
 		chartHeight,
 	]);
@@ -723,8 +694,8 @@ export function usePanZoom({
 		isShiftPressed,
 		isInteracting,
 		isZooming,
-		zoomBoxSvgRef,
-		zoomBoxRectRef,
+		zoomBoxSvgRef: zoomBox.svgRef,
+		zoomBoxRectRef: zoomBox.rectRef,
 		handleMouseDown,
 		handleTouchStart,
 		handleWheel,

@@ -164,16 +164,84 @@ const STEPS_SCRATCH: number[] = [];
 const DASH_FLOATS = 5;
 const DASH_STRIDE = DASH_FLOATS * 4;
 
-function drawDashedLines(
-	st: GLStateCache,
+// Upper bound on instances contributed by a single draw range; longer ranges
+// are strided down to it, since a dash shorter than a pixel is invisible.
+const DASH_MAX_SEGS_PER_RANGE = 4000;
+
+/**
+ * Picks a stride per draw range so no range contributes more than ~4000
+ * instances, writes it into STEPS_SCRATCH, and returns the total instance
+ * count. Must run before `buildDashInstances`, which reads the same scratch.
+ */
+export function computeDashSteps(drawRanges: readonly DrawRange[]): number {
+	STEPS_SCRATCH.length = drawRanges.length;
+	let totalLineSegs = 0;
+	for (let i = 0; i < drawRanges.length; i++) {
+		const n = Math.max(0, drawRanges[i].count - 1);
+		const step = Math.max(1, Math.floor(n / DASH_MAX_SEGS_PER_RANGE));
+		STEPS_SCRATCH[i] = step;
+		totalLineSegs += Math.ceil(n / step);
+	}
+	return totalLineSegs;
+}
+
+/**
+ * Everything the packed instance buffer depends on. Built once and used both
+ * to compare against the previous frame and to record the new state, so the
+ * field list cannot drift between the two.
+ */
+export function dashCacheParams(
 	bundle: SeriesDrawBundle,
-	segBuffersRef: Map<string, WebGLBuffer>,
-	segParamsRef: Map<string, SegParams>,
-	segBufferKey: string,
-): void {
-	const { gl } = st;
-	const lineLocs = st.lineLocs;
-	if (!lineLocs) return;
+	totalLineSegs: number,
+): SegParams {
+	return {
+		xRange: bundle.xRange,
+		yRange: bundle.yRange,
+		chartWidth: bundle.chartWidth,
+		chartHeight: bundle.chartHeight,
+		dpr: bundle.dpr,
+		totalLineSegs,
+		rangesLen: bundle.drawRanges.length,
+		firstStart: bundle.drawRanges[0]?.start ?? 0,
+	};
+}
+
+/**
+ * Pan is a pure translation, so xRange/yRange are unchanged and this hits
+ * every frame. Zoom does change them, but that miss is amortized over the many
+ * frames that follow. Exact `===` is deliberate rather than an epsilon
+ * comparison: panning preserves the range exactly in floating point, so there
+ * is nothing to tolerate.
+ */
+export function dashParamsEqual(
+	a: SegParams | undefined,
+	b: SegParams,
+): boolean {
+	return (
+		a !== undefined &&
+		a.xRange === b.xRange &&
+		a.yRange === b.yRange &&
+		a.chartWidth === b.chartWidth &&
+		a.chartHeight === b.chartHeight &&
+		a.dpr === b.dpr &&
+		a.totalLineSegs === b.totalLineSegs &&
+		a.rangesLen === b.rangesLen &&
+		a.firstStart === b.firstStart
+	);
+}
+
+/**
+ * Packs one instance per dash segment as (x0, y0, x1, y1, cumulative distance).
+ * The distance runs in device pixels along each range so the fragment shader
+ * can phase the dash pattern; it restarts at every range because a gap breaks
+ * the line anyway.
+ *
+ * Pure and GL-free, which is what makes it testable in isolation.
+ */
+export function buildDashInstances(
+	bundle: SeriesDrawBundle,
+	totalLineSegs: number,
+): Float32Array {
 	const {
 		drawRanges,
 		xData,
@@ -184,31 +252,69 @@ function drawDashedLines(
 		chartHeight,
 		dpr,
 	} = bundle;
-	STEPS_SCRATCH.length = drawRanges.length;
-	let totalLineSegs = 0;
-	for (let i = 0; i < drawRanges.length; i++) {
-		const n = Math.max(0, drawRanges[i].count - 1);
-		const step = Math.max(1, Math.floor(n / 4000));
-		STEPS_SCRATCH[i] = step;
-		totalLineSegs += Math.ceil(n / step);
+	const out = new Float32Array(totalLineSegs * DASH_FLOATS);
+	const scaleX = (chartWidth * dpr) / xRange;
+	const scaleY = (chartHeight * dpr) / yRange;
+
+	let outIdx = 0;
+	for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
+		const r = drawRanges[rIdx];
+		const step = STEPS_SCRATCH[rIdx];
+		let cumDist = 0;
+		const n = r.count - 1;
+		for (let i = 0; i < n; i += step) {
+			const ai = r.start + i;
+			let bi = ai + step;
+			if (bi > r.start + n) bi = r.start + n;
+
+			const ax = xData[ai];
+			const ay = yData[ai];
+			const bx = xData[bi];
+			const by = yData[bi];
+			const off = outIdx * DASH_FLOATS;
+			out[off] = ax;
+			out[off + 1] = ay;
+			out[off + 2] = bx;
+			out[off + 3] = by;
+			out[off + 4] = cumDist;
+			cumDist += Math.sqrt(((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2);
+			outIdx++;
+		}
 	}
+	return out;
+}
+
+/** Points the five per-instance attributes at the packed buffer. */
+function bindDashAttributes(
+	st: GLStateCache,
+	lineLocs: NonNullable<GLStateCache["lineLocs"]>,
+): void {
+	const { gl } = st;
+	const locs = [
+		lineLocs.x0Loc,
+		lineLocs.y0Loc,
+		lineLocs.x1Loc,
+		lineLocs.y1Loc,
+		lineLocs.dist0Loc,
+	];
+	for (let i = 0; i < locs.length; i++) {
+		st.enableAttrib(locs[i], 1);
+		gl.vertexAttribPointer(locs[i], 1, gl.FLOAT, false, DASH_STRIDE, i * 4);
+	}
+}
+
+function drawDashedLines(
+	st: GLStateCache,
+	bundle: SeriesDrawBundle,
+	segBuffersRef: Map<string, WebGLBuffer>,
+	segParamsRef: Map<string, SegParams>,
+	segBufferKey: string,
+): void {
+	const { gl, lineLocs } = st;
+	if (!lineLocs) return;
+
+	const totalLineSegs = computeDashSteps(bundle.drawRanges);
 	if (totalLineSegs === 0) return;
-	const rangesLen = drawRanges.length;
-	const firstStart = drawRanges[0]?.start ?? 0;
-	// Pan = translation (xRange/yRange constant) so cache hits every frame.
-	// Zoom changes them, miss is amortized over many frames. Exact === is
-	// fine because pan preserves range exactly in floating point.
-	const prev = segParamsRef.get(segBufferKey);
-	const needsRebuild =
-		!prev ||
-		prev.xRange !== xRange ||
-		prev.yRange !== yRange ||
-		prev.chartWidth !== chartWidth ||
-		prev.chartHeight !== chartHeight ||
-		prev.dpr !== dpr ||
-		prev.totalLineSegs !== totalLineSegs ||
-		prev.rangesLen !== rangesLen ||
-		prev.firstStart !== firstStart;
 
 	let segBuffer = segBuffersRef.get(segBufferKey);
 	if (!segBuffer) {
@@ -218,61 +324,18 @@ function drawDashedLines(
 		segBuffersRef.set(segBufferKey, segBuffer);
 	}
 
-	if (needsRebuild) {
-		const sharedArr = new Float32Array(totalLineSegs * DASH_FLOATS);
-		const scaleX = (chartWidth * dpr) / xRange;
-		const scaleY = (chartHeight * dpr) / yRange;
-
-		let outIdx = 0;
-		for (let rIdx = 0; rIdx < drawRanges.length; rIdx++) {
-			const r = drawRanges[rIdx];
-			const step = STEPS_SCRATCH[rIdx];
-			let cumDist = 0;
-			const n = r.count - 1;
-			for (let i = 0; i < n; i += step) {
-				const ai = r.start + i;
-				let bi = ai + step;
-				if (bi > r.start + n) bi = r.start + n;
-
-				const ax = xData[ai];
-				const ay = yData[ai];
-				const bx = xData[bi];
-				const by = yData[bi];
-				const off = outIdx * DASH_FLOATS;
-				sharedArr[off] = ax;
-				sharedArr[off + 1] = ay;
-				sharedArr[off + 2] = bx;
-				sharedArr[off + 3] = by;
-				sharedArr[off + 4] = cumDist;
-				cumDist += Math.sqrt(((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2);
-				outIdx++;
-			}
-		}
-		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, sharedArr, gl.STREAM_DRAW);
-		segParamsRef.set(segBufferKey, {
-			xRange,
-			yRange,
-			chartWidth,
-			chartHeight,
-			dpr,
-			totalLineSegs,
-			rangesLen,
-			firstStart,
-		});
-	} else {
-		gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+	const params = dashCacheParams(bundle, totalLineSegs);
+	gl.bindBuffer(gl.ARRAY_BUFFER, segBuffer);
+	if (!dashParamsEqual(segParamsRef.get(segBufferKey), params)) {
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			buildDashInstances(bundle, totalLineSegs),
+			gl.STREAM_DRAW,
+		);
+		segParamsRef.set(segBufferKey, params);
 	}
-	st.enableAttrib(lineLocs.x0Loc, 1);
-	gl.vertexAttribPointer(lineLocs.x0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 0);
-	st.enableAttrib(lineLocs.y0Loc, 1);
-	gl.vertexAttribPointer(lineLocs.y0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 4);
-	st.enableAttrib(lineLocs.x1Loc, 1);
-	gl.vertexAttribPointer(lineLocs.x1Loc, 1, gl.FLOAT, false, DASH_STRIDE, 8);
-	st.enableAttrib(lineLocs.y1Loc, 1);
-	gl.vertexAttribPointer(lineLocs.y1Loc, 1, gl.FLOAT, false, DASH_STRIDE, 12);
-	st.enableAttrib(lineLocs.dist0Loc, 1);
-	gl.vertexAttribPointer(lineLocs.dist0Loc, 1, gl.FLOAT, false, DASH_STRIDE, 16);
+
+	bindDashAttributes(st, lineLocs);
 	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, totalLineSegs);
 }
 
