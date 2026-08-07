@@ -1,22 +1,26 @@
 {
-	"note": "Costs are normalised against the control workload in the same run, so they are comparable across machines. Regenerate with `npm run bench:update`.",
+	"note": "Costs are normalised against the geometric mean of the two control workloads measured in the same run, so they are comparable across machines. Regenerate with `npm run bench:update`, or from CI's bench-result artifact with `node scripts/bench-check.mjs --update`.",
+	"controlHzAtBaseline": {
+		"compute": 1092,
+		"memory": 103
+	},
 	"costs": {
-		"m4Float32 10k -> 512": 0.127683,
-		"m4Float32 1M -> 2048": 9.92473,
-		"m4ByXFloat32 1M full span": 7.80781,
-		"m4ByXFloat32 1M zoomed to 1%": 0.174149,
-		"m4MergeOctave": 0.647336,
-		"compile a mixed expression": 0.0103744,
-		"simple expression x100000 rows": 6.38555,
-		"mixed expression x100000 rows": 81.1737,
-		"findFirstGE x1000": 0.0742334,
-		"findLastLE x1000": 0.0783504,
-		"findClosest x1000": 0.0684147,
-		"monotonicity scan 1M (cold)": 7.91139,
-		"monotonicity lookup (warm)": 0.000127196,
-		"segment split 1M with NaN runs (cold)": 5.28282,
-		"computeDataSlice 1M monotonic": 0.000289642,
-		"computeDataSlice 1M non-monotonic": 0.00013282,
-		"computeDrawRanges over gappy slice": 0.000457883
+		"m4Float32 10k -> 512": 0.0325102,
+		"m4Float32 1M -> 2048": 2.79767,
+		"m4ByXFloat32 1M full span": 1.76334,
+		"m4ByXFloat32 1M zoomed to 1%": 0.0352662,
+		"m4MergeOctave": 0.189873,
+		"compile a mixed expression": 0.00200537,
+		"simple expression x100000 rows": 1.12858,
+		"mixed expression x100000 rows": 13.6748,
+		"findFirstGE x1000": 0.012667,
+		"findLastLE x1000": 0.0135714,
+		"findClosest x1000": 0.0107423,
+		"monotonicity scan 1M (cold)": 1.69672,
+		"monotonicity lookup (warm)": 0.0000230995,
+		"segment split 1M with NaN runs (cold)": 1.18203,
+		"computeDataSlice 1M monotonic": 0.0000487408,
+		"computeDataSlice 1M non-monotonic": 0.0000227856,
+		"computeDrawRanges over gappy slice": 0.0000661956
 	}
 }

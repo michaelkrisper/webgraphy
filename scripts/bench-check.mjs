@@ -98,9 +98,10 @@ const run = loadRun(RESULT_FILE);
 if (update) {
 	const baseline = {
 		note:
-			"Costs are normalised against the control workload in the same run," +
-			" so they are comparable across machines. Regenerate with" +
-			" `npm run bench:update`.",
+			"Costs are normalised against the geometric mean of the two control" +
+			" workloads measured in the same run, so they are comparable across" +
+			" machines. Regenerate with `npm run bench:update`, or from CI's" +
+			" bench-result artifact with `node scripts/bench-check.mjs --update`.",
 		// Recorded for diagnostics only; the checker never compares these.
 		controlHzAtBaseline: {
 			compute: Math.round(run.controlHz.compute),
@@ -208,6 +209,21 @@ if (improvements.length) {
 		`\n${improvements.length} benchmark(s) got faster by more than ${TOLERANCE * 100}%.` +
 			" Refresh the baseline so the gain is locked in.",
 	);
+}
+
+// Everything moving the same way by a lot is not a code change; it means the
+// baseline was produced by a different normaliser or a different suite. Left
+// unchecked it hides real regressions behind an apparent across-the-board win,
+// which is exactly what happened when the control set changed.
+// `rows` has no header row here, unlike the size checker.
+const compared = rows.length - added.length;
+if (compared > 0 && improvements.length === compared) {
+	console.error(
+		`\nEvery one of the ${compared} compared benchmarks moved faster by more` +
+			` than ${TOLERANCE * 100}%. That is a baseline mismatch, not a speed-up:` +
+			" regenerate it from an idle machine or from CI's bench-result artifact.",
+	);
+	if (process.env.CI) process.exit(1);
 }
 
 if (regressions.length) {
