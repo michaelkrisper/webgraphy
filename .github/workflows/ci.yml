@@ -69,7 +69,7 @@ jobs:
         run: npx playwright test
       - name: Upload report and any written snapshots
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
@@ -98,7 +98,7 @@ jobs:
         # Lets a clean baseline be regenerated from a run on an idle runner,
         # without measuring on a contended developer machine.
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: bench-result
           path: bench-result.json
