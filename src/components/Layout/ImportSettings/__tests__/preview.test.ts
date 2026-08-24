@@ -61,6 +61,48 @@ describe("preview", () => {
 				{ index: 0, name: "Col1", type: "categorical", dateFormat: undefined },
 			]);
 		});
+		it("should detect the type from the first non-empty value", () => {
+			// A gap in the first data row is normal in exported data. Typing the
+			// column off that one cell drops it as "ignore", and the series never
+			// reaches the chart at all.
+			const previewData = {
+				headers: ["Col1"],
+				rows: [[""], ["1.23"], ["4.56"]],
+				skippedLines: [],
+				gapStart: null,
+				totalRows: 3,
+			};
+			const configs = generateColumnConfigs(previewData, {}, ".", "csv");
+			expect(configs).toEqual([
+				{ index: 0, name: "Col1", type: "numeric", dateFormat: undefined },
+			]);
+		});
+		it("should detect a date format from the first non-empty value", () => {
+			const previewData = {
+				headers: ["Datum"],
+				rows: [[""], ["01.02.2026"]],
+				skippedLines: [],
+				gapStart: null,
+				totalRows: 2,
+			};
+			const configs = generateColumnConfigs(previewData, {}, ".", "csv");
+			expect(configs).toEqual([
+				{ index: 0, name: "Datum", type: "date", dateFormat: "DD.MM.YYYY" },
+			]);
+		});
+		it("should ignore a column that is empty in every sampled row", () => {
+			const previewData = {
+				headers: ["Col1"],
+				rows: [[""], [""], [""]],
+				skippedLines: [],
+				gapStart: null,
+				totalRows: 3,
+			};
+			const configs = generateColumnConfigs(previewData, {}, ".", "csv");
+			expect(configs).toEqual([
+				{ index: 0, name: "Col1", type: "ignore", dateFormat: undefined },
+			]);
+		});
 	});
 
 	describe("getPreferredXAxisColumn", () => {
