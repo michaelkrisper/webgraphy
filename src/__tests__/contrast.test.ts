@@ -56,6 +56,20 @@ describe("theme contrast", () => {
 		},
 	);
 
+	it.each(themeNames)(
+		"%s: the focus ring is visible on every surface it lands on",
+		(name) => {
+			const t = THEMES[name];
+			// The ring is drawn in `accent` with an offset, so it reads against
+			// the surface behind the control rather than the control's own fill.
+			// WCAG 1.4.11 asks 3:1 for a non-text indicator. Guards the CSS rule
+			// in index.css: recolouring a theme must not blind the keyboard user.
+			for (const surface of [t.bg, t.bg2, t.bg3, t.plotBg]) {
+				expect(contrastRatio(t.accent, surface)).toBeGreaterThanOrEqual(AA_LARGE);
+			}
+		},
+	);
+
 	it("computes known contrast ratios correctly", () => {
 		// Sanity check on the maths itself, against the two textbook extremes.
 		expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
