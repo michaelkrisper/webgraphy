@@ -9,7 +9,8 @@
 	},
 	"scripts": {
 		"dev": "vite",
-		"build": "tsc -b && vite build",
+		"build": "node scripts/build.mjs",
+		"typecheck": "tsc -b",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"lint": "eslint .",
