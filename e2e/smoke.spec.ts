@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 /** The app persists to IndexedDB; every test starts from demo data. */
-async function freshApp(page: Page) {
+async function freshApp(page: Page, opts: { isolated?: boolean } = {}) {
 	const errors: string[] = [];
 	page.on("console", (msg) => {
 		if (msg.type() === "error") errors.push(msg.text());
@@ -21,6 +21,16 @@ async function freshApp(page: Page) {
 		indexedDB.deleteDatabase("webgraphy-db");
 		localStorage.clear();
 	});
+	// The preview server sends COOP/COEP, so the suite would only ever see the
+	// SharedArrayBuffer transport. GitHub Pages cannot set those headers, so
+	// hiding the flag is the only way to exercise what actually ships.
+	if (opts.isolated === false) {
+		await page.addInitScript(() => {
+			Object.defineProperty(window, "crossOriginIsolated", {
+				get: () => false,
+			});
+		});
+	}
 	await page.goto("/");
 
 	// The canvas carries a generated accessible name, so waiting for it to
@@ -165,4 +175,27 @@ test("exports a well-formed SVG", async ({ page }) => {
 	expect(svg.length).toBeGreaterThan(500);
 	expect(svg).toContain("<svg");
 	expect(svg.trimEnd()).toMatch(/<\/svg>$/);
+});
+
+test("pans on the postMessage transport, without cross-origin isolation", async ({
+	page,
+}) => {
+	const { errors, plot } = await freshApp(page, { isolated: false });
+
+	expect(await page.evaluate(() => crossOriginIsolated)).toBe(false);
+	await expect(plot).toHaveAttribute("aria-label", /data series/);
+
+	// Same interaction as the pan test above, but with the worker deriving the
+	// scene from frame messages instead of the shared viewport.
+	const before = await axisLabel(page);
+	const box = await page.locator(".plot-area").boundingBox();
+	const cx = box!.x + box!.width / 2;
+	const cy = box!.y + box!.height / 2;
+	await page.mouse.move(cx, cy);
+	await page.mouse.down();
+	await page.mouse.move(cx - 200, cy, { steps: 10 });
+	await page.mouse.up();
+
+	await expect.poll(() => axisLabel(page), { timeout: 5_000 }).not.toBe(before);
+	expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
 });

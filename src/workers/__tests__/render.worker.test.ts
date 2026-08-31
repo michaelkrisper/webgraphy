@@ -240,6 +240,145 @@ describe("render.worker", () => {
 	});
 });
 
+// Shared fixture for both worker-built-scene paths: the scene context is
+// everything the worker needs besides the per-frame axis ranges.
+const sceneCtx: SceneContext = {
+	width: 200,
+	height: 100,
+	padding: { top: 10, right: 10, bottom: 10, left: 10 },
+	axisLayout: { "axis-1": { total: 40, label: 30 } },
+	xAxesMetrics: [
+		{
+			id: "axis-1",
+			height: 50,
+			labelBottom: 10,
+			secLabelBottom: 25,
+			titleBottom: 40,
+			cumulativeOffset: 0,
+		},
+	],
+	leftOffsets: {},
+	rightOffsets: {},
+	axisColor: "#3a3a35",
+	zeroLineColor: "#a09c93",
+	gridColor: "#ececea",
+	plotBg: "#ffffff",
+	labelColor: "#6b6760",
+	secLabelBg: "rgba(255,255,255,0.93)",
+	fontFamily: "sans-serif",
+	seriesByXAxisId: {},
+	seriesByYAxisId: {
+		"axis-1": [{ name: "Temp", yColumn: "t", lineColor: "#4589ff" }],
+	},
+	xAxesMeta: [
+		{
+			id: "axis-1",
+			name: "",
+			showGrid: true,
+			xMode: "numeric",
+			columnNames: ["Time"],
+		},
+	],
+	yAxesMeta: [
+		{
+			id: "axis-1",
+			name: "Axis 1",
+			color: "#475569",
+			position: "left",
+			showGrid: true,
+		},
+	],
+};
+
+/**
+ * Without cross-origin isolation the axis ranges arrive on the frame message,
+ * but the scene is still built in the worker — this is the path production on
+ * GitHub Pages takes, so the host must not have to compute overlay or labels.
+ */
+describe("render.worker — scene building on the postMessage path", () => {
+	const frame = (xAxes = axes, yAxes = axes) =>
+		({
+			t: "frame",
+			xAxes,
+			yAxes,
+			interacting: false,
+			highlight: null,
+		}) as const;
+
+	it("derives the overlay from the frame ranges once it has a context", async () => {
+		const { gl } = initWorker();
+
+		// No scene context yet: the host is still the one supplying overlay.
+		send(frame());
+		await nextFrame();
+		expect(gl.drawArrays).not.toHaveBeenCalled();
+
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 1 });
+		send(frame());
+		await nextFrame();
+		expect(gl.drawArrays).toHaveBeenCalledWith(
+			gl.LINES,
+			expect.any(Number),
+			expect.any(Number),
+		);
+	});
+
+	it("lets a host-supplied overlay win over the derived one", async () => {
+		const { gl } = initWorker();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 1 });
+		send({
+			...frame(),
+			overlay: {
+				packed: new Float32Array([0, 0, 1, 1]),
+				packedLen: 4,
+				groups: [
+					{
+						topology: "LINES" as const,
+						rgba: [0, 0, 0, 1],
+						width: 1,
+						offset: 0,
+						count: 2,
+					},
+				],
+			},
+		});
+		await nextFrame();
+
+		// Exactly the one group the host sent, not the scene's grid + spines.
+		expect(gl.drawArrays).toHaveBeenCalledTimes(1);
+		expect(gl.drawArrays).toHaveBeenCalledWith(gl.LINES, 0, 2);
+	});
+
+	it("redraws the pending frame when a new scene context arrives", async () => {
+		const { gl } = initWorker();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 1 });
+		send(frame());
+		await nextFrame();
+		gl.clear.mockClear();
+
+		// Resize/theme change: the ranges did not move, but the scene did.
+		send({ t: "sceneCtx", ctx: { ...sceneCtx, height: 200 }, version: 2 });
+		await nextFrame();
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores axes the scene context does not know about", async () => {
+		const { gl } = initWorker();
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 1 });
+		send(
+			frame(
+				[
+					{ id: "axis-1", min: 0, max: 10 },
+					{ id: "axis-2", min: 0, max: 99 },
+				],
+				[{ id: "axis-1", min: 0, max: 50 }],
+			),
+		);
+		await nextFrame();
+		expect(gl.drawArrays).toHaveBeenCalled();
+	});
+});
+
 /**
  * When the page is crossOriginIsolated the host hands the worker a
  * SharedArrayBuffer and stops sending per-frame messages entirely: the worker
@@ -247,54 +386,6 @@ describe("render.worker", () => {
  * in the message-driven tests above, so it is driven explicitly here.
  */
 describe("render.worker — SharedArrayBuffer viewport path", () => {
-	const sceneCtx: SceneContext = {
-		width: 200,
-		height: 100,
-		padding: { top: 10, right: 10, bottom: 10, left: 10 },
-		axisLayout: { "axis-1": { total: 40, label: 30 } },
-		xAxesMetrics: [
-			{
-				id: "axis-1",
-				height: 50,
-				labelBottom: 10,
-				secLabelBottom: 25,
-				titleBottom: 40,
-				cumulativeOffset: 0,
-			},
-		],
-		leftOffsets: {},
-		rightOffsets: {},
-		axisColor: "#3a3a35",
-		zeroLineColor: "#a09c93",
-		gridColor: "#ececea",
-		plotBg: "#ffffff",
-		labelColor: "#6b6760",
-		secLabelBg: "rgba(255,255,255,0.93)",
-		fontFamily: "sans-serif",
-		seriesByXAxisId: {},
-		seriesByYAxisId: {
-			"axis-1": [{ name: "Temp", yColumn: "t", lineColor: "#4589ff" }],
-		},
-		xAxesMeta: [
-			{
-				id: "axis-1",
-				name: "",
-				showGrid: true,
-				xMode: "numeric",
-				columnNames: ["Time"],
-			},
-		],
-		yAxesMeta: [
-			{
-				id: "axis-1",
-				name: "Axis 1",
-				color: "#475569",
-				position: "left",
-				showGrid: true,
-			},
-		],
-	};
-
 	function initShared() {
 		const gl = makeGl2Mock();
 		const canvas = makeCanvasMock(gl);

@@ -12,6 +12,11 @@
  *
  * Frame messages are coalesced: only the newest pending frame is drawn on
  * the next worker rAF tick, so a burst of pan events costs one draw.
+ *
+ * Overlay geometry and labels are derived here from the scene context, on
+ * both transports: with a SharedArrayBuffer the ranges come from the polled
+ * viewport, without one they ride along on the frame message. The host only
+ * supplies overlay/labels itself before it has sent a scene context.
  */
 
 import type { OverlayState } from "../components/Plot/drawOverlay";
@@ -29,8 +34,11 @@ import {
 } from "../components/Plot/rendererCore";
 import {
 	createViewportSnapshot,
+	MAX_AXES,
 	ViewportReader,
+	type ViewportSnapshot,
 } from "../components/Plot/viewportChannel";
+import { getAxisById } from "../utils/axisCalculations";
 
 export interface WorkerSeriesMsg {
 	id: string;
@@ -85,7 +93,12 @@ let canvas: OffscreenCanvas | null = null;
 let core: RendererCore | null = null;
 const columns = new Map<number, Float32Array>();
 
-let latestFrame: { xAxes: RenderAxis[]; yAxes: RenderAxis[] } | null = null;
+let latestFrame: {
+	xAxes: RenderAxis[];
+	yAxes: RenderAxis[];
+	/** Host sent no overlay/labels: build the scene here before drawing. */
+	deriveScene: boolean;
+} | null = null;
 let drawScheduled = false;
 
 // --- SharedArrayBuffer viewport mode ---------------------------------------
@@ -107,6 +120,24 @@ let sceneDirty = false;
 const sabXAxes: RenderAxis[] = [];
 const sabYAxes: RenderAxis[] = [];
 
+/** Build overlay + labels from the scene context and hand them to the core. */
+function applyScene(snap: ViewportSnapshot): void {
+	if (!core || !sceneCtx || !currentViewport) return;
+	const scene = buildFrameScene(
+		sceneCtx,
+		sceneCtxVersion,
+		snap,
+		currentViewport.dpr,
+		sceneCaches,
+	);
+	core.setOverlay(
+		scene.overlay.packed,
+		scene.overlay.packedLen,
+		scene.overlay.groups,
+	);
+	core.setLabels(scene.labels);
+}
+
 function drawSharedFrame(): void {
 	if (!core || !sceneCtx || !currentViewport) return;
 	sabXAxes.length = 0;
@@ -127,19 +158,7 @@ function drawSharedFrame(): void {
 			max: viewportSnap.ranges[(viewportSnap.xCount + i) * 2 + 1],
 		});
 	}
-	const scene = buildFrameScene(
-		sceneCtx,
-		sceneCtxVersion,
-		viewportSnap,
-		currentViewport.dpr,
-		sceneCaches,
-	);
-	core.setOverlay(
-		scene.overlay.packed,
-		scene.overlay.packedLen,
-		scene.overlay.groups,
-	);
-	core.setLabels(scene.labels);
+	applyScene(viewportSnap);
 	core.setInteracting(viewportSnap.interacting);
 	core.drawFrame(sabXAxes, sabYAxes);
 }
@@ -176,12 +195,50 @@ function wakeSharedLoop(): void {
 }
 // ---------------------------------------------------------------------------
 
+// --- postMessage viewport mode ---------------------------------------------
+// Without cross-origin isolation there is no SharedArrayBuffer, so the axis
+// ranges arrive on the frame message instead. The scene is still built here:
+// the host's per-frame work stays a small structured clone either way.
+const postedSnap = createViewportSnapshot();
+
+/**
+ * Map a frame message's axis ranges into the slot order `buildFrameScene`
+ * expects. The message carries axis ids, so — unlike the shared-buffer path —
+ * this needs no scene version guard: a stale order cannot be misread.
+ */
+function fillPostedSnapshot(xAxes: RenderAxis[], yAxes: RenderAxis[]): boolean {
+	if (!sceneCtx) return false;
+	const xCount = Math.min(sceneCtx.xAxesMeta.length, MAX_AXES);
+	const yCount = Math.min(sceneCtx.yAxesMeta.length, MAX_AXES);
+	postedSnap.xCount = xCount;
+	postedSnap.yCount = yCount;
+	for (let i = 0; i < xCount; i++) {
+		const axis = getAxisById(xAxes, sceneCtx.xAxesMeta[i].id);
+		postedSnap.ranges[i * 2] = axis ? axis.min : 0;
+		postedSnap.ranges[i * 2 + 1] = axis ? axis.max : 1;
+	}
+	for (let i = 0; i < yCount; i++) {
+		const axis = getAxisById(yAxes, sceneCtx.yAxesMeta[i].id);
+		postedSnap.ranges[(xCount + i) * 2] = axis ? axis.min : 0;
+		postedSnap.ranges[(xCount + i) * 2 + 1] = axis ? axis.max : 1;
+	}
+	return true;
+}
+
 function scheduleDraw(): void {
 	if (drawScheduled) return;
 	drawScheduled = true;
 	const run = () => {
 		drawScheduled = false;
 		if (core && latestFrame) {
+			// Deferred to the draw tick, not done on receipt: a burst of pan
+			// messages must cost one scene build, like it costs one draw.
+			if (
+				latestFrame.deriveScene &&
+				fillPostedSnapshot(latestFrame.xAxes, latestFrame.yAxes)
+			) {
+				applyScene(postedSnap);
+			}
 			core.drawFrame(latestFrame.xAxes, latestFrame.yAxes);
 		}
 	};
@@ -246,6 +303,11 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 			core = RendererCore.create(msg.canvas);
 			core?.setViewport(msg.viewport);
 			core?.setPlotBg(msg.plotBg);
+			// A fresh canvas means a fresh host: nothing from a previous one
+			// may leak into the scene it is about to describe.
+			sceneCtx = null;
+			sceneCtxVersion = -1;
+			latestFrame = null;
 			if (msg.viewportSab) viewportReader = new ViewportReader(msg.viewportSab);
 			break;
 		}
@@ -273,6 +335,9 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 		case "sceneCtx": {
 			sceneCtx = msg.ctx;
 			sceneCtxVersion = msg.version;
+			// A pending frame was built against the previous context (or none
+			// at all): redraw it through the new one.
+			if (latestFrame) scheduleDraw();
 			sceneDirty = true;
 			wakeSharedLoop();
 			break;
@@ -298,7 +363,11 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 			if (msg.labels) core?.setLabels(msg.labels);
 			core?.setInteracting(msg.interacting);
 			core?.setHighlight(msg.highlight);
-			latestFrame = { xAxes: msg.xAxes, yAxes: msg.yAxes };
+			latestFrame = {
+				xAxes: msg.xAxes,
+				yAxes: msg.yAxes,
+				deriveScene: !msg.overlay && !msg.labels,
+			};
 			scheduleDraw();
 			break;
 		}

@@ -43,9 +43,9 @@ export interface RenderBackend {
 	setOverlay(ov: OverlayState): void;
 	setLabels(labels: RenderLabel[]): void;
 	/**
-	 * True when the backend derives overlay/labels itself from the shared
-	 * viewport — the host then skips its per-frame scene building and only
-	 * needs to keep the scene context up to date.
+	 * True when the backend derives overlay/labels itself from the scene
+	 * context — the host then skips its per-frame scene building and only
+	 * needs to keep that context up to date.
 	 */
 	sceneShared(): boolean;
 	setSceneContext(ctx: SceneContext): void;
@@ -161,9 +161,11 @@ class WorkerBackend implements RenderBackend {
 		groups: OverlayState["groups"];
 	} | null = null;
 	private pendingLabels: RenderLabel[] | null = null;
-	// Shared-viewport mode (crossOriginIsolated only): per-frame axis ranges
-	// go through a seqlocked SharedArrayBuffer instead of postMessage, and the
-	// worker builds overlay/labels itself from the scene context.
+	// The worker always builds overlay/labels itself from the scene context;
+	// the writer only changes how the per-frame ranges get there. With
+	// crossOriginIsolated they go through a seqlocked SharedArrayBuffer, so
+	// interaction costs no postMessage at all; without it they ride on the
+	// frame message, which stays a clone of a handful of numbers.
 	private writer: ViewportWriter | null = null;
 	private sceneVersion = 0;
 	private xOrder: string[] = [];
@@ -259,11 +261,13 @@ class WorkerBackend implements RenderBackend {
 	}
 
 	sceneShared(): boolean {
-		return this.writer !== null;
+		// The worker derives the scene on both transports, but only once it
+		// has a scene context — until then the host has to supply overlay and
+		// labels itself, or the first frames would draw bare series.
+		return this.writer !== null || this.sceneVersion > 0;
 	}
 
 	setSceneContext(ctx: SceneContext): void {
-		if (!this.writer) return;
 		this.sceneVersion++;
 		this.xOrder = ctx.xAxesMeta.map((m) => m.id);
 		this.yOrder = ctx.yAxesMeta.map((m) => m.id);

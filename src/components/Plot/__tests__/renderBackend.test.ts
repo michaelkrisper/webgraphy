@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OverlayState } from "../drawOverlay";
+import type { SceneContext } from "../frameScene";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
 import type { RendererSeriesInput } from "../rendererCore";
 import { makeCanvasMock, makeGl2Mock } from "./glMock";
@@ -191,6 +192,32 @@ describe("WorkerBackend protocol", () => {
 		// Overlay is consumed: the next frame carries none.
 		backend.redraw([], [], false, null);
 		expect(messagesOf(worker).at(-1).overlay).toBeUndefined();
+		releaseRenderBackend(canvas);
+	});
+
+	it("hands the scene context to the worker without a SharedArrayBuffer", () => {
+		const { backend, worker, canvas } = makeWorkerBackend();
+		// jsdom is not crossOriginIsolated, so this is the postMessage path.
+		expect(backend.sceneShared()).toBe(false);
+
+		const ctx = {
+			xAxesMeta: [{ id: "axis-1" }],
+			yAxesMeta: [{ id: "axis-1" }],
+		} as unknown as SceneContext;
+		backend.setSceneContext(ctx);
+
+		const sent = messagesOf(worker).at(-1);
+		expect(sent.t).toBe("sceneCtx");
+		expect(sent.ctx).toBe(ctx);
+		expect(sent.version).toBe(1);
+		// With a context in the worker, the host stops building the scene.
+		expect(backend.sceneShared()).toBe(true);
+
+		backend.redraw([{ id: "axis-1", min: 0, max: 10 }], [], false, null);
+		const frame = messagesOf(worker).at(-1);
+		expect(frame.t).toBe("frame");
+		expect(frame.overlay).toBeUndefined();
+		expect(frame.labels).toBeUndefined();
 		releaseRenderBackend(canvas);
 	});
 });
