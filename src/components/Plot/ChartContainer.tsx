@@ -380,9 +380,9 @@ export default function ChartContainer() {
 					const isInteractingNow =
 						panStateRef.current.active || isInteractingRef.current;
 
-					// Shared-viewport backend: the worker derives tick layout,
-					// overlay geometry, and labels itself from the SharedArrayBuffer
-					// ranges — the main thread's per-frame work ends here.
+					// Worker backend with a scene context: it derives tick layout,
+					// overlay geometry, and labels itself from the axis ranges —
+					// the main thread's per-frame work ends here.
 					if (webglRef.current?.sceneShared()) {
 						webglRef.current.redraw(liveX, liveY);
 						if (forceStoreUpdate || !isInteractingNow) {
@@ -471,11 +471,13 @@ export default function ChartContainer() {
 	}, [syncViewport]);
 
 	// 6. Effects
-	// Keep the render worker's scene context current (shared-viewport mode
-	// only): everything the worker needs besides the per-frame axis ranges.
+	// Keep the render worker's scene context current: everything it needs
+	// besides the per-frame axis ranges. Sent unconditionally — it is what
+	// switches the worker backend to building the scene itself, and it is a
+	// no-op on the main-thread backend.
 	useEffect(() => {
 		const handle = webglRef.current;
-		if (!handle?.sceneShared()) return;
+		if (!handle) return;
 		const dsByX = groupActiveDatasetsByXAxis(datasets, activeDsIdsSet);
 		handle.setSceneContext({
 			width,
