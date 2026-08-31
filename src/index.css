@@ -14,6 +14,35 @@
 	box-sizing: border-box;
 }
 
+/*
+ * One focus treatment for every interactive control. Without this the app
+ * inherits the UA ring, whose colour has no relationship to the five themes
+ * and is close to invisible on the dark ones.
+ *
+ * `:focus-visible` rather than `:focus`, so pointer users get no ring on
+ * click. `accent` carries at least 3:1 against every surface in all five
+ * themes — the WCAG 1.4.11 floor for a non-text indicator — which is
+ * asserted in src/__tests__/contrast.test.ts.
+ *
+ * The offset lifts the ring clear of the control's own fill, so it reads
+ * against the surrounding surface rather than against an accent-filled
+ * button, where it would vanish. `:where()` keeps specificity at zero so a
+ * component can still opt out deliberately.
+ */
+:where(
+	a[href],
+	area,
+	button,
+	input,
+	select,
+	textarea,
+	summary,
+	[tabindex]
+):focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
 body,
 html,
 #root {
