@@ -2,7 +2,7 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
-import { resolveAppVersion } from "./appVersion";
+import { resolveAppVersion } from "./appVersion.ts";
 
 export default defineConfig({
 	define: {
@@ -45,9 +45,9 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			"@": path.resolve(__dirname, "./src"),
+			"@": path.resolve(import.meta.dirname, "./src"),
 			"virtual:pwa-register": path.resolve(
-				__dirname,
+				import.meta.dirname,
 				"src/__tests__/mock-pwa-register.ts",
 			),
 		},

@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
-import { resolveAppVersion } from "./appVersion";
+import { resolveAppVersion } from "./appVersion.ts";
 
 // Cross-origin isolation enables SharedArrayBuffer, which the render worker
 // uses for the per-frame viewport handoff (falls back to postMessage without
