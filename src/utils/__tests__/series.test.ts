@@ -32,6 +32,27 @@ describe("buildSeriesConfig", () => {
 		expect(s1.yAxisId).toBe("axis-2");
 	});
 
+	it("distinguishes the first twelve series without relying on colour", () => {
+		// Colour alone is not a usable cue: cobalt and violet sit at ΔE 6.4
+		// under deuteranopia, teal and cyan at ΔE 4.3 under tritanopia. Shape
+		// has to carry the identity too, so every one of the twelve
+		// combinations of line style and point style must be distinct before
+		// any of them repeats.
+		const shapes = Array.from({ length: 12 }, (_, i) => {
+			const s = buildSeriesConfig("Col", "ds-1", i);
+			return `${s.lineStyle}/${s.pointStyle}`;
+		});
+		expect(new Set(shapes).size).toBe(12);
+	});
+
+	it("keeps a categorical series line-free while still varying its points", () => {
+		const s = buildSeriesConfig("Col", "ds-1", 1, true);
+		expect(s.lineStyle).toBe("none");
+		expect(s.pointStyle).not.toBe(
+			buildSeriesConfig("Col", "ds-1", 0, true).pointStyle,
+		);
+	});
+
 	it("wraps axis assignment at 9", () => {
 		const s9 = buildSeriesConfig("Col", "ds-1", 9);
 		expect(s9.yAxisId).toBe("axis-1");
