@@ -1,6 +1,13 @@
 import type React from "react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { createPortal } from "react-dom";
+import { useDialogA11y } from "../../hooks/useDialogA11y";
 
 export interface PopupPickerOption<T> {
 	value: T;
@@ -49,6 +56,8 @@ export function PopupPicker<T extends string | number>({
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen, popoverId]);
 
+	const close = useCallback(() => setIsOpen(false), []);
+
 	const toggleOpen = () => {
 		if (!isOpen && triggerRef.current) {
 			const rect = triggerRef.current.getBoundingClientRect();
@@ -79,33 +88,60 @@ export function PopupPicker<T extends string | number>({
 	return (
 		<>
 			{renderTrigger({ onClick: toggleOpen, ref: triggerRef, isOpen })}
-			{isOpen &&
-				createPortal(
-					<div
-						id={popoverId}
-						className="popup-picker-popover"
-						style={{ top: coords.top, left: coords.left, minWidth }}
-					>
-						{options.map((opt) => {
-							const isActive = opt.value === current;
-							return (
-								<button
-									key={String(opt.value)}
-									type="button"
-									className={`popup-picker-item${isActive ? " popup-picker-item--active" : ""}`}
-									onClick={() => handleSelect(opt.value)}
-									onMouseEnter={() => onHoverOption?.(opt.value)}
-									onMouseLeave={() => onHoverOption?.(null)}
-									disabled={opt.disabled}
-								>
-									<span className="popup-picker-icon">{opt.icon}</span>
-									<span className="popup-picker-label">{opt.label}</span>
-								</button>
-							);
-						})}
-					</div>,
-					document.body,
-				)}
+			{isOpen && (
+				<PopupPickerPopover
+					id={popoverId}
+					style={{ top: coords.top, left: coords.left, minWidth }}
+					onClose={close}
+				>
+					{options.map((opt) => {
+						const isActive = opt.value === current;
+						return (
+							<button
+								key={String(opt.value)}
+								type="button"
+								className={`popup-picker-item${isActive ? " popup-picker-item--active" : ""}`}
+								onClick={() => handleSelect(opt.value)}
+								onMouseEnter={() => onHoverOption?.(opt.value)}
+								onMouseLeave={() => onHoverOption?.(null)}
+								disabled={opt.disabled}
+							>
+								<span className="popup-picker-icon">{opt.icon}</span>
+								<span className="popup-picker-label">{opt.label}</span>
+							</button>
+						);
+					})}
+				</PopupPickerPopover>
+			)}
 		</>
+	);
+}
+
+/**
+ * The popover is a portal at the end of `document.body`, so tabbing out of the
+ * trigger walked past it into the rest of the sidebar: the options existed but
+ * could not be reached, and nothing dismissed them but a click. Mounting it
+ * through the dialog focus helper moves focus onto the first option, keeps Tab
+ * inside the list, closes on Escape and hands focus back to the trigger.
+ */
+function PopupPickerPopover({
+	id,
+	style,
+	onClose,
+	children,
+}: {
+	id: string;
+	style: React.CSSProperties;
+	onClose: () => void;
+	children: ReactNode;
+}) {
+	const ref = useRef<HTMLDivElement>(null);
+	useDialogA11y(ref, onClose);
+
+	return createPortal(
+		<div ref={ref} id={id} className="popup-picker-popover" style={style}>
+			{children}
+		</div>,
+		document.body,
 	);
 }

@@ -236,10 +236,16 @@ export const WebGLRenderer = React.memo(
 		// No width/height attributes here: once the canvas is transferred to the
 		// render worker, only the worker may size its drawing buffer. CSS keeps
 		// the element filling its layer; backends resize via setViewport.
+		//
+		// tabIndex makes the plot a tab stop: pan/zoom listens on the window, so
+		// the keys always worked, but without a stop here a keyboard user tabbed
+		// straight past the chart — never hearing the description and with no
+		// focus ring to say the arrow keys now move the viewport.
 		return (
 			<canvas
 				ref={canvasRef}
 				role="img"
+				tabIndex={0}
 				aria-label={ariaLabel}
 				style={{ display: "block", width: "100%", height: "100%" }}
 			/>

@@ -1,6 +1,7 @@
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { COLOR_PALETTE } from "../../themes";
 import { hexToRgb, lchToRgb, rgbToHex, rgbToLch } from "../../utils/colors";
 
@@ -231,6 +232,37 @@ function ColorPickerInputs({
 	);
 }
 
+/**
+ * The popover is a portal at the end of `document.body`, so a keyboard user
+ * who opened it tabbed on into the rest of the sidebar rather than into the
+ * swatches, and had no way to dismiss it. The dialog focus helper moves focus
+ * in, keeps Tab inside, closes on Escape and returns focus to the trigger.
+ */
+function ColorPickerPopover({
+	style,
+	onClose,
+	children,
+}: {
+	style: React.CSSProperties;
+	onClose: () => void;
+	children: React.ReactNode;
+}) {
+	const ref = useRef<HTMLDivElement>(null);
+	useDialogA11y(ref, onClose);
+
+	return createPortal(
+		<div
+			ref={ref}
+			id="color-picker-popover"
+			className="color-picker-popover"
+			style={style}
+		>
+			{children}
+		</div>,
+		document.body,
+	);
+}
+
 function ColorPicker({
 	color,
 	onChange,
@@ -265,6 +297,20 @@ function ColorPicker({
 		if (isOpen) document.addEventListener("mousedown", handleClickOutside);
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen, onHoverEnd]);
+
+	// Escape can close the popover while the pointer still rests on a swatch,
+	// so no mouseleave arrives to undo the preview. `close` has to keep a
+	// stable identity — it feeds the popover's focus effect — hence the ref.
+	const onHoverEndRef = useRef(onHoverEnd);
+	useEffect(() => {
+		onHoverEndRef.current = onHoverEnd;
+	}, [onHoverEnd]);
+
+	const close = useCallback(() => {
+		setIsOpen(false);
+		setHoverColor(null);
+		onHoverEndRef.current?.();
+	}, []);
 
 	const toggleOpen = () => {
 		if (!isOpen && containerRef.current) {
@@ -313,29 +359,26 @@ function ColorPicker({
 				style={{ backgroundColor: color }}
 			/>
 
-			{isOpen &&
-				createPortal(
-					<div
-						id="color-picker-popover"
-						className="color-picker-popover"
-						style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
-					>
-						<ColorPickerGrid
-							color={color}
-							onSelect={handleColorSelect}
-							onHoverColor={handleColorHover}
-							onHoverLeave={handleColorHoverLeave}
-						/>
-						<ColorPickerInputs
-							color={color}
-							hoverColor={hoverColor}
-							localHex={localHex}
-							setLocalHex={setLocalHex}
-							onChange={onChange}
-						/>
-					</div>,
-					document.body,
-				)}
+			{isOpen && (
+				<ColorPickerPopover
+					style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
+					onClose={close}
+				>
+					<ColorPickerGrid
+						color={color}
+						onSelect={handleColorSelect}
+						onHoverColor={handleColorHover}
+						onHoverLeave={handleColorHoverLeave}
+					/>
+					<ColorPickerInputs
+						color={color}
+						hoverColor={hoverColor}
+						localHex={localHex}
+						setLocalHex={setLocalHex}
+						onChange={onChange}
+					/>
+				</ColorPickerPopover>
+			)}
 		</div>
 	);
 }
