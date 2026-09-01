@@ -182,3 +182,38 @@ test("a popover opened mid-path is operable and hands focus back", async ({
 		.poll(() => focused(page).then((s) => s?.name ?? ""))
 		.toBe("Select Line Style");
 });
+
+test("the plotted data is reachable as a table without a mouse", async ({
+	page,
+}) => {
+	await freshApp(page);
+
+	await page.getByRole("button", { name: "View Data" }).focus();
+	await page.keyboard.press("Enter");
+
+	const tables = page.getByRole("table");
+	await expect(tables.first()).toBeVisible();
+	// One table per visible demo series, each bounded by MAX_TABLE_ROWS.
+	await expect(tables).toHaveCount(4);
+	expect(await page.getByRole("row").count()).toBeLessThanOrEqual(4 * 201);
+
+	// The x column of the first row, which must follow the viewport.
+	const firstCell = () => tables.first().getByRole("cell").first().innerText();
+	const before = await firstCell();
+
+	await page.keyboard.press("Escape");
+	await expect(tables.first()).toBeHidden();
+
+	// Zoom in from the plot, then reopen: the rows must describe the new
+	// window, not the one the table was first built for.
+	await page.keyboard.press("Tab");
+	await page.keyboard.down("+");
+	await page.waitForTimeout(500);
+	await page.keyboard.up("+");
+	await page.waitForTimeout(500);
+
+	await page.getByRole("button", { name: "View Data" }).focus();
+	await page.keyboard.press("Enter");
+	await expect(tables.first()).toBeVisible();
+	expect(await firstCell()).not.toBe(before);
+});
