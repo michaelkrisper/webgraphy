@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import ColorPicker from "../ColorPicker";
 
@@ -156,5 +157,15 @@ describe("ColorPicker", () => {
 			// Decrement R: #ff (255) - 1 -> #fe (254) -> #fe0000
 			expect(defaultProps.onChange).toHaveBeenCalledWith("#fe0000");
 		}
+	});
+
+	it("has no axe violations with the popover open", async () => {
+		const { container } = render(<ColorPicker {...defaultProps} />);
+		fireEvent.click(screen.getByRole("button", { name: "Test Color Picker" }));
+		expect(await axe(container)).toHaveNoViolations();
+		// The popover renders through a portal, so it sits outside `container`.
+		const popover = document.getElementById("color-picker-popover");
+		expect(popover).toBeInTheDocument();
+		expect(await axe(popover as HTMLElement)).toHaveNoViolations();
 	});
 });

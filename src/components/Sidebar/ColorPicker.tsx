@@ -36,6 +36,8 @@ function ColorPaletteButton({
 			onMouseEnter={() => onHoverColor(targetColor)}
 			onMouseLeave={onHoverLeave}
 			className="color-picker-palette-btn"
+			aria-label={`Color ${targetColor}`}
+			aria-pressed={currentColor.toLowerCase() === targetColor.toLowerCase()}
 			style={{
 				backgroundColor: targetColor,
 				border:
@@ -131,6 +133,8 @@ function ColorPickerGrid({
 	);
 }
 
+const RGB_LABELS = { r: "Red", g: "Green", b: "Blue" } as const;
+
 interface ColorPickerInputsProps {
 	color: string;
 	hoverColor: string | null;
@@ -202,6 +206,7 @@ function ColorPickerInputs({
 					value={displayHex}
 					onChange={handleHexChange}
 					className="color-picker-input"
+					aria-label="Hex color value"
 					spellCheck={false}
 				/>
 			</div>
@@ -217,6 +222,7 @@ function ColorPickerInputs({
 							value={p === "r" ? r : p === "g" ? g : b}
 							onChange={(e) => handleRgbChange(p, e.target.value)}
 							className="color-picker-input"
+							aria-label={RGB_LABELS[p]}
 						/>
 					))}
 				</div>

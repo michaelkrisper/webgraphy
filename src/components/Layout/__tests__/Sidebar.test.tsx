@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import type { Mock } from "vitest";
 import { useDataImport } from "../../../hooks/useDataImport";
 import { useGraphStore } from "../../../store/useGraphStore";
@@ -225,5 +226,48 @@ describe("Sidebar Component", () => {
 		const value2Button = screen.getByRole("button", { name: "value2" });
 		expect(value2Button).not.toBeDisabled();
 		expect(value2Button.parentElement).toHaveStyle({ opacity: "1" });
+	});
+
+	it("has no axe violations with datasets and series", async () => {
+		const state = {
+			datasets: [
+				{
+					id: "ds-1",
+					name: "Dataset 1",
+					columns: ["time", "value1", "value2"],
+					xAxisColumn: "time",
+					xAxisId: "axis-1",
+					data: [{}, {}, {}],
+					rowCount: 3,
+				},
+			],
+			series: [
+				{
+					id: "s-1",
+					sourceId: "ds-1",
+					yColumn: "value1",
+					yAxisId: "axis-1",
+					hidden: false,
+				},
+			],
+			xAxes: [{ id: "axis-1", name: "X-Axis 1", xMode: "numeric" }],
+			yAxes: [],
+			legendVisible: true,
+			removeDataset: vi.fn(),
+			updateDataset: vi.fn(),
+			updateXAxis: vi.fn(),
+			reorderSeries: vi.fn(),
+			loadDemoData: mockLoadDemoData,
+			setHighlightedSeries: vi.fn(),
+			addSeries: vi.fn(),
+			setLegendVisible: vi.fn(),
+			removeCalculatedColumn: vi.fn(),
+		};
+		(useGraphStore as unknown as Mock).mockImplementation(
+			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
+		);
+
+		const { container } = render(<Sidebar />);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });
