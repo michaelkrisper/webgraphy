@@ -100,12 +100,18 @@ export function generateColumnConfigs(
 	return previewData.headers.map((name, index) => {
 		const override = columnOverrides[index];
 
+		// First *non-empty* value, not first row: a gap in the leading row is
+		// ordinary in exported data, and typing the column off that one blank
+		// cell marks it "ignore", which drops the column before it ever reaches
+		// the chart. Only a column blank in every sampled row stays ignored.
 		const firstVal =
 			fileType === "json"
 				? (previewData.rows as Record<string, string>[]).find((row) => row[name])?.[
 						name
 					]
-				: (previewData.rows as string[][])[0]?.[index];
+				: (previewData.rows as string[][]).find((row) => row[index]?.trim())?.[
+						index
+					];
 
 		const { type: autoType, dateFormat: autoFormat } = detectColumnTypeAndFormat(
 			firstVal,
