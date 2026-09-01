@@ -11,9 +11,12 @@ import {
 	PanelRightClose,
 	Spline,
 	Sun,
+	Table,
 	Terminal,
 } from "lucide-react";
 import type React from "react";
+import { useState } from "react";
+import { PlotDataTableModal } from "../Plot/PlotDataTableModal";
 import { useGraphStore } from "../../store/useGraphStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
@@ -119,6 +122,9 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const crosshairVisible = useGraphStore((s) => s.crosshairVisible);
 	const setCrosshairVisible = useGraphStore((s) => s.setCrosshairVisible);
 	const [themeName, , setTheme] = useTheme();
+	const datasets = useGraphStore((s) => s.datasets);
+	const series = useGraphStore((s) => s.series);
+	const [dataTableOpen, setDataTableOpen] = useState(false);
 
 	const hdrSep = <span className="sb-hdr-sep" />;
 
@@ -176,6 +182,11 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						</button>
 					)}
 				/>
+				<HeaderButton
+					onClick={() => setDataTableOpen(true)}
+					icon={<Table size={24} />}
+					title="View Data"
+				/>
 				{hdrSep}
 				<span className="sb-spacer" />
 				<HeaderButton
@@ -224,6 +235,14 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					title="Collapse Sidebar"
 				/>
 			</div>
+			{dataTableOpen && (
+				<PlotDataTableModal
+					series={series}
+					datasets={datasets}
+					xAxes={xAxes}
+					onClose={() => setDataTableOpen(false)}
+				/>
+			)}
 		</header>
 	);
 };

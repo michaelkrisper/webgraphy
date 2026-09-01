@@ -1437,3 +1437,40 @@
 	opacity: 1;
 	pointer-events: auto;
 }
+
+/*
+ * The "View Data" table. Rows are numbers read against a label, so both
+ * columns are right-aligned and the header stays put while the body scrolls.
+ */
+.plot-data-note {
+	margin: 0 0 12px;
+	font-size: 0.8rem;
+	color: var(--text-muted-color);
+}
+.plot-data-scroll {
+	overflow-y: auto;
+	max-height: 60vh;
+}
+.plot-data-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: var(--font-family-mono);
+	font-size: 0.75rem;
+	margin-bottom: 20px;
+}
+.plot-data-table caption {
+	text-align: left;
+	font-weight: bold;
+	padding: 4px 0;
+}
+.plot-data-table th,
+.plot-data-table td {
+	padding: 2px 8px;
+	text-align: right;
+	border-bottom: 1px solid var(--border-color);
+}
+.plot-data-table th {
+	position: sticky;
+	top: 0;
+	background: var(--bg);
+}
