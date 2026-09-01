@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import "@testing-library/jest-dom";
 import type { ReactNode } from "react";
 import type { Mock } from "vitest";
@@ -303,5 +304,33 @@ describe("DataSourcesSection", () => {
 		fireEvent.click(createSeriesBtn);
 
 		expect(mockAddSeries).toHaveBeenCalled();
+	});
+
+	it("has no axe violations with datasets rendered", async () => {
+		const datasets = [
+			{
+				id: "ds1",
+				name: "Dataset 1",
+				rowCount: 100,
+				columns: ["x", "y", "z"],
+				xAxisColumn: "x",
+				xAxisId: "axis-1",
+				data: [{}, {}, {}],
+			},
+		];
+		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+			sel({
+				datasets,
+				series: [],
+				removeDataset: mockRemoveDataset,
+				updateDataset: mockUpdateDataset,
+				addSeries: mockAddSeries,
+				removeCalculatedColumn: mockRemoveCalculatedColumn,
+				renameColumn: mockRenameColumn,
+			}),
+		);
+
+		const { container } = renderComponent();
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });

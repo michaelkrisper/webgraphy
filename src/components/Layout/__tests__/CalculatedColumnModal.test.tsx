@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Mock } from "vitest";
 import { CalculatedColumnModal } from "../CalculatedColumnModal";
@@ -316,5 +317,12 @@ describe("CalculatedColumnModal", () => {
 				"((([A])))",
 			);
 		});
+	});
+
+	it("has no axe violations", async () => {
+		const { container } = render(
+			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />,
+		);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });

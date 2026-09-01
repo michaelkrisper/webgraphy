@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { SeriesConfigUI } from "../SeriesConfig";
@@ -246,5 +247,10 @@ describe("SeriesConfigUI", () => {
 		// nextAxisId will be axis-2. allSeries doesn't have it.
 		expect(mockUpdateYAxis).toHaveBeenCalledWith("axis-2", { position: "left" });
 		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { yAxisId: "axis-2" });
+	});
+
+	it("has no axe violations", async () => {
+		const { container } = render(<SeriesConfigUI {...defaultProps} />);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });

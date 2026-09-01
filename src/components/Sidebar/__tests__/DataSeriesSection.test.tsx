@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { DataSeriesSection } from "../DataSeriesSection";
 import { useGraphStore } from "../../../store/useGraphStore";
@@ -157,5 +158,38 @@ describe("DataSeriesSection", () => {
 		expect(
 			screen.queryByText("Add columns from data sources"),
 		).not.toBeInTheDocument();
+	});
+
+	it("has no axe violations with series rendered", async () => {
+		const mockSeries = [
+			{ id: "s1", columnId: "col1", name: "Series 1" },
+			{ id: "s2", columnId: "col2", name: "Series 2" },
+		];
+
+		vi
+			.mocked(useGraphStore)
+			.mockImplementation(
+				(
+					selector: (state: {
+						series: unknown[];
+						datasets: unknown[];
+						setHighlightedSeries: (id: string | null) => void;
+						reorderSeries: (id: string, index: number) => void;
+					}) => unknown,
+				) => {
+					const store = {
+						series: mockSeries,
+						datasets: [],
+						setHighlightedSeries: mockSetHighlightedSeries,
+						reorderSeries: mockReorderSeries,
+					};
+					return selector(store);
+				},
+			);
+
+		const { container } = render(
+			<DataSeriesSection open={true} onToggle={mockOnToggle} />,
+		);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });

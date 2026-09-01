@@ -173,6 +173,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								})
 							}
 							title="X-Axis"
+							aria-label={`X-axis column for ${ds.name}`}
 							style={{
 								fontSize: "0.75rem",
 								height: "22px",

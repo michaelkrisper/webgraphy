@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 import { THEMES } from "../../../themes";
@@ -147,5 +148,19 @@ describe("ImportSettingsDialog", () => {
 		// Decimal point should be detected as "."
 		const decimalSelect = screen.getByLabelText(/Decimal Point/i);
 		expect(decimalSelect).toHaveValue(".");
+	});
+
+	it("has no axe violations", async () => {
+		const { container } = render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={"Header1,Header2\n1,2\n3,4"}
+				fileType="csv"
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+				theme={theme}
+			/>,
+		);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });
