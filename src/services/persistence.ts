@@ -1,5 +1,7 @@
 import { type IDBPDatabase, openDB } from "idb";
-import { z } from "zod";
+// `zod/mini` covers the whole surface used below and keeps ~10 KB gzip of the
+// chainable classic API out of the entry chunk (see size-budget.json).
+import * as z from "zod/mini";
 import { logger } from "../utils/logger";
 
 const DB_NAME = "webgraphy-db";
@@ -109,7 +111,7 @@ const SeriesConfigSchema = z.object({
 	pointColor: z.string(),
 	lineStyle: z.enum(["solid", "dashed", "dotted", "none"]),
 	lineColor: z.string(),
-	hidden: z.boolean().optional(),
+	hidden: z.optional(z.boolean()),
 });
 const ViewportSchema = z.object({
 	xAxes: z.array(XAxisConfigSchema),

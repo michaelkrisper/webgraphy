@@ -137,20 +137,20 @@ describe("Sidebar Component", () => {
 		expect(sidebar).toBeInTheDocument();
 	});
 
-	it("opens modals when links are clicked", () => {
+	it("opens modals when links are clicked", async () => {
 		render(<Sidebar />);
 
 		fireEvent.click(screen.getByText("Imprint"));
-		expect(screen.getByTestId("imprint-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByText("License"));
-		expect(screen.getByTestId("license-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByTitle("Help"));
-		expect(screen.getByTestId("help-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("help-modal")).toBeInTheDocument();
 	});
 
-	it("shows ImportSettingsDialog when there is a pending file", () => {
+	it("shows ImportSettingsDialog when there is a pending file", async () => {
 		(useDataImport as unknown as Mock).mockReturnValue({
 			importFile: mockImportFile,
 			confirmImport: vi.fn(),
@@ -164,7 +164,9 @@ describe("Sidebar Component", () => {
 		});
 
 		render(<Sidebar />);
-		expect(screen.getByTestId("import-settings-dialog")).toBeInTheDocument();
+		expect(
+			await screen.findByTestId("import-settings-dialog"),
+		).toBeInTheDocument();
 	});
 
 	it("does not disable the button for an already used data column", () => {

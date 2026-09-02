@@ -1,8 +1,16 @@
 import type React from "react";
-import { useState } from "react";
-import { HelpModal } from "./HelpModal";
-import { ImprintModal } from "./ImprintModal";
-import { LicenseModal } from "./LicenseModal";
+import { lazy, Suspense, useState } from "react";
+
+// Rarely opened; kept out of the entry chunk (see size-budget.json).
+const HelpModal = lazy(() =>
+	import("./HelpModal").then((m) => ({ default: m.HelpModal })),
+);
+const ImprintModal = lazy(() =>
+	import("./ImprintModal").then((m) => ({ default: m.ImprintModal })),
+);
+const LicenseModal = lazy(() =>
+	import("./LicenseModal").then((m) => ({ default: m.LicenseModal })),
+);
 
 export const SidebarFooter: React.FC = () => {
 	const [showImprint, setShowImprint] = useState(false);
@@ -75,9 +83,11 @@ export const SidebarFooter: React.FC = () => {
 				</div>
 			</footer>
 
-			{showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
-			{showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-			{showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
+			<Suspense fallback={null}>
+				{showImprint && <ImprintModal onClose={() => setShowImprint(false)} />}
+				{showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+				{showLicense && <LicenseModal onClose={() => setShowLicense(false)} />}
+			</Suspense>
 		</>
 	);
 };

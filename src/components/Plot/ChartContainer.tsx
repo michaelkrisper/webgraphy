@@ -1,6 +1,7 @@
 // src/components/Plot/ChartContainer.tsx
 
 import {
+	Suspense,
 	useCallback,
 	useEffect,
 	useLayoutEffect,
@@ -28,7 +29,7 @@ import {
 } from "../../utils/axisCalculations";
 import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
 import ErrorBoundary from "../ErrorBoundary";
-import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
+import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
 	buildLabels,
 	createLabelStringCache,
@@ -715,18 +716,20 @@ export default function ChartContainer() {
 					/>
 				)}
 			</main>
-			{pendingFile && (
-				<ImportSettingsDialog
-					fileName={pendingFile.file.name}
-					fileContent={pendingFile.preview}
-					fileType={pendingFile.type}
-					sheets={pendingFile.sheets}
-					selectedSheet={pendingFile.selectedSheet}
-					onSheetChange={changeSheet}
-					onConfirm={confirmImport}
-					onCancel={cancelImport}
-				/>
-			)}
+			<Suspense fallback={null}>
+				{pendingFile && (
+					<ImportSettingsDialogLazy
+						fileName={pendingFile.file.name}
+						fileContent={pendingFile.preview}
+						fileType={pendingFile.type}
+						sheets={pendingFile.sheets}
+						selectedSheet={pendingFile.selectedSheet}
+						onSheetChange={changeSheet}
+						onConfirm={confirmImport}
+						onCancel={cancelImport}
+					/>
+				)}
+			</Suspense>
 		</>
 	);
 }

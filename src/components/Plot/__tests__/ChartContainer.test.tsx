@@ -144,7 +144,7 @@ describe("ChartContainer", () => {
 		expect(screen.getByTestId("crosshair")).toBeInTheDocument();
 	});
 
-	it("renders ImportSettingsDialog when pendingFile exists", () => {
+	it("renders ImportSettingsDialog when pendingFile exists", async () => {
 		mockPendingFile = {
 			file: { name: "test.csv" },
 			preview: [],
@@ -154,7 +154,9 @@ describe("ChartContainer", () => {
 		};
 
 		render(<ChartContainer width={800} height={600} themeName="light" />);
-		expect(screen.getByTestId("import-settings-dialog")).toBeInTheDocument();
+		expect(
+			await screen.findByTestId("import-settings-dialog"),
+		).toBeInTheDocument();
 	});
 
 	it("wires wheel and keyboard interactions on the chart surface without crashing", async () => {

@@ -6,9 +6,18 @@
 		"index.js": 158720,
 		"render.worker.js": 18432,
 		"formula.worker.js": 11264,
+		"CalculatedColumnModal.js": 5120,
 		"index.css": 5120,
+		"ImportSettingsDialog.js": 4096,
+		"export.js": 4096,
 		"parser.worker.js": 4096,
 		"workbox-window.prod.es5.js": 3072,
+		"HelpModal.js": 2048,
+		"ImprintModal.js": 1024,
+		"LicenseModal.js": 1024,
+		"Modal.js": 1024,
+		"PlotDataTableModal.js": 1024,
+		"check.js": 1024,
 		"latin.css": 1024
 	}
 }
