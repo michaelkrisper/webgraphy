@@ -52,37 +52,37 @@ describe("SidebarFooter", () => {
 		expect(screen.getByRole("button", { name: "Imprint" })).toBeInTheDocument();
 	});
 
-	it("opens and closes the Help modal", () => {
+	it("opens and closes the Help modal", async () => {
 		render(<SidebarFooter />);
 
 		expect(screen.queryByTestId("help-modal")).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "Help" }));
-		expect(screen.getByTestId("help-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("help-modal")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByTestId("close-help"));
 		expect(screen.queryByTestId("help-modal")).not.toBeInTheDocument();
 	});
 
-	it("opens and closes the License modal", () => {
+	it("opens and closes the License modal", async () => {
 		render(<SidebarFooter />);
 
 		expect(screen.queryByTestId("license-modal")).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "License" }));
-		expect(screen.getByTestId("license-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByTestId("close-license"));
 		expect(screen.queryByTestId("license-modal")).not.toBeInTheDocument();
 	});
 
-	it("opens and closes the Imprint modal", () => {
+	it("opens and closes the Imprint modal", async () => {
 		render(<SidebarFooter />);
 
 		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "Imprint" }));
-		expect(screen.getByTestId("imprint-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByTestId("close-imprint"));
 		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();

@@ -15,12 +15,18 @@ import {
 	Terminal,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
-import { PlotDataTableModal } from "../Plot/PlotDataTableModal";
+import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+
+// Rarely opened; kept out of the entry chunk (see size-budget.json).
+const PlotDataTableModal = lazy(() =>
+	import("../Plot/PlotDataTableModal").then((m) => ({
+		default: m.PlotDataTableModal,
+	})),
+);
 
 const UnicornHeadIcon = ({ size = 24 }: { size?: number }) => (
 	<svg
@@ -235,14 +241,16 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					title="Collapse Sidebar"
 				/>
 			</div>
-			{dataTableOpen && (
-				<PlotDataTableModal
-					series={series}
-					datasets={datasets}
-					xAxes={xAxes}
-					onClose={() => setDataTableOpen(false)}
-				/>
-			)}
+			<Suspense fallback={null}>
+				{dataTableOpen && (
+					<PlotDataTableModal
+						series={series}
+						datasets={datasets}
+						xAxes={xAxes}
+						onClose={() => setDataTableOpen(false)}
+					/>
+				)}
+			</Suspense>
 		</header>
 	);
 };

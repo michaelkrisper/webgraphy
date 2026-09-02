@@ -1,12 +1,19 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import ErrorBoundary from "../ErrorBoundary";
-import { CalculatedColumnModal } from "../Layout/CalculatedColumnModal";
 import { DatasetItem } from "./DatasetItem";
+
+// Pulls in the formula editor + function reference; only needed once the user
+// actually adds a calculated column, so it stays out of the entry chunk.
+const CalculatedColumnModal = lazy(() =>
+	import("../Layout/CalculatedColumnModal").then((m) => ({
+		default: m.CalculatedColumnModal,
+	})),
+);
 
 interface DataSourcesSectionProps {
 	open: boolean;
@@ -118,24 +125,26 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 				)}
 			</section>
 
-			{selectedDatasetForCalc && (
-				<CalculatedColumnModal
-					dataset={selectedDatasetForCalc}
-					onClose={() => setCalculatingDatasetId(null)}
-				/>
-			)}
-			{editingColumn &&
-				(() => {
-					const ds = datasets.find((d) => d.id === editingColumn.datasetId);
-					return ds ? (
-						<CalculatedColumnModal
-							dataset={ds}
-							initialName={editingColumn.name}
-							initialFormula={editingColumn.formula}
-							onClose={() => setEditingColumn(null)}
-						/>
-					) : null;
-				})()}
+			<Suspense fallback={null}>
+				{selectedDatasetForCalc && (
+					<CalculatedColumnModal
+						dataset={selectedDatasetForCalc}
+						onClose={() => setCalculatingDatasetId(null)}
+					/>
+				)}
+				{editingColumn &&
+					(() => {
+						const ds = datasets.find((d) => d.id === editingColumn.datasetId);
+						return ds ? (
+							<CalculatedColumnModal
+								dataset={ds}
+								initialName={editingColumn.name}
+								initialFormula={editingColumn.formula}
+								onClose={() => setEditingColumn(null)}
+							/>
+						) : null;
+					})()}
+			</Suspense>
 		</ErrorBoundary>
 	);
 };

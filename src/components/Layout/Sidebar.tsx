@@ -1,14 +1,13 @@
 import type React from "react";
-import { useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
-import { downloadFile, exportToPNG, exportToSVG } from "../../services/export";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
 import { CollapsedMenuButton } from "./CollapsedMenuButton";
-import { ImportSettingsDialog } from "./ImportSettingsDialog";
+import { ImportSettingsDialogLazy } from "./importSettingsDialogLazy";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
 
@@ -41,10 +40,13 @@ export const Sidebar: React.FC = () => {
 	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
 		useDataImport();
 
-	const handleExportSVG = () => {
+	// `services/export` carries the whole standalone SVG renderer; loading it on
+	// demand keeps it out of the entry chunk (see size-budget.json).
+	const handleExportSVG = async () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
 		if (!plotContainer) return;
 
+		const { downloadFile, exportToSVG } = await import("../../services/export");
 		const svgContent = exportToSVG(
 			datasets,
 			series,
@@ -61,6 +63,7 @@ export const Sidebar: React.FC = () => {
 		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
 		if (!plotContainer) return;
 
+		const { downloadFile, exportToPNG } = await import("../../services/export");
 		const pngData = await exportToPNG(
 			datasets,
 			series,
@@ -112,18 +115,20 @@ export const Sidebar: React.FC = () => {
 			</aside>
 
 			{/* Modals */}
-			{pendingFile && (
-				<ImportSettingsDialog
-					fileName={pendingFile.file.name}
-					fileContent={pendingFile.preview}
-					fileType={pendingFile.type}
-					sheets={pendingFile.sheets}
-					selectedSheet={pendingFile.selectedSheet}
-					onSheetChange={changeSheet}
-					onConfirm={confirmImport}
-					onCancel={cancelImport}
-				/>
-			)}
+			<Suspense fallback={null}>
+				{pendingFile && (
+					<ImportSettingsDialogLazy
+						fileName={pendingFile.file.name}
+						fileContent={pendingFile.preview}
+						fileType={pendingFile.type}
+						sheets={pendingFile.sheets}
+						selectedSheet={pendingFile.selectedSheet}
+						onSheetChange={changeSheet}
+						onConfirm={confirmImport}
+						onCancel={cancelImport}
+					/>
+				)}
+			</Suspense>
 		</>
 	);
 };

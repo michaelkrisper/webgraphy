@@ -172,7 +172,7 @@ describe("DataSourcesSection", () => {
 		expect(mockUpdateDataset).toHaveBeenCalledWith("ds1", { xAxisColumn: "y" });
 	});
 
-	it("shows Add Calculated Column modal when button is clicked", () => {
+	it("shows Add Calculated Column modal when button is clicked", async () => {
 		const datasets = [
 			{
 				id: "ds1",
@@ -201,7 +201,7 @@ describe("DataSourcesSection", () => {
 		const calcBtn = screen.getByTitle("Add Calculated Column");
 		fireEvent.click(calcBtn);
 
-		expect(screen.getByTestId("calc-modal")).toBeInTheDocument();
+		expect(await screen.findByTestId("calc-modal")).toBeInTheDocument();
 
 		// Close the modal
 		fireEvent.click(screen.getByTestId("close-calc-modal"));
