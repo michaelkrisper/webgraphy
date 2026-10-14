@@ -70,6 +70,7 @@ import {
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
+import { MeasureTools, type MeasureToolsHandle } from "./measure/MeasureTools";
 import { syncStoreUpdates } from "./syncStoreUpdates";
 import {
 	applyOverlayContext,
@@ -111,6 +112,7 @@ export default function ChartContainer() {
 		{},
 	);
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
+	const measureRef = useRef<MeasureToolsHandle | null>(null);
 	const labelStringCacheRef = useRef(createLabelStringCache());
 	const pressedKeysRef = useRef<Set<string>>(new Set());
 	const overlayScratchRef = useRef<{
@@ -460,6 +462,7 @@ export default function ChartContainer() {
 					// Worker backend with a scene context: it derives tick layout,
 					// overlay geometry, and labels itself from the axis ranges —
 					// the main thread's per-frame work ends here.
+					measureRef.current?.redraw(liveX, liveY);
 					if (webglRef.current?.sceneShared()) {
 						webglRef.current.redraw(liveX, liveY);
 						if (forceStoreUpdate || !isInteractingNow) {
@@ -808,6 +811,21 @@ export default function ChartContainer() {
 						themeColors={themeColors}
 						onStackedFit={handleStackedFit}
 						onFitAll={handleFitAll}
+					/>
+				)}
+				{datasets.length > 0 && (
+					<MeasureTools
+						ref={measureRef}
+						containerRef={containerRef}
+						width={width}
+						height={height}
+						padding={padding}
+						series={series}
+						datasets={datasets}
+						xAxes={xAxes}
+						yAxes={yAxes}
+						lineColor={themeColors.snapLineColor}
+						plotBg={themeColors.plotBg}
 					/>
 				)}
 				{crosshairVisible && (

@@ -42,6 +42,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Hover:</strong> Crosshair and tooltip snap to the nearest point
 				</li>
 				<li>
+					<strong>Click:</strong> Pin cursor A, click again for B — the readout shows
+					Δx, Δy and slope (ratio on log axes). <kbd>Esc</kbd> clears them.{" "}
+					<kbd>S</kbd> shows statistics of the visible range
+				</li>
+				<li>
 					<strong>Legend:</strong> Click an entry to hide or show its series
 				</li>
 				<li>
