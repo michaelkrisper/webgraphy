@@ -36,6 +36,10 @@ vi.mock("../LicenseModal", () => ({
 	),
 }));
 
+vi.mock("../StorageReadout", () => ({
+	StorageReadout: () => <div data-testid="storage-readout" />,
+}));
+
 describe("SidebarFooter", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
@@ -86,5 +90,18 @@ describe("SidebarFooter", () => {
 
 		fireEvent.click(screen.getByTestId("close-imprint"));
 		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
+	});
+
+	it("toggles the lazily loaded storage readout", async () => {
+		render(<SidebarFooter />);
+		const btn = screen.getByRole("button", { name: "Storage" });
+		expect(btn).toHaveAttribute("aria-expanded", "false");
+
+		fireEvent.click(btn);
+		expect(await screen.findByTestId("storage-readout")).toBeInTheDocument();
+		expect(btn).toHaveAttribute("aria-expanded", "true");
+
+		fireEvent.click(btn);
+		expect(screen.queryByTestId("storage-readout")).not.toBeInTheDocument();
 	});
 });

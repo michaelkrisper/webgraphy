@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { generateDemoDataset, getDemoAppState } from "../services/demoData";
 import {
+	type AppState,
 	type DataColumn,
 	type Dataset,
 	type ParsedDataset,
@@ -12,7 +13,9 @@ import {
 import { AXIS_EPSILON } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { compileFormula, matchRegressionFormula } from "../utils/formula";
+import { logger } from "../utils/logger";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
+import { notify } from "./useNotificationStore";
 
 interface GraphState {
 	datasets: Dataset[];
@@ -515,8 +518,30 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 
 	loadPersistedState: async () => {
-		const savedState = await persistence.loadAppState();
-		const allDatasets = await persistence.getAllDatasets();
+		let savedState: AppState | null;
+		let allDatasets: Dataset[];
+		try {
+			savedState = await persistence.loadAppState();
+			allDatasets = await persistence.getAllDatasets();
+		} catch (error) {
+			// Storage disabled, private mode or a failed open: run on demo data
+			// without persistence, which also keeps whatever is on disk intact.
+			logger.error("Failed to load saved data", { error });
+			persistence.disable();
+			notify({
+				kind: "error",
+				message:
+					"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
+			});
+			try {
+				await get().loadDemoData();
+			} catch (demoError) {
+				logger.error("Failed to load demo data", { error: demoError });
+			} finally {
+				if (!get().isLoaded) set({ isLoaded: true });
+			}
+			return;
+		}
 
 		if (savedState) {
 			if (savedState.series) {
