@@ -1,10 +1,12 @@
 import type {
+	DataColumn,
 	Dataset,
 	SeriesConfig,
 	XAxisConfig,
 } from "../../services/persistence";
 import { getAxisById } from "../../utils/axisCalculations";
 import { getColumnIndex } from "../../utils/columns";
+import { escapeTextCell, makeCellFormatter } from "../../utils/csv-export";
 import { m4ByXFloat32 } from "../../utils/decimation";
 import { formatFullDate } from "../../utils/time";
 
@@ -37,7 +39,7 @@ export const MAX_TABLE_ROWS = 200;
 const BUCKETS = Math.floor((MAX_TABLE_ROWS - 2) / 4);
 
 export interface PlotTableRow {
-	/** World x, i.e. the column value with its `refPoint` added back. */
+	/** World values, i.e. the column values with their `refPoint` added back. */
 	x: number;
 	y: number;
 }
@@ -50,6 +52,9 @@ export interface PlotTableSeries {
 	rows: PlotTableRow[];
 	/** True when the row cap trimmed the decimated output. */
 	truncated: boolean;
+	/** Source columns, for exporting the rows with the CSV cell formatting. */
+	xColumn: DataColumn;
+	yColumn: DataColumn;
 }
 
 export interface PlotDataTableInput {
@@ -95,7 +100,7 @@ export function buildPlotDataTable({
 
 		const rows: PlotTableRow[] = [];
 		for (let i = 0; i < x.length && rows.length < MAX_TABLE_ROWS; i++) {
-			rows.push({ x: x[i] + xCol.refPoint, y: y[i] });
+			rows.push({ x: x[i] + xCol.refPoint, y: y[i] + yCol.refPoint });
 		}
 
 		tables.push({
@@ -105,6 +110,8 @@ export function buildPlotDataTable({
 			xMode: xAxis.xMode,
 			rows,
 			truncated: x.length > rows.length,
+			xColumn: xCol,
+			yColumn: yCol,
 		});
 	}
 
@@ -121,4 +128,26 @@ export function formatTableValue(
 	return parseFloat(value.toPrecision(7)).toLocaleString(undefined, {
 		maximumFractionDigits: 10,
 	});
+}
+
+/**
+ * The shown rows as tab-separated text for the clipboard: one block per
+ * series, separated by a blank line. Cells use the CSV export's formatting
+ * (ISO dates, round-trip numbers, empty gaps) rather than the localised
+ * display strings, so the paste lands in a spreadsheet as numbers.
+ */
+export function plotTableToTsv(tables: readonly PlotTableSeries[]): string {
+	return tables
+		.map((t) => {
+			const fx = makeCellFormatter(t.xColumn, "\t");
+			const fy = makeCellFormatter(t.yColumn, "\t");
+			const xRef = t.xColumn.refPoint;
+			const yRef = t.yColumn.refPoint;
+			let out = `${escapeTextCell(t.xAxisName, "\t")}\t${escapeTextCell(t.name, "\t")}\n`;
+			for (const r of t.rows) {
+				out += `${fx(Math.fround(r.x - xRef))}\t${fy(Math.fround(r.y - yRef))}\n`;
+			}
+			return out;
+		})
+		.join("\n");
 }

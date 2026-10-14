@@ -1513,6 +1513,26 @@
 	font-size: 0.8rem;
 	color: var(--text-muted-color);
 }
+.plot-data-actions {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 12px;
+}
+.plot-data-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: inherit;
+	font-size: 0.8rem;
+	cursor: pointer;
+}
+.plot-data-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
 .plot-data-scroll {
 	overflow-y: auto;
 	max-height: 60vh;
