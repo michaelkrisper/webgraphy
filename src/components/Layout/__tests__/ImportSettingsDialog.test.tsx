@@ -150,6 +150,62 @@ describe("ImportSettingsDialog", () => {
 		expect(decimalSelect).toHaveValue(".");
 	});
 
+	it("uses the default delimiter instead of detection when given", () => {
+		render(
+			<ImportSettingsDialog
+				fileName="single.tsv"
+				fileContent={"a,b\n1,2"}
+				fileType="csv"
+				defaultDelimiter={"\t"}
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		expect(screen.getByLabelText(/Delimiter/i)).toHaveValue("\t");
+	});
+
+	it("shows busy state and blocks confirm/cancel while importing", () => {
+		const onConfirm = vi.fn();
+		const onCancel = vi.fn();
+		render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={"A,B\n1,2"}
+				fileType="csv"
+				isImporting
+				onConfirm={onConfirm}
+				onCancel={onCancel}
+			/>,
+		);
+		const confirm = screen.getByRole("button", { name: /Importing/ });
+		expect(confirm).toBeDisabled();
+		expect(confirm).toHaveAttribute("aria-busy", "true");
+		fireEvent.click(confirm);
+		expect(onConfirm).not.toHaveBeenCalled();
+		expect(screen.getByLabelText("Close dialog")).toBeDisabled();
+	});
+
+	it("notes a truncated preview and shows its head rows only", () => {
+		const lines = ["n"];
+		for (let i = 1; i <= 80; i++) lines.push(`v${i}`);
+		render(
+			<ImportSettingsDialog
+				fileName="big.csv"
+				fileContent={lines.join("\n")}
+				previewTruncated
+				fileType="csv"
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.getByText(/Preview shows the first 50 rows/),
+		).toBeInTheDocument();
+		expect(screen.getByText("v50")).toBeInTheDocument();
+		expect(screen.queryByText("v51")).not.toBeInTheDocument();
+		expect(screen.queryByText("v80")).not.toBeInTheDocument();
+	});
+
 	it("has no axe violations", async () => {
 		const { container } = render(
 			<ImportSettingsDialog

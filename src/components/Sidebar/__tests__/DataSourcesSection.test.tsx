@@ -85,7 +85,7 @@ describe("DataSourcesSection", () => {
 				open={open}
 				onToggle={mockOnToggle}
 				fileInputRef={mockFileInputRef}
-				importFile={mockImportFile}
+				importFiles={mockImportFile}
 			/>,
 		);
 	};
@@ -98,6 +98,18 @@ describe("DataSourcesSection", () => {
 				/Add datasources by importing or drag and drop on the graph surface/,
 			),
 		).toBeInTheDocument();
+	});
+
+	it("accepts every supported extension and forwards all picked files", () => {
+		const { container } = renderComponent();
+		const input = container.querySelector(
+			'input[type="file"]',
+		) as HTMLInputElement;
+		expect(input.multiple).toBe(true);
+		expect(input.accept).toBe(".csv,.tsv,.txt,.dat,.json,.xlsx,.xls,.ods");
+		const files = [new File(["a"], "a.csv"), new File(["b"], "b.tsv")];
+		fireEvent.change(input, { target: { files } });
+		expect(mockImportFile).toHaveBeenCalledWith(files);
 	});
 
 	it("toggles section when header is clicked", () => {

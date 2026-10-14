@@ -17,12 +17,18 @@ export function generatePreviewData(
 	delimiter: string,
 	startRow: number,
 	commentChar: string,
+	/** `fileContent` is only the start of the data, so its tail is not the file's. */
+	truncated = false,
 ): PreviewData {
 	const HEAD = 25;
 	const TAIL = 25;
 	const trim = <T>(
 		arr: T[],
 	): { rows: T[]; gapStart: number | null; totalRows: number } => {
+		if (truncated) {
+			const rows = arr.slice(0, HEAD + TAIL);
+			return { rows, gapStart: null, totalRows: rows.length };
+		}
 		if (arr.length <= HEAD + TAIL) {
 			return { rows: arr, gapStart: null, totalRows: arr.length };
 		}
