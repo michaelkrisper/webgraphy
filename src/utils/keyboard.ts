@@ -1,5 +1,6 @@
 // src/utils/keyboard.ts
 import type { useGraphStore } from "../store/useGraphStore";
+import { type AxisScale, mapRangeInScale } from "./axisScale";
 import { anyKeyPressed, hasKey, SHORTCUTS } from "./shortcuts";
 
 type Range = { min: number; max: number };
@@ -13,23 +14,31 @@ export type AxisStep = "pan-" | "pan+" | "zoom-in" | "zoom-out";
 
 /**
  * Moves one axis' pan/zoom target by a single keyboard step, starting from
- * the pending target when there is one so repeated steps accumulate.
+ * the pending target when there is one so repeated steps accumulate. On a
+ * log axis the step happens in log10 space (pan scales both edges by the
+ * same factor, zoom keeps the geometric centre).
  */
 export function stepAxisTarget(
 	targets: Record<string, Range>,
-	axis: { id: string; min: number; max: number },
+	axis: { id: string; min: number; max: number; scale?: AxisScale },
 	step: AxisStep,
 ): void {
 	const t = targets[axis.id] || { min: axis.min, max: axis.max };
-	const r = t.max - t.min;
-	if (step === "pan-" || step === "pan+") {
-		const d = step === "pan+" ? r * PAN_STEP : -r * PAN_STEP;
-		targets[axis.id] = { min: t.min + d, max: t.max + d };
-		return;
-	}
-	const newRange = r * (step === "zoom-in" ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR);
-	const half = (r - newRange) / 2;
-	targets[axis.id] = { min: t.min + half, max: t.max - half };
+	targets[axis.id] = mapRangeInScale(
+		t.min,
+		t.max,
+		axis.scale === "log",
+		(lo, hi) => {
+			const r = hi - lo;
+			if (step === "pan-" || step === "pan+") {
+				const d = step === "pan+" ? r * PAN_STEP : -r * PAN_STEP;
+				return { min: lo + d, max: hi + d };
+			}
+			const newRange = r * (step === "zoom-in" ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR);
+			const half = (r - newRange) / 2;
+			return { min: lo + half, max: hi - half };
+		},
+	);
 }
 
 /** The step a key performs on a focused axis zone, or null if none. */

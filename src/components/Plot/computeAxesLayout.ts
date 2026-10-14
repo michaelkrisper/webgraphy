@@ -77,14 +77,15 @@ export function buildYAxisLayoutFor(
 	yAxisCategoryLabels: ReadonlyMap<string, string[] | undefined>,
 ): YAxisLayout {
 	const categoryLabels = yAxisCategoryLabels.get(axis.id);
-	const { ticks, precision, actualStep } = calcYAxisTicks(
+	const { ticks, precision, actualStep, minorTicks } = calcYAxisTicks(
 		axis.min,
 		axis.max,
 		chartHeight,
 		categoryLabels ? 1 : undefined,
 		categoryLabels?.length,
+		axis.scale === "log",
 	);
-	return { ...axis, ticks, precision, actualStep, categoryLabels };
+	return { ...axis, ticks, precision, actualStep, minorTicks, categoryLabels };
 }
 
 export interface ComputeXAxesLayoutParams {
@@ -126,7 +127,7 @@ export function computeXAxesLayoutCached({
 		const axis = liveXAxes[i];
 		if (!activeXAxisIds.has(axis.id)) continue;
 
-		const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.name ?? ""}`;
+		const cacheKey = `${axis.min}|${axis.max}|${axis.showGrid}|${axis.xMode}|${axis.scale}|${axis.name ?? ""}`;
 		const cached = cache.entries.get(axis.id);
 		if (cached && cached.key === cacheKey) {
 			out.push(cached.layout);
@@ -170,7 +171,7 @@ export function computeYAxesLayoutCached({
 	for (let i = 0; i < liveYAxes.length; i++) {
 		const axis = liveYAxes[i];
 		if (!usedYAxisIdsSet.has(axis.id)) continue;
-		const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.name ?? ""}`;
+		const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.scale}|${axis.name ?? ""}`;
 		const cached = cache.entries.get(axis.id);
 		if (cached && cached.key === cacheKey) {
 			out.push(cached.layout);

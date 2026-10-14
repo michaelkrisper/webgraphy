@@ -555,3 +555,85 @@ describe("sizeCanvasToViewport", () => {
 		expect([canvas.width, canvas.height]).toEqual([1, 1]);
 	});
 });
+
+describe("RendererCore log axes", () => {
+	/** Every value uploaded to the `u_log_ref` uniform of either program. */
+	function logRefCalls(gl: ReturnType<typeof makeGl2Mock>) {
+		const locs = new Set(
+			gl.getUniformLocation.mock.calls
+				.map((c, i) =>
+					c[1] === "u_log_ref" ? gl.getUniformLocation.mock.results[i].value : null,
+				)
+				.filter(Boolean),
+		);
+		expect(locs.size).toBe(2);
+		return gl.uniform4f.mock.calls
+			.filter((c) => locs.has(c[0]))
+			.map((c) => c.slice(1));
+	}
+
+	it("flags log axes and passes the column refPoints to both programs", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries({ xRef: 5, yRef: 7, pointStyle: "circle" })]);
+		const logX = [{ id: "axis-1", min: 1, max: 1000, scale: "log" as const }];
+		core.drawFrame(logX, axes);
+		const calls = logRefCalls(gl);
+		// Main program (points) and line program, x log only: y's ref stays 0
+		// so linear series keep hitting the uniform cache.
+		expect(calls).toEqual([
+			[1, 0, 5, 0],
+			[1, 0, 5, 0],
+		]);
+	});
+
+	it("maps x in decades: offset/scale put log10(min) at the plot's left edge", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries()]);
+		const logX = [{ id: "axis-1", min: 1, max: 1000, scale: "log" as const }];
+		core.drawFrame(logX, axes);
+		const xLoc =
+			gl.getUniformLocation.mock.results[
+				gl.getUniformLocation.mock.calls.findIndex(
+					(c) => c[1] === "u_x_scale_offset",
+				)
+			].value;
+		const [, scale, offset] = gl.uniform2f.mock.calls.find((c) => c[0] === xLoc)!;
+		// 180px chart width over 3 decades, left padding 10.
+		expect(scale).toBeCloseTo(60);
+		expect(0 * scale + offset).toBeCloseTo(10);
+		expect(3 * scale + offset).toBeCloseTo(190);
+	});
+
+	it("leaves linear axes unflagged", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries({ xRef: 5, yRef: 7 })]);
+		core.drawFrame(axes, axes);
+		expect(logRefCalls(gl)).toEqual([
+			[0, 0, 0, 0],
+			[0, 0, 0, 0],
+		]);
+	});
+
+	it("draws dense series on a log x axis undecimated", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		const n = 20_000;
+		core.setSeries([
+			makeSeries({
+				xData: Float32Array.from({ length: n }, (_, i) => i + 1),
+				yData: Float32Array.from({ length: n }, (_, i) => Math.sin(i)),
+			}),
+		]);
+		core.drawFrame([{ id: "axis-1", min: 1, max: n, scale: "log" }], axes);
+		// M4 buckets are uniform in linear x, so log x draws every segment.
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(
+			gl.TRIANGLES,
+			0,
+			6,
+			n - 1,
+		);
+	});
+});

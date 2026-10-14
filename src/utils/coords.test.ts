@@ -478,3 +478,51 @@ describe("Coordinate Conversions", () => {
 		});
 	});
 });
+
+describe("log axes", () => {
+	const view: Viewport = {
+		xMin: 1,
+		xMax: 1e4,
+		yMin: 0.01,
+		yMax: 100,
+		width: 500,
+		height: 400,
+		padding: { top: 0, right: 0, bottom: 0, left: 100 },
+		xLog: true,
+		yLog: true,
+	};
+
+	it("places decades evenly", () => {
+		// 4 decades over 400px of chart width.
+		expect(worldToScreen(10, 1, view).x).toBeCloseTo(200);
+		expect(worldToScreen(1000, 1, view).x).toBeCloseTo(400);
+		// y: 4 decades over 400px, 1 is two decades above 0.01.
+		expect(worldToScreen(10, 1, view).y).toBeCloseTo(200);
+	});
+
+	it("round-trips data -> pixel -> data", () => {
+		for (const [x, y] of [
+			[3, 0.05],
+			[42, 7],
+			[9999, 99],
+		]) {
+			const s = worldToScreen(x, y, view);
+			const w = screenToWorld(s.x, s.y, view);
+			expect(w.x).toBeCloseTo(x, 8);
+			expect(w.y).toBeCloseTo(y, 8);
+		}
+	});
+
+	it("maps non-positive values to NaN", () => {
+		const s = worldToScreen(0, -1, view);
+		expect(s.x).toBeNaN();
+		expect(s.y).toBeNaN();
+	});
+
+	it("only transforms the flagged axis", () => {
+		const mixed = { ...view, yLog: false, yMin: 0, yMax: 100 };
+		const s = worldToScreen(10, 50, mixed);
+		expect(s.x).toBeCloseTo(200);
+		expect(s.y).toBe(200);
+	});
+});

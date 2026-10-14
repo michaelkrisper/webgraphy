@@ -30,6 +30,8 @@ export interface OverlayInput {
 		max: number;
 		showGrid: boolean;
 		ticks: number[];
+		minorTicks?: number[];
+		log?: boolean;
 		categoryLabels?: string[];
 	}>;
 	yAxes: Array<{
@@ -38,6 +40,8 @@ export interface OverlayInput {
 		max: number;
 		showGrid: boolean;
 		ticks: number[];
+		minorTicks?: number[];
+		log?: boolean;
 		position: "left" | "right";
 		categoryLabels?: string[];
 	}>;
@@ -52,6 +56,9 @@ export interface OverlayInput {
 	estVertexCount?: number;
 }
 
+/** Opacity of log-axis minor grid lines relative to the major grid. */
+const MINOR_GRID_ALPHA = 0.4;
+
 export function buildOverlay(
 	overlay: OverlayInput,
 	w: number,
@@ -64,6 +71,7 @@ export function buildOverlay(
 	const ch = h - pad.top - pad.bottom;
 
 	const gridRgba = hexToRgbaWithAlpha(overlay.gridColor, 1);
+	const minorGridRgba = hexToRgbaWithAlpha(overlay.gridColor, MINOR_GRID_ALPHA);
 	const axisRgba = hexToRgbaWithAlpha(overlay.axisColor, 1);
 	const zeroRgba = hexToRgbaWithAlpha(overlay.zeroLineColor, 1);
 	const bgRgba = hexToRgbaWithAlpha(overlay.plotBg, 1);
@@ -88,6 +96,22 @@ export function buildOverlay(
 		offset: bgStart,
 		count: 6,
 	});
+
+	// Minor grid (log axes only), lighter and beneath the major grid.
+	const minorGridStart = p / 2;
+	if (overlay.xAxes.length > 0) {
+		p = writeXGridLines(buf, p, overlay.xAxes[0], pad, cw, ch, dpr, true);
+	}
+	p = writeYGridLines(buf, p, overlay.yAxes, pad, w, ch, dpr, true);
+	const minorGridCount = p / 2 - minorGridStart;
+	if (minorGridCount > 0)
+		ov.groups.push({
+			topology: "LINES",
+			rgba: minorGridRgba,
+			width: 1,
+			offset: minorGridStart,
+			count: minorGridCount,
+		});
 
 	// Grid: vertical (first x axis) + horizontal (y axes that show grid).
 	const gridStart = p / 2;

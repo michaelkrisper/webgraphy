@@ -44,6 +44,13 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 	const series = useGraphStore((s) => s.series);
 	const removeDataset = useGraphStore((s) => s.removeDataset);
 	const updateDataset = useGraphStore((s) => s.updateDataset);
+	const setAxisScale = useGraphStore((s) => s.setAxisScale);
+	const xAxis = useGraphStore((s) =>
+		s.xAxes.find((a) => a.id === (ds.xAxisId || "axis-1")),
+	);
+	const xLog = xAxis?.scale === "log";
+	// Log scale is for numeric x data only (dates, categories stay linear).
+	const xLogDisabled = !xAxis || (xAxis.xMode !== "numeric" && !xLog);
 	const addSeries = useGraphStore((s) => s.addSeries);
 	const removeCalculatedColumn = useGraphStore((s) => s.removeCalculatedColumn);
 	const renameColumn = useGraphStore((s) => s.renameColumn);
@@ -200,6 +207,36 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								</option>
 							))}
 						</select>
+						<button
+							type="button"
+							className="sb-xaxis-log-btn"
+							onClick={() => {
+								if (xAxis) setAxisScale("x", xAxis.id, xLog ? "linear" : "log");
+							}}
+							disabled={xLogDisabled}
+							title={
+								xLogDisabled
+									? "Logarithmic scale needs a numeric X column"
+									: xLog
+										? "Logarithmic X Scale (click for linear)"
+										: "Linear X Scale (click for logarithmic)"
+							}
+							aria-label="Logarithmic X Scale"
+							aria-pressed={xLog}
+							style={{
+								padding: "0 5px",
+								height: "22px",
+								boxSizing: "border-box",
+								background: "none",
+								border: `1px solid ${t.border}`,
+								borderLeft: "none",
+								cursor: xLogDisabled ? "default" : "pointer",
+								color: xLog ? t.accent : t.textMuted,
+								opacity: xLogDisabled ? 0.3 : xLog ? 1 : 0.6,
+							}}
+						>
+							log
+						</button>
 					</div>
 					<button
 						onClick={() => setCalculatingDatasetId(ds.id)}

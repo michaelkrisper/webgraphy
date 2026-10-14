@@ -65,8 +65,10 @@ describe("SeriesConfigUI", () => {
 	const mockUpdateYAxis = vi.fn();
 	const mockUpdateSeriesVisibility = vi.fn();
 	const mockSetPreviewColor = vi.fn();
+	const mockSetAxisScale = vi.fn();
 
 	const defaultMockState = {
+		setAxisScale: mockSetAxisScale,
 		updateSeries: mockUpdateSeries,
 		removeSeries: mockRemoveSeries,
 		yAxes: [{ id: "axis-1", position: "left", showGrid: true }],
@@ -205,6 +207,15 @@ describe("SeriesConfigUI", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Toggle Grid" }));
 		expect(mockUpdateYAxis).toHaveBeenCalledWith("axis-1", { showGrid: false });
+	});
+
+	it("toggles the y axis to log scale", () => {
+		render(<SeriesConfigUI {...defaultProps} />);
+
+		const btn = screen.getByRole("button", { name: "Logarithmic Y Scale" });
+		expect(btn).toHaveAttribute("aria-pressed", "false");
+		fireEvent.click(btn);
+		expect(mockSetAxisScale).toHaveBeenCalledWith("y", "axis-1", "log");
 	});
 
 	it("updates line style via PopupPicker trigger", () => {

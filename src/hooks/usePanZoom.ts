@@ -145,6 +145,7 @@ export function usePanZoom({
 					startConf.max,
 					-dx,
 					chartWidth,
+					axis.scale === "log",
 				);
 				const cur = targetXAxes.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
@@ -180,6 +181,7 @@ export function usePanZoom({
 					startConf.max,
 					dy,
 					chartHeight,
+					axis.scale === "log",
 				);
 				const cur = targetYs.current[axis.id];
 				if (cur.min !== newMin || cur.max !== newMax) {
@@ -257,6 +259,7 @@ export function usePanZoom({
 						min: axis.min,
 						max: axis.max,
 					};
+					const xLog = axis.scale === "log";
 					const vp = {
 						xMin: currentX.min,
 						xMax: currentX.max,
@@ -265,6 +268,7 @@ export function usePanZoom({
 						width,
 						height,
 						padding,
+						xLog,
 					};
 					const worldMouse = screenToWorld(mouseX, 0, vp);
 					const zfX = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.x;
@@ -275,6 +279,7 @@ export function usePanZoom({
 						currentX.max,
 						weight,
 						zfX,
+						xLog,
 					);
 				});
 			}
@@ -297,6 +302,7 @@ export function usePanZoom({
 						min: axis.min,
 						max: axis.max,
 					};
+					const yLog = axis.scale === "log";
 					const axisVp = {
 						xMin: 0,
 						xMax: 100,
@@ -305,6 +311,7 @@ export function usePanZoom({
 						width,
 						height,
 						padding,
+						yLog,
 					};
 					const worldMouse = screenToWorld(0, mouseY, axisVp);
 					const zfY = typeof zoomFactor === "number" ? zoomFactor : zoomFactor.y;
@@ -315,6 +322,7 @@ export function usePanZoom({
 						currentTarget.max,
 						weight,
 						zfY,
+						yLog,
 					);
 				});
 			}
@@ -523,6 +531,7 @@ export function usePanZoom({
 							cur.max,
 							-panDx,
 							chartWidth,
+							a.scale === "log",
 						);
 					}
 				});
@@ -540,6 +549,7 @@ export function usePanZoom({
 							cur.max,
 							panDy,
 							chartHeight,
+							a.scale === "log",
 						);
 					}
 				});

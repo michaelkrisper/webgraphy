@@ -1,5 +1,12 @@
 import type { Theme } from "../themes";
-import { formatAxisLabel, getAxisById } from "../utils/axisCalculations";
+import {
+	calcLogTicks,
+	formatAxisLabel,
+	getAxisById,
+	type LogTicks,
+	Y_TICK_SPACING_PX,
+} from "../utils/axisCalculations";
+import { isLogAxis } from "../utils/axisScale";
 import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
@@ -13,6 +20,24 @@ import type {
 } from "./persistence";
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
+// Same label spacing and minor-grid opacity as the WebGL plot.
+const X_TICK_SPACING_PX = 60;
+const MINOR_GRID_OPACITY = 0.4;
+
+/** Visible ticks of a log axis, the same set the WebGL plot draws. */
+const logTicksFor = (
+	axis: { min: number; max: number },
+	spanPx: number,
+	spacingPx: number,
+): LogTicks => {
+	const lt = calcLogTicks(axis.min, axis.max, spanPx, spacingPx);
+	const inside = (t: number) => t >= axis.min && t <= axis.max;
+	return {
+		...lt,
+		ticks: lt.ticks.filter(inside),
+		minorTicks: lt.minorTicks.filter(inside),
+	};
+};
 
 interface LayoutContext {
 	activeXAxes: XAxisConfig[];
@@ -27,6 +52,14 @@ interface LayoutContext {
 }
 
 const getAxisWidth = (axis: YAxisConfig, height: number) => {
+	if (isLogAxis(axis)) {
+		const lt = logTicksFor(axis, height, Y_TICK_SPACING_PX);
+		const widest = Math.max(
+			1,
+			...lt.ticks.map((t) => formatAxisLabel(t, lt.precision).length),
+		);
+		return widest * 6 + AXIS_WIDTH_BASE;
+	}
 	const range = axis.max - axis.min;
 	const step = range / Math.max(2, Math.floor(height / 30));
 	const magnitude = 10 ** Math.floor(Math.log10(Math.abs(step) || 1));
@@ -168,9 +201,6 @@ const drawGrid = (
 	const gridAxis = activeYAxes.find((a) => a.showGrid) || activeYAxes[0];
 	const gridXAxis = activeXAxes[0];
 	if (gridAxis && gridXAxis) {
-		const yRange = gridAxis.max - gridAxis.min;
-		const yStep = yRange / Math.max(2, Math.floor(chartHeight / 30));
-		const firstYTick = Math.ceil(gridAxis.min / yStep) * yStep;
 		const vp = {
 			xMin: gridXAxis.min,
 			xMax: gridXAxis.max,
@@ -179,18 +209,39 @@ const drawGrid = (
 			width,
 			height,
 			padding,
+			xLog: isLogAxis(gridXAxis),
+			yLog: isLogAxis(gridAxis),
 		};
-		for (let t = firstYTick; t <= gridAxis.max; t += yStep) {
+		const stroke = escapeHTML(theme.gridColor);
+		const hLine = (t: number, minor = false) => {
 			const { y } = worldToScreen(gridXAxis.min, t, vp);
-			svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${escapeHTML(theme.gridColor)}" stroke-width="1" />`;
+			svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${stroke}" stroke-width="1"${minor ? ` stroke-opacity="${MINOR_GRID_OPACITY}"` : ""} />`;
+		};
+		const vLine = (t: number, minor = false) => {
+			const { x } = worldToScreen(t, gridAxis.min, vp);
+			svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="${stroke}" stroke-width="1"${minor ? ` stroke-opacity="${MINOR_GRID_OPACITY}"` : ""} />`;
+		};
+
+		if (vp.yLog) {
+			const lt = logTicksFor(gridAxis, chartHeight, Y_TICK_SPACING_PX);
+			for (const t of lt.minorTicks) hLine(t, true);
+			for (const t of lt.ticks) hLine(t);
+		} else {
+			const yRange = gridAxis.max - gridAxis.min;
+			const yStep = yRange / Math.max(2, Math.floor(chartHeight / 30));
+			const firstYTick = Math.ceil(gridAxis.min / yStep) * yStep;
+			for (let t = firstYTick; t <= gridAxis.max; t += yStep) hLine(t);
 		}
 
-		const xRange = gridXAxis.max - gridXAxis.min;
-		const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
-		const firstXTick = Math.ceil(gridXAxis.min / xStep) * xStep;
-		for (let t = firstXTick; t <= gridXAxis.max; t += xStep) {
-			const { x } = worldToScreen(t, gridAxis.min, vp);
-			svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="${escapeHTML(theme.gridColor)}" stroke-width="1" />`;
+		if (vp.xLog) {
+			const lt = logTicksFor(gridXAxis, chartWidth, X_TICK_SPACING_PX);
+			for (const t of lt.minorTicks) vLine(t, true);
+			for (const t of lt.ticks) vLine(t);
+		} else {
+			const xRange = gridXAxis.max - gridXAxis.min;
+			const xStep = xRange / Math.max(2, Math.floor(chartWidth / 60));
+			const firstXTick = Math.ceil(gridXAxis.min / xStep) * xStep;
+			for (let t = firstXTick; t <= gridXAxis.max; t += xStep) vLine(t);
 		}
 	}
 	return svg;
@@ -301,7 +352,12 @@ const drawSeriesData = (
 			width,
 			height,
 			padding,
+			xLog: isLogAxis(xAxis),
+			yLog: isLogAxis(yAxis),
 		};
+		// NaN samples, and values a log axis cannot place, leave a gap.
+		const drawable = (i: number) =>
+			Number.isFinite(screenPoints[i].x) && Number.isFinite(screenPoints[i].y);
 		const screenPoints: { x: number; y: number }[] = [];
 		for (let i = 0; i < sampled.x.length; i++)
 			screenPoints.push(
@@ -317,10 +373,10 @@ const drawSeriesData = (
 			let prevScreenX = -Infinity;
 			for (let i = 0; i < sampled.x.length; i++) {
 				const p = screenPoints[i];
-				if (Number.isNaN(sampled.y[i]) || p.x < prevScreenX - 1) {
+				if (!drawable(i) || p.x < prevScreenX - 1) {
 					penDown = false;
 				}
-				if (!Number.isNaN(sampled.y[i])) {
+				if (drawable(i)) {
 					pathData += `${penDown ? "L" : "M"} ${p.x} ${p.y} `;
 					penDown = true;
 					prevScreenX = p.x;
@@ -335,7 +391,7 @@ const drawSeriesData = (
 		}
 		if (s.pointStyle !== "none") {
 			screenPoints.forEach((p, i) => {
-				if (Number.isNaN(sampled.y[i])) return;
+				if (!drawable(i)) return;
 				if (s.pointStyle === "circle")
 					svg += `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${escapeHTML(s.pointColor)}" />`;
 				else if (s.pointStyle === "square")
@@ -388,15 +444,29 @@ const drawAxes = (
 
 		svg += `<line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right + 8}" y2="${baseY}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 
-		for (let t = firstXTick; t <= axis.max; t += xStep) {
-			const { x } = worldToScreen(t, 0, vp);
-			if (x < padding.left || x > width - padding.right) continue;
-			svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
-			const label =
-				axis.xMode === "date"
-					? formatDate(t, xStep)
-					: formatAxisLabel(t, xPrecision);
-			svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(label)}</text>`;
+		if (isLogAxis(axis)) {
+			const logVp = { ...vp, xLog: true };
+			const lt = logTicksFor(axis, chartWidth, X_TICK_SPACING_PX);
+			for (const t of lt.minorTicks) {
+				const { x } = worldToScreen(t, 0, logVp);
+				svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 3}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+			}
+			for (const t of lt.ticks) {
+				const { x } = worldToScreen(t, 0, logVp);
+				svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+				svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, lt.precision))}</text>`;
+			}
+		} else {
+			for (let t = firstXTick; t <= axis.max; t += xStep) {
+				const { x } = worldToScreen(t, 0, vp);
+				if (x < padding.left || x > width - padding.right) continue;
+				svg += `<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY + 6}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+				const label =
+					axis.xMode === "date"
+						? formatDate(t, xStep)
+						: formatAxisLabel(t, xPrecision);
+				svg += `<text x="${x}" y="${baseY + 24}" text-anchor="middle" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(label)}</text>`;
+			}
 		}
 
 		const datasetsForThisAxis = datasetsByXAxisId[axis.id] || [];
@@ -422,8 +492,8 @@ const drawAxes = (
 		svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 
 		const mainXConf = activeXAxes[0] || xAxes[0];
-		for (let t = firstTick; t <= axis.max; t += step) {
-			const { y } = worldToScreen(mainXConf.min, t, {
+		if (isLogAxis(axis)) {
+			const logVp = {
 				xMin: mainXConf.min,
 				xMax: mainXConf.max,
 				yMin: axis.min,
@@ -431,10 +501,33 @@ const drawAxes = (
 				width,
 				height,
 				padding,
-			});
-			svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
-			const labelX = xPos + axisWidth - 8;
-			svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
+				yLog: true,
+			};
+			const lt = logTicksFor(axis, chartHeight, Y_TICK_SPACING_PX);
+			for (const t of lt.minorTicks) {
+				const { y } = worldToScreen(mainXConf.min, t, logVp);
+				svg += `<line x1="${lineX - (isLeft ? 3 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 3)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+			}
+			for (const t of lt.ticks) {
+				const { y } = worldToScreen(mainXConf.min, t, logVp);
+				svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+				svg += `<text x="${xPos + axisWidth - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, lt.precision))}</text>`;
+			}
+		} else {
+			for (let t = firstTick; t <= axis.max; t += step) {
+				const { y } = worldToScreen(mainXConf.min, t, {
+					xMin: mainXConf.min,
+					xMax: mainXConf.max,
+					yMin: axis.min,
+					yMax: axis.max,
+					width,
+					height,
+					padding,
+				});
+				svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
+				const labelX = xPos + axisWidth - 8;
+				svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
+			}
 		}
 
 		const axisSeries = seriesByYAxisId[axis.id] || [];
