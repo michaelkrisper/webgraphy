@@ -497,7 +497,10 @@ describe("persistence", () => {
 			);
 		});
 
-		it("should propagate errors if db.delete fails", async () => {
+		it("toasts instead of rejecting when db.delete fails", async () => {
+			// Callers do not await deleteDataset; a rejection would surface as
+			// an unhandled promise rejection.
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 			const mockDb = {
 				objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
 				delete: vi.fn().mockRejectedValueOnce(new Error("Delete failed")),
@@ -507,11 +510,25 @@ describe("persistence", () => {
 			const openDBMockInner = vi.mocked(idbMock.openDB);
 			openDBMockInner.mockResolvedValueOnce(mockDb);
 			const persistenceModule = await import("../persistence");
-			const localPersistence = persistenceModule.persistence;
-
-			await expect(localPersistence.deleteDataset("1")).rejects.toThrow(
-				"Delete failed",
+			const { useNotificationStore } = await import(
+				"../../store/useNotificationStore"
 			);
+			useNotificationStore.setState({ notifications: [] });
+
+			try {
+				await expect(
+					persistenceModule.persistence.deleteDataset("1"),
+				).resolves.toBeUndefined();
+				expect(consoleSpy).toHaveBeenCalledWith("deleteDataset failed", {
+					id: "1",
+					error: expect.any(Error),
+				});
+				expect(useNotificationStore.getState().notifications).toEqual([
+					expect.objectContaining({ kind: "error" }),
+				]);
+			} finally {
+				consoleSpy.mockRestore();
+			}
 		});
 
 		it("should catch error when clearAppState fails", async () => {

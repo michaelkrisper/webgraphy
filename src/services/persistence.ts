@@ -432,8 +432,20 @@ export const persistence = {
 		datasetTimers.delete(id);
 		pendingDatasets.delete(id);
 		if (!writesEnabled) return;
-		const db = await getDB();
-		await db.delete(DATASET_STORE, id);
+		// Callers fire and forget, so a failure must not escape as an unhandled
+		// rejection.
+		try {
+			const db = await getDB();
+			await db.delete(DATASET_STORE, id);
+		} catch (error) {
+			logger.error("deleteDataset failed", { id, error });
+			notify({
+				kind: "error",
+				message:
+					"Could not remove a dataset from browser storage — it may reappear after a reload.",
+			});
+			return;
+		}
 		emitStorageChange();
 	},
 	saveViewport(state: ViewportState): Promise<void> {

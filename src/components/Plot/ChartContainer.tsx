@@ -246,6 +246,13 @@ export default function ChartContainer() {
 	);
 	const rafId = useRef<number | null>(null);
 	const overlayInitRef = useRef(false);
+	// Axis arrays the last frame drew and then wrote to the store. Their echo
+	// through the redraw effect below would draw the same frame again.
+	const viewportEchoRef = useRef<{
+		xAxes: XAxisConfig[];
+		yAxes: YAxisConfig[];
+	} | null>(null);
+	const sceneDepsRef = useRef<readonly unknown[] | null>(null);
 
 	// 5. Hooks
 	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale({
@@ -370,6 +377,21 @@ export default function ChartContainer() {
 		isInteractingRef.current = isInteracting;
 	}, [isInteracting]);
 
+	const commitViewport = useCallback(
+		(
+			state: ReturnType<typeof useGraphStore.getState>,
+			xUpdates: AxesFrame["xUpdates"],
+			yUpdates: AxesFrame["yUpdates"],
+		) => {
+			syncStoreUpdates(state, xUpdates, yUpdates);
+			const next = useGraphStore.getState();
+			if (next.xAxes !== state.xAxes || next.yAxes !== state.yAxes) {
+				viewportEchoRef.current = { xAxes: next.xAxes, yAxes: next.yAxes };
+			}
+		},
+		[],
+	);
+
 	const syncViewport = useCallback(
 		(forceStoreUpdate = false, immediate = false) => {
 			if (rafId.current && !forceStoreUpdate && !immediate) return;
@@ -437,7 +459,7 @@ export default function ChartContainer() {
 					if (webglRef.current?.sceneShared()) {
 						webglRef.current.redraw(liveX, liveY);
 						if (forceStoreUpdate || !isInteractingNow) {
-							syncStoreUpdates(state, xUpdates, yUpdates);
+							commitViewport(state, xUpdates, yUpdates);
 						}
 						if (kbZoom || kbPan || zoomAnimating) {
 							syncViewportRef.current(false);
@@ -482,7 +504,7 @@ export default function ChartContainer() {
 
 					// Only sync back to store if not currently interacting (panning/zooming)
 					if (forceStoreUpdate || !isInteractingNow) {
-						syncStoreUpdates(state, xUpdates, yUpdates);
+						commitViewport(state, xUpdates, yUpdates);
 					}
 				}
 				if (kbZoom || kbPan || zoomAnimating) {
@@ -499,6 +521,7 @@ export default function ChartContainer() {
 		},
 		[
 			buildLiveAxes,
+			commitViewport,
 			computeXAxesLayout,
 			computeYAxesLayout,
 			xAxesMetrics,
@@ -599,7 +622,31 @@ export default function ChartContainer() {
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
+		const sceneDeps = [
+			isLoaded,
+			series,
+			datasets,
+			themeColors,
+			width,
+			height,
+			dpr,
+			pixelWidth,
+			pixelHeight,
+		];
+		const prevSceneDeps = sceneDepsRef.current;
+		sceneDepsRef.current = sceneDeps;
+		const echo = viewportEchoRef.current;
+		viewportEchoRef.current = null;
 		if (!isLoaded) return;
+		// Only the ranges the last frame drew and synced came back: that frame
+		// is current. Without this, settling a pan/zoom drew two full frames.
+		if (
+			echo?.xAxes === xAxes &&
+			echo.yAxes === yAxes &&
+			prevSceneDeps?.every((d, i) => d === sceneDeps[i])
+		) {
+			return;
+		}
 		resetAxisTargets(xAxes, yAxes, targetXAxes.current, targetYs.current);
 		overlayInitRef.current = false;
 		// Use force=false to schedule via rAF, breaking synchronous render loops.

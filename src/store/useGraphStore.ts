@@ -46,10 +46,16 @@ interface GraphState {
 
 	// Actions
 	addDataset: (dataset: ParsedDataset & { xAxisId?: string }) => void;
+	/**
+	 * Computes a calculated column in the worker. With `replaceColumn` it edits
+	 * that column instead: the old column stays until the new one is ready and
+	 * the swap is a single undo step; a failure leaves state and history alone.
+	 */
 	addCalculatedColumn: (
 		datasetId: string,
 		name: string,
 		formula: string,
+		replaceColumn?: string,
 	) => Promise<{ success: boolean; error?: string }>;
 	removeCalculatedColumn: (datasetId: string, columnName: string) => void;
 	updateDataset: (id: string, updates: Partial<Dataset>) => void;
@@ -157,10 +163,22 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	previewStyle: null,
 	setPreviewStyle: (previewStyle) => set({ previewStyle }),
 
-	addCalculatedColumn: async (datasetId, name, formula) => {
+	addCalculatedColumn: async (datasetId, name, formula, replaceColumn) => {
 		const state = get();
-		const dataset = state.datasets.find((d) => d.id === datasetId);
-		if (!dataset) return { success: false, error: "Dataset not found" };
+		const stored = state.datasets.find((d) => d.id === datasetId);
+		if (!stored) return { success: false, error: "Dataset not found" };
+		const replaceIdx =
+			replaceColumn === undefined ? -1 : stored.columns.indexOf(replaceColumn);
+		// The edited column is out of scope for its own formula, exactly as if it
+		// had been deleted first.
+		const dataset =
+			replaceIdx === -1
+				? stored
+				: {
+						...stored,
+						columns: stored.columns.filter((_, i) => i !== replaceIdx),
+						data: stored.data.filter((_, i) => i !== replaceIdx),
+					};
 
 		const trimmedName = name.trim();
 		if (!trimmedName)
@@ -233,7 +251,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			if (!current)
 				return { success: false, error: "Dataset was removed during calculation" };
 			const { newColumn, sparseXColumn } = result;
-			const label = `add calculated column '${trimmedName}'`;
+			const replacing =
+				replaceColumn !== undefined && current.columns.includes(replaceColumn);
+			const label = replacing
+				? `edit calculated column '${trimmedName}'`
+				: `add calculated column '${trimmedName}'`;
 			if (sparseXColumn && newColumn) {
 				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
 				const xColName = current.xAxisColumn;
@@ -248,21 +270,51 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					xAxisId: current.xAxisId,
 				};
 				// addDataset persists it.
-				withHistory(label, () => get().addDataset(sparseDataset));
+				withHistory(label, () => {
+					if (replacing) get().removeCalculatedColumn(datasetId, replaceColumn);
+					get().addDataset(sparseDataset);
+				});
 			} else if (newColumn) {
 				let updatedDataset: Dataset | undefined;
 				const before = beginHistory();
 				set((state) => {
 					const ds = state.datasets.find((d) => d.id === datasetId);
-					if (!ds || ds.columns.includes(trimmedName)) return state;
-					const next: Dataset = {
-						...ds,
-						columns: [...ds.columns, trimmedName],
-						data: [...ds.data, { ...newColumn, formula }],
-					};
+					if (!ds) return state;
+					const idx = replacing ? ds.columns.indexOf(replaceColumn) : -1;
+					if (ds.columns.some((c, i) => c === trimmedName && i !== idx))
+						return state;
+					const column = { ...newColumn, formula };
+					const next: Dataset =
+						idx === -1
+							? {
+									...ds,
+									columns: [...ds.columns, trimmedName],
+									data: [...ds.data, column],
+								}
+							: {
+									...ds,
+									columns: ds.columns.map((c, i) => (i === idx ? trimmedName : c)),
+									data: ds.data.map((d, i) => (i === idx ? column : d)),
+									xAxisColumn:
+										ds.xAxisColumn === replaceColumn ? trimmedName : ds.xAxisColumn,
+								};
 					updatedDataset = next;
+					// Series plotting the edited column follow it.
+					const series =
+						idx === -1 || replaceColumn === trimmedName
+							? state.series
+							: state.series.map((s) =>
+									s.sourceId === datasetId && s.yColumn === replaceColumn
+										? {
+												...s,
+												yColumn: trimmedName,
+												name: s.name === replaceColumn ? trimmedName : s.name,
+											}
+										: s,
+								);
 					return {
 						datasets: state.datasets.map((d) => (d.id === datasetId ? next : d)),
+						series,
 					};
 				});
 				commitHistory(before, label);

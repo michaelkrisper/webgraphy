@@ -99,6 +99,7 @@ describe("CalculatedColumnModal", () => {
 			"dataset-1",
 			"New Calc",
 			"[A] + [B]",
+			undefined,
 		);
 		expect(mockOnClose).not.toHaveBeenCalled();
 	});
@@ -130,6 +131,7 @@ describe("CalculatedColumnModal", () => {
 			"dataset-1",
 			"New Calc",
 			"[A] + [B]",
+			undefined,
 		);
 		expect(mockOnClose).not.toHaveBeenCalled();
 	});
@@ -159,6 +161,7 @@ describe("CalculatedColumnModal", () => {
 			"dataset-1",
 			"New Calc",
 			"[A] + [B]",
+			undefined,
 		);
 		expect(mockOnClose).not.toHaveBeenCalled();
 	});
@@ -188,6 +191,7 @@ describe("CalculatedColumnModal", () => {
 			"dataset-1",
 			"New Calc",
 			"[A] + [B]",
+			undefined,
 		);
 		expect(mockOnClose).not.toHaveBeenCalled();
 	});
@@ -217,6 +221,7 @@ describe("CalculatedColumnModal", () => {
 			"dataset-1",
 			"New Calc",
 			"[A] + [B]",
+			undefined,
 		);
 	});
 
@@ -242,7 +247,7 @@ describe("CalculatedColumnModal", () => {
 		expect(mockAddCalculatedColumn).not.toHaveBeenCalled();
 	});
 
-	it("calls removeCalculatedColumn before addCalculatedColumn in edit mode", async () => {
+	it("edits in place via addCalculatedColumn's replace argument", async () => {
 		mockAddCalculatedColumn.mockResolvedValueOnce({ success: true });
 
 		render(
@@ -261,17 +266,17 @@ describe("CalculatedColumnModal", () => {
 		fireEvent.click(screen.getByText("Create Series"));
 
 		await waitFor(() => {
-			expect(mockRemoveCalculatedColumn).toHaveBeenCalledWith(
-				"dataset-1",
-				"Original Name",
-			);
 			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
 				"dataset-1",
 				"Updated Name",
 				"[A] * 2",
+				"Original Name",
 			);
 			expect(mockOnClose).toHaveBeenCalled();
 		});
+		// Removing first would record a second undo step and lose the column
+		// if the new formula failed.
+		expect(mockRemoveCalculatedColumn).not.toHaveBeenCalled();
 	});
 
 	it("auto-closes unbalanced brackets on submit", async () => {
@@ -293,6 +298,7 @@ describe("CalculatedColumnModal", () => {
 				"dataset-1",
 				"Auto Close",
 				"([A] * 2)",
+				undefined,
 			);
 		});
 	});
@@ -316,6 +322,7 @@ describe("CalculatedColumnModal", () => {
 				"dataset-1",
 				"Nested Auto Close",
 				"((([A])))",
+				undefined,
 			);
 		});
 	});
