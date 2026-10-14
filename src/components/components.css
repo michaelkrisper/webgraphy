@@ -107,6 +107,46 @@
 	opacity: 0.6;
 }
 
+/* ── ExportImageDialog ─────────────────────────────── */
+.xid-grid {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 10px 14px;
+	align-items: center;
+	font-size: 14px;
+}
+.xid-label {
+	font-weight: bold;
+}
+.xid-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+.xid-radio,
+.xid-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+.xid-radio + .xid-radio {
+	margin-left: 12px;
+}
+.xid-number {
+	width: 6.5em;
+}
+.xid-unit {
+	width: auto;
+}
+.xid-output {
+	color: var(--text-mid);
+}
+.xid-error {
+	color: var(--danger);
+}
+
 /* ── CalculatedColumnModal ─────────────────────────── */
 .calc-field {
 	margin-bottom: 16px;

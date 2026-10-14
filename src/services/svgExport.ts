@@ -12,6 +12,18 @@ import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
 import { MS_PER_SECOND, UNIT_SECONDS } from "../utils/time";
+import {
+	type DecorationLayout,
+	estimateTextWidth,
+	fitText,
+	LEGEND,
+	type LegendEntry,
+	layoutDecorations,
+	legendEntries,
+	TITLE,
+	type TextMeasurer,
+} from "./exportLayout";
+import type { LegendPosition } from "./exportOptions";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -20,6 +32,10 @@ import type {
 } from "./persistence";
 
 const AXIS_WIDTH_BASE = 15; // Ticks, gap, and safe margin
+// Band at the outer edge of a y axis' gutter for its rotated title, so the
+// title never covers tick labels.
+const Y_TITLE_BAND = 22;
+const TICK_FONT_PX = 12;
 // Same label spacing and minor-grid opacity as the WebGL plot.
 const X_TICK_SPACING_PX = 60;
 const MINOR_GRID_OPACITY = 0.4;
@@ -49,16 +65,22 @@ interface LayoutContext {
 	seriesByYAxisId: Record<string, SeriesConfig[]>;
 	axisWidthMap: Record<string, number>;
 	yAxesOffsets: Record<string, number>;
+	rightAxesWidth: number;
+	measure: TextMeasurer;
 }
 
-const getAxisWidth = (axis: YAxisConfig, height: number) => {
+const getAxisWidth = (
+	axis: YAxisConfig,
+	height: number,
+	measure: TextMeasurer,
+) => {
+	const gutter = (labels: string[]) =>
+		Math.ceil(Math.max(6, ...labels.map((l) => measure(l, TICK_FONT_PX)))) +
+		AXIS_WIDTH_BASE +
+		Y_TITLE_BAND;
 	if (isLogAxis(axis)) {
 		const lt = logTicksFor(axis, height, Y_TICK_SPACING_PX);
-		const widest = Math.max(
-			1,
-			...lt.ticks.map((t) => formatAxisLabel(t, lt.precision).length),
-		);
-		return widest * 6 + AXIS_WIDTH_BASE;
+		return gutter(lt.ticks.map((t) => formatAxisLabel(t, lt.precision)));
 	}
 	const range = axis.max - axis.min;
 	const step = range / Math.max(2, Math.floor(height / 30));
@@ -75,11 +97,10 @@ const getAxisWidth = (axis: YAxisConfig, height: number) => {
 	const actualStep = finalStep * magnitude;
 	const precision = Math.max(0, -Math.floor(Math.log10(actualStep || 1)));
 
-	const widestVal = Math.max(
-		formatAxisLabel(axis.min, precision).length,
-		formatAxisLabel(axis.max, precision).length,
-	);
-	return widestVal * 6 + AXIS_WIDTH_BASE;
+	return gutter([
+		formatAxisLabel(axis.min, precision),
+		formatAxisLabel(axis.max, precision),
+	]);
 };
 
 const calculateLayout = (
@@ -89,6 +110,8 @@ const calculateLayout = (
 	yAxes: YAxisConfig[],
 	width: number,
 	height: number,
+	measure: TextMeasurer,
+	reserve = { top: 0, right: 0 },
 ): LayoutContext => {
 	const axisToMinDsIdx = new Map<string, number>();
 	const activeDatasetIds = series.reduce(
@@ -131,7 +154,7 @@ const calculateLayout = (
 
 	const axisWidthMap: Record<string, number> = {};
 	activeYAxes.forEach((a) => {
-		axisWidthMap[a.id] = getAxisWidth(a, height);
+		axisWidthMap[a.id] = getAxisWidth(a, height, measure);
 	});
 
 	const yAxesOffsets: Record<string, number> = {};
@@ -150,8 +173,8 @@ const calculateLayout = (
 	const rightSum = rightCumulative;
 
 	const padding = {
-		top: 20,
-		right: 20 + rightSum,
+		top: 20 + reserve.top,
+		right: 20 + rightSum + reserve.right,
 		bottom: 60 + (activeXAxes.length - 1) * 60,
 		left: 20 + leftSum,
 	};
@@ -187,6 +210,8 @@ const calculateLayout = (
 		seriesByYAxisId,
 		axisWidthMap,
 		yAxesOffsets,
+		rightAxesWidth: rightSum,
+		measure,
 	};
 };
 
@@ -404,6 +429,43 @@ const drawSeriesData = (
 	return svg;
 };
 
+const Y_TITLE_FONT_PX = 14;
+
+/**
+ * The coloured series names of a y axis title, joined by " / " and cut with
+ * an ellipsis where they would run past the plot's height. Separators carry no
+ * colour (the label colour).
+ */
+export const fitAxisTitle = (
+	names: { text: string; color: string }[],
+	maxWidth: number,
+	measure: TextMeasurer,
+): { text: string; color?: string }[] => {
+	const width = (t: string) => measure(t, Y_TITLE_FONT_PX, true);
+	const out: { text: string; color?: string }[] = [];
+	let used = 0;
+	for (const [i, name] of names.entries()) {
+		const sep = i > 0 ? " / " : "";
+		const w = width(sep + name.text);
+		if (used + w <= maxWidth) {
+			if (sep) out.push({ text: sep });
+			out.push(name);
+			used += w;
+			continue;
+		}
+		const room = maxWidth - used - width(sep);
+		const cut = fitText(name.text, room, measure, Y_TITLE_FONT_PX, true);
+		if (cut) {
+			if (sep) out.push({ text: sep });
+			out.push({ text: cut, color: name.color });
+		} else if (out.length && used + width(" …") <= maxWidth) {
+			out.push({ text: " …" });
+		}
+		break;
+	}
+	return out;
+};
+
 const drawAxes = (
 	ctx: LayoutContext,
 	xAxes: XAxisConfig[],
@@ -422,6 +484,7 @@ const drawAxes = (
 		seriesByYAxisId,
 		axisWidthMap,
 		yAxesOffsets,
+		measure,
 	} = ctx;
 
 	svg += `<rect x="${padding.left}" y="${padding.top}" width="${chartWidth}" height="${chartHeight}" fill="none" stroke="${escapeHTML(theme.axisColor)}" stroke-width="2" />`;
@@ -489,6 +552,8 @@ const drawAxes = (
 		const precision = Math.max(0, -Math.floor(Math.log10(step || 1)));
 
 		const lineX = xPos + (isLeft ? axisWidth : 0);
+		const labelX = isLeft ? lineX - 8 : lineX + 8;
+		const labelAnchor = isLeft ? "end" : "start";
 		svg += `<line x1="${lineX}" y1="${padding.top}" x2="${lineX}" y2="${height - padding.bottom}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
 
 		const mainXConf = activeXAxes[0] || xAxes[0];
@@ -511,7 +576,7 @@ const drawAxes = (
 			for (const t of lt.ticks) {
 				const { y } = worldToScreen(mainXConf.min, t, logVp);
 				svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
-				svg += `<text x="${xPos + axisWidth - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, lt.precision))}</text>`;
+				svg += `<text x="${labelX}" y="${y + 4}" text-anchor="${labelAnchor}" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, lt.precision))}</text>`;
 			}
 		} else {
 			for (let t = firstTick; t <= axis.max; t += step) {
@@ -525,25 +590,32 @@ const drawAxes = (
 					padding,
 				});
 				svg += `<line x1="${lineX - (isLeft ? 5 : 0)}" y1="${y}" x2="${lineX + (isLeft ? 0 : 5)}" y2="${y}" stroke="${escapeHTML(theme.axisColor)}" stroke-width="1" />`;
-				const labelX = xPos + axisWidth - 8;
-				svg += `<text x="${labelX}" y="${y + 4}" text-anchor="end" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
+				svg += `<text x="${labelX}" y="${y + 4}" text-anchor="${labelAnchor}" font-size="12" fill="${escapeHTML(theme.labelColor)}">${escapeHTML(formatAxisLabel(t, precision))}</text>`;
 			}
 		}
 
 		const axisSeries = seriesByYAxisId[axis.id] || [];
-		const fullTitle = axisSeries.map((s) => s.name || s.yColumn).join(" / ");
-		const titleX = isLeft ? xPos + 5 : xPos + axisWidth - 5;
+		const segments = fitAxisTitle(
+			axisSeries.map((s) => ({ text: s.name || s.yColumn, color: s.lineColor })),
+			chartHeight - 8,
+			measure,
+		);
+		const titleWidth = measure(
+			segments.map((seg) => seg.text).join(""),
+			Y_TITLE_FONT_PX,
+			true,
+		);
+		const titleX = isLeft
+			? xPos + Y_TITLE_BAND / 2
+			: xPos + axisWidth - Y_TITLE_BAND / 2;
 		const titleY = padding.top + chartHeight / 2,
 			rotate = isLeft ? -90 : 90;
-		const estW = Math.min(chartHeight, fullTitle.length * 8 + 8);
+		const estW = Math.min(chartHeight, titleWidth + 8);
 		svg += `<g transform="translate(${titleX}, ${titleY}) rotate(${rotate})">`;
 		svg += `<rect x="-${estW / 2}" y="-10" width="${estW}" height="20" fill="${escapeHTML(theme.secLabelBg)}" rx="2" />`;
-		svg += `<text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">`;
-		axisSeries.forEach((s, i) => {
-			if (i > 0)
-				svg += `<tspan fill="${escapeHTML(theme.labelColor)}"> / </tspan>`;
-			svg += `<tspan fill="${escapeHTML(s.lineColor)}">${escapeHTML(s.name || s.yColumn)}</tspan>`;
-		});
+		svg += `<text x="0" y="5" text-anchor="middle" font-size="${Y_TITLE_FONT_PX}" font-weight="bold" fill="${escapeHTML(theme.labelColor)}">`;
+		for (const seg of segments)
+			svg += `<tspan fill="${escapeHTML(seg.color ?? theme.labelColor)}">${escapeHTML(seg.text)}</tspan>`;
 		svg += `</text></g>`;
 	});
 
@@ -568,6 +640,78 @@ export const formatDate = (val: number, step: number) => {
 	);
 };
 
+const LEGEND_DASH: Record<string, string> = { dashed: "6,4", dotted: "2,3" };
+
+/** Swatch and label of one entry, drawn like the on-screen legend's icon. */
+const drawLegendEntry = (
+	entry: LegendEntry,
+	label: string,
+	x: number,
+	cy: number,
+	theme: Theme,
+): string => {
+	let svg = "";
+	const mx = x + LEGEND.swatchWidth / 2;
+	if (entry.lineStyle !== "none") {
+		const dash = LEGEND_DASH[entry.lineStyle];
+		svg += `<line x1="${x}" y1="${cy}" x2="${x + LEGEND.swatchWidth}" y2="${cy}" stroke="${escapeHTML(entry.lineColor)}" stroke-width="1"${dash ? ` stroke-dasharray="${dash}"` : ""} />`;
+	}
+	const fill = escapeHTML(entry.pointColor);
+	const outline = `stroke="white" stroke-width="0.75" paint-order="stroke fill"`;
+	if (entry.pointStyle === "circle")
+		svg += `<circle cx="${mx}" cy="${cy}" r="2.5" fill="${fill}" ${outline} />`;
+	else if (entry.pointStyle === "square")
+		svg += `<rect x="${mx - 2.5}" y="${cy - 2.5}" width="5" height="5" fill="${fill}" ${outline} />`;
+	else if (entry.pointStyle === "cross")
+		svg += `<path d="M ${mx - 2.5} ${cy - 2.5} L ${mx + 2.5} ${cy + 2.5} M ${mx + 2.5} ${cy - 2.5} L ${mx - 2.5} ${cy + 2.5}" stroke="${fill}" stroke-width="1.5" />`;
+	const tx = x + LEGEND.swatchWidth + LEGEND.swatchGap;
+	svg += `<text x="${tx}" y="${cy + 4}" font-size="${LEGEND.fontPx}" fill="${escapeHTML(theme.tooltipColor)}">${escapeHTML(label)}</text>`;
+	return svg;
+};
+
+const drawLegend = (
+	legend: NonNullable<DecorationLayout["legend"]>,
+	theme: Theme,
+): string => {
+	const { box, block } = legend;
+	let svg = `<g>`;
+	svg += `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="${escapeHTML(theme.tooltipBg)}" stroke="${escapeHTML(theme.tooltipBorder)}" stroke-width="1" />`;
+	block.items.forEach(({ entry, label }, i) => {
+		const byRow = block.flow === "row";
+		const col = byRow ? i % block.columns : Math.floor(i / block.rows);
+		const row = byRow ? Math.floor(i / block.columns) : i % block.rows;
+		const x = box.x + col * block.columnWidth + LEGEND.padX;
+		const cy =
+			box.y + LEGEND.padY + row * LEGEND.rowHeight + LEGEND.rowHeight / 2;
+		svg += drawLegendEntry(entry, label, x, cy, theme);
+	});
+	return `${svg}</g>`;
+};
+
+const drawTitle = (
+	title: NonNullable<DecorationLayout["title"]>,
+	theme: Theme,
+): string => {
+	const { box, text } = title;
+	return `<text x="${box.x + box.width / 2}" y="${box.y + TITLE.fontPx}" text-anchor="middle" font-size="${TITLE.fontPx}" font-weight="bold" fill="${escapeHTML(theme.tooltipColor)}">${escapeHTML(text)}</text>`;
+};
+
+export interface SvgExportOptions {
+	/** Text above the plot area; blank leaves it out. */
+	title?: string;
+	/** Where to put the legend; `null`/absent leaves it out. */
+	legend?: LegendPosition | null;
+	/** Leave out the background fill. */
+	transparent?: boolean;
+	/** `@font-face` rules embedded in the SVG (see exportFonts.ts). */
+	fontFaceCss?: string;
+	/** Physical size for the root `width`/`height`; the viewBox stays in px. */
+	physical?: { widthMm: number; heightMm: number };
+	measureText?: TextMeasurer;
+}
+
+const num = (v: number) => Math.round(v * 100) / 100;
+
 /**
  * Generates a production-quality SVG that exactly matches the WebGL plot visuals.
  * Handles multi-axis layouts, auto-scales ticks/labels, and renders large datasets efficiently.
@@ -578,6 +722,7 @@ export const formatDate = (val: number, step: number) => {
  * @param {number} width - SVG canvas width in pixels
  * @param {number} height - SVG canvas height in pixels
  * @param {Theme} theme - Theme object with colors, fonts, and styling
+ * @param {SvgExportOptions} options - Title, legend, background and font embedding
  * @returns {string} SVG string ready for export or embedding
  */
 export const exportToSVG = (
@@ -588,16 +733,60 @@ export const exportToSVG = (
 	width: number,
 	height: number,
 	theme: Theme,
+	options: SvgExportOptions = {},
 ): string => {
-	const ctx = calculateLayout(datasets, series, xAxes, yAxes, width, height);
+	const measure = options.measureText ?? estimateTextWidth;
+	const base = calculateLayout(
+		datasets,
+		series,
+		xAxes,
+		yAxes,
+		width,
+		height,
+		measure,
+	);
+	const deco = layoutDecorations({
+		width,
+		height,
+		padding: base.padding,
+		rightAxesWidth: base.rightAxesWidth,
+		title: options.title,
+		entries: options.legend ? legendEntries(series) : [],
+		legendPosition: options.legend ?? null,
+		measure,
+	});
+	const ctx =
+		deco.reserve.top || deco.reserve.right
+			? calculateLayout(
+					datasets,
+					series,
+					xAxes,
+					yAxes,
+					width,
+					height,
+					measure,
+					deco.reserve,
+				)
+			: base;
 
-	let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background: ${escapeHTML(theme.plotBg)}; font-family: ${escapeHTML(theme.fontFamily)};">`;
-	svg += `<rect width="100%" height="100%" fill="${escapeHTML(theme.plotBg)}" />`;
+	const size = options.physical
+		? `width="${num(options.physical.widthMm)}mm" height="${num(options.physical.heightMm)}mm"`
+		: `width="${width}" height="${height}"`;
+	const background = options.transparent
+		? ""
+		: `background: ${escapeHTML(theme.plotBg)}; `;
+	let svg = `<svg ${size} viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="${background}font-family: ${escapeHTML(theme.fontFamily)};">`;
+	if (options.fontFaceCss)
+		svg += `<defs><style>${options.fontFaceCss}</style></defs>`;
+	if (!options.transparent)
+		svg += `<rect width="100%" height="100%" fill="${escapeHTML(theme.plotBg)}" />`;
 
 	svg += drawGrid(ctx, width, height, theme);
 	svg += drawZeroLines(ctx, width, height, theme);
 	svg += drawSeriesData(ctx, datasets, series, xAxes, yAxes, width, height);
 	svg += drawAxes(ctx, xAxes, width, height, theme);
+	if (deco.legend) svg += drawLegend(deco.legend, theme);
+	if (deco.title) svg += drawTitle(deco.title, theme);
 
 	svg += `</svg>`;
 	return svg;

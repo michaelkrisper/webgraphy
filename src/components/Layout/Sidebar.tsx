@@ -2,6 +2,8 @@ import type React from "react";
 import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
+import type { ImageExportRequest } from "../../services/export";
+import type { ImageExportOptions } from "../../services/exportOptions";
 import { useGraphStore } from "../../store/useGraphStore";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
@@ -9,6 +11,7 @@ import { SESSION_EXTENSION } from "../../utils/importFile";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
 import { CollapsedMenuButton } from "./CollapsedMenuButton";
+import { ExportImageDialogLazy } from "./exportImageDialogLazy";
 import { ImportSettingsDialogLazy } from "./importSettingsDialogLazy";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
@@ -21,6 +24,7 @@ export const Sidebar: React.FC = () => {
 	const series = useGraphStore((s) => s.series);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const yAxes = useGraphStore((s) => s.yAxes);
+	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];
 
@@ -54,41 +58,65 @@ export const Sidebar: React.FC = () => {
 		isImporting,
 	} = useDataImport();
 
+	const [imageDialogView, setImageDialogView] = useState<{
+		width: number;
+		height: number;
+	} | null>(null);
+
+	const plotViewSize = () => {
+		const plot = document.querySelector<HTMLElement>(".plot-area");
+		return plot ? { width: plot.clientWidth, height: plot.clientHeight } : null;
+	};
+
 	// `services/export` carries the whole standalone SVG renderer; loading it on
 	// demand keeps it out of the entry chunk (see size-budget.json).
-	const handleExportSVG = async () => {
-		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
-		if (!plotContainer) return;
-
-		const { downloadFile, exportToSVG } = await import("../../services/export");
-		const svgContent = exportToSVG(
-			datasets,
-			series,
-			xAxes,
-			yAxes,
-			plotContainer.clientWidth,
-			plotContainer.clientHeight,
-			t,
-		);
-		downloadFile(svgContent, "webgraphy-export.svg", "image/svg+xml");
+	const runImageExport = async (request: ImageExportRequest) => {
+		try {
+			const { exportImage } = await import("../../services/export");
+			await exportImage({ datasets, series, xAxes, yAxes }, request, t);
+		} catch (e) {
+			const tooLarge = e instanceof Error && e.name === "CanvasSizeError";
+			notify({
+				kind: "error",
+				message: tooLarge
+					? e.message
+					: `Image export failed: ${e instanceof Error ? e.message : String(e)}`,
+			});
+		}
 	};
 
-	const handleExportPNG = async () => {
-		const plotContainer = document.querySelector(".plot-area") as HTMLElement;
-		if (!plotContainer) return;
-
-		const { downloadFile, exportToPNG } = await import("../../services/export");
-		const pngData = await exportToPNG(
-			datasets,
-			series,
-			xAxes,
-			yAxes,
-			plotContainer.clientWidth,
-			plotContainer.clientHeight,
-			t,
-		);
-		downloadFile(pngData, "webgraphy-export.png", "image/png");
+	// One-click exports: the plot as on screen, legend included when shown.
+	const quickExport = (format: "svg" | "png") => {
+		const view = plotViewSize();
+		if (!view) return;
+		return runImageExport({
+			format,
+			...view,
+			pixelRatio: window.devicePixelRatio || 1,
+			legend: legendVisible ? "auto" : null,
+		});
 	};
+	const handleExportSVG = () => quickExport("svg");
+	const handleExportPNG = () => quickExport("png");
+
+	const handleOpenImageDialog = () =>
+		setImageDialogView(plotViewSize() ?? { width: 1200, height: 800 });
+
+	const handleDialogExport = async (options: ImageExportOptions) => {
+		if (!imageDialogView) return;
+		const { buildExportRequest } = await import("../../services/exportOptions");
+		await runImageExport(buildExportRequest(options, imageDialogView));
+	};
+
+	const imageDialog = imageDialogView && (
+		<Suspense fallback={null}>
+			<ExportImageDialogLazy
+				viewSize={imageDialogView}
+				onExport={handleDialogExport}
+				onClose={() => setImageDialogView(null)}
+			/>
+		</Suspense>
+	);
 
 	const handleExportCSV = async () => {
 		const { exportVisibleCsv } = await import("../../services/csvExport");
@@ -100,13 +128,17 @@ export const Sidebar: React.FC = () => {
 
 	if (isCollapsed) {
 		return (
-			<CollapsedMenuButton
-				onClick={() => setIsCollapsed(false)}
-				onExportSVG={handleExportSVG}
-				onExportPNG={handleExportPNG}
-				onExportCSV={handleExportCSV}
-				theme={t}
-			/>
+			<>
+				<CollapsedMenuButton
+					onClick={() => setIsCollapsed(false)}
+					onExportImage={handleOpenImageDialog}
+					onExportSVG={handleExportSVG}
+					onExportPNG={handleExportPNG}
+					onExportCSV={handleExportCSV}
+					theme={t}
+				/>
+				{imageDialog}
+			</>
 		);
 	}
 
@@ -117,6 +149,7 @@ export const Sidebar: React.FC = () => {
 				<SidebarHeader
 					onCollapse={() => setIsCollapsed(true)}
 					onImport={handleImport}
+					onExportImage={handleOpenImageDialog}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
 					onExportCSV={handleExportCSV}
@@ -172,6 +205,7 @@ export const Sidebar: React.FC = () => {
 					/>
 				)}
 			</Suspense>
+			{imageDialog}
 		</>
 	);
 };
