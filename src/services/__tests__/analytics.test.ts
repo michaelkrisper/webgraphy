@@ -19,10 +19,12 @@ describe("analytics", () => {
 
 	it("builds a GoatCounter pageview URL for the current page", () => {
 		setHost("example.github.io");
+		document.title = "WebGraphy";
 		const url = new URL(pageviewUrl() ?? "");
 		expect(`${url.origin}${url.pathname}`).toBe(GOATCOUNTER_ENDPOINT);
 		expect(url.searchParams.get("p")).toBe("/webgraphy/");
-		expect(url.searchParams.get("t")).toBe(document.title);
+		expect(url.searchParams.get("t")).toBe("WebGraphy");
+		expect(url.searchParams.has("r")).toBe(false);
 		expect(url.searchParams.get("b")).toBe("0");
 		expect(url.searchParams.get("s")).toMatch(/^\d+$/);
 		expect(url.searchParams.has("e")).toBe(false);
