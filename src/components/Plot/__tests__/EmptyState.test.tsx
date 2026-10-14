@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { describe, expect, it, vi } from "vitest";
-import { IMPORT_FILE_ACCEPT } from "../../../types/import";
+import { IMPORT_ACCEPT } from "../../../utils/importFile";
 import { EmptyState } from "../EmptyState";
 
 const layout = {
@@ -13,7 +13,7 @@ const layout = {
 describe("EmptyState", () => {
 	it("offers import, demo data and the drop hint", () => {
 		render(
-			<EmptyState {...layout} onImportFile={vi.fn()} onLoadDemo={vi.fn()} />,
+			<EmptyState {...layout} onImportFiles={vi.fn()} onLoadDemo={vi.fn()} />,
 		);
 		expect(
 			screen.getByRole("button", { name: "Import file…" }),
@@ -25,21 +25,22 @@ describe("EmptyState", () => {
 	});
 
 	it("opens a file picker with the sidebar's file types and imports the pick", () => {
-		const onImportFile = vi.fn();
+		const onImportFiles = vi.fn();
 		const { container } = render(
-			<EmptyState {...layout} onImportFile={onImportFile} />,
+			<EmptyState {...layout} onImportFiles={onImportFiles} />,
 		);
 		const input = container.querySelector(
 			'input[type="file"]',
 		) as HTMLInputElement;
-		expect(input).toHaveAttribute("accept", IMPORT_FILE_ACCEPT);
+		expect(input).toHaveAttribute("accept", IMPORT_ACCEPT);
 		const click = vi.spyOn(input, "click");
 		fireEvent.click(screen.getByRole("button", { name: "Import file…" }));
 		expect(click).toHaveBeenCalled();
 
 		const file = new File(["a,b\n1,2"], "data.csv", { type: "text/csv" });
 		fireEvent.change(input, { target: { files: [file] } });
-		expect(onImportFile).toHaveBeenCalledWith(file);
+		expect(onImportFiles).toHaveBeenCalledWith([file]);
+		expect(input).toHaveAttribute("multiple");
 	});
 
 	it("loads the demo data", () => {

@@ -42,7 +42,6 @@ import { getAxisById } from "../utils/axisCalculations";
 
 export interface WorkerSeriesMsg {
 	id: string;
-	segKey: string;
 	xAxisId: string;
 	yAxisId: string;
 	hidden: boolean;
@@ -274,7 +273,6 @@ function applySeries(list: WorkerSeriesMsg[]): void {
 		if (!xData || !yData) continue;
 		resolved.push({
 			id: s.id,
-			segKey: s.segKey,
 			xAxisId: s.xAxisId,
 			yAxisId: s.yAxisId,
 			hidden: s.hidden,
@@ -291,6 +289,7 @@ function applySeries(list: WorkerSeriesMsg[]): void {
 	for (const id of columns.keys()) {
 		if (!keep.has(id)) columns.delete(id);
 	}
+	// Also frees the GPU buffers of the columns dropped above.
 	core?.setSeries(resolved);
 }
 

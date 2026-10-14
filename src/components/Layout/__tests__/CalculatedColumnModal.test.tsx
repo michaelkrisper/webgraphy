@@ -14,6 +14,7 @@ vi.mock("../../../store/useGraphStore", () => ({
 // Mock the formula utils (to simplify live validation)
 vi.mock("../../../utils/formula", () => ({
 	compileFormula: vi.fn().mockReturnValue({ error: null }),
+	matchRegressionFormula: vi.fn().mockReturnValue(null),
 }));
 
 describe("CalculatedColumnModal", () => {

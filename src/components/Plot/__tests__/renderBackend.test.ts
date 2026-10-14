@@ -17,7 +17,6 @@ function makeSeries(
 ): RendererSeriesInput {
 	return {
 		id: "s1",
-		segKey: "seg-ds1-0-1-dyn",
 		xAxisId: "axis-1",
 		yAxisId: "axis-1",
 		hidden: false,

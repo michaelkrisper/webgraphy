@@ -7,7 +7,7 @@ import {
 } from "../../hooks/useFormulaEditor";
 import type { Dataset } from "../../services/persistence";
 import { useGraphStore } from "../../store/useGraphStore";
-import { compileFormula } from "../../utils/formula";
+import { compileFormula, matchRegressionFormula } from "../../utils/formula";
 import { FormulaReference } from "./FormulaReference";
 import { Modal } from "./Modal";
 
@@ -56,21 +56,16 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	// Live validation with positional info.
 	const validation = useMemo(() => {
 		if (!formula.trim()) return { msg: null as string | null, pos: -1 };
-		const isRegression = /^(?:linreg|polyreg|expreg|logreg|kde)\s*\(/i.test(
-			formula.trim(),
-		);
-		if (isRegression) {
-			const colMatch = formula.match(/\[([^\]]+)\]/);
-			if (colMatch) {
-				const colName = colMatch[1];
-				const found = dataset.columns.some(
-					(c) => c === colName || c.endsWith(`: ${colName}`),
-				);
-				return found
-					? { msg: null, pos: -1 }
-					: { msg: `Column not found: ${colName}`, pos: -1 };
-			}
-			return { msg: "Expected: function([column])", pos: -1 };
+		const regression = matchRegressionFormula(formula);
+		if (regression) {
+			if ("error" in regression) return { msg: regression.error, pos: -1 };
+			const colName = regression.column;
+			const found = dataset.columns.some(
+				(c) => c === colName || c.endsWith(`: ${colName}`),
+			);
+			return found
+				? { msg: null, pos: -1 }
+				: { msg: `Column not found: ${colName}`, pos: -1 };
 		}
 		const result = compileFormula(formula, dataset.columns);
 		return { msg: result.error || null, pos: result.errorPos ?? -1 };

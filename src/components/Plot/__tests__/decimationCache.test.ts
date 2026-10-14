@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DecimCache } from "../decimationCache";
-import { getOrComputeM4 } from "../decimationCache";
+import { getOrComputeM4, releaseDecimSlot } from "../decimationCache";
 
 describe("getOrComputeM4", () => {
 	function makeMockGl() {
@@ -479,5 +479,151 @@ describe("getOrComputeM4", () => {
 		expect(typeof e.qMin).toBe("number");
 		expect(typeof e.qMax).toBe("number");
 		expect(e.xRef).toBe(0);
+	});
+
+	describe("segmented series", () => {
+		// 0..4095 with a NaN gap at 2000..2009.
+		function gapped() {
+			const n = 4096;
+			const xData = Float32Array.from({ length: n }, (_, i) => i);
+			const yData = Float32Array.from({ length: n }, (_, i) => Math.sin(i * 0.37));
+			for (let i = 2000; i < 2010; i++) yData[i] = Number.NaN;
+			const segments = [
+				{ start: 0, end: 1999 },
+				{ start: 2010, end: 4095 },
+			];
+			return { xData, yData, segments };
+		}
+
+		const runExtents = (e: {
+			xArr: Float32Array;
+			runs: number[];
+		}): [number, number][] => {
+			const out: [number, number][] = [];
+			for (let r = 0; r < e.runs.length; r += 2) {
+				const xs = e.xArr.subarray(e.runs[r], e.runs[r] + e.runs[r + 1]);
+				out.push([xs[0], xs[xs.length - 1]]);
+			}
+			return out;
+		};
+
+		it("records one run per segment so the gap is not bridged", () => {
+			const { gl } = makeMockGl();
+			const cache: DecimCache = new WeakMap();
+			const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+			const { xData, yData, segments } = gapped();
+			const e = getOrComputeM4(
+				gl,
+				cache,
+				scratch,
+				xData,
+				yData,
+				0,
+				0,
+				4096,
+				4096,
+				64,
+				3,
+				false,
+				segments,
+			);
+			expect(runExtents(e)).toEqual([
+				[0, 1999],
+				[2010, 4095],
+			]);
+			expect(e.count).toBeLessThan(xData.length);
+		});
+
+		it("keeps the runs through an octave merge, matching a raw scan", () => {
+			const { gl } = makeMockGl();
+			const cache: DecimCache = new WeakMap();
+			const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+			const { xData, yData, segments } = gapped();
+			const at = (c: DecimCache, min: number, max: number) =>
+				getOrComputeM4(
+					gl,
+					c,
+					scratch,
+					xData,
+					yData,
+					0,
+					min,
+					max,
+					max - min,
+					64,
+					3,
+					false,
+					segments,
+				);
+			at(cache, 0, 4096);
+			const merged = at(cache, -2048, 6144);
+			const direct = at(new WeakMap(), -2048, 6144);
+			expect(merged.runs).toEqual(direct.runs);
+			expect(Array.from(merged.xArr)).toEqual(Array.from(direct.xArr));
+			expect(Array.from(merged.yArr)).toEqual(Array.from(direct.yArr));
+			expect(runExtents(merged)).toEqual([
+				[0, 1999],
+				[2010, 4095],
+			]);
+		});
+
+		it("treats an unsegmented series as a single run", () => {
+			const { gl } = makeMockGl();
+			const cache: DecimCache = new WeakMap();
+			const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+			const xData = Float32Array.from({ length: 512 }, (_, i) => i);
+			const yData = Float32Array.from({ length: 512 }, (_, i) => i % 7);
+			const e = getOrComputeM4(
+				gl,
+				cache,
+				scratch,
+				xData,
+				yData,
+				0,
+				0,
+				512,
+				512,
+				8,
+				3,
+			);
+			expect(e.runs).toEqual([0, e.count]);
+		});
+	});
+
+	describe("releaseDecimSlot", () => {
+		it("deletes the windowed entry and every pyramid level", () => {
+			const { gl } = makeMockGl();
+			let id = 0;
+			(gl.createBuffer as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+				id: id++,
+			}));
+			const deleteBuffer = vi.fn();
+			(gl as unknown as { deleteBuffer: typeof deleteBuffer }).deleteBuffer =
+				deleteBuffer;
+			const cache: DecimCache = new WeakMap();
+			const scratch = { x: new Float32Array(0), y: new Float32Array(0) };
+			const n = 4096;
+			const xData = Float32Array.from({ length: n }, (_, i) => i);
+			const yData = Float32Array.from({ length: n }, (_, i) => Math.sin(i));
+			// Full-span pyramid level, a merged coarser level, and a windowed
+			// entry from a deep zoom.
+			getOrComputeM4(gl, cache, scratch, xData, yData, 0, 0, n, n, 64, 3);
+			getOrComputeM4(gl, cache, scratch, xData, yData, 0, -n, 2 * n, 3 * n, 64, 3);
+			getOrComputeM4(gl, cache, scratch, xData, yData, 0, 100, 164, 64, 64, 3);
+			const created = (
+				gl.createBuffer as ReturnType<typeof vi.fn>
+			).mock.results.map((r) => r.value);
+			expect(created.length).toBeGreaterThanOrEqual(6);
+
+			releaseDecimSlot(gl, cache, xData, yData);
+			expect(new Set(deleteBuffer.mock.calls.map((c) => c[0]))).toEqual(
+				new Set(created),
+			);
+			expect(cache.get(yData)?.get(xData)).toBeUndefined();
+
+			// Releasing an unknown pair is a no-op.
+			releaseDecimSlot(gl, cache, new Float32Array(1), yData);
+			expect(deleteBuffer).toHaveBeenCalledTimes(created.length);
+		});
 	});
 });

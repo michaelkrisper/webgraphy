@@ -130,6 +130,46 @@ const LegacyAppStateSchema = z.object({
 	series: z.array(SeriesConfigSchema),
 });
 
+const DEFAULT_AXIS_RANGE = { min: 0, max: 100 };
+
+/**
+ * An axis range is view state, not data: a bad one (e.g. the ±Infinity bounds
+ * of an all-NaN column saved by an older build) must not cost the user their
+ * whole series config. Non-finite ranges fall back to the default and entries
+ * that are otherwise malformed are dropped; the store refills missing slots.
+ */
+function sanitizeAxes<T>(
+	raw: unknown,
+	schema: z.ZodMiniType<T>,
+	label: string,
+): T[] {
+	if (!Array.isArray(raw)) return [];
+	const out: T[] = [];
+	for (const entry of raw as unknown[]) {
+		let candidate = entry;
+		if (entry && typeof entry === "object") {
+			const { min, max } = entry as { min?: unknown; max?: unknown };
+			if (!(Number.isFinite(min) && Number.isFinite(max)))
+				candidate = { ...entry, ...DEFAULT_AXIS_RANGE };
+		}
+		const parsed = schema.safeParse(candidate);
+		if (parsed.success) out.push(parsed.data);
+		if (!parsed.success || candidate !== entry)
+			logger.warn("Repaired invalid saved axis", { label, entry });
+	}
+	return out;
+}
+
+function parseViewport(raw: unknown): ViewportState {
+	const v = ViewportSchema.safeParse(raw);
+	if (v.success) return v.data;
+	const r = (raw ?? {}) as { xAxes?: unknown; yAxes?: unknown };
+	return {
+		xAxes: sanitizeAxes(r.xAxes, XAxisConfigSchema, "x"),
+		yAxes: sanitizeAxes(r.yAxes, YAxisConfigSchema, "y"),
+	};
+}
+
 let db: IDBPDatabase | null = null;
 
 async function getDB() {
@@ -283,12 +323,9 @@ export const persistence = {
 				db.get(APP_STATE_STORE, LEGACY_KEY),
 			]);
 			if (vRaw && cRaw) {
-				const v = ViewportSchema.safeParse(vRaw);
 				const c = ConfigSchema.safeParse(cRaw);
-				if (v.success && c.success) return { ...v.data, ...c.data };
-				logger.error("Invalid split state", {
-					error: v.success ? c.error : v.error,
-				});
+				if (c.success) return { ...parseViewport(vRaw), ...c.data };
+				logger.error("Invalid split state", { error: c.error });
 				return null;
 			}
 			if (legacy) {

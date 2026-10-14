@@ -34,7 +34,12 @@ const TYPE_PICKER_OPTIONS: PopupPickerOption<ColumnType>[] =
 interface ImportSettingsDialogProps {
 	fileName: string;
 	fileContent: string; // Preview content
+	/** `fileContent` covers only the start of the file. */
+	previewTruncated?: boolean;
 	fileType: "csv" | "json" | "excel";
+	/** Used instead of auto-detection, e.g. tab for `.tsv`. */
+	defaultDelimiter?: string;
+	isImporting?: boolean;
 	sheets?: string[];
 	selectedSheet?: string;
 	onSheetChange?: (sheet: string) => void;
@@ -45,18 +50,23 @@ interface ImportSettingsDialogProps {
 export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	fileName,
 	fileContent,
+	previewTruncated = false,
 	fileType,
+	defaultDelimiter,
+	isImporting = false,
 	sheets,
 	selectedSheet,
 	onSheetChange,
 	onConfirm,
 	onCancel,
 }) => {
+	const initialDelimiter = (content: string) =>
+		defaultDelimiter ?? detectDelimiter(content, fileType);
 	const [delimiter, setDelimiter] = useState<string>(() =>
-		detectDelimiter(fileContent, fileType),
+		initialDelimiter(fileContent),
 	);
 	const [decimalPoint, setDecimalPoint] = useState<string>(() =>
-		detectDecimalPoint(fileContent, detectDelimiter(fileContent, fileType)),
+		detectDecimalPoint(fileContent, initialDelimiter(fileContent)),
 	);
 
 	// Reset derived state when file content or type changes
@@ -66,7 +76,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	if (fileContent !== prevFileContent || fileType !== prevFileType) {
 		setPrevFileContent(fileContent);
 		setPrevFileType(fileType);
-		const d = detectDelimiter(fileContent, fileType);
+		const d = initialDelimiter(fileContent);
 		setDelimiter(d);
 		setDecimalPoint(detectDecimalPoint(fileContent, d));
 	}
@@ -95,6 +105,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 				deferredDelimiter,
 				deferredStartRow,
 				deferredCommentChar,
+				previewTruncated,
 			),
 		[
 			fileContent,
@@ -102,6 +113,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 			deferredDelimiter,
 			deferredStartRow,
 			deferredCommentChar,
+			previewTruncated,
 		],
 	);
 
@@ -236,6 +248,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 					</div>
 					<button
 						type="button"
+						disabled={isImporting}
+						aria-busy={isImporting}
 						onClick={() =>
 							onConfirm({
 								delimiter,
@@ -251,10 +265,19 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 						}
 						className="isd-btn-confirm"
 					>
-						<Check size={16} /> Import Data
+						{isImporting ? (
+							<>
+								<span className="calc-spinner" aria-hidden="true" /> Importing…
+							</>
+						) : (
+							<>
+								<Check size={16} /> Import Data
+							</>
+						)}
 					</button>
 					<button
 						type="button"
+						disabled={isImporting}
 						onClick={onCancel}
 						className="isd-btn-cancel"
 						aria-label="Close dialog"
@@ -423,6 +446,18 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 										</tr>
 									</React.Fragment>
 								))}
+								{previewTruncated && (
+									<tr>
+										<td
+											colSpan={columnConfigs.length + 1}
+											className="isd-td"
+											style={{ color: "var(--text-light)", fontStyle: "italic" }}
+										>
+											Preview shows the first {previewData.rows.length} rows; the whole
+											file will be imported.
+										</td>
+									</tr>
+								)}
 							</tbody>
 						</table>
 					</div>

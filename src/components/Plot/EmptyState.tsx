@@ -2,13 +2,13 @@ import type React from "react";
 import { useMemo, useRef } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { THEMES } from "../../themes";
-import { IMPORT_FILE_ACCEPT } from "../../types/import";
+import { IMPORT_ACCEPT } from "../../utils/importFile";
 
 interface EmptyStateProps {
 	width: number;
 	height: number;
 	padding: { top: number; right: number; bottom: number; left: number };
-	onImportFile?: (file: File) => void;
+	onImportFiles?: (files: ArrayLike<File>) => void;
 	onLoadDemo?: () => void;
 }
 
@@ -16,7 +16,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	width,
 	height,
 	padding,
-	onImportFile,
+	onImportFiles,
 	onLoadDemo,
 }) => {
 	const [themeName] = useTheme();
@@ -145,9 +145,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 					>
 						Visualize and explore your data
 					</p>
-					{(onImportFile || onLoadDemo) && (
+					{(onImportFiles || onLoadDemo) && (
 						<div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-							{onImportFile && (
+							{onImportFiles && (
 								<>
 									<button
 										type="button"
@@ -159,12 +159,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 									<input
 										ref={fileInputRef}
 										type="file"
-										accept={IMPORT_FILE_ACCEPT}
+										accept={IMPORT_ACCEPT}
+										multiple
 										aria-hidden="true"
 										tabIndex={-1}
 										onChange={(e) => {
-											const f = e.target.files?.[0];
-											if (f) onImportFile(f);
+											if (e.target.files) onImportFiles(e.target.files);
 											e.target.value = "";
 										}}
 										style={{ display: "none" }}
@@ -182,7 +182,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 							)}
 						</div>
 					)}
-					{onImportFile && (
+					{onImportFiles && (
 						<p style={{ margin: 0, color: t.textMuted, fontSize: "0.85rem" }}>
 							or drop a file anywhere
 						</p>

@@ -48,7 +48,7 @@ const cases: Array<[string, () => React.ReactElement]> = [
 				width={600}
 				height={400}
 				padding={{ top: 10, right: 10, bottom: 40, left: 50 }}
-				onImportFile={vi.fn()}
+				onImportFiles={vi.fn()}
 				onLoadDemo={vi.fn()}
 			/>
 		),

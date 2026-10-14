@@ -169,7 +169,6 @@ export const WebGLRenderer = React.memo(
 
 				result.push({
 					id: s.id,
-					segKey: `seg-${ds.id}-${xIdx}-${yIdx}-dyn`,
 					xAxisId: ds.xAxisId ?? "",
 					yAxisId: s.yAxisId,
 					hidden: !!s.hidden,

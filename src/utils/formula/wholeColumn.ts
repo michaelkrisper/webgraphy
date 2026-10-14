@@ -11,73 +11,63 @@ import type {
 	FormulaEvaluationResult,
 	Granularity,
 } from "./types";
+import { FormulaError } from "./types";
 import { compileFormula } from "./compile";
 import { toMillis } from "./date";
+import { matchRegressionFormula } from "./regressionMatch";
 
 // ── Whole-column passes (regression + group-aggregate) ─────────────────────
 
-export const REGRESSION_PATTERNS: { pattern: RegExp; type: string }[] = [
-	{ pattern: /^linreg\(\[([^\]]+)\]\)$/i, type: "linear" },
-	{ pattern: /^polyreg\(\[([^\]]+)\]\s*,\s*(\d+)\)$/i, type: "poly" },
-	{ pattern: /^polyreg\(\[([^\]]+)\]\)$/i, type: "poly_default" },
-	{ pattern: /^expreg\(\[([^\]]+)\]\)$/i, type: "exponential" },
-	{ pattern: /^logreg\(\[([^\]]+)\]\)$/i, type: "logistic" },
-	{ pattern: /^kde\(\[([^\]]+)\]\)$/i, type: "kde" },
-	{ pattern: /^kde\(\[([^\]]+)\]\s*,\s*([0-9.]+)\)$/i, type: "kde_bw" },
-];
-
+/**
+ * Runs a whole-column regression. Returns null when `formula` is not a
+ * regression call; throws a FormulaError when it is one but is malformed or
+ * references an unknown column, so it never falls through to the row-wise
+ * compiler with the [x, y] payload (which would silently evaluate the x column).
+ */
 export function tryRegressionFormula(
 	formula: string,
 	columns: string[],
 	rowCount: number,
 	columnData: { data: Float32Array; refPoint: number }[],
 ): Float64Array | null {
-	const trimmed = formula.trim();
+	const spec = matchRegressionFormula(formula);
+	if (!spec) return null;
+	if ("error" in spec) throw new FormulaError(spec.error, 0);
 
-	for (const { pattern, type } of REGRESSION_PATTERNS) {
-		const match = trimmed.match(pattern);
-		if (!match) continue;
+	const colName = spec.column;
+	// Callers (useGraphStore.addCalculatedColumn) pass columnData as [x, y]
+	// in fixed order. We only need to validate the column name exists in
+	// the dataset; the positional contract supplies the data.
+	const colExists = columns.some(
+		(c) => c === colName || c.endsWith(`: ${colName}`),
+	);
+	if (!colExists) throw new FormulaError(`Column not found: ${colName}`, 0);
 
-		const colName = match[1];
-		// Callers (useGraphStore.addCalculatedColumn) pass columnData as [x, y]
-		// in fixed order. We only need to validate the column name exists in
-		// the dataset; the positional contract supplies the data.
-		const colExists = columns.some(
-			(c) => c === colName || c.endsWith(`: ${colName}`),
-		);
-		if (!colExists) return null;
-
-		const xArr = new Float64Array(rowCount);
-		const yArr = new Float64Array(rowCount);
-		const xRef = columnData[0]?.refPoint || 0;
-		const yRef = columnData[1]?.refPoint || 0;
-		const xData = columnData[0]?.data;
-		const yData = columnData[1]?.data;
-		if (!xData || !yData) return null;
-
-		for (let i = 0; i < rowCount; i++) {
-			xArr[i] = xData[i] + xRef;
-			yArr[i] = yData[i] + yRef;
-		}
-
-		switch (type) {
-			case "linear":
-				return linearRegression(xArr, yArr);
-			case "poly":
-				return polynomialRegression(xArr, yArr, parseInt(match[2], 10));
-			case "poly_default":
-				return polynomialRegression(xArr, yArr, 3);
-			case "exponential":
-				return exponentialRegression(xArr, yArr);
-			case "logistic":
-				return logisticRegression(xArr, yArr);
-			case "kde":
-				return kdeSmoothing(xArr, yArr);
-			case "kde_bw":
-				return kdeSmoothing(xArr, yArr, parseFloat(match[2]));
-		}
+	const xData = columnData[0]?.data;
+	const yData = columnData[1]?.data;
+	if (!xData || !yData)
+		throw new FormulaError("Regression needs the x and y column data", 0);
+	const xRef = columnData[0].refPoint || 0;
+	const yRef = columnData[1].refPoint || 0;
+	const xArr = new Float64Array(rowCount);
+	const yArr = new Float64Array(rowCount);
+	for (let i = 0; i < rowCount; i++) {
+		xArr[i] = xData[i] + xRef;
+		yArr[i] = yData[i] + yRef;
 	}
-	return null;
+
+	switch (spec.name) {
+		case "linreg":
+			return linearRegression(xArr, yArr);
+		case "polyreg":
+			return polynomialRegression(xArr, yArr, spec.param ?? 3);
+		case "expreg":
+			return exponentialRegression(xArr, yArr);
+		case "logreg":
+			return logisticRegression(xArr, yArr);
+		case "kde":
+			return kdeSmoothing(xArr, yArr, spec.param);
+	}
 }
 
 export function evaluateGroupAverage(

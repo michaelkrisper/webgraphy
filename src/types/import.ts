@@ -1,8 +1,5 @@
 export type ColumnType = "numeric" | "date" | "categorical" | "ignore";
 
-/** `accept` filter for every file picker that feeds `importFile`. */
-export const IMPORT_FILE_ACCEPT = ".csv,.json,.xlsx,.xls";
-
 export interface ColumnConfig {
 	index: number;
 	name: string;

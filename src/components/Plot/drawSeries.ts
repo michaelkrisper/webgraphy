@@ -22,6 +22,11 @@ import {
 } from "./decimationCache";
 
 export interface SegParams {
+	// Column identities: the cache is keyed per series id, and a series can
+	// be re-pointed at different columns (x column switch, column removal
+	// shifting indices) while every numeric field below stays the same.
+	xData: Float32Array;
+	yData: Float32Array;
 	xRange: number;
 	yRange: number;
 	chartWidth: number;
@@ -140,11 +145,17 @@ function drawDecimatedLines(
 		numBuckets,
 		3,
 		isInteracting,
+		bundle.cachedSegments,
 	);
-	if (!entry.xBuf || !entry.yBuf || entry.count < 2) return;
+	if (!entry.xBuf || !entry.yBuf) return;
 
-	bindColumnSegments(st, entry.xBuf, entry.yBuf, 0);
-	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, entry.count - 1);
+	const runs = entry.runs;
+	for (let r = 0; r < runs.length; r += 2) {
+		const count = runs[r + 1];
+		if (count < 2) continue;
+		bindColumnSegments(st, entry.xBuf, entry.yBuf, runs[r]);
+		gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count - 1);
+	}
 }
 
 function drawPlainLines(st: GLStateCache, bundle: SeriesDrawBundle): void {
@@ -195,6 +206,8 @@ export function dashCacheParams(
 	totalLineSegs: number,
 ): SegParams {
 	return {
+		xData: bundle.xData,
+		yData: bundle.yData,
 		xRange: bundle.xRange,
 		yRange: bundle.yRange,
 		chartWidth: bundle.chartWidth,
@@ -219,6 +232,8 @@ export function dashParamsEqual(
 ): boolean {
 	return (
 		a !== undefined &&
+		a.xData === b.xData &&
+		a.yData === b.yData &&
 		a.xRange === b.xRange &&
 		a.yRange === b.yRange &&
 		a.chartWidth === b.chartWidth &&
@@ -366,14 +381,12 @@ export function drawSeriesLines(
 
 		// M4 decimation: only when the visible slice is denser than 4 samples
 		// per device pixel. Output preserves per-bucket (first,min,max,last) so
-		// vertical extrema survive the downsample.
+		// vertical extrema survive the downsample; gapped series decimate per
+		// segment so the gaps stay open.
 		const chartWidthPx = bundle.chartWidth * bundle.dpr;
 		const numBuckets = Math.max(8, Math.ceil(chartWidthPx));
 		const visibleCount = bundle.sliceEnd - bundle.sliceStart + 1;
-		const useDecim =
-			bundle.isMonotonic &&
-			bundle.cachedSegments.length === 1 &&
-			visibleCount > numBuckets * 4;
+		const useDecim = bundle.isMonotonic && visibleCount > numBuckets * 4;
 
 		if (useDecim) {
 			drawDecimatedLines(

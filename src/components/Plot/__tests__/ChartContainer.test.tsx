@@ -44,11 +44,11 @@ let mockPendingFile: any = null;
 const mockConfirmImport = vi.fn();
 const mockCancelImport = vi.fn();
 const mockChangeSheet = vi.fn();
-const mockImportFile = vi.fn();
+const mockImportFiles = vi.fn();
 
 vi.mock("../../../hooks/useDataImport", () => ({
 	useDataImport: () => ({
-		importFile: mockImportFile,
+		importFiles: mockImportFiles,
 		confirmImport: mockConfirmImport,
 		cancelImport: mockCancelImport,
 		changeSheet: mockChangeSheet,
@@ -165,6 +165,16 @@ describe("ChartContainer", () => {
 		).toBeInTheDocument();
 	});
 
+	it("queues every dropped file, not just the first", () => {
+		render(<ChartContainer width={800} height={600} themeName="light" />);
+		const files = [
+			new File(["a"], "a.csv", { type: "text/csv" }),
+			new File(["b"], "b.json", { type: "application/json" }),
+		];
+		fireEvent.drop(screen.getByRole("main"), { dataTransfer: { files } });
+		expect(mockImportFiles).toHaveBeenCalledWith(files);
+	});
+
 	it("wires wheel and keyboard interactions on the chart surface without crashing", async () => {
 		const mockBatchUpdateAxes = vi.fn();
 		(useGraphStore as any).mockImplementation((selector: any) => {
@@ -224,7 +234,7 @@ describe("ChartContainer", () => {
 	it("wires the empty state's import and demo-data actions", () => {
 		render(<ChartContainer />);
 		const props = vi.mocked(EmptyState).mock.calls.at(-1)?.[0];
-		expect(props?.onImportFile).toBe(mockImportFile);
+		expect(props?.onImportFiles).toBe(mockImportFiles);
 		const loadDemoData = vi.fn();
 		(useGraphStore as any).getState.mockReturnValueOnce({ loadDemoData });
 		props?.onLoadDemo?.();
