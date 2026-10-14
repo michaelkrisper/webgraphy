@@ -33,7 +33,7 @@ export type PendingFile = {
 	preview: string;
 	/** `preview` holds only the start of the data. */
 	previewTruncated: boolean;
-	type: ImportFileType;
+	type: Exclude<ImportFileType, "session">;
 	defaultDelimiter?: string;
 	sheets?: string[];
 	selectedSheet?: string;
@@ -43,12 +43,25 @@ export type PendingFile = {
 
 let nextPendingId = 1;
 
+function openSessionFile(file: File): void {
+	import("../services/session")
+		.then((m) => m.openSession(file))
+		.catch((err) => {
+			notify({
+				kind: "error",
+				message: `Could not open session "${file.name}": ${errorMessage(err)}`,
+			});
+		});
+}
+
 const errorMessage = (err: unknown) =>
 	err instanceof Error ? err.message : String(err);
 
-async function openFile(file: File): Promise<PendingFile> {
-	const type = importFileType(file.name);
-	if (!type) {
+async function openFile(
+	file: File,
+	type: ImportFileType | null,
+): Promise<PendingFile> {
+	if (!type || type === "session") {
 		throw new Error(
 			`unsupported file type. Supported: ${IMPORT_ACCEPT.split(",").join(", ")}`,
 		);
@@ -142,9 +155,16 @@ export const useDataImport = () => {
 				busyRef.current = false;
 				return;
 			}
+			const type = importFileType(file.name);
+			if (type === "session") {
+				// Sessions replace the workspace instead of adding to it, with
+				// their own confirmation; the queue moves on meanwhile.
+				openSessionFile(file);
+				continue;
+			}
 			busyRef.current = true;
 			try {
-				setPendingFile(await openFile(file));
+				setPendingFile(await openFile(file, type));
 				return;
 			} catch (err) {
 				notify({

@@ -12,6 +12,7 @@ import {
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
+import { usePasteImport } from "../../hooks/usePasteImport";
 import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
@@ -82,6 +83,7 @@ export default function ChartContainer() {
 		pendingFile,
 		isImporting,
 	} = useDataImport();
+	usePasteImport(importFiles);
 	const { width, height } = useContainerSize(containerRef, 800, 600);
 	// The WebGL layer fills the container's content box, so its device-pixel
 	// size is the canvas backing-store size.

@@ -3,6 +3,8 @@ import {
 	defaultDelimiterFor,
 	IMPORT_ACCEPT,
 	importFileType,
+	isTabularText,
+	pastedDataFile,
 	readTextHead,
 } from "../importFile";
 
@@ -19,6 +21,8 @@ describe("importFileType", () => {
 		["book.XLS", "excel"],
 		["book.ods", "excel"],
 		["archive.tar.csv", "csv"],
+		["work.webgraphy", "session"],
+		["Work.WebGraphy", "session"],
 	])("%s -> %s", (name, type) => {
 		expect(importFileType(name)).toBe(type);
 	});
@@ -63,5 +67,32 @@ describe("readTextHead", () => {
 	it("keeps the slice when it holds no line break", async () => {
 		const res = await readTextHead(new Blob(["abcdefgh"]), 4);
 		expect(res).toEqual({ text: "abcd", truncated: true });
+	});
+});
+
+describe("isTabularText", () => {
+	it.each([
+		["Time\tValue\n1\t2", true],
+		["Time\tValue\r\n1\t2\r\n", true],
+		["\n\nA\tB\n1\t2", true],
+		["1\t2\n3\t4", true],
+		["A\tB", false],
+		["A\tB\n", false],
+		["hello world", false],
+		["a,b\n1,2", false],
+		["one\ntwo\nthree", false],
+		["", false],
+	])("%j -> %s", (text, expected) => {
+		expect(isTabularText(text)).toBe(expected);
+	});
+});
+
+describe("pastedDataFile", () => {
+	it("names the file with the paste time and routes it as tab-delimited", async () => {
+		const file = pastedDataFile("A\tB\n1\t2", new Date(2026, 4, 3, 7, 5));
+		expect(file.name).toBe("Pasted data (07:05).tsv");
+		expect(importFileType(file.name)).toBe("csv");
+		expect(defaultDelimiterFor(file.name)).toBe("\t");
+		expect(await file.text()).toBe("A\tB\n1\t2");
 	});
 });

@@ -4,6 +4,7 @@ import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
+import { SESSION_EXTENSION } from "../../utils/importFile";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
 import { CollapsedMenuButton } from "./CollapsedMenuButton";
@@ -23,9 +24,15 @@ export const Sidebar: React.FC = () => {
 	const t = THEMES[themeName];
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const sessionInputRef = useRef<HTMLInputElement>(null);
 
 	const handleImport = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handleSaveSession = async () => {
+		const { saveSession } = await import("../../services/session");
+		await saveSession();
 	};
 
 	const [isCollapsed, setIsCollapsed] = useState(false);
@@ -101,6 +108,20 @@ export const Sidebar: React.FC = () => {
 					onImport={handleImport}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
+					onOpenSession={() => sessionInputRef.current?.click()}
+					onSaveSession={handleSaveSession}
+				/>
+				{/* Sessions take the import queue, which routes them by extension. */}
+				<input
+					ref={sessionInputRef}
+					type="file"
+					accept={`.${SESSION_EXTENSION}`}
+					aria-label="Open session file"
+					onChange={(e) => {
+						if (e.target.files) importFiles(e.target.files);
+						e.target.value = "";
+					}}
+					style={{ display: "none" }}
 				/>
 
 				{/* Content */}

@@ -73,6 +73,8 @@ interface GraphState {
 
 	undo: () => void;
 	redo: () => void;
+	/** Swaps in a whole workspace (an opened session) as one undoable step. */
+	replaceWorkspace: (next: GraphSnapshot, label: string) => void;
 
 	loadPersistedState: () => Promise<void>;
 	loadDemoData: () => Promise<void>;
@@ -592,6 +594,20 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (entry) applySnapshot(entry.snapshot);
 	},
 
+	replaceWorkspace: (next, label) => {
+		const before = beginHistory();
+		applySnapshot(
+			{
+				...next,
+				series: next.series.map((s) => ({ ...s, hidden: s.hidden ?? false })),
+				xAxes: withAllSlots(next.xAxes, createInitialXAxes()),
+				yAxes: withAllSlots(next.yAxes, createInitialYAxes()),
+			},
+			false,
+		);
+		commitHistory(before, label);
+	},
+
 	loadPersistedState: async () => {
 		let savedState: AppState | null;
 		let allDatasets: Dataset[];
@@ -803,7 +819,8 @@ function mergeViewport(cur: GraphSnapshot, target: GraphSnapshot) {
 	};
 }
 
-function applySnapshot(target: GraphSnapshot) {
+/** `keepViewport`: undo/redo keeps the current ranges where the data allows it. */
+function applySnapshot(target: GraphSnapshot, keepViewport = true) {
 	const cur = useGraphStore.getState();
 	// IndexedDB already reflects `cur`: delete what disappears, re-save every
 	// dataset whose object differs (restored, or an older column set).
@@ -818,7 +835,9 @@ function applySnapshot(target: GraphSnapshot) {
 	useGraphStore.setState({
 		datasets: target.datasets,
 		series: target.series,
-		...mergeViewport(cur, target),
+		...(keepViewport
+			? mergeViewport(cur, target)
+			: { xAxes: target.xAxes, yAxes: target.yAxes }),
 		legendVisible: target.legendVisible,
 		crosshairVisible: target.crosshairVisible,
 		highlightedSeriesId: null,

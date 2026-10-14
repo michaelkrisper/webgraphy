@@ -58,6 +58,14 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 							data-testid="export-png-trigger"
 							onClick={() => onChange("png")}
 						/>
+						<button
+							data-testid="session-open-trigger"
+							onClick={() => onChange("open")}
+						/>
+						<button
+							data-testid="session-save-trigger"
+							onClick={() => onChange("save")}
+						/>
 					</>
 				)}
 				{popoverId === "theme-popover" && (
@@ -73,6 +81,8 @@ describe("SidebarHeader", () => {
 	const mockOnImport = vi.fn();
 	const mockOnExportSVG = vi.fn();
 	const mockOnExportPNG = vi.fn();
+	const mockOnOpenSession = vi.fn();
+	const mockOnSaveSession = vi.fn();
 
 	const mockLoadDemoData = vi.fn();
 	const mockUpdateXAxis = vi.fn();
@@ -123,6 +133,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -143,6 +155,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 		expect(screen.getByTitle("Undo (nothing to undo)")).toBeDisabled();
@@ -160,6 +174,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 		fireEvent.click(screen.getByTitle("Undo: delete dataset 'foo' (Ctrl+Z)"));
@@ -175,6 +191,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -189,6 +207,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -203,6 +223,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -217,6 +239,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -231,6 +255,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -245,6 +271,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -259,6 +287,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -273,6 +303,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -283,6 +315,27 @@ describe("SidebarHeader", () => {
 		expect(mockOnExportPNG).toHaveBeenCalled();
 	});
 
+	it("routes the session entries of the file menu", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+			/>,
+		);
+
+		expect(screen.getByTitle("Session & Export")).toBeInTheDocument();
+		fireEvent.click(screen.getByTestId("session-open-trigger"));
+		expect(mockOnOpenSession).toHaveBeenCalledTimes(1);
+		expect(mockOnSaveSession).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByTestId("session-save-trigger"));
+		expect(mockOnSaveSession).toHaveBeenCalledTimes(1);
+		expect(mockOnExportSVG).not.toHaveBeenCalled();
+	});
+
 	it("handles theme selection correctly", () => {
 		render(
 			<SidebarHeader
@@ -290,6 +343,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 
@@ -318,6 +373,8 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
 			/>,
 		);
 

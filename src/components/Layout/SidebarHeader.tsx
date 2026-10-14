@@ -4,12 +4,13 @@ import {
 	Crosshair,
 	FilePlus,
 	FlaskConical,
+	FolderOpen,
 	Grid3x3,
-	Image,
 	List,
 	Moon,
 	PanelRightClose,
 	Redo2,
+	Save,
 	Spline,
 	Sun,
 	Table,
@@ -117,13 +118,26 @@ interface SidebarHeaderProps {
 	onImport: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onOpenSession: () => void;
+	onSaveSession: () => void;
 }
+
+type FileAction = "open" | "save" | "svg" | "png";
+
+const FILE_MENU_OPTIONS: PopupPickerOption<FileAction>[] = [
+	{ value: "open", icon: <FolderOpen size={16} />, label: "Open session…" },
+	{ value: "save", icon: <Save size={16} />, label: "Save session…" },
+	{ value: "svg", icon: <Spline size={16} />, label: "Export as SVG (vector)" },
+	{ value: "png", icon: <Grid3x3 size={16} />, label: "Export as PNG (pixel)" },
+];
 
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onCollapse,
 	onImport,
 	onExportSVG,
 	onExportPNG,
+	onOpenSession,
+	onSaveSession,
 }) => {
 	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
@@ -183,34 +197,26 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				/>
 				{hdrSep}
 				<PopupPicker
-					options={[
-						{
-							value: "svg",
-							icon: <Spline size={16} />,
-							label: "Export as SVG (vector)",
-						},
-						{
-							value: "png",
-							icon: <Grid3x3 size={16} />,
-							label: "Export as PNG (pixel)",
-						},
-					]}
-					current={"" as "svg" | "png" | ""}
+					options={FILE_MENU_OPTIONS}
+					current={"" as FileAction | ""}
 					onChange={(v) => {
-						if (v === "svg") onExportSVG();
+						if (v === "open") onOpenSession();
+						else if (v === "save") onSaveSession();
+						else if (v === "svg") onExportSVG();
 						else if (v === "png") onExportPNG();
 					}}
 					popoverId="export-popover"
+					minWidth={200}
 					renderTrigger={({ onClick, ref }) => (
 						<button
 							ref={ref}
 							type="button"
 							onClick={onClick}
-							title="Export Image"
-							aria-label="Export Image"
+							title="Session & Export"
+							aria-label="Session & Export"
 							className="sb-hdr-btn"
 						>
-							<Image size={24} />
+							<Save size={24} />
 						</button>
 					)}
 				/>
