@@ -457,6 +457,41 @@ describe("RendererCore", () => {
 			expect(rows.size).toBe(frame2.length);
 		});
 
+		it("culls same-group labels that overlap once measured, chrome included", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			const period = (text: string, x: number): RenderLabel => ({
+				...labels[1],
+				text,
+				x,
+				tick: undefined,
+				cullGroup: "sec:x",
+			});
+			// "01/2026" (35px measured) at 30 leaves no room for "12/2025" at 10.
+			core.setLabels([period("01/2026", 30), period("12/2025", 10)]);
+			core.drawFrame(axes, axes);
+			expect(gl.drawArraysInstanced).toHaveBeenLastCalledWith(
+				gl.TRIANGLES,
+				0,
+				6,
+				1,
+			);
+			// Only the surviving label's background quad is drawn.
+			expect(gl.drawArrays).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6);
+			expect(gl.drawArrays).not.toHaveBeenCalledWith(gl.TRIANGLES, 6, 6);
+
+			core.setLabels([period("01/2026", 60), period("12/2025", 10)]);
+			core.drawFrame(axes, axes);
+			expect(gl.drawArraysInstanced).toHaveBeenLastCalledWith(
+				gl.TRIANGLES,
+				0,
+				6,
+				2,
+			);
+		});
+
 		it("skips the label pass entirely when rasterization is unavailable", () => {
 			vi
 				.spyOn(HTMLCanvasElement.prototype, "getContext")

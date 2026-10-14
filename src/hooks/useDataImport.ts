@@ -10,7 +10,7 @@ import {
 	importFileType,
 	readTextHead,
 } from "../utils/importFile";
-import { buildSeriesConfig } from "../utils/series";
+import { buildSeriesForColumns } from "../utils/series";
 import {
 	parseDataInWorker,
 	previewJsonInWorker,
@@ -115,17 +115,13 @@ const processImportedDatasets = (
 		addDataset(ds);
 
 		if (!isSplitImport && ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
-			const seriesBeforeAdd = useGraphStore.getState().series;
+			const { series, yAxes } = useGraphStore.getState();
 			const nonXColumns = ds.columns
 				.filter((c) => c !== ds.xAxisColumn)
 				.slice(0, 4);
-			nonXColumns.forEach((col, i) => {
-				const colIdx = ds.columns.indexOf(col);
-				const isCategorical = colIdx >= 0 && !!ds.data[colIdx]?.categoryLabels;
-				addSeries(
-					buildSeriesConfig(col, ds.id, seriesBeforeAdd.length + i, isCategorical),
-				);
-			});
+			for (const s of buildSeriesForColumns(ds, nonXColumns, series, yAxes)) {
+				addSeries(s);
+			}
 		}
 	}
 };

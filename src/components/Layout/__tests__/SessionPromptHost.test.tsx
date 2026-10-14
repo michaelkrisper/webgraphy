@@ -29,14 +29,16 @@ describe("SessionPromptHost", () => {
 	it("asks, and resolves true on Replace", async () => {
 		render(<SessionPromptHost />);
 		const answer = ask();
-		const dialog = await screen.findByRole("dialog", { name: "Open session?" });
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "Open session?",
+		});
 		expect(dialog).toHaveTextContent("work.webgraphy");
 		expect(dialog).toHaveTextContent("2 datasets, 3 series");
 		expect(await axe(dialog)).toHaveNoViolations();
 
 		fireEvent.click(screen.getByRole("button", { name: "Replace workspace" }));
 		expect(await answer).toBe(true);
-		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 	});
 
 	it("resolves false on Cancel and on Escape", async () => {
@@ -46,10 +48,10 @@ describe("SessionPromptHost", () => {
 		expect(await first).toBe(false);
 
 		const second = ask();
-		await screen.findByRole("dialog");
+		await screen.findByRole("alertdialog");
 		fireEvent.keyDown(document, { key: "Escape" });
 		expect(await second).toBe(false);
-		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 	});
 
 	it("declines a superseded question", async () => {

@@ -823,10 +823,10 @@ describe("useAutoScale", () => {
 			];
 
 			rerender();
-			// expect y-axis-1 to be updated
+			// y2 spans 10..20, padded 5% each side like the initial fit.
 			expect(targetYs.current["y-axis-1"]).toBeDefined();
-			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(8.95);
-			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(21.05);
+			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(9.5);
+			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(20.5);
 		});
 	});
 
@@ -1362,6 +1362,86 @@ describe("useAutoScale", () => {
 
 			expect(batchUpdateAxes).toHaveBeenCalled();
 			expect(syncViewport).toHaveBeenCalled();
+		});
+
+		it("fits the fresh y axis of a series added to a non-empty chart in the store", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+				yAxes: [
+					{ id: "axis-1", min: 0, max: 100 },
+					{ id: "axis-2", min: 0, max: 100 },
+				],
+			} as unknown as ReturnType<typeof useGraphStore.getState>);
+			const targetXAxes = { current: {} };
+			const targetYs: {
+				current: Record<string, { min: number; max: number }>;
+			} = { current: {} };
+			const column = (min: number, max: number) => ({
+				data: new Float32Array([min, max]),
+				refPoint: 0,
+				isFloat64: false,
+				bounds: { min, max },
+			});
+			const datasets: Dataset[] = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "temp", "pressure"],
+					data: [column(0, 10), column(10, 30), column(1000, 1020)],
+					rowCount: 2,
+				},
+			];
+			const base = {
+				sourceId: "ds1",
+				name: "",
+				pointStyle: "none",
+				pointColor: "#000",
+				lineStyle: "solid",
+				lineColor: "#000",
+			} as const;
+			let currentSeries: SeriesConfig[] = [
+				{ ...base, id: "s1", yColumn: "temp", yAxisId: "axis-1" },
+			];
+			const { rerender } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series: currentSeries,
+					datasets,
+					xAxes: [
+						{
+							id: "axis-1",
+							name: "X",
+							min: 0,
+							max: 10,
+							showGrid: true,
+							xMode: "numeric",
+						},
+					],
+					activeYAxes: [],
+					activeXAxesUsed: [],
+					padding: basePadding,
+					chartHeight: baseChartHeight,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+			batchUpdateAxes.mockClear();
+
+			currentSeries = [
+				...currentSeries,
+				{ ...base, id: "s2", yColumn: "pressure", yAxisId: "axis-2" },
+			];
+			rerender();
+
+			const fitted = { "axis-2": { min: 999, max: 1021 } };
+			expect(batchUpdateAxes).toHaveBeenCalledWith({}, fitted);
+			expect(targetYs.current["axis-2"]).toEqual(fitted["axis-2"]);
+			expect(targetYs.current["axis-1"]).toBeUndefined();
 		});
 
 		it("should auto-scale Y when a new series is added", () => {

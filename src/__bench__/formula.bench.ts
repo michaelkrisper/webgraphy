@@ -1,4 +1,5 @@
-import { bench, describe } from "vitest";
+import { describe } from "vitest";
+import { benchCase } from "./benchCase";
 import { findClosest, findFirstGE, findLastLE } from "../utils/binarySearch";
 import { compileFormula } from "../utils/formula";
 import { LARGE, makeSeries } from "./fixtures";
@@ -14,7 +15,7 @@ const columns = ["Time", "Value"];
 const ROWS = 100_000;
 
 describe("formula — compile", () => {
-	bench("compile a mixed expression", () => {
+	benchCase("compile a mixed expression", () => {
 		compileFormula(
 			"([Value] * 2 + sqrt(abs([Time]))) / max(1, [Value])",
 			columns,
@@ -30,7 +31,7 @@ describe("formula — evaluate", () => {
 	);
 	const row = [1.5, 2.5];
 
-	bench(`simple expression x${ROWS} rows`, () => {
+	benchCase(`simple expression x${ROWS} rows`, () => {
 		const ctx = simple.createContext?.();
 		for (let i = 0; i < ROWS; i++) {
 			row[0] = i * 0.001;
@@ -38,7 +39,7 @@ describe("formula — evaluate", () => {
 		}
 	});
 
-	bench(`mixed expression x${ROWS} rows`, () => {
+	benchCase(`mixed expression x${ROWS} rows`, () => {
 		const ctx = mixed.createContext?.();
 		for (let i = 0; i < ROWS; i++) {
 			row[0] = i * 0.001;
@@ -50,19 +51,19 @@ describe("formula — evaluate", () => {
 describe("binarySearch", () => {
 	const targets = [0, 250_000, 500_000, 750_000, 999_999];
 
-	bench("findFirstGE x1000", () => {
+	benchCase("findFirstGE x1000", () => {
 		for (let i = 0; i < 1000; i++) {
 			findFirstGE(x, targets[i % targets.length], 0, x.length);
 		}
 	});
 
-	bench("findLastLE x1000", () => {
+	benchCase("findLastLE x1000", () => {
 		for (let i = 0; i < 1000; i++) {
 			findLastLE(x, targets[i % targets.length], 0, x.length);
 		}
 	});
 
-	bench("findClosest x1000", () => {
+	benchCase("findClosest x1000", () => {
 		for (let i = 0; i < 1000; i++) {
 			findClosest(x, targets[i % targets.length], 0);
 		}

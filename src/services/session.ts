@@ -37,33 +37,30 @@ const PREAMBLE_BYTES = MAGIC.length + 8;
 
 export class SessionError extends Error {}
 
-// Bounds of an all-NaN column are ±Infinity, which JSON cannot carry.
-const NumberLike = z.union([
-	z.number(),
-	z.enum(["Infinity", "-Infinity", "NaN"]),
-]);
-const encodeNumber = (n: number) =>
-	(Number.isFinite(n) ? n : String(n)) as z.infer<typeof NumberLike>;
-const decodeNumber = (v: number | string): number =>
-	typeof v === "number" ? v : Number(v);
+// Numbers JSON cannot carry exactly (the ±Infinity bounds of an all-NaN
+// column) travel as their `String()` form, which also round-trips every double.
+// The schemas stick to the zod/mini parts the entry chunk already uses, since
+// zod lives in the chunk shared with it.
+const encodeNumber = (n: number): string => String(n);
+const decodeNumber = Number;
 
 const ColumnSchema = z.object({
 	name: z.string(),
 	isFloat64: z.boolean(),
-	refPoint: NumberLike,
-	bounds: z.object({ min: NumberLike, max: NumberLike }),
+	refPoint: z.string(),
+	bounds: z.object({ min: z.string(), max: z.string() }),
 	formula: z.optional(z.string()),
 	categoryLabels: z.optional(z.array(z.string())),
 	/** Byte offset into the column data section. */
-	offset: z.int(),
+	offset: z.number(),
 	/** Number of Float32 values. */
-	length: z.int(),
+	length: z.number(),
 });
 
 const DatasetSchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	rowCount: z.int(),
+	rowCount: z.number(),
 	xAxisColumn: z.string(),
 	xAxisId: z.string(),
 	columns: z.array(ColumnSchema),
@@ -72,12 +69,12 @@ const DatasetSchema = z.object({
 const HeaderSchema = z.object({
 	app: z.string(),
 	createdAt: z.string(),
-	viewport: z.unknown(),
 	config: ConfigSchema,
 	datasets: z.array(DatasetSchema),
 });
 
-type SessionHeader = z.infer<typeof HeaderSchema>;
+/** The viewport is parsed by persistence's repairing parser, not the schema. */
+type SessionHeader = z.infer<typeof HeaderSchema> & { viewport: unknown };
 
 export type SessionContent = Omit<GraphSnapshot, "datasets"> & {
 	datasets: Dataset[];
@@ -218,7 +215,11 @@ export async function decodeSession(
 	const datasets = header.datasets.map((ds): Dataset => {
 		if (ids.has(ds.id)) throw new SessionError(CORRUPT);
 		ids.add(ds.id);
-		if (!ds.columns.some((c) => c.name === ds.xAxisColumn))
+		if (
+			!Number.isInteger(ds.rowCount) ||
+			ds.rowCount < 0 ||
+			!ds.columns.some((c) => c.name === ds.xAxisColumn)
+		)
 			throw new SessionError(CORRUPT);
 		return {
 			id: ds.id,
@@ -229,7 +230,14 @@ export async function decodeSession(
 			columns: ds.columns.map((c) => c.name),
 			data: ds.columns.map((c): DataColumn => {
 				const end = c.offset + c.length * 4;
-				if (c.offset < 0 || c.length < 0 || c.offset % 4 || end > dataBytes)
+				if (
+					!Number.isInteger(c.offset) ||
+					!Number.isInteger(c.length) ||
+					c.offset < 0 ||
+					c.length < 0 ||
+					c.offset % 4 ||
+					end > dataBytes
+				)
 					throw new SessionError(CORRUPT);
 				// A copy per column: workers may transfer a column's buffer, which
 				// must not detach its neighbours.
@@ -252,7 +260,7 @@ export async function decodeSession(
 		};
 	});
 	return {
-		...parseViewport(header.viewport),
+		...parseViewport((raw as { viewport?: unknown }).viewport),
 		...header.config,
 		datasets,
 	};

@@ -27,6 +27,11 @@ export default defineConfig({
 		// contention rather than its own code.
 		benchmark: {
 			include: ["src/**/*.bench.ts"],
+			// The warning works by wrapping every module export getter in a
+			// counting closure (Map lookup + string key per access), which made
+			// the hot-path benchmarks 2-5x slower against the control and would
+			// fail the baseline gate on measurement overhead alone.
+			suppressExportGetterWarnings: true,
 		},
 		fileParallelism: false,
 		coverage: {

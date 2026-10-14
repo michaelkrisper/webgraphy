@@ -15,8 +15,7 @@ import {
 } from "../utils/axisCalculations";
 import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
-
-const AXIS_PADDING_RATIO = 0.05;
+import { AXIS_PADDING_RATIO, fitForNewSeries } from "./newSeriesFit";
 
 const axisPadding = (min: number, max: number): number =>
 	(max - min || 1) * AXIS_PADDING_RATIO;
@@ -580,23 +579,29 @@ export function useAutoScale({
 		targetYs,
 	]);
 
-	// New series detection
+	// Fit the axes of newly added (or rebound) series. Written to the store,
+	// not just the target refs: ChartContainer resets the targets from the
+	// store on every series change, which would discard a target-only fit.
+	// The first loaded series list is left to the initial-fit effect above.
 	const prevSeriesRef = useRef(series);
+	const seenLoadedRef = useRef(false);
 	useEffect(() => {
-		if (!isLoaded) return;
-		if (series.length > prevSeriesRef.current.length) {
-			const added = series[series.length - 1];
-			if (added) handleAutoScaleY(added.yAxisId);
-		} else {
-			const prevMap = new Map(prevSeriesRef.current.map((ps) => [ps.id, ps]));
-			series.forEach((s) => {
-				const prev = prevMap.get(s.id);
-				if (prev && (prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId))
-					handleAutoScaleY(s.yAxisId);
-			});
-		}
+		const prev = prevSeriesRef.current;
 		prevSeriesRef.current = series;
-	}, [series, isLoaded, handleAutoScaleY]);
+		if (!isLoaded) return;
+		if (!seenLoadedRef.current) {
+			seenLoadedRef.current = true;
+			return;
+		}
+		if (prev === series) return;
+		const state = useGraphStore.getState();
+		const { x, y } = fitForNewSeries(prev, series, datasetsById, state.yAxes);
+		if (Object.keys(x).length === 0 && Object.keys(y).length === 0) return;
+		Object.assign(targetXAxes.current, x);
+		Object.assign(targetYs.current, y);
+		state.batchUpdateAxes(x, y);
+		syncViewport();
+	}, [series, isLoaded, datasetsById, targetXAxes, targetYs, syncViewport]);
 
 	const handleStackedFit = useCallback(() => {
 		computeStackedFit(depsRef.current, targetXAxes, targetYs);

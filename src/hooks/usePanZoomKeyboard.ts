@@ -5,18 +5,14 @@
 // to apply continuous keyboard pan/zoom).
 
 import { useEffect } from "react";
+import { hasKey, isEditableTarget, SHORTCUTS } from "../utils/shortcuts";
 
-const PAN_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
-const ZOOM_KEYS = new Set(["+", "-"]);
-const ZOOM_PREVENT_DEFAULT_KEYS = new Set(["+", "-", "=", "_"]);
-
-export function isEditableTarget(target: EventTarget | null): boolean {
-	return (
-		target instanceof HTMLInputElement ||
-		target instanceof HTMLSelectElement ||
-		target instanceof HTMLTextAreaElement
-	);
-}
+const NAV_SHORTCUTS = [
+	SHORTCUTS.panX,
+	SHORTCUTS.panY,
+	SHORTCUTS.zoomIn,
+	SHORTCUTS.zoomOut,
+];
 
 interface Options {
 	pressedKeys: React.MutableRefObject<Set<string>>;
@@ -40,9 +36,12 @@ export function usePanZoomKeyboard({
 				return;
 			}
 			if (isEditableTarget(e.target)) return;
-			if (e.ctrlKey && ZOOM_PREVENT_DEFAULT_KEYS.has(e.key)) e.preventDefault();
+			const isZoomKey =
+				hasKey(SHORTCUTS.zoomIn, e.key) || hasKey(SHORTCUTS.zoomOut, e.key);
+			// Ctrl +/- would otherwise zoom the whole page (SHORTCUTS.zoomXOnly).
+			if (e.ctrlKey && isZoomKey) e.preventDefault();
 			pressedKeys.current.add(e.key);
-			if (PAN_KEYS.has(e.key) || ZOOM_KEYS.has(e.key)) {
+			if (NAV_SHORTCUTS.some((s) => hasKey(s, e.key))) {
 				syncViewport();
 			}
 		};

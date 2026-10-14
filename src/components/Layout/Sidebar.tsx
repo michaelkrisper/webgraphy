@@ -94,6 +94,7 @@ export const Sidebar: React.FC = () => {
 			<CollapsedMenuButton
 				onClick={() => setIsCollapsed(false)}
 				onExportSVG={handleExportSVG}
+				onExportPNG={handleExportPNG}
 				theme={t}
 			/>
 		);

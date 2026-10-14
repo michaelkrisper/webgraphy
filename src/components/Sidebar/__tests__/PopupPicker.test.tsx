@@ -248,6 +248,40 @@ describe("PopupPicker", () => {
 		expect(popover).toHaveStyle("top: 144px");
 	});
 
+	it("opens upwards from a trigger in the lower half of the viewport", () => {
+		vi.stubGlobal("innerHeight", 800);
+		vi.stubGlobal("scrollY", 0);
+		render(
+			<PopupPicker
+				options={mockOptions}
+				current="opt1"
+				onChange={vi.fn()}
+				renderTrigger={({ onClick, ref }) => (
+					<button ref={ref} onClick={onClick} data-testid="trigger">
+						Trigger
+					</button>
+				)}
+			/>,
+		);
+		Element.prototype.getBoundingClientRect = vi.fn(() => ({
+			width: 36,
+			height: 36,
+			top: 750,
+			left: 10,
+			bottom: 786,
+			right: 46,
+			x: 10,
+			y: 750,
+			toJSON: () => {},
+		}));
+
+		fireEvent.click(screen.getByTestId("trigger"));
+
+		const popover = document.getElementById("popup-picker-popover");
+		expect(popover).toHaveStyle("bottom: 54px");
+		expect(popover?.style.top).toBe("");
+	});
+
 	it("calculates left position with padding constraint", () => {
 		vi.stubGlobal("innerWidth", 500);
 		vi.stubGlobal("scrollX", 0);

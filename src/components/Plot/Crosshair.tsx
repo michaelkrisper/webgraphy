@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { getColumnIndex } from "../../utils/columns";
+import { hasKey, SHORTCUTS } from "../../utils/shortcuts";
 import { computeSnap, drawCanvas, renderTooltipHTML } from "./crosshair";
 import type { SnapResult, SeriesMetadata } from "./crosshair";
 import type { Dataset } from "../../services/persistence";
@@ -215,7 +216,7 @@ const Crosshair = React.memo(
 
 		useEffect(() => {
 			const handleKeyDown = (e: KeyboardEvent) => {
-				if (e.ctrlKey && (e.key === "c" || e.key === "C")) {
+				if (e.ctrlKey && hasKey(SHORTCUTS.copyTooltip, e.key)) {
 					const snap = lastSnapRef.current;
 					if (!snap) return;
 					const text = snap.entries

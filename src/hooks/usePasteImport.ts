@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { notify } from "../store/useNotificationStore";
 import { isTabularText, pastedDataFile } from "../utils/importFile";
-import { isEditableTarget } from "./usePanZoomKeyboard";
+import { isEditableTarget } from "../utils/shortcuts";
 
 export function handlePaste(
 	e: Pick<ClipboardEvent, "target" | "clipboardData" | "preventDefault">,
