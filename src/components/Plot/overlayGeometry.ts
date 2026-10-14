@@ -6,6 +6,7 @@
  * while the geometry itself stays testable in isolation.
  */
 
+import { axisFraction } from "../../utils/axisScale";
 import { DEFAULT_GUTTER_TOTAL } from "./axisGutters";
 
 interface Padding {
@@ -17,6 +18,9 @@ interface Padding {
 
 interface GridAxis {
 	readonly ticks: readonly number[];
+	/** Log axes: unlabelled ticks between the labelled ones. */
+	readonly minorTicks?: readonly number[];
+	readonly log?: boolean;
 	readonly min: number;
 	readonly max: number;
 	readonly showGrid: boolean;
@@ -31,6 +35,8 @@ interface ZeroLineAxis {
 
 interface XAxisLine {
 	readonly ticks: readonly number[];
+	readonly minorTicks?: readonly number[];
+	readonly log?: boolean;
 	readonly min: number;
 	readonly max: number;
 }
@@ -42,6 +48,8 @@ interface XAxisMetric {
 interface YAxisLine {
 	readonly id: string;
 	readonly ticks: readonly number[];
+	readonly minorTicks?: readonly number[];
+	readonly log?: boolean;
 	readonly min: number;
 	readonly max: number;
 	readonly position: "left" | "right";
@@ -52,6 +60,17 @@ interface YAxisGutter {
 }
 
 const ARROW_SIZE = 6;
+/** Minor (log) tick marks are drawn at this fraction of a major's length. */
+const MINOR_TICK_RATIO = 0.5;
+
+/** 0..1 position of tick `t` on the axis, or -1 when it is off the axis. */
+function tickFraction(
+	t: number,
+	axis: { min: number; max: number; log?: boolean },
+): number {
+	const f = axisFraction(t, axis.min, axis.max, axis.log === true);
+	return f >= 0 && f <= 1 ? f : -1;
+}
 
 /**
  * Append the plot-background quad (two triangles, 6 vertices) covering the
@@ -87,8 +106,9 @@ export function writeBackgroundQuad(
 
 /**
  * Append the vertical grid lines for the first x-axis (drawn full-height
- * across the plot). Ticks outside the visible range are skipped. Returns
- * the advanced write index.
+ * across the plot). Ticks outside the visible range are skipped; `minor`
+ * draws the log axis' minor ticks instead of the labelled ones. Returns the
+ * advanced write index.
  */
 export function writeXGridLines(
 	buf: Float32Array,
@@ -98,14 +118,15 @@ export function writeXGridLines(
 	cw: number,
 	ch: number,
 	dpr: number,
+	minor = false,
 ): number {
 	if (!axis.showGrid || axis.max <= axis.min) return p;
-	const range = axis.max - axis.min;
+	const ticks = minor ? (axis.minorTicks ?? []) : axis.ticks;
 	const yTop = pad.top * dpr;
 	const yBot = (pad.top + ch) * dpr;
-	for (const t of axis.ticks) {
-		const norm = (t - axis.min) / range;
-		if (norm < 0 || norm > 1) continue;
+	for (const t of ticks) {
+		const norm = tickFraction(t, axis);
+		if (norm < 0) continue;
 		const sx = (pad.left + norm * cw) * dpr;
 		buf[p++] = sx;
 		buf[p++] = yTop;
@@ -117,8 +138,8 @@ export function writeXGridLines(
 
 /**
  * Append the horizontal grid lines for every y-axis that opts in. Each
- * gridded axis adds a full-width line per visible tick. Returns the
- * advanced write index.
+ * gridded axis adds a full-width line per visible tick (per minor tick with
+ * `minor`). Returns the advanced write index.
  */
 export function writeYGridLines(
 	buf: Float32Array,
@@ -128,15 +149,16 @@ export function writeYGridLines(
 	w: number,
 	ch: number,
 	dpr: number,
+	minor = false,
 ): number {
 	const xL = pad.left * dpr;
 	const xR = (w - pad.right) * dpr;
 	for (const ax of axes) {
 		if (!ax.showGrid || ax.max <= ax.min) continue;
-		const range = ax.max - ax.min;
-		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
+		const ticks = minor ? (ax.minorTicks ?? []) : ax.ticks;
+		for (const t of ticks) {
+			const norm = tickFraction(t, ax);
+			if (norm < 0) continue;
 			const sy = (pad.top + (1 - norm) * ch) * dpr;
 			buf[p++] = xL;
 			buf[p++] = sy;
@@ -269,16 +291,25 @@ export function writeXAxisLines(
 		buf[p++] = (w - pad.right + 8) * dpr;
 		buf[p++] = yL;
 		if (ax.max <= ax.min) continue;
-		const range = ax.max - ax.min;
 		const tickEnd = yL + 6 * dpr;
 		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
+			const norm = tickFraction(t, ax);
+			if (norm < 0) continue;
 			const sx = (pad.left + norm * cw) * dpr;
 			buf[p++] = sx;
 			buf[p++] = yL;
 			buf[p++] = sx;
 			buf[p++] = tickEnd;
+		}
+		const minorEnd = yL + 6 * MINOR_TICK_RATIO * dpr;
+		for (const t of ax.minorTicks ?? []) {
+			const norm = tickFraction(t, ax);
+			if (norm < 0) continue;
+			const sx = (pad.left + norm * cw) * dpr;
+			buf[p++] = sx;
+			buf[p++] = yL;
+			buf[p++] = sx;
+			buf[p++] = minorEnd;
 		}
 	}
 	return p;
@@ -317,16 +348,27 @@ export function writeYAxisLines(
 		buf[p++] = lineX * dpr;
 		buf[p++] = tipY;
 		if (ax.max <= ax.min) continue;
-		const range = ax.max - ax.min;
 		const xa = (isLeft ? lineX - 5 : lineX) * dpr;
 		const xb = (isLeft ? lineX : lineX + 5) * dpr;
 		for (const t of ax.ticks) {
-			const norm = (t - ax.min) / range;
-			if (norm < 0 || norm > 1) continue;
+			const norm = tickFraction(t, ax);
+			if (norm < 0) continue;
 			const sy = (pad.top + (1 - norm) * ch) * dpr;
 			buf[p++] = xa;
 			buf[p++] = sy;
 			buf[p++] = xb;
+			buf[p++] = sy;
+		}
+		const minorLen = 5 * MINOR_TICK_RATIO;
+		const ma = (isLeft ? lineX - minorLen : lineX) * dpr;
+		const mb = (isLeft ? lineX : lineX + minorLen) * dpr;
+		for (const t of ax.minorTicks ?? []) {
+			const norm = tickFraction(t, ax);
+			if (norm < 0) continue;
+			const sy = (pad.top + (1 - norm) * ch) * dpr;
+			buf[p++] = ma;
+			buf[p++] = sy;
+			buf[p++] = mb;
 			buf[p++] = sy;
 		}
 	}

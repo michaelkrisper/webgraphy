@@ -3,10 +3,13 @@
 // offset/width math can be unit-tested in isolation.
 
 import {
+	calcLogTicks,
 	calcNumericPrecision,
 	calcNumericStep,
 	formatAxisLabel,
+	Y_TICK_SPACING_PX,
 } from "../../utils/axisCalculations";
+import type { AxisScale } from "../../utils/axisScale";
 
 export const DEFAULT_GUTTER_TOTAL = 40;
 
@@ -58,7 +61,7 @@ export function sumGutterTotals(
  * area). The label width is capped at 100px.
  */
 export function measureYAxisGutter(
-	axis: { min: number; max: number },
+	axis: { min: number; max: number; scale?: AxisScale },
 	height: number,
 	categoryLabels: readonly string[] | undefined,
 ): { label: number; total: number } {
@@ -68,6 +71,19 @@ export function measureYAxisGutter(
 			(acc, n) => Math.max(acc, n?.length ?? 0),
 			1,
 		);
+	} else if (axis.scale === "log") {
+		const { ticks, precision } = calcLogTicks(
+			axis.min,
+			axis.max,
+			height,
+			Y_TICK_SPACING_PX,
+		);
+		widestValChars = 1;
+		for (const t of ticks) {
+			if (t < axis.min || t > axis.max) continue;
+			const len = formatAxisLabel(t, precision).length;
+			if (len > widestValChars) widestValChars = len;
+		}
 	} else {
 		const step = calcNumericStep(
 			axis.max - axis.min,

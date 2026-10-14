@@ -69,7 +69,7 @@ describe("SeriesConfigUI axis controls", () => {
 		setStore([temp, dew, wind]);
 	});
 
-	it("shows side and grid only on the first row of each axis", () => {
+	it("shows side, grid and log scale only on the first row of each axis", () => {
 		const { unmount } = render(
 			<SeriesConfigUI series={temp} datasets={datasets} />,
 		);
@@ -88,8 +88,11 @@ describe("SeriesConfigUI axis controls", () => {
 			screen.queryByRole("button", { name: "Toggle Left/Right Axis" }),
 		).toBeNull();
 		expect(screen.queryByRole("button", { name: "Toggle Grid" })).toBeNull();
+		expect(
+			screen.queryByRole("button", { name: "Logarithmic Y Scale" }),
+		).toBeNull();
 		// Blank cells keep the columns aligned with the rows above.
-		expect(container.querySelectorAll(".sc-cell-placeholder")).toHaveLength(2);
+		expect(container.querySelectorAll(".sc-cell-placeholder")).toHaveLength(3);
 	});
 
 	it("lists used axes with their title and swatches, plus New axis", () => {

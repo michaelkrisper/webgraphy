@@ -3,6 +3,7 @@ import { type IDBPDatabase, openDB } from "idb";
 // chainable classic API out of the entry chunk (see size-budget.json).
 import * as z from "zod/mini";
 import { notify } from "../store/useNotificationStore";
+import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
 
 const DB_NAME = "webgraphy-db";
@@ -47,6 +48,8 @@ export interface XAxisConfig {
 	max: number;
 	showGrid: boolean;
 	xMode: "date" | "numeric" | "categorical";
+	/** Absent means linear (configs created before log axes existed). */
+	scale?: AxisScale;
 }
 
 export interface YAxisConfig {
@@ -57,6 +60,8 @@ export interface YAxisConfig {
 	position: "left" | "right";
 	color: string;
 	showGrid: boolean;
+	/** Absent means linear (configs created before log axes existed). */
+	scale?: AxisScale;
 }
 
 export interface SeriesConfig {
@@ -85,23 +90,35 @@ interface ConfigState {
 
 export interface AppState extends ViewportState, ConfigState {}
 
-const XAxisConfigSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	min: z.number(),
-	max: z.number(),
-	showGrid: z.boolean(),
-	xMode: z.enum(["date", "numeric", "categorical"]),
-});
-const YAxisConfigSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	min: z.number(),
-	max: z.number(),
-	position: z.enum(["left", "right"]),
-	color: z.string(),
-	showGrid: z.boolean(),
-});
+// Saved before log axes existed: no `scale`, which defaults to linear.
+const AxisScaleSchema = z._default(z.enum(["linear", "log"]), "linear");
+// A log axis cannot show a range reaching 0 or below.
+const logRangeValid = (a: { scale: AxisScale; min: number }) =>
+	a.scale !== "log" || a.min > 0;
+
+const XAxisConfigSchema = z
+	.object({
+		id: z.string(),
+		name: z.string(),
+		min: z.number(),
+		max: z.number(),
+		showGrid: z.boolean(),
+		xMode: z.enum(["date", "numeric", "categorical"]),
+		scale: AxisScaleSchema,
+	})
+	.check(z.refine(logRangeValid));
+const YAxisConfigSchema = z
+	.object({
+		id: z.string(),
+		name: z.string(),
+		min: z.number(),
+		max: z.number(),
+		position: z.enum(["left", "right"]),
+		color: z.string(),
+		showGrid: z.boolean(),
+		scale: AxisScaleSchema,
+	})
+	.check(z.refine(logRangeValid));
 const SeriesConfigSchema = z.object({
 	id: z.string(),
 	sourceId: z.string(),
@@ -132,6 +149,7 @@ const LegacyAppStateSchema = z.object({
 });
 
 const DEFAULT_AXIS_RANGE = { min: 0, max: 100 };
+const DEFAULT_LOG_AXIS_RANGE = { min: 1, max: 100 };
 
 /**
  * An axis range is view state, not data: a bad one (e.g. the ±Infinity bounds
@@ -149,9 +167,17 @@ function sanitizeAxes<T>(
 	for (const entry of raw as unknown[]) {
 		let candidate = entry;
 		if (entry && typeof entry === "object") {
-			const { min, max } = entry as { min?: unknown; max?: unknown };
-			if (!(Number.isFinite(min) && Number.isFinite(max)))
+			const { min, max, scale } = entry as {
+				min?: unknown;
+				max?: unknown;
+				scale?: unknown;
+			};
+			if (scale === "log") {
+				if (!(Number.isFinite(max) && (min as number) > 0))
+					candidate = { ...entry, ...DEFAULT_LOG_AXIS_RANGE };
+			} else if (!(Number.isFinite(min) && Number.isFinite(max))) {
 				candidate = { ...entry, ...DEFAULT_AXIS_RANGE };
+			}
 		}
 		const parsed = schema.safeParse(candidate);
 		if (parsed.success) out.push(parsed.data);

@@ -372,3 +372,20 @@ describe("releaseNavigationKeys", () => {
 		expect(targets.x1).toEqual({ min: 5, max: 105 });
 	});
 });
+
+describe("stepAxisTarget on a log axis", () => {
+	it("pans and zooms in log10 space", () => {
+		const targets: Record<string, { min: number; max: number }> = {};
+		const axis = { id: "a", min: 1, max: 1000, scale: "log" as const };
+		stepAxisTarget(targets, axis, "pan+");
+		// 5% of 3 decades.
+		expect(Math.log10(targets.a.min)).toBeCloseTo(0.15);
+		expect(Math.log10(targets.a.max)).toBeCloseTo(3.15);
+		stepAxisTarget(targets, axis, "zoom-out");
+		expect(targets.a.min).toBeGreaterThan(0);
+		// Zoom keeps the geometric centre.
+		expect(Math.log10(targets.a.min) + Math.log10(targets.a.max)).toBeCloseTo(
+			3.3,
+		);
+	});
+});

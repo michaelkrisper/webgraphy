@@ -11,6 +11,11 @@ import {
 	type YAxisConfig,
 } from "../services/persistence";
 import { AXIS_EPSILON, DEFAULT_X_AXIS_ID } from "../utils/axisCalculations";
+import {
+	type AxisScale,
+	logSafeRange,
+	positiveBounds,
+} from "../utils/axisScale";
 import { getColumnIndex } from "../utils/columns";
 import { compileFormula, matchRegressionFormula } from "../utils/formula";
 import { logger } from "../utils/logger";
@@ -70,6 +75,11 @@ interface GraphState {
 
 	updateXAxis: (id: string, updates: Partial<XAxisConfig>) => void;
 	updateYAxis: (id: string, updates: Partial<YAxisConfig>) => void;
+	/**
+	 * Switch an axis between linear and log. Going log with a range that
+	 * reaches 0 or below refits it to the axis' positive data.
+	 */
+	setAxisScale: (kind: "x" | "y", id: string, scale: AxisScale) => void;
 	batchUpdateAxes: (
 		xUpdates: Record<string, { min: number; max: number }>,
 		yUpdates: Record<string, { min: number; max: number }>,
@@ -94,6 +104,7 @@ const createInitialXAxes = (): XAxisConfig[] => {
 		max: 100,
 		showGrid: i === 0,
 		xMode: "numeric",
+		scale: "linear",
 	}));
 };
 
@@ -106,6 +117,7 @@ const createInitialYAxes = (): YAxisConfig[] => {
 		position: i % 2 === 0 ? "left" : "right",
 		color: "#475569",
 		showGrid: i === 0,
+		scale: "linear",
 	}));
 };
 
@@ -131,6 +143,52 @@ const withAllSlots = <T extends { id: string }>(saved: T[], defaults: T[]) => [
 
 const xModeFor = (col?: DataColumn): XAxisConfig["xMode"] =>
 	col?.categoryLabels ? "categorical" : col?.isFloat64 ? "date" : "numeric";
+
+/**
+ * The x axis refitted to a newly bound column. A log axis keeps log only for
+ * numeric data (dates and categories fall back to linear) and is fitted to
+ * the column's positive values.
+ */
+const fitXAxisToColumn = (a: XAxisConfig, col?: DataColumn): XAxisConfig => {
+	const bounds = axisRangeFor(col);
+	const xMode = xModeFor(col);
+	if (a.scale !== "log") return { ...a, ...bounds, xMode };
+	if (xMode !== "numeric") return { ...a, ...bounds, xMode, scale: "linear" };
+	const positive = col ? positiveBounds(col.data, col.refPoint) : null;
+	return { ...a, ...logSafeRange(bounds.min, bounds.max, positive), xMode };
+};
+
+/** Positive-value bounds over every column plotted on an axis. */
+function positiveAxisBounds(
+	state: Pick<GraphState, "datasets" | "series">,
+	kind: "x" | "y",
+	id: string,
+): { min: number; max: number } | null {
+	const cols: DataColumn[] = [];
+	if (kind === "x") {
+		for (const d of state.datasets) {
+			if ((d.xAxisId || DEFAULT_X_AXIS_ID) !== id) continue;
+			const col = d.data[getColumnIndex(d, d.xAxisColumn)];
+			if (col) cols.push(col);
+		}
+	} else {
+		for (const s of state.series) {
+			if (s.yAxisId !== id) continue;
+			const d = state.datasets.find((ds) => ds.id === s.sourceId);
+			const col = d?.data[getColumnIndex(d, s.yColumn)];
+			if (col) cols.push(col);
+		}
+	}
+	let min = Infinity;
+	let max = -Infinity;
+	for (const col of cols) {
+		const b = positiveBounds(col.data, col.refPoint);
+		if (!b) continue;
+		if (b.min < min) min = b.min;
+		if (b.max > max) max = b.max;
+	}
+	return min === Infinity ? null : { min, max };
+}
 
 const createEmptyState = () => ({
 	datasets: [],
@@ -385,15 +443,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 		const xColIdx = getColumnIndex(newDataset, xAxisColumn);
 		const col = newDataset.data[xColIdx];
-		const bounds = axisRangeFor(col);
-		const xMode = xModeFor(col);
 
 		const before = beginHistory();
 		set((s) => ({
 			datasets: [...s.datasets, newDataset],
-			xAxes: s.xAxes.map((a) =>
-				a.id === xAxisId ? { ...a, min: bounds.min, max: bounds.max, xMode } : a,
-			),
+			xAxes: s.xAxes.map((a) => (a.id === xAxisId ? fitXAxisToColumn(a, col) : a)),
 		}));
 		commitHistory(before, `add dataset '${newDataset.name}'`);
 
@@ -452,18 +506,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const xColIdx = getColumnIndex(updatedDataset, updatedDataset.xAxisColumn);
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
-					const bounds = axisRangeFor(col);
-					const xMode = xModeFor(col);
-
 					nextXAxes = state.xAxes.map((a) =>
-						a.id === updatedDataset.xAxisId
-							? {
-									...a,
-									min: bounds.min,
-									max: bounds.max,
-									xMode,
-								}
-							: a,
+						a.id === updatedDataset.xAxisId ? fitXAxisToColumn(a, col) : a,
 					);
 				}
 			}
@@ -584,6 +628,23 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		if (get().isLoaded) debouncedSaveViewport();
 	},
 
+	setAxisScale: (kind, id, scale) => {
+		const state = get();
+		const axis = (kind === "x" ? state.xAxes : state.yAxes).find(
+			(a) => a.id === id,
+		);
+		if (!axis || (axis.scale ?? "linear") === scale) return;
+		const updates =
+			scale === "log"
+				? {
+						scale,
+						...logSafeRange(axis.min, axis.max, positiveAxisBounds(state, kind, id)),
+					}
+				: { scale };
+		if (kind === "x") get().updateXAxis(id, updates);
+		else get().updateYAxis(id, updates);
+	},
+
 	batchUpdateAxes: (xUpdates, yUpdates) => {
 		set((state) => {
 			let changed = false;
@@ -591,6 +652,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const upd = xUpdates[a.id];
 				if (
 					isFiniteRange(upd) &&
+					(a.scale !== "log" || upd.min > 0) &&
 					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
 						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
@@ -603,6 +665,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const upd = yUpdates[a.id];
 				if (
 					isFiniteRange(upd) &&
+					(a.scale !== "log" || upd.min > 0) &&
 					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
 						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
@@ -845,12 +908,19 @@ const xBinding = (datasets: Dataset[], axisId: string) =>
  * that fits that data.
  */
 function mergeViewport(cur: GraphSnapshot, target: GraphSnapshot) {
-	const keep = <A extends { id: string; min: number; max: number }>(
+	// A scale switch redefines what the range means, so it restores the
+	// snapshot's range too (which is also the one valid for that scale).
+	const keep = <
+		A extends { id: string; min: number; max: number; scale?: AxisScale },
+	>(
 		a: A,
 		current: A | undefined,
 		dataChanged: boolean,
 	): A =>
-		!current || dataChanged || (current.min === a.min && current.max === a.max)
+		!current ||
+		dataChanged ||
+		(current.scale ?? "linear") !== (a.scale ?? "linear") ||
+		(current.min === a.min && current.max === a.max)
 			? a
 			: { ...a, min: current.min, max: current.max };
 	return {
@@ -940,6 +1010,8 @@ function axisUpdateLabel(
 	if ("showGrid" in updates)
 		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;
 	if ("position" in updates) return `move ${axis} to the ${updates.position}`;
+	if ("scale" in updates)
+		return `set ${axis} to ${updates.scale === "log" ? "log" : "linear"} scale`;
 	return `edit ${axis}`;
 }
 

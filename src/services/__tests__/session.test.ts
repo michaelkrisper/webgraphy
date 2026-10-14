@@ -42,6 +42,7 @@ const xAxes = (): XAxisConfig[] =>
 		max: 100,
 		showGrid: i === 0,
 		xMode: "numeric",
+		scale: "linear",
 	}));
 const yAxes = (): YAxisConfig[] =>
 	Array.from({ length: 9 }, (_, i) => ({
@@ -52,6 +53,7 @@ const yAxes = (): YAxisConfig[] =>
 		position: i % 2 === 0 ? "left" : "right",
 		color: "#475569",
 		showGrid: i === 0,
+		scale: "linear",
 	}));
 
 const series = (
@@ -141,6 +143,7 @@ function sampleContent(): SessionContent {
 	x[0] = { ...x[0], min: 12.5, max: 99.25, xMode: "date", name: "When" };
 	const y = yAxes();
 	y[1] = { ...y[1], min: -3, max: 7, color: "#ff0000", position: "right" };
+	y[2] = { ...y[2], min: 0.1, max: 1000, scale: "log" };
 	return {
 		datasets: [main, sparse],
 		series: [series("s-1", "ds-1", "Temp"), series("s-2", sparse.id, "avg")],

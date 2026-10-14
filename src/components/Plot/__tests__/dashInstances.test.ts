@@ -234,3 +234,43 @@ describe("buildDashInstances", () => {
 		expect(out[1]).toBe(6);
 	});
 });
+
+describe("buildDashInstances on log axes", () => {
+	it("measures dash distance in log-space pixels", () => {
+		const x = new Float32Array([1, 10, 100]);
+		const y = new Float32Array([5, 5, 5]);
+		const bundle = bundleWith({
+			xData: x,
+			yData: y,
+			xLog: true,
+			xRange: 2, // decades
+			chartWidth: 200,
+			drawRanges: [{ start: 0, count: 3 }],
+		});
+		const out = buildDashInstances(bundle, computeDashSteps(bundle.drawRanges));
+		// Each decade is 100px wide.
+		expect(out[FLOATS_PER_INSTANCE + 4]).toBeCloseTo(100);
+	});
+
+	it("restarts the dash phase after a value a log axis cannot place", () => {
+		const x = new Float32Array([0, 1, 2, 3]);
+		const y = new Float32Array([1, -1, 10, 100]);
+		const bundle = bundleWith({
+			xData: x,
+			yData: y,
+			yLog: true,
+			yRange: 2,
+			drawRanges: [{ start: 0, count: 4 }],
+		});
+		const out = buildDashInstances(bundle, computeDashSteps(bundle.drawRanges));
+		expect(out[FLOATS_PER_INSTANCE + 4]).toBe(0);
+		expect(out[2 * FLOATS_PER_INSTANCE + 4]).toBe(0);
+		expect(Array.from(out).every(Number.isFinite)).toBe(true);
+	});
+
+	it("invalidates the cache when an axis switches scale", () => {
+		const a = dashCacheParams(bundleWith(), 7);
+		const b = dashCacheParams(bundleWith({ yLog: true }), 7);
+		expect(dashParamsEqual(a, b)).toBe(false);
+	});
+});

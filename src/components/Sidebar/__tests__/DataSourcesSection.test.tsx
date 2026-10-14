@@ -71,6 +71,7 @@ describe("DataSourcesSection", () => {
 		const defaultState = {
 			datasets: [],
 			series: [],
+			xAxes: [],
 			removeDataset: mockRemoveDataset,
 			updateDataset: mockUpdateDataset,
 			addSeries: mockAddSeries,
@@ -141,6 +142,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -175,6 +177,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -206,6 +209,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -242,6 +246,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -272,6 +277,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -308,6 +314,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,
@@ -341,6 +348,7 @@ describe("DataSourcesSection", () => {
 			sel({
 				datasets,
 				series: [],
+				xAxes: [],
 				removeDataset: mockRemoveDataset,
 				updateDataset: mockUpdateDataset,
 				addSeries: mockAddSeries,

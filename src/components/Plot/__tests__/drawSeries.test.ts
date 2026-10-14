@@ -59,6 +59,7 @@ describe("drawSeriesLines", () => {
 			lpSetDash: vi.fn(),
 			lpSetXScaleOff: vi.fn(),
 			lpSetYScaleOff: vi.fn(),
+			lpSetLogRef: vi.fn(),
 		};
 
 		mockBundle = {
@@ -110,6 +111,13 @@ describe("drawSeriesLines", () => {
 		callDrawSeriesLines();
 		expect(mockGLStateCache.useLine).not.toHaveBeenCalled();
 		expect(mockGLStateCache.lpSetColor).not.toHaveBeenCalled();
+	});
+
+	it("passes the log flags and refPoints of log axes to the line program", () => {
+		Object.assign(mockBundle, { xLog: true, xRef: 3, yRef: 9 });
+		callDrawSeriesLines();
+		// y stays linear: its ref is not needed and is zeroed for caching.
+		expect(mockGLStateCache.lpSetLogRef).toHaveBeenCalledWith(1, 0, 3, 0);
 	});
 
 	it("switches to the line program and sets color, transform, and width", () => {

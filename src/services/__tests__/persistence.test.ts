@@ -14,6 +14,7 @@ const SAMPLE_APP_STATE: AppState = {
 			max: 100,
 			showGrid: true,
 			xMode: "numeric",
+			scale: "linear",
 		},
 	],
 	yAxes: [],
@@ -834,6 +835,86 @@ describe("persistence", () => {
 				.mockResolvedValue({ getAll: vi.fn().mockResolvedValue([]) });
 			await expect(persistence.getAllDatasets()).rejects.toThrow("denied");
 			await expect(persistence.getAllDatasets()).resolves.toEqual([]);
+		});
+	});
+
+	describe("axis scale", () => {
+		const loadViewport = async (viewport: unknown) => {
+			openDBMock.mockResolvedValueOnce({
+				get: vi
+					.fn()
+					.mockResolvedValueOnce(viewport)
+					.mockResolvedValueOnce({
+						series: [],
+						legendVisible: true,
+						crosshairVisible: true,
+					})
+					.mockResolvedValueOnce(undefined),
+			});
+			return persistence.loadAppState();
+		};
+		const yAxis = {
+			id: "axis-1",
+			name: "Y",
+			min: 0,
+			max: 5,
+			position: "left",
+			color: "#000",
+			showGrid: true,
+		};
+
+		it("defaults axes saved before log scales existed to linear", async () => {
+			const legacyX = {
+				id: "axis-1",
+				name: "X",
+				min: 0,
+				max: 100,
+				showGrid: true,
+				xMode: "numeric",
+			};
+			const loaded = await loadViewport({ xAxes: [legacyX], yAxes: [yAxis] });
+			expect(loaded?.xAxes[0]).toEqual({ ...legacyX, scale: "linear" });
+			expect(loaded?.yAxes[0]).toEqual({ ...yAxis, scale: "linear" });
+		});
+
+		it("keeps a saved log scale", async () => {
+			const loaded = await loadViewport({
+				xAxes: [{ ...SAMPLE_APP_STATE.xAxes[0], min: 1, scale: "log" }],
+				yAxes: [{ ...yAxis, min: 0.1, scale: "log" }],
+			});
+			expect(loaded?.xAxes[0]).toMatchObject({ min: 1, scale: "log" });
+			expect(loaded?.yAxes[0]).toMatchObject({ min: 0.1, scale: "log" });
+		});
+
+		it("repairs a log axis whose range reaches 0 or below", async () => {
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const loaded = await loadViewport({
+					xAxes: SAMPLE_APP_STATE.xAxes,
+					yAxes: [{ ...yAxis, min: -3, scale: "log" }],
+				});
+				expect(loaded?.yAxes[0]).toMatchObject({
+					scale: "log",
+					min: 1,
+					max: 100,
+				});
+				expect(loaded?.xAxes[0]).toMatchObject({ min: 0, scale: "linear" });
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
+		it("rejects unknown scale values", async () => {
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const loaded = await loadViewport({
+					xAxes: SAMPLE_APP_STATE.xAxes,
+					yAxes: [{ ...yAxis, scale: "symlog" }],
+				});
+				expect(loaded?.yAxes).toEqual([]);
+			} finally {
+				warnSpy.mockRestore();
+			}
 		});
 	});
 });

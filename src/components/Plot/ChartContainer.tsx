@@ -587,6 +587,7 @@ export default function ChartContainer() {
 					name: a.name,
 					showGrid: a.showGrid,
 					xMode: a.xMode,
+					scale: a.scale,
 					columnNames,
 					categoryLabels: cat?.labels,
 					categoryTicks: cat?.ticks,
@@ -598,6 +599,7 @@ export default function ChartContainer() {
 				color: a.color,
 				position: a.position,
 				showGrid: a.showGrid,
+				scale: a.scale,
 				categoryLabels: yAxisCategoryLabels.get(a.id),
 			})),
 		});

@@ -12,6 +12,7 @@
 
 import type { SeriesConfig, XAxisConfig } from "../../services/persistence";
 import { calcYAxisTicks } from "../../utils/axisCalculations";
+import type { AxisScale } from "../../utils/axisScale";
 import {
 	buildLabels,
 	createLabelStringCache,
@@ -32,6 +33,7 @@ export interface SceneXAxisMeta {
 	name: string;
 	showGrid: boolean;
 	xMode: XAxisConfig["xMode"];
+	scale?: AxisScale;
 	/** xAxisColumn names of the active datasets on this axis (default title). */
 	columnNames: string[];
 	categoryLabels?: string[];
@@ -45,6 +47,7 @@ export interface SceneYAxisMeta {
 	color: string;
 	position: "left" | "right";
 	showGrid: boolean;
+	scale?: AxisScale;
 	categoryLabels?: string[];
 }
 
@@ -167,6 +170,7 @@ export function buildFrameScene(
 				max,
 				showGrid: meta.showGrid,
 				xMode: meta.xMode,
+				scale: meta.scale,
 			},
 			chartWidth,
 			ctx.labelColor,
@@ -189,12 +193,13 @@ export function buildFrameScene(
 			yLayouts[i] = cached.layout;
 			continue;
 		}
-		const { ticks, precision, actualStep } = calcYAxisTicks(
+		const { ticks, precision, actualStep, minorTicks } = calcYAxisTicks(
 			min,
 			max,
 			chartHeight,
 			meta.categoryLabels ? 1 : undefined,
 			meta.categoryLabels?.length,
+			meta.scale === "log",
 		);
 		const layout: YAxisLayout = {
 			id: meta.id,
@@ -204,9 +209,11 @@ export function buildFrameScene(
 			position: meta.position,
 			color: meta.color,
 			showGrid: meta.showGrid,
+			scale: meta.scale,
 			ticks,
 			precision,
 			actualStep,
+			minorTicks,
 			categoryLabels: meta.categoryLabels,
 		};
 		caches.yLayout.set(meta.id, { key, layout });

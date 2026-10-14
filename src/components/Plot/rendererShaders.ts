@@ -1,3 +1,34 @@
+/**
+ * Log-axis support shared by both series vertex shaders. `u_log_ref` is
+ * (xIsLog, yIsLog, xRef, yRef). On a log axis the absolute value
+ * `ref + v` is rebuilt and log10'd in float32: the relative-offset trick
+ * that keeps linear axes precise is not needed there, because a log axis
+ * resolves relative differences (float32 carries ~7 significant digits,
+ * far below a device pixel over any visible decade span). Non-positive
+ * values have no log position and report false, so callers drop them.
+ */
+const LOG_AXIS_GLSL = `
+      uniform vec4 u_log_ref;
+      const float INV_LN10 = 0.43429448190325176;
+
+      // Data value (column-relative) to scale space; false = not drawable.
+      bool axisValue(float v, float isLog, float ref, out float u) {
+        if (isLog < 0.5) { u = v; return true; }
+        float a = ref + v;
+        u = a > 0.0 ? log(a) * INV_LN10 : 0.0;
+        return a > 0.0;
+      }
+
+      bool scalePoint(vec2 d, out vec2 u) {
+        bool okX = axisValue(d.x, u_log_ref.x, u_log_ref.z, u.x);
+        bool okY = axisValue(d.y, u_log_ref.y, u_log_ref.w, u.y);
+        return okX && okY;
+      }
+`;
+
+/** Clip-space position outside the view volume: the primitive is culled. */
+const CULLED_POSITION = "vec4(2.0, 2.0, 2.0, 1.0)";
+
 export const MAIN_VERTEX_SHADER = `#version 300 es
       // === MAIN VERTEX SHADER (points + screen-space overlay) ===
       in float a_x;
@@ -15,7 +46,7 @@ export const MAIN_VERTEX_SHADER = `#version 300 es
       out highp float v_t;
       out highp float v_len;
       out highp float v_dist_start;
-
+${LOG_AXIS_GLSL}
       vec2 toScreen(vec2 pos) {
         float x = pos.x * u_x_scale_offset.x + u_x_scale_offset.y;
         float y = pos.y * u_y_scale_offset.x + u_y_scale_offset.y;
@@ -24,16 +55,23 @@ export const MAIN_VERTEX_SHADER = `#version 300 es
 
       void main() {
         vec2 p;
-        if (u_is_screen_space) {
-          p = vec2(a_x, a_y); // Already scaled by dpr in the buffer
-        } else {
-          p = toScreen(vec2(a_x, a_y));
-        }
         vec2 other;
         if (u_is_screen_space) {
+          p = vec2(a_x, a_y); // Already scaled by dpr in the buffer
           other = vec2(a_other.x, a_other.y);
         } else {
-          other = toScreen(a_other);
+          // Series points: a sample with no log position is hidden.
+          vec2 u;
+          if (!scalePoint(vec2(a_x, a_y), u)) {
+            v_t = 0.0;
+            v_len = 0.0;
+            v_dist_start = 0.0;
+            gl_Position = ${CULLED_POSITION};
+            gl_PointSize = 0.0;
+            return;
+          }
+          p = toScreen(u);
+          other = p;
         }
         v_t = a_t;
         v_len = length(other - p);
@@ -142,12 +180,24 @@ export const LINE_VERTEX_SHADER = `#version 300 es
       flat out vec2 v_p0;
       flat out vec2 v_p1;
       flat out float v_dist0;
-
+${LOG_AXIS_GLSL}
       void main() {
-        vec2 p0 = vec2(a_x0 * u_x_scale_offset.x + u_x_scale_offset.y,
-                       a_y0 * u_y_scale_offset.x + u_y_scale_offset.y);
-        vec2 p1 = vec2(a_x1 * u_x_scale_offset.x + u_x_scale_offset.y,
-                       a_y1 * u_y_scale_offset.x + u_y_scale_offset.y);
+        vec2 u0;
+        vec2 u1;
+        // A segment touching a sample with no log position is dropped, so
+        // the polyline breaks there like at a NaN gap.
+        if (!scalePoint(vec2(a_x0, a_y0), u0) || !scalePoint(vec2(a_x1, a_y1), u1)) {
+          v_pos = vec2(0.0);
+          v_p0 = vec2(0.0);
+          v_p1 = vec2(0.0);
+          v_dist0 = 0.0;
+          gl_Position = ${CULLED_POSITION};
+          return;
+        }
+        vec2 p0 = vec2(u0.x * u_x_scale_offset.x + u_x_scale_offset.y,
+                       u0.y * u_y_scale_offset.x + u_y_scale_offset.y);
+        vec2 p1 = vec2(u1.x * u_x_scale_offset.x + u_x_scale_offset.y,
+                       u1.y * u_y_scale_offset.x + u_y_scale_offset.y);
         vec2 seg = p1 - p0;
         float len = length(seg);
         // Zero-length segments (duplicate samples) still render a round dot.

@@ -2,6 +2,7 @@
 // unit-tested in isolation. These helpers operate purely on axis ranges
 // and never touch DOM, refs, or React state.
 
+import { type AxisScale, mapRangeInScale, toScale } from "../utils/axisScale";
 import { screenToWorld } from "../utils/coords";
 
 export interface Range {
@@ -22,7 +23,8 @@ interface Padding {
  * The pivot is the world coordinate under the pointer, and `weight` is the
  * pivot's fractional position across the chart (0 = range start edge,
  * 1 = range end edge). The pivot stays put while the range is scaled by
- * `zoomFactor` (>1 zooms out, <1 zooms in).
+ * `zoomFactor` (>1 zooms out, <1 zooms in). On a log axis the zoom happens
+ * in log10 space, so the pivot is anchored in log coordinates.
  */
 export function applyZoomToRange(
 	pivotWorld: number,
@@ -30,12 +32,16 @@ export function applyZoomToRange(
 	max: number,
 	weight: number,
 	zoomFactor: number,
+	log = false,
 ): Range {
-	const newRange = (max - min) * zoomFactor;
-	return {
-		min: pivotWorld - weight * newRange,
-		max: pivotWorld + (1 - weight) * newRange,
-	};
+	const pivot = toScale(pivotWorld, log);
+	return mapRangeInScale(min, max, log, (lo, hi) => {
+		const newRange = (hi - lo) * zoomFactor;
+		return {
+			min: pivot - weight * newRange,
+			max: pivot + (1 - weight) * newRange,
+		};
+	});
 }
 
 /**
@@ -44,22 +50,27 @@ export function applyZoomToRange(
  * `deltaPx` is the signed pixel movement already oriented for the axis
  * (callers negate it where the data should move opposite to the pointer),
  * and `chartSpanPx` is the axis' on-screen length in pixels. The range width
- * is preserved; both edges shift by the equivalent world distance.
+ * is preserved; both edges shift by the equivalent world distance (in log10
+ * space on a log axis, i.e. both edges scale by the same factor).
  */
 export function panRangeByPixels(
 	min: number,
 	max: number,
 	deltaPx: number,
 	chartSpanPx: number,
+	log = false,
 ): Range {
-	const worldShift = (deltaPx * (max - min)) / chartSpanPx;
-	return { min: min + worldShift, max: max + worldShift };
+	return mapRangeInScale(min, max, log, (lo, hi) => {
+		const worldShift = (deltaPx * (hi - lo)) / chartSpanPx;
+		return { min: lo + worldShift, max: hi + worldShift };
+	});
 }
 
 interface AxisRange {
 	id: string;
 	min: number;
 	max: number;
+	scale?: AxisScale;
 }
 
 interface ZoomBox {
@@ -98,6 +109,7 @@ export function applyZoomBoxToAxes(
 			width,
 			height,
 			padding,
+			xLog: axis.scale === "log",
 		};
 		const w1 = screenToWorld(minX, maxY, vp);
 		const w2 = screenToWorld(maxX, minY, vp);
@@ -114,6 +126,7 @@ export function applyZoomBoxToAxes(
 			width,
 			height,
 			padding,
+			yLog: axis.scale === "log",
 		};
 		const a1 = screenToWorld(minX, maxY, avp);
 		const a2 = screenToWorld(maxX, minY, avp);

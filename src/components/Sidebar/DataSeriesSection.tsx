@@ -157,6 +157,12 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								<div title="Y-Axis Grid" className="sb-series-header-cell">
 									<Rows3 size={12} />
 								</div>
+								<div
+									title="Y-Axis Log Scale"
+									className="sb-series-header-cell sb-series-header-cell--log"
+								>
+									log
+								</div>
 								<div title="Line Style" className="sb-series-header-cell">
 									<Minus size={12} />
 								</div>

@@ -478,3 +478,89 @@ describe("undo/redo", () => {
 		expect(useNotificationStore.getState().notifications).toHaveLength(0);
 	});
 });
+
+describe("log axis scale", () => {
+	beforeEach(() => {
+		useGraphStore.setState({
+			datasets: [],
+			series: [],
+			xAxes: Array.from({ length: 9 }, (_, i) => ({
+				id: `axis-${i + 1}`,
+				name: "",
+				min: 0,
+				max: 100,
+				showGrid: i === 0,
+				xMode: "numeric" as const,
+			})),
+			yAxes: Array.from({ length: 9 }, (_, i) => ({
+				id: `axis-${i + 1}`,
+				name: `Axis ${i + 1}`,
+				min: 0,
+				max: 100,
+				position: i % 2 === 0 ? ("left" as const) : ("right" as const),
+				color: "#475569",
+				showGrid: i === 0,
+			})),
+			isLoaded: true,
+		});
+		clearHistory();
+	});
+
+	it("refits a y axis reaching 0 to its positive data and undoes as one step", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addSeries(makeSeries("s1"));
+		clearHistory();
+
+		store().setAxisScale("y", "axis-1", "log");
+		const y = store().yAxes[0];
+		expect(y.scale).toBe("log");
+		// Value column spans 1..2; padded in log space, never <= 0.
+		expect(y.min).toBeGreaterThan(0);
+		expect(y.min).toBeLessThan(1);
+		expect(y.max).toBeGreaterThan(2);
+		expect(past().map((e) => e.label)).toEqual(["set Y-axis 1 to log scale"]);
+
+		store().undo();
+		expect(store().yAxes[0]).toMatchObject({ min: 0, max: 100 });
+		expect(store().yAxes[0].scale ?? "linear").toBe("linear");
+
+		store().redo();
+		expect(store().yAxes[0]).toMatchObject({
+			scale: "log",
+			min: y.min,
+			max: y.max,
+		});
+	});
+
+	it("keeps an already positive range when switching to log", () => {
+		store().updateXAxis("axis-1", { min: 2, max: 50 });
+		store().setAxisScale("x", "axis-1", "log");
+		expect(store().xAxes[0]).toMatchObject({ scale: "log", min: 2, max: 50 });
+		store().setAxisScale("x", "axis-1", "linear");
+		expect(store().xAxes[0]).toMatchObject({ scale: "linear", min: 2, max: 50 });
+	});
+
+	it("never accepts a range reaching 0 on a log axis", () => {
+		store().setAxisScale("y", "axis-2", "log");
+		const before = store().yAxes[1];
+		store().batchUpdateAxes({}, { "axis-2": { min: -1, max: 10 } });
+		expect(store().yAxes[1]).toBe(before);
+		store().batchUpdateAxes({}, { "axis-2": { min: 0.5, max: 10 } });
+		expect(store().yAxes[1]).toMatchObject({ min: 0.5, max: 10 });
+	});
+
+	it("does not record a no-op scale switch", () => {
+		store().setAxisScale("x", "axis-3", "linear");
+		expect(past()).toHaveLength(0);
+	});
+
+	it("fits a log x axis to the positive values of a newly bound column", () => {
+		store().setAxisScale("x", "axis-1", "log");
+		// Time column spans 0..10: only 10 is positive.
+		store().addDataset({ ...makeDataset("ds-1"), xAxisId: "axis-1" });
+		const x = store().xAxes[0];
+		expect(x.scale).toBe("log");
+		expect(x.min).toBeGreaterThan(0);
+		expect(x.max).toBeGreaterThanOrEqual(10);
+	});
+});

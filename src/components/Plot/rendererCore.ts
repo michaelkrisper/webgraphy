@@ -17,6 +17,7 @@
  */
 
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
+import type { AxisScale } from "../../utils/axisScale";
 import { cssToRgbaWithAlpha } from "../../utils/colors";
 import { logger } from "../../utils/logger";
 import { type DecimCache, releaseDecimSlot } from "./decimationCache";
@@ -82,6 +83,8 @@ export interface RenderAxis {
 	id: string;
 	min: number;
 	max: number;
+	/** Absent = linear. On "log", min/max are positive data values. */
+	scale?: AxisScale;
 }
 
 export interface RendererViewport {
@@ -305,6 +308,7 @@ export class RendererCore {
 			dprLoc: gl.getUniformLocation(main.program, "u_dpr"),
 			sizeLoc: gl.getUniformLocation(main.program, "u_point_size"),
 			screenSpaceLoc: gl.getUniformLocation(main.program, "u_is_screen_space"),
+			logRefLoc: gl.getUniformLocation(main.program, "u_log_ref"),
 			xLoc: gl.getAttribLocation(main.program, "a_x"),
 			yLoc: gl.getAttribLocation(main.program, "a_y"),
 			otherLoc: gl.getAttribLocation(main.program, "a_other"),
@@ -323,6 +327,7 @@ export class RendererCore {
 			colorLoc: gl.getUniformLocation(line.program, "u_color"),
 			widthLoc: gl.getUniformLocation(line.program, "u_width_px"),
 			dashLoc: gl.getUniformLocation(line.program, "u_dash"),
+			logRefLoc: gl.getUniformLocation(line.program, "u_log_ref"),
 		};
 		this.st = new GLStateCache(gl, locs);
 		this.st.setPrograms(main.program, line.program, lineLocs);
@@ -529,8 +534,17 @@ export class RendererCore {
 			const xRef = s.xRef;
 			const yRef = s.yRef;
 
-			const xRange = xAxis.max - xAxis.min || 1;
-			const yRange = yAxis.max - yAxis.min || 1;
+			// Ranges and the uniform transform are in scale space: data units
+			// on linear axes, decades on log axes (where the shader maps
+			// log10(ref + v) instead of the ref-relative v).
+			const xLog = xAxis.scale === "log";
+			const yLog = yAxis.scale === "log";
+			const xLo = xLog ? Math.log10(xAxis.min) : xAxis.min - xRef;
+			const yLo = yLog ? Math.log10(yAxis.min) : yAxis.min - yRef;
+			const xRange =
+				(xLog ? Math.log10(xAxis.max) - xLo : xAxis.max - xAxis.min) || 1;
+			const yRange =
+				(yLog ? Math.log10(yAxis.max) - yLo : yAxis.max - yAxis.min) || 1;
 
 			const isMonotonic = getOrComputeMonotonicity(xData, this.monoCache);
 			const cachedSegments = getOrComputeSegments(xData, yData, this.segmentCache);
@@ -543,11 +557,10 @@ export class RendererCore {
 			);
 
 			const xScaleVal = (chartWidth * dpr) / xRange;
-			const xOffsetVal = padding.left * dpr - (xAxis.min - xRef) * xScaleVal;
+			const xOffsetVal = padding.left * dpr - xLo * xScaleVal;
 			const yScaleVal =
 				(padding.top * dpr - (height - padding.bottom) * dpr) / yRange;
-			const yOffsetVal =
-				(height - padding.bottom) * dpr - (yAxis.min - yRef) * yScaleVal;
+			const yOffsetVal = (height - padding.bottom) * dpr - yLo * yScaleVal;
 
 			const xBuffer = getOrInitBuffer(gl, xData, this.columnBuffers);
 			const yBuffer = getOrInitBuffer(gl, yData, this.columnBuffers);
@@ -566,6 +579,7 @@ export class RendererCore {
 
 			st.setXScaleOff(xScaleVal, xOffsetVal);
 			st.setYScaleOff(yScaleVal, yOffsetVal);
+			st.setLogRef(+xLog, +yLog, xLog ? xRef : 0, yLog ? yRef : 0);
 
 			const bundle: SeriesDrawBundle = {
 				xData,
@@ -576,6 +590,8 @@ export class RendererCore {
 				xAxisMax: xAxis.max,
 				xRange,
 				yRange,
+				xLog,
+				yLog,
 				chartWidth,
 				chartHeight,
 				padding,

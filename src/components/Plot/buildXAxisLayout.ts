@@ -1,6 +1,7 @@
 import type { Dataset, XAxisConfig } from "../../services/persistence";
 import {
 	calcCategoricalTicks,
+	calcLogTicks,
 	calcNumericPrecision,
 	calcNumericStep,
 	calcNumericTicks,
@@ -11,6 +12,9 @@ import {
 	getTimeStep,
 } from "../../utils/time";
 import type { XAxisLayout } from "./chartTypes";
+
+/** Px between x tick labels; the linear path derives its tick count from it. */
+const X_TICK_SPACING_PX = 60;
 
 export function buildXAxisLayout(
 	axis: XAxisConfig,
@@ -71,8 +75,30 @@ export function buildXAxisLayout(
 			categoryTicks,
 		};
 	}
+	if (axis.scale === "log") {
+		const lt = calcLogTicks(axis.min, axis.max, chartWidth, X_TICK_SPACING_PX);
+		return {
+			id: axis.id,
+			min: axis.min,
+			max: axis.max,
+			showGrid: axis.showGrid,
+			scale: "log",
+			ticks: {
+				result: lt.ticks,
+				minorTicks: lt.minorTicks,
+				step: lt.actualStep,
+				precision: lt.precision,
+				isXDate: false as const,
+			},
+			title,
+			color,
+		};
+	}
 	if (!isDate) {
-		const step = calcNumericStep(r, Math.max(2, Math.floor(chartWidth / 60)));
+		const step = calcNumericStep(
+			r,
+			Math.max(2, Math.floor(chartWidth / X_TICK_SPACING_PX)),
+		);
 		if (step <= 0)
 			return {
 				id: axis.id,

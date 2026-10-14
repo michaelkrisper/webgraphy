@@ -170,6 +170,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const removeSeries = useGraphStore((s) => s.removeSeries);
 	const yAxes = useGraphStore((s) => s.yAxes);
 	const updateYAxis = useGraphStore((s) => s.updateYAxis);
+	const setAxisScale = useGraphStore((s) => s.setAxisScale);
 	const updateSeriesVisibility = useGraphStore((s) => s.updateSeriesVisibility);
 	const allSeries = useGraphStore((s) => s.series);
 	const setPreviewColor = useGraphStore((s) => s.setPreviewColor);
@@ -300,6 +301,32 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					aria-label="Toggle Grid"
 				>
 					<Rows3 size={16} />
+				</button>
+			) : (
+				<div className="sc-cell-placeholder" />
+			)}
+
+			{/* Linear/Log Scale Toggle */}
+			{currentYAxis ? (
+				<button
+					onClick={() =>
+						setAxisScale(
+							"y",
+							currentYAxis.id,
+							currentYAxis.scale === "log" ? "linear" : "log",
+						)
+					}
+					className={`sc-btn sc-btn--plain sc-btn--log${currentYAxis.scale !== "log" ? " sc-btn--off" : ""}`}
+					title={
+						currentYAxis.scale === "log"
+							? "Logarithmic Y Scale (click for linear)"
+							: "Linear Y Scale (click for logarithmic)"
+					}
+					type="button"
+					aria-label="Logarithmic Y Scale"
+					aria-pressed={currentYAxis.scale === "log"}
+				>
+					log
 				</button>
 			) : (
 				<div className="sc-cell-placeholder" />

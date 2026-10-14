@@ -739,7 +739,7 @@
 
 	font-size: var(--ui-font-size);
 	display: grid;
-	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(7, var(--ui-size)) 1fr var(--ui-size);
 	align-items: center;
 	overflow: hidden;
 }
@@ -767,6 +767,12 @@
 }
 .sc-btn--plain {
 	background: none;
+}
+.sc-btn--log,
+.sb-xaxis-log-btn {
+	font-family: var(--font-family-mono);
+	font-weight: bold;
+	font-size: 10px;
 }
 .sc-btn--off {
 	color: var(--text-muted-color);
@@ -1348,7 +1354,7 @@
 }
 .sb-series-header {
 	display: grid;
-	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(7, var(--ui-size)) 1fr var(--ui-size);
 	padding: 4px 0;
 	color: var(--text-light);
 
@@ -1357,6 +1363,12 @@
 .sb-series-header-cell {
 	display: flex;
 	justify-content: center;
+}
+.sb-series-header-cell--log {
+	align-items: center;
+	font-family: var(--font-family-mono);
+	font-size: 9px;
+	font-weight: bold;
 }
 .sb-series-header-cell--text {
 	padding-left: 4px;

@@ -5,7 +5,11 @@ import "@testing-library/jest-dom";
 import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { exportDatasetCsv } from "../../../services/csvExport";
-import type { Dataset, SeriesConfig } from "../../../services/persistence";
+import type {
+	Dataset,
+	SeriesConfig,
+	XAxisConfig,
+} from "../../../services/persistence";
 import { removeSeriesWithUndo } from "../../../store/undoToast";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { DatasetItem } from "../DatasetItem";
@@ -71,7 +75,13 @@ const plottedTemp: SeriesConfig = {
 describe("DatasetItem", () => {
 	const addSeries = vi.fn();
 
-	const setup = (datasets: Dataset[], series: SeriesConfig[]) => {
+	const setAxisScale = vi.fn();
+
+	const setup = (
+		datasets: Dataset[],
+		series: SeriesConfig[],
+		xAxis: Partial<XAxisConfig> = {},
+	) => {
 		const state = {
 			datasets,
 			series,
@@ -81,6 +91,18 @@ describe("DatasetItem", () => {
 			removeCalculatedColumn: vi.fn(),
 			renameColumn: vi.fn(),
 			yAxes: [],
+			xAxes: [
+				{
+					id: "axis-1",
+					name: "",
+					min: 0,
+					max: 1,
+					showGrid: true,
+					xMode: "numeric",
+					...xAxis,
+				},
+			],
+			setAxisScale,
 		};
 		(useGraphStore as unknown as Mock).mockImplementation(
 			(sel: (s: typeof state) => unknown) => sel(state),
@@ -98,6 +120,29 @@ describe("DatasetItem", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
+	it("toggles the dataset's x axis between linear and log", () => {
+		setup([makeDataset("ds1")], []);
+		const btn = screen.getByRole("button", { name: "Logarithmic X Scale" });
+		expect(btn).toHaveAttribute("aria-pressed", "false");
+		fireEvent.click(btn);
+		expect(setAxisScale).toHaveBeenCalledWith("x", "axis-1", "log");
+	});
+
+	it("shows a log x axis as pressed and switches it back to linear", () => {
+		setup([makeDataset("ds1")], [], { scale: "log", min: 1 });
+		const btn = screen.getByRole("button", { name: "Logarithmic X Scale" });
+		expect(btn).toHaveAttribute("aria-pressed", "true");
+		fireEvent.click(btn);
+		expect(setAxisScale).toHaveBeenCalledWith("x", "axis-1", "linear");
+	});
+
+	it("disables log scale for date x axes", () => {
+		setup([makeDataset("ds1")], [], { xMode: "date" });
+		expect(
+			screen.getByRole("button", { name: "Logarithmic X Scale" }),
+		).toBeDisabled();
+	});
+
 	it("hides the X-axis slot button while there is a single dataset", () => {
 		setup([makeDataset("ds1")], []);
 		expect(screen.queryByRole("button", { name: "Select X-Axis" })).toBeNull();

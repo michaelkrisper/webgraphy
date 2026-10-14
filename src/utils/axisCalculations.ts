@@ -1,5 +1,7 @@
 // src/utils/axisCalculations.ts
 
+import { type AxisScale, fromScale, toScale } from "./axisScale";
+
 /** Tolerance for floating-point axis bounds comparisons. */
 export const AXIS_EPSILON = 1e-10;
 
@@ -36,7 +38,45 @@ export function calcNumericPrecision(step: number): number {
 	return Math.min(20, Math.max(0, -Math.floor(Math.log10(step || 1))));
 }
 
+/**
+ * `precision` sentinel for log-axis tick labels: values are formatted on
+ * their own (plain decimals near 1, superscript powers of ten far from it)
+ * instead of with a shared fixed decimal count.
+ */
+export const LOG_TICK_PRECISION = -1;
+
+const SUPERSCRIPT: Record<string, string> = {
+	"-": "\u207B",
+	"0": "\u2070",
+	"1": "\u00B9",
+	"2": "\u00B2",
+	"3": "\u00B3",
+	"4": "\u2074",
+	"5": "\u2075",
+	"6": "\u2076",
+	"7": "\u2077",
+	"8": "\u2078",
+	"9": "\u2079",
+};
+
+const superscript = (n: number) =>
+	String(n).replace(/[-0-9]/g, (c) => SUPERSCRIPT[c]);
+
+/** Log tick label: 0.001 … 1000 as plain decimals, else 10⁶ / 2×10⁻⁵. */
+export function formatLogTickLabel(val: number): string {
+	if (!(val > 0)) return formatAxisLabel(val, 0);
+	let e = Math.floor(Math.log10(val));
+	let m = Number((val / 10 ** e).toPrecision(6));
+	if (m >= 10) {
+		e++;
+		m = Number((m / 10).toPrecision(6));
+	}
+	if (e >= -3 && e <= 3) return String(Number(val.toPrecision(6)));
+	return m === 1 ? `10${superscript(e)}` : `${m}\u00D710${superscript(e)}`;
+}
+
 export function formatAxisLabel(val: number, precision: number): string {
+	if (precision === LOG_TICK_PRECISION) return formatLogTickLabel(val);
 	if (Math.abs(val) < 1e-12) return "0";
 	const str = val.toFixed(precision);
 	if (str.length > 12) {
@@ -76,6 +116,101 @@ export function calcNumericTicks(
 	return ticks;
 }
 
+/** Minimum px between log minor ticks (the 9→10 gap) for them to show. */
+const LOG_MINOR_MIN_PX = 2;
+/** Decade strides for sparse log axes, so labels land on round exponents. */
+const LOG_DECADE_STRIDES = [1, 2, 3, 5, 10, 20, 25, 50, 100];
+
+export interface LogTicks {
+	/** Labelled ticks (gridded). */
+	ticks: number[];
+	/** Unlabelled ticks between them (short marks, light grid). */
+	minorTicks: number[];
+	/** LOG_TICK_PRECISION, or a decimal count for the linear fallback. */
+	precision: number;
+	actualStep: number;
+}
+
+/**
+ * Ticks for a log axis spanning [min, max] (both > 0) over `spanPx` pixels,
+ * keeping labels at least `minLabelPx` apart:
+ * - many decades: every k-th decade labelled, the skipped ones minor;
+ * - a few decades: each decade labelled (plus 2 and 5 when roomy), 2..9 minor;
+ * - under about a decade (fewer than two labels would show): linear nice
+ *   ticks on the value range, which are near-uniform over so short a span.
+ */
+export function calcLogTicks(
+	min: number,
+	max: number,
+	spanPx: number,
+	minLabelPx: number,
+): LogTicks {
+	const empty = { ticks: [], minorTicks: [], precision: 0, actualStep: 1 };
+	if (!(min > 0) || !(max > min) || !(spanPx > 0)) return empty;
+	const lo = Math.log10(min);
+	const hi = Math.log10(max);
+	if (!Number.isFinite(lo) || !Number.isFinite(hi)) return empty;
+	const pxPerDecade = spanPx / (hi - lo);
+	const eLo = Math.floor(lo);
+	const eHi = Math.ceil(hi);
+	const decade = (e: number) => (e < 0 ? 1 / 10 ** -e : 10 ** e);
+
+	if (pxPerDecade < minLabelPx) {
+		const need = Math.ceil(minLabelPx / pxPerDecade);
+		const stride =
+			LOG_DECADE_STRIDES.find((k) => k >= need) ?? Math.ceil(need / 100) * 100;
+		const ticks: number[] = [];
+		const minorTicks: number[] = [];
+		const showMinor = pxPerDecade >= LOG_MINOR_MIN_PX * 2;
+		for (let e = Math.floor(eLo / stride) * stride; e <= eHi; e++) {
+			if (e % stride === 0) ticks.push(decade(e));
+			else if (showMinor) minorTicks.push(decade(e));
+		}
+		return {
+			ticks,
+			minorTicks,
+			precision: LOG_TICK_PRECISION,
+			actualStep: stride,
+		};
+	}
+
+	const labelled = pxPerDecade * Math.log10(2) >= minLabelPx ? [1, 2, 5] : [1];
+	const showMinor = pxPerDecade * Math.log10(10 / 9) >= LOG_MINOR_MIN_PX;
+	const ticks: number[] = [];
+	const minorTicks: number[] = [];
+	let visible = 0;
+	for (let e = eLo; e <= eHi; e++) {
+		const base = decade(e);
+		for (let m = 1; m <= 9; m++) {
+			if (e === eHi && m > 1) break;
+			const v = e < 0 ? m / 10 ** -e : m * base;
+			if (labelled.includes(m)) {
+				ticks.push(v);
+				if (v >= min && v <= max) visible++;
+			} else if (showMinor) {
+				minorTicks.push(v);
+			}
+		}
+	}
+	if (visible >= 2) {
+		return { ticks, minorTicks, precision: LOG_TICK_PRECISION, actualStep: 1 };
+	}
+
+	const step = calcNumericStep(
+		max - min,
+		Math.max(2, Math.floor(spanPx / minLabelPx)),
+	);
+	return {
+		ticks: calcNumericTicks(min, max, step).filter((t) => t > 0),
+		minorTicks: [],
+		precision: calcNumericPrecision(step),
+		actualStep: step,
+	};
+}
+
+/** Px between y tick labels; the linear path derives its tick count from it. */
+export const Y_TICK_SPACING_PX = 30;
+
 /** Full Y-axis tick calculation: returns ticks, precision, and actualStep. */
 export function calcYAxisTicks(
 	min: number,
@@ -83,9 +218,18 @@ export function calcYAxisTicks(
 	chartHeight: number,
 	lockedStep?: number,
 	categoryCount?: number,
-): { ticks: number[]; precision: number; actualStep: number } {
+	log = false,
+): {
+	ticks: number[];
+	precision: number;
+	actualStep: number;
+	minorTicks?: number[];
+} {
 	const range = max - min;
 	if (range <= 0) return { ticks: [], precision: 0, actualStep: 1 };
+	if (log && categoryCount === undefined) {
+		return calcLogTicks(min, max, chartHeight, Y_TICK_SPACING_PX);
+	}
 	if (categoryCount !== undefined) {
 		return {
 			ticks: calcCategoricalTicks(min, max, categoryCount),
@@ -95,7 +239,10 @@ export function calcYAxisTicks(
 	}
 	const step =
 		lockedStep ??
-		calcNumericStep(range, Math.max(2, Math.floor(chartHeight / 30)));
+		calcNumericStep(
+			range,
+			Math.max(2, Math.floor(chartHeight / Y_TICK_SPACING_PX)),
+		);
 	if (step <= 0) return { ticks: [], precision: 0, actualStep: 1 };
 	const precision = calcNumericPrecision(step);
 	return {
@@ -186,28 +333,34 @@ const EASE_SNAP_EPSILON = 2e-4;
  * that eased value, so the caller renders the eased range. `displayed` is the
  * caller-owned record of what was last rendered, seeded from `axes` when an
  * axis is first seen. With `factor >= 1` it only records the targets (no
- * easing). Returns true once every update sits exactly on its target.
+ * easing). Returns true once every update sits exactly on its target. Log
+ * axes ease in log10 space, so a zoom stays anchored where the cursor was.
  */
 export function easeAxisUpdates(
 	displayed: Record<string, { min: number; max: number }>,
 	updates: Record<string, { min: number; max: number }>,
-	axes: Array<{ id: string; min: number; max: number }>,
+	axes: Array<{ id: string; min: number; max: number; scale?: AxisScale }>,
 	factor: number,
 ): boolean {
 	let converged = true;
-	let axesById: Record<string, { id: string; min: number; max: number }> | null =
-		null;
+	let axesById: Record<
+		string,
+		{ id: string; min: number; max: number; scale?: AxisScale }
+	> | null = null;
+	const lookup = (id: string) => {
+		if (!axesById) {
+			axesById = {};
+			for (let i = 0; i < axes.length; i++) {
+				axesById[axes[i].id] = axes[i];
+			}
+		}
+		return axesById[id];
+	};
 	for (const id in updates) {
 		const target = updates[id];
 		let shown = displayed[id];
 		if (!shown) {
-			if (!axesById) {
-				axesById = {};
-				for (let i = 0; i < axes.length; i++) {
-					axesById[axes[i].id] = axes[i];
-				}
-			}
-			const axis = axesById[id];
+			const axis = lookup(id);
 			shown = displayed[id] = {
 				min: axis ? axis.min : target.min,
 				max: axis ? axis.max : target.max,
@@ -218,12 +371,19 @@ export function easeAxisUpdates(
 			shown.max = target.max;
 			continue;
 		}
-		const span = Math.max(Math.abs(target.max - target.min), Number.MIN_VALUE);
-		const min = shown.min + (target.min - shown.min) * factor;
-		const max = shown.max + (target.max - shown.max) * factor;
+		const log = lookup(id)?.scale === "log";
+		const tMin = toScale(target.min, log);
+		const tMax = toScale(target.max, log);
+		const span = Math.max(Math.abs(tMax - tMin), Number.MIN_VALUE);
+		const sMin = toScale(shown.min, log);
+		const sMax = toScale(shown.max, log);
+		const eMin = sMin + (tMin - sMin) * factor;
+		const eMax = sMax + (tMax - sMax) * factor;
+		const min = fromScale(eMin, log);
+		const max = fromScale(eMax, log);
 		if (
-			Math.abs(target.min - min) <= span * EASE_SNAP_EPSILON &&
-			Math.abs(target.max - max) <= span * EASE_SNAP_EPSILON
+			Math.abs(tMin - eMin) <= span * EASE_SNAP_EPSILON &&
+			Math.abs(tMax - eMax) <= span * EASE_SNAP_EPSILON
 		) {
 			shown.min = target.min;
 			shown.max = target.max;

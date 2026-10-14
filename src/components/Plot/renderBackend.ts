@@ -165,7 +165,10 @@ function slimAxes(axes: RenderAxis[]): RenderAxis[] {
 	const out: RenderAxis[] = new Array(axes.length);
 	for (let i = 0; i < axes.length; i++) {
 		const a = axes[i];
-		out[i] = { id: a.id, min: a.min, max: a.max };
+		out[i] =
+			a.scale === "log"
+				? { id: a.id, min: a.min, max: a.max, scale: "log" }
+				: { id: a.id, min: a.min, max: a.max };
 	}
 	return out;
 }

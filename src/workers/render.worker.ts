@@ -163,6 +163,7 @@ function drawSharedFrame(): void {
 			id: sceneCtx.xAxesMeta[i].id,
 			min: viewportSnap.ranges[i * 2],
 			max: viewportSnap.ranges[i * 2 + 1],
+			scale: sceneCtx.xAxesMeta[i].scale,
 		});
 	}
 	for (let i = 0; i < yCount; i++) {
@@ -170,6 +171,7 @@ function drawSharedFrame(): void {
 			id: sceneCtx.yAxesMeta[i].id,
 			min: viewportSnap.ranges[(viewportSnap.xCount + i) * 2],
 			max: viewportSnap.ranges[(viewportSnap.xCount + i) * 2 + 1],
+			scale: sceneCtx.yAxesMeta[i].scale,
 		});
 	}
 	applyScene(viewportSnap);
