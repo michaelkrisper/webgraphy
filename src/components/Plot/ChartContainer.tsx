@@ -12,6 +12,7 @@ import {
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
+import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
 import type {
@@ -89,6 +90,9 @@ export default function ChartContainer() {
 		isImporting,
 	} = useDataImport();
 	const { width, height } = useContainerSize(containerRef, 800, 600);
+	// The WebGL layer fills the container's content box, so its device-pixel
+	// size is the canvas backing-store size.
+	const { dpr, pixelWidth, pixelHeight } = useDevicePixelSize(containerRef);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
@@ -588,6 +592,8 @@ export default function ChartContainer() {
 	]);
 
 	// Force redraw on ANY change (ranges, names, config, sidebar, resize, theme).
+	// DPR changes count as resizes: the canvas is resized (which clears it) and
+	// the main-thread backend's overlay geometry is in device pixels.
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
@@ -597,7 +603,19 @@ export default function ChartContainer() {
 		// Use force=false to schedule via rAF, breaking synchronous render loops.
 		// Redraw is still forced because we set overlayInitRef.current = false above.
 		syncViewportRef.current(false);
-	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
+	}, [
+		isLoaded,
+		xAxes,
+		yAxes,
+		series,
+		datasets,
+		themeColors,
+		width,
+		height,
+		dpr,
+		pixelWidth,
+		pixelHeight,
+	]);
 
 	// 7. Memos for static rendering (JSX)
 	const xAxesLayout = useMemo(() => {
@@ -691,6 +709,9 @@ export default function ChartContainer() {
 							yAxes={yAxes}
 							width={width}
 							height={height}
+							dpr={dpr}
+							pixelWidth={pixelWidth}
+							pixelHeight={pixelHeight}
 							padding={padding}
 							isInteracting={isInteracting}
 							highlightedSeriesId={highlightedSeriesId}

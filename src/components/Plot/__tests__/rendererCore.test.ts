@@ -3,6 +3,7 @@ import {
 	RendererCore,
 	type RendererSeriesInput,
 	type RenderLabel,
+	sizeCanvasToViewport,
 } from "../rendererCore";
 import { makeCanvasMock, makeGl2Mock } from "./glMock";
 
@@ -262,6 +263,57 @@ describe("RendererCore", () => {
 		expect(gl.deleteShader).toHaveBeenCalledTimes(6);
 	});
 
+	it("restores onto a fresh context with its inputs and empty GPU caches", () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const lost = RendererCore.create(canvas)!;
+		lost.setViewport(viewport);
+		lost.setPlotBg([0.5, 0.25, 0]);
+		lost.setSeries([makeSeries()]);
+		lost.setHighlight("s1");
+		lost.drawFrame(axes, axes);
+		vi.clearAllMocks();
+
+		const core = RendererCore.restore(canvas, lost);
+		expect(core).not.toBeNull();
+		expect(core).not.toBe(lost);
+		// All three programs are rebuilt on the restored context.
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+
+		core!.drawFrame(axes, axes);
+		expect(gl.clearColor).toHaveBeenCalledWith(0.5, 0.25, 0, 1);
+		// The old column buffers died with the context: both columns upload
+		// again, even though the Float32Arrays are the same objects.
+		const s = makeSeries();
+		const columnUploads = gl.bufferData.mock.calls.filter(
+			(c) =>
+				c[1] instanceof Float32Array &&
+				c[1].length === s.xData.length &&
+				c[2] === gl.STATIC_DRAW,
+		);
+		expect(columnUploads).toHaveLength(2);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
+	});
+
+	it("returns null from restore when the context cannot be re-acquired", () => {
+		const { core } = makeCore();
+		expect(RendererCore.restore(makeCanvasMock(null), core)).toBeNull();
+	});
+
+	it("uses the exact device-pixel size for the GL viewport when given", () => {
+		const { gl, core } = makeCore();
+		core.setViewport({
+			...viewport,
+			dpr: 1.25,
+			pixelWidth: 251,
+			pixelHeight: 124,
+		});
+		core.setSeries([]);
+		core.drawFrame(axes, axes);
+		// round(200 * 1.25) = 250, but the measured backing store is 251.
+		expect(gl.viewport).toHaveBeenCalledWith(0, 0, 251, 124);
+	});
+
 	describe("label pass", () => {
 		afterEach(() => {
 			vi.restoreAllMocks();
@@ -418,5 +470,53 @@ describe("RendererCore", () => {
 			core.drawFrame(axes, axes);
 			expect(gl.drawArraysInstanced).not.toHaveBeenCalled();
 		});
+
+		it("re-rasterizes labels into a new atlas after a context restore", () => {
+			mockCanvas2d();
+			const gl = makeGl2Mock();
+			const canvas = makeCanvasMock(gl);
+			const lost = RendererCore.create(canvas)!;
+			lost.setViewport(viewport);
+			lost.setSeries([]);
+			lost.setLabels(labels);
+			lost.drawFrame(axes, axes);
+			vi.clearAllMocks();
+
+			RendererCore.restore(canvas, lost)!.drawFrame(axes, axes);
+			expect(gl.createTexture).toHaveBeenCalledTimes(1);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+			expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 3);
+		});
+
+		it("re-rasterizes labels when the DPR changes", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			core.setLabels(labels);
+			core.drawFrame(axes, axes);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+
+			core.setViewport({ ...viewport, dpr: 2 });
+			core.drawFrame(axes, axes);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(6);
+		});
+	});
+});
+
+describe("sizeCanvasToViewport", () => {
+	it("sizes from css * dpr, or from the exact device-pixel size", () => {
+		const canvas = makeCanvasMock(null);
+		sizeCanvasToViewport(canvas, { ...viewport, dpr: 1.5 });
+		expect([canvas.width, canvas.height]).toEqual([300, 150]);
+		sizeCanvasToViewport(canvas, {
+			...viewport,
+			dpr: 1.5,
+			pixelWidth: 301,
+			pixelHeight: 149,
+		});
+		expect([canvas.width, canvas.height]).toEqual([301, 149]);
+		sizeCanvasToViewport(canvas, { ...viewport, width: 0, height: 0 });
+		expect([canvas.width, canvas.height]).toEqual([1, 1]);
 	});
 });

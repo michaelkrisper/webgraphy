@@ -3,7 +3,7 @@ import type { OverlayState } from "../drawOverlay";
 import type { SceneContext } from "../frameScene";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
 import type { RendererSeriesInput } from "../rendererCore";
-import { makeCanvasMock, makeGl2Mock } from "./glMock";
+import { makeCanvasMock, makeGl2Mock, makeLoseContextExt } from "./glMock";
 
 const viewport = {
 	width: 200,
@@ -90,6 +90,60 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		backend.setViewport({ ...viewport, width: 300, dpr: 2 });
 		expect(canvas.width).toBe(600);
 		expect(canvas.height).toBe(200);
+		releaseRenderBackend(canvas);
+	});
+
+	it("sizes the canvas from the exact device-pixel size when given", () => {
+		const canvas = makeCanvasMock(makeGl2Mock());
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		backend.setViewport({
+			...viewport,
+			dpr: 1.25,
+			pixelWidth: 251,
+			pixelHeight: 124,
+		});
+		expect([canvas.width, canvas.height]).toEqual([251, 124]);
+		releaseRenderBackend(canvas);
+	});
+
+	it("pauses on context loss and redraws the last frame on restore", () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const ext = makeLoseContextExt(canvas);
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		const xs = [{ id: "axis-1", min: 0, max: 10 }];
+		backend.setSeries([makeSeries()]);
+		backend.redraw(xs, xs, false, null);
+
+		ext.loseContext();
+		vi.clearAllMocks();
+		// Inputs keep flowing while lost, but nothing reaches the dead context.
+		const series = makeSeries({ id: "s2" });
+		backend.setSeries([series]);
+		backend.redraw(xs, xs, false, null);
+		expect(gl.clear).not.toHaveBeenCalled();
+
+		ext.restoreContext();
+		// Programs rebuilt, the latest series' columns re-uploaded, and the
+		// last frame drawn again without waiting for the host.
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+		expect(gl.bufferData).toHaveBeenCalledWith(
+			gl.ARRAY_BUFFER,
+			series.xData,
+			gl.STATIC_DRAW,
+		);
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalled();
+
+		releaseRenderBackend(canvas);
+	});
+
+	it("cancels webglcontextlost so the browser will restore the context", () => {
+		const canvas = makeCanvasMock(makeGl2Mock());
+		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		const ev = new Event("webglcontextlost", { cancelable: true });
+		canvas.dispatchEvent(ev);
+		expect(ev.defaultPrevented).toBe(true);
 		releaseRenderBackend(canvas);
 	});
 });

@@ -17,8 +17,13 @@
  * both transports: with a SharedArrayBuffer the ranges come from the polled
  * viewport, without one they ride along on the frame message. The host only
  * supplies overlay/labels itself before it has sent a scene context.
+ *
+ * On WebGL context loss drawing stops (the shared-viewport loop parks); on
+ * restore the core is rebuilt from its last inputs — including the columns
+ * still mirrored here, which re-upload lazily — and the last frame redrawn.
  */
 
+import { watchContextLoss } from "../components/Plot/contextLoss";
 import type { OverlayState } from "../components/Plot/drawOverlay";
 import {
 	buildFrameScene,
@@ -31,6 +36,7 @@ import {
 	type RendererSeriesInput,
 	type RendererViewport,
 	type RenderLabel,
+	sizeCanvasToViewport,
 } from "../components/Plot/rendererCore";
 import {
 	createViewportSnapshot,
@@ -86,11 +92,20 @@ export type RenderWorkerRequest =
 			};
 			labels?: RenderLabel[];
 	  }
+	/**
+	 * Test hook (e2e): drive WEBGL_lose_context from in here, the only place
+	 * holding the context. The backend never sends it.
+	 */
+	| { t: "simulateContextLoss"; restore: boolean }
 	| { t: "dispose" };
 
 let canvas: OffscreenCanvas | null = null;
 let core: RendererCore | null = null;
 const columns = new Map<number, Float32Array>();
+// While lost, `core` keeps receiving inputs so it can be restored from them.
+let contextLost = false;
+let unwatchContext: (() => void) | null = null;
+let loseContextExt: WEBGL_lose_context | null = null;
 
 let latestFrame: {
 	xAxes: RenderAxis[];
@@ -163,7 +178,7 @@ function drawSharedFrame(): void {
 }
 
 function sharedLoop(): void {
-	if (!viewportReader || !core) {
+	if (!viewportReader || !core || contextLost) {
 		loopRunning = false;
 		return;
 	}
@@ -183,7 +198,7 @@ function sharedLoop(): void {
 }
 
 function wakeSharedLoop(): void {
-	if (!viewportReader || loopRunning) return;
+	if (!viewportReader || loopRunning || contextLost) return;
 	loopRunning = true;
 	idleFrames = 0;
 	if (typeof requestAnimationFrame === "function") {
@@ -225,11 +240,11 @@ function fillPostedSnapshot(xAxes: RenderAxis[], yAxes: RenderAxis[]): boolean {
 }
 
 function scheduleDraw(): void {
-	if (drawScheduled) return;
+	if (drawScheduled || contextLost) return;
 	drawScheduled = true;
 	const run = () => {
 		drawScheduled = false;
-		if (core && latestFrame) {
+		if (core && latestFrame && !contextLost) {
 			// Deferred to the draw tick, not done on receipt: a burst of pan
 			// messages must cost one scene build, like it costs one draw.
 			if (
@@ -250,14 +265,21 @@ function scheduleDraw(): void {
 }
 
 function applyViewport(viewport: RendererViewport): void {
-	if (canvas) {
-		const pw = Math.max(1, Math.round(viewport.width * viewport.dpr));
-		const ph = Math.max(1, Math.round(viewport.height * viewport.dpr));
-		if (canvas.width !== pw) canvas.width = pw;
-		if (canvas.height !== ph) canvas.height = ph;
-	}
+	if (canvas) sizeCanvasToViewport(canvas, viewport);
 	currentViewport = viewport;
 	core?.setViewport(viewport);
+}
+
+function onContextLost(): void {
+	contextLost = true;
+}
+
+function onContextRestored(): void {
+	contextLost = false;
+	if (canvas && core) core = RendererCore.restore(canvas, core);
+	if (latestFrame) scheduleDraw();
+	sceneDirty = true;
+	wakeSharedLoop();
 }
 
 function applySeries(list: WorkerSeriesMsg[]): void {
@@ -299,6 +321,13 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 		case "init": {
 			canvas = msg.canvas;
 			applyViewport(msg.viewport);
+			unwatchContext?.();
+			contextLost = false;
+			loseContextExt = null;
+			unwatchContext = watchContextLoss(msg.canvas, {
+				lost: onContextLost,
+				restored: onContextRestored,
+			});
 			core = RendererCore.create(msg.canvas);
 			core?.setViewport(msg.viewport);
 			core?.setPlotBg(msg.plotBg);
@@ -370,7 +399,18 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 			scheduleDraw();
 			break;
 		}
+		case "simulateContextLoss": {
+			// getExtension returns null while lost, so keep the one used to
+			// lose the context for restoring it.
+			loseContextExt ??=
+				canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context") ?? null;
+			if (msg.restore) loseContextExt?.restoreContext();
+			else loseContextExt?.loseContext();
+			break;
+		}
 		case "dispose": {
+			unwatchContext?.();
+			unwatchContext = null;
 			core?.dispose();
 			core = null;
 			columns.clear();

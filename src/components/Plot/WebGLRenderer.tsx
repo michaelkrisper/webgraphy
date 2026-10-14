@@ -14,6 +14,7 @@ import type {
 import { useGraphStore } from "../../store/useGraphStore";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
+import { exactPixelSize } from "../../hooks/useDevicePixelSize";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
 import { describeChart } from "./chartDescription";
 import type { OverlayState } from "./drawOverlay";
@@ -23,7 +24,11 @@ import {
 	releaseRenderBackend,
 	type RenderBackend,
 } from "./renderBackend";
-import type { RendererSeriesInput, RenderLabel } from "./rendererCore";
+import type {
+	RendererSeriesInput,
+	RendererViewport,
+	RenderLabel,
+} from "./rendererCore";
 
 export type { OverlayInput } from "./buildOverlay";
 
@@ -34,6 +39,11 @@ interface Props {
 	yAxes: YAxisConfig[];
 	width: number;
 	height: number;
+	/** Defaults to window.devicePixelRatio. */
+	dpr?: number;
+	/** Exact device-pixel canvas size, when the host measured it. */
+	pixelWidth?: number;
+	pixelHeight?: number;
 	padding: { top: number; right: number; bottom: number; left: number };
 	isInteracting?: boolean;
 	highlightedSeriesId?: string | null;
@@ -47,6 +57,23 @@ export interface WebGLRendererHandle {
 	/** See RenderBackend.sceneShared — false until the backend exists. */
 	sceneShared: () => boolean;
 	setSceneContext: (ctx: SceneContext) => void;
+}
+
+function viewportOf(
+	p: Pick<
+		Props,
+		"width" | "height" | "padding" | "dpr" | "pixelWidth" | "pixelHeight"
+	>,
+): RendererViewport {
+	const dpr = p.dpr ?? (window.devicePixelRatio || 1);
+	return {
+		width: p.width,
+		height: p.height,
+		padding: p.padding,
+		dpr,
+		pixelWidth: exactPixelSize(p.width, dpr, p.pixelWidth),
+		pixelHeight: exactPixelSize(p.height, dpr, p.pixelHeight),
+	};
 }
 
 /**
@@ -66,6 +93,9 @@ export const WebGLRenderer = React.memo(
 			yAxes,
 			width,
 			height,
+			dpr,
+			pixelWidth,
+			pixelHeight,
 			padding,
 			isInteracting = false,
 			highlightedSeriesId,
@@ -112,9 +142,15 @@ export const WebGLRenderer = React.memo(
 					redrawNowRef.current(isInteractingRef.current);
 				},
 				setOverlay: (overlay: OverlayInput) => {
-					const { width: w, height: h, padding: pad } = propsRef.current;
-					const dpr = window.devicePixelRatio || 1;
-					buildOverlay(overlay, w, h, pad, dpr, overlayScratchRef.current);
+					const vp = viewportOf(propsRef.current);
+					buildOverlay(
+						overlay,
+						vp.width,
+						vp.height,
+						vp.padding,
+						vp.dpr,
+						overlayScratchRef.current,
+					);
 					backendRef.current?.setOverlay(overlayScratchRef.current);
 				},
 				setLabels: (labels: RenderLabel[]) => {
@@ -131,11 +167,10 @@ export const WebGLRenderer = React.memo(
 		useEffect(() => {
 			const canvas = canvasRef.current;
 			if (!canvas) return;
-			const { width: w, height: h, padding: pad, plotBg: bg } = propsRef.current;
 			backendRef.current = acquireRenderBackend(
 				canvas,
-				{ width: w, height: h, padding: pad, dpr: window.devicePixelRatio || 1 },
-				hexToRgba(bg ?? "#ffffff"),
+				viewportOf(propsRef.current),
+				hexToRgba(propsRef.current.plotBg ?? "#ffffff"),
 			);
 			return () => {
 				backendRef.current = null;
@@ -190,14 +225,13 @@ export const WebGLRenderer = React.memo(
 			liveYAxesRef.current = yAxes;
 		}, [xAxes, yAxes]);
 
+		// A DPR change alone re-sizes the backing store and, through the
+		// viewport's dpr, re-rasterises the label atlas on the next frame.
 		useEffect(() => {
-			backendRef.current?.setViewport({
-				width,
-				height,
-				padding,
-				dpr: window.devicePixelRatio || 1,
-			});
-		}, [width, height, padding]);
+			backendRef.current?.setViewport(
+				viewportOf({ width, height, padding, dpr, pixelWidth, pixelHeight }),
+			);
+		}, [width, height, padding, dpr, pixelWidth, pixelHeight]);
 
 		useEffect(() => {
 			backendRef.current?.setPlotBg(hexToRgba(plotBg ?? "#ffffff"));
