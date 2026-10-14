@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import "@testing-library/jest-dom";
@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { exportDatasetCsv } from "../../../services/csvExport";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
+import { removeSeriesWithUndo } from "../../../store/undoToast";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { DatasetItem } from "../DatasetItem";
 
@@ -23,6 +24,11 @@ vi.mock("../PopupPicker", () => ({
 			isOpen: boolean;
 		}) => ReactNode;
 	}) => renderTrigger({ onClick: vi.fn(), ref: null, isOpen: false }),
+}));
+
+vi.mock("../../../store/undoToast", () => ({
+	deleteWithUndo: vi.fn(),
+	removeSeriesWithUndo: vi.fn(),
 }));
 
 vi.mock("../../../store/useGraphStore", () => {
@@ -64,7 +70,6 @@ const plottedTemp: SeriesConfig = {
 
 describe("DatasetItem", () => {
 	const addSeries = vi.fn();
-	const setHighlightedSeries = vi.fn();
 
 	const setup = (datasets: Dataset[], series: SeriesConfig[]) => {
 		const state = {
@@ -75,8 +80,6 @@ describe("DatasetItem", () => {
 			addSeries,
 			removeCalculatedColumn: vi.fn(),
 			renameColumn: vi.fn(),
-			setHighlightedSeries,
-			highlightedSeriesId: null,
 			yAxes: [],
 		};
 		(useGraphStore as unknown as Mock).mockImplementation(
@@ -95,10 +98,6 @@ describe("DatasetItem", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
 	it("hides the X-axis slot button while there is a single dataset", () => {
 		setup([makeDataset("ds1")], []);
 		expect(screen.queryByRole("button", { name: "Select X-Axis" })).toBeNull();
@@ -141,24 +140,25 @@ describe("DatasetItem", () => {
 		);
 	});
 
-	it("points at the existing series instead of adding a duplicate", () => {
-		vi.useFakeTimers();
-		const row = document.createElement("li");
-		row.dataset.seriesId = plottedTemp.id;
-		row.scrollIntoView = vi.fn();
-		document.body.appendChild(row);
-
+	it("toggles a plotted column off, removing its series with undo", () => {
 		setup([makeDataset("ds1")], [plottedTemp]);
 		fireEvent.click(screen.getByRole("button", { name: "temp" }));
 
 		expect(addSeries).not.toHaveBeenCalled();
-		expect(setHighlightedSeries).toHaveBeenCalledWith(plottedTemp.id);
-		expect(row.scrollIntoView).toHaveBeenCalled();
-		expect(row).toHaveClass("sb-series-row--flash");
+		expect(removeSeriesWithUndo).toHaveBeenCalledWith("temp", [plottedTemp.id]);
+	});
 
-		vi.runAllTimers();
-		expect(row).not.toHaveClass("sb-series-row--flash");
-		row.remove();
+	it("removes every series of a column plotted more than once in one call", () => {
+		const second = { ...plottedTemp, id: "s-temp-2" };
+		const otherDataset = { ...plottedTemp, id: "s-other", sourceId: "ds2" };
+		setup([makeDataset("ds1")], [plottedTemp, otherDataset, second]);
+		fireEvent.click(screen.getByRole("button", { name: "temp" }));
+
+		expect(removeSeriesWithUndo).toHaveBeenCalledTimes(1);
+		expect(removeSeriesWithUndo).toHaveBeenCalledWith("temp", [
+			plottedTemp.id,
+			second.id,
+		]);
 	});
 
 	it("exports the whole dataset, calculated columns included, as CSV", async () => {

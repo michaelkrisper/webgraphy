@@ -1,4 +1,9 @@
-import { latestHistoryId, undoIfLatest } from "./useGraphStore";
+import {
+	latestHistoryId,
+	undoIfLatest,
+	useGraphStore,
+	withHistory,
+} from "./useGraphStore";
 import { notify } from "./useNotificationStore";
 
 /**
@@ -16,4 +21,17 @@ export function deleteWithUndo(name: string, remove: () => void): void {
 		message: `Deleted '${name}'`,
 		action: { label: "Undo", onAction: () => undoIfLatest(id) },
 	});
+}
+
+/** Removes several series as one undoable step behind a single toast. */
+export function removeSeriesWithUndo(
+	name: string,
+	ids: readonly string[],
+): void {
+	deleteWithUndo(name, () =>
+		withHistory(`delete series '${name}'`, () => {
+			const { removeSeries } = useGraphStore.getState();
+			for (const id of ids) removeSeries(id);
+		}),
+	);
 }

@@ -9,7 +9,6 @@ export const KeyboardShortcutsModal: React.FC<{ onClose: () => void }> = ({
 		onClose={onClose}
 		title="Keyboard shortcuts"
 		maxWidth="560px"
-		padding="16px"
 		ariaLabel="Close keyboard shortcuts"
 	>
 		<ShortcutSections first />

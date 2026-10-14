@@ -4,8 +4,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { Mock } from "vitest";
 import { useDataImport } from "../../../hooks/useDataImport";
+import { removeSeriesWithUndo } from "../../../store/undoToast";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { Sidebar } from "../Sidebar";
+
+vi.mock("../../../store/undoToast", () => ({
+	deleteWithUndo: vi.fn(),
+	removeSeriesWithUndo: vi.fn(),
+}));
 
 // Mock the components
 vi.mock("../ImportSettingsDialog", () => ({
@@ -144,13 +150,16 @@ describe("Sidebar Component", () => {
 	it("opens modals when links are clicked", async () => {
 		render(<Sidebar />);
 
+		const more = screen.getByRole("button", { name: "More" });
+		fireEvent.click(more);
 		fireEvent.click(screen.getByText("Imprint"));
 		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
 
+		fireEvent.click(more);
 		fireEvent.click(screen.getByText("License"));
 		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByTitle("Help"));
+		fireEvent.click(screen.getByRole("button", { name: "Help" }));
 		expect(await screen.findByTestId("help-modal")).toBeInTheDocument();
 	});
 
@@ -173,7 +182,7 @@ describe("Sidebar Component", () => {
 		).toBeInTheDocument();
 	});
 
-	it("shows a plotted column as pressed and does not plot it twice", () => {
+	it("shows a plotted column as pressed and toggles it off on click", () => {
 		const mockDatasets = [
 			{
 				id: "ds-1",
@@ -221,14 +230,14 @@ describe("Sidebar Component", () => {
 
 		render(<Sidebar />);
 
-		// value1 is plotted: a pressed toggle that points at its series
+		// value1 is plotted: a pressed toggle whose click removes its series
 		// instead of adding a duplicate.
 		const value1Button = screen.getByRole("button", { name: "value1" });
 		expect(value1Button).not.toBeDisabled();
 		expect(value1Button).toHaveAttribute("aria-pressed", "true");
 		fireEvent.click(value1Button);
 		expect(mockAddSeries).not.toHaveBeenCalled();
-		expect(state.setHighlightedSeries).toHaveBeenCalledWith("s-1");
+		expect(removeSeriesWithUndo).toHaveBeenCalledWith("value1", ["s-1"]);
 
 		const value2Button = screen.getByRole("button", { name: "value2" });
 		expect(value2Button).toHaveAttribute("aria-pressed", "false");

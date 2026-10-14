@@ -21,42 +21,90 @@
 	flex-direction: column;
 	overflow: hidden;
 }
+.modal-card[tabindex="-1"]:focus-visible {
+	outline: none;
+}
 .modal-header {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 0;
+	gap: 12px;
+	/* Right padding keeps the title clear of the corner close button. */
+	padding: 16px 56px 12px 24px;
 	flex-shrink: 0;
 }
 .modal-title {
 	margin: 0;
 	font-size: 1.2rem;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .modal-close {
-	padding: 8px;
+	position: absolute;
+	top: 14px;
+	right: 14px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-width: var(--ui-size);
-	min-height: var(--ui-size);
-	background: var(--danger, #dc3545);
-	color: #fff;
+	width: var(--ui-size);
+	height: var(--ui-size);
+	padding: 0;
+	background: none;
+	color: var(--text-muted-color);
 	border: none;
 	cursor: pointer;
-	transition: background-color 0.15s;
+	transition:
+		background-color 0.15s,
+		color 0.15s;
 }
-.modal-close:hover {
-	background-color: #b52a37;
+.modal-close:hover:not(:disabled) {
+	background-color: var(--bg3);
+	color: var(--text-color);
+}
+.modal-close:disabled {
+	opacity: 0.4;
+	cursor: default;
 }
 .modal-body {
 	flex: 1;
-	overflow: hidden;
+	min-height: 0;
+	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
 }
 .modal-footer {
-	margin-top: 0;
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 12px;
+	padding: 16px 24px 20px;
 	flex-shrink: 0;
+}
+.modal-message {
+	margin: 0;
+}
+.modal-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 16px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	cursor: pointer;
+}
+.modal-btn--primary {
+	border-color: var(--accent);
+	background: var(--accent);
+	/* Not #fff: the accent is light on the dark themes, and accent vs. bg is
+	   the pair contrast.test.ts guarantees. */
+	color: var(--bg);
+	font-weight: bold;
+}
+.modal-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
 }
 
 /* ── CalculatedColumnModal ─────────────────────────── */
@@ -91,9 +139,6 @@
 }
 .calc-formula-msg--ok {
 	color: #22c55e;
-}
-.calc-form {
-	padding: 24px;
 }
 .calc-formula-header {
 	display: flex;
@@ -333,33 +378,11 @@
 	padding: 8px;
 	background: #fef2f2;
 }
-.calc-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 12px;
-}
-.calc-btn-cancel {
-	padding: 8px 16px;
-
-	border: 1px solid var(--border-color);
-	background: var(--bg);
-}
-.calc-btn-submit {
-	padding: 8px 16px;
-
-	background: var(--accent);
-	color: #fff;
-	border: none;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-weight: bold;
-}
 .calc-spinner {
 	width: 16px;
 	height: 16px;
-	border: 2px solid rgba(255, 255, 255, 0.3);
-	border-top-color: #fff;
+	border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+	border-top-color: currentColor;
 }
 @media (prefers-reduced-motion: no-preference) {
 	.calc-spinner {
@@ -861,7 +884,7 @@
 	flex-wrap: wrap;
 	gap: 12px 20px;
 	row-gap: 0;
-	padding: 8px 16px;
+	padding: 8px 24px;
 	align-items: center;
 }
 .isd-field-group-sm,
@@ -1123,71 +1146,6 @@
 	font-size: 14px;
 	letter-spacing: 2px;
 }
-.isd-btn-cancel {
-	padding: 6px 16px;
-	border: 1px solid var(--border-color);
-	background: var(--bg);
-	font-size: 0.85rem;
-	font-weight: 600;
-}
-.isd-btn-confirm {
-	padding: 0 24px;
-	background: var(--accent);
-	color: #fff;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	font-size: 1rem;
-	font-weight: bold;
-	box-shadow: 0 2px 4px var(--shadow);
-	border: none;
-	cursor: pointer;
-	transition:
-		background 0.15s ease,
-		filter 0.15s ease;
-}
-.isd-btn-confirm:hover {
-	filter: brightness(1.1);
-}
-.isd-btn-confirm:active {
-	filter: brightness(0.95);
-}
-.isd-btn-cancel {
-	padding: 0 16px;
-	background: var(--danger, #dc3545);
-	color: #fff;
-	border: none;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-}
-.isd-btn-cancel:hover {
-	background: #b52a37;
-}
-.isd-btn-cancel:hover {
-	background: var(--bg3);
-	color: var(--text-color);
-}
-.isd-filename {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	font-weight: 700;
-	font-size: 1rem;
-	color: var(--text-color);
-	margin-bottom: 0;
-	min-width: 0;
-}
-.isd-filename-text {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-}
-
 /* ── ChartContainer ─────────────────────────────────── */
 .chart-abs-fill {
 	position: absolute;
@@ -1308,11 +1266,6 @@
 	background-color: var(--bg3);
 	border-radius: 4px;
 }
-.sb-hdr-btn:disabled {
-	opacity: 0.35;
-	cursor: default;
-	background: none;
-}
 .sb-hdr-btn--off::after {
 	content: "";
 	position: absolute;
@@ -1348,13 +1301,16 @@
 	flex-direction: column;
 }
 .sb-section {
-	margin-bottom: 8px;
-	padding: 18px 0 6px;
+	padding: 8px 0 16px;
 }
 .sb-section-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 8px;
+	min-height: 24px;
+	padding-right: 10px;
+	margin-bottom: 4px;
 }
 .sb-section-toggle {
 	display: flex;
@@ -1362,6 +1318,9 @@
 	gap: 6px;
 	cursor: pointer;
 	flex: 1;
+	background: none;
+	border: none;
+	padding: 0;
 }
 .sb-section-title {
 	margin: 0;
@@ -1426,28 +1385,42 @@
 .sb-series-list--dragging .sb-series-row {
 	pointer-events: none;
 }
-/* Set by DatasetItem when a plotted column's chip points at its series. */
-.sb-series-row--flash {
-	background-color: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-@media (prefers-reduced-motion: no-preference) {
-	.sb-series-row--flash {
-		animation: series-row-flash 1.2s ease-out;
-	}
-	@keyframes series-row-flash {
-		0%,
-		40% {
-			background-color: color-mix(in srgb, var(--accent) 35%, transparent);
-		}
-	}
-}
 .sb-footer {
-	padding: 8px 16px;
-	border-top: 1px solid var(--border-color);
+	position: relative;
 	display: flex;
-	justify-content: center;
-	gap: 16px;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	border-top: 1px solid var(--border-color);
 	flex-shrink: 0;
+	white-space: nowrap;
+	font-size: 0.7rem;
+	color: var(--text-muted-color);
+}
+.sb-footer-links {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+/* The version is the one part allowed to give way; the copyright never clips. */
+.sb-footer-version {
+	opacity: 0.8;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.sb-footer-sep {
+	opacity: 0.5;
+}
+.sb-footer-copy {
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+.sb-footer .sb-footer-btn {
+	font-size: inherit;
+	padding: 0;
 }
 .sb-footer-btn {
 	font-size: 0.75rem;
@@ -1539,26 +1512,6 @@
 	margin: 0 0 12px;
 	font-size: 0.8rem;
 	color: var(--text-muted-color);
-}
-.plot-data-actions {
-	display: flex;
-	gap: 8px;
-	margin: 0 0 12px;
-}
-.plot-data-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 4px 10px;
-	border: 1px solid var(--border-color);
-	background: var(--bg);
-	color: inherit;
-	font-size: 0.8rem;
-	cursor: pointer;
-}
-.plot-data-btn:disabled {
-	opacity: 0.5;
-	cursor: default;
 }
 .plot-data-scroll {
 	overflow-y: auto;

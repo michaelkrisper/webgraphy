@@ -29,7 +29,10 @@ function focusableWithin(root: HTMLElement): HTMLElement[] {
 /**
  * Makes a modal dialog operable without a mouse:
  *
- * - moves focus into the dialog when it opens, so the next Tab starts inside;
+ * - moves focus into the dialog when it opens, so the next Tab starts inside:
+ *   onto a `data-autofocus` control if there is one, else the first control
+ *   that is not the close button (`data-dialog-close`), else the dialog
+ *   itself — landing on Close would make Enter dismiss what was just opened;
  * - keeps Tab and Shift+Tab cycling within it, so focus cannot wander into the
  *   inert page behind the backdrop;
  * - closes on Escape;
@@ -50,11 +53,14 @@ export function useDialogA11y(
 
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 
-		const initial = focusableWithin(dialog)[0];
+		const items = focusableWithin(dialog);
+		const initial =
+			items.find((el) => el.hasAttribute("data-autofocus")) ??
+			items.find((el) => !el.hasAttribute("data-dialog-close"));
 		if (initial) {
 			initial.focus();
 		} else {
-			// Nothing focusable inside: make the dialog itself the focus target
+			// Nothing but Close to focus: make the dialog itself the focus target
 			// so screen readers still land in the right place.
 			dialog.tabIndex = -1;
 			dialog.focus();

@@ -11,28 +11,29 @@ describe("HelpModal", () => {
 		// Check modal title
 		expect(screen.getByText("Help & Interactions")).toBeInTheDocument();
 
-		// Check section titles
-		expect(screen.getByText("Plot Area")).toBeInTheDocument();
-		expect(screen.getByText("Axes (X & Y)")).toBeInTheDocument();
-		expect(screen.getByText("Keyboard: Chart")).toBeInTheDocument();
-		expect(screen.getByText("Sidebar — Data")).toBeInTheDocument();
-		expect(screen.getByText("Sidebar — Series")).toBeInTheDocument();
-		expect(screen.getByText("Export")).toBeInTheDocument();
-		expect(screen.getByText("UI")).toBeInTheDocument();
-
-		// Check specific instructions
-		expect(screen.getByText("Zoom in and out")).toBeInTheDocument();
-		expect(screen.getByText("Pan the chart")).toBeInTheDocument();
-		expect(
-			screen.getByText("Synchronize all X-axes (zoom/pan/keys)"),
-		).toBeInTheDocument();
-
-		// Check some specific content from each section
-		expect(screen.getByText("Zoom only this axis")).toBeInTheDocument();
+		for (const section of ["Chart", "Axes", "Data", "Series", "View & export"]) {
+			expect(screen.getByText(section)).toBeInTheDocument();
+		}
 		// The keyboard part is rendered from the shared shortcut table.
+		expect(screen.getByText("Keyboard: Chart")).toBeInTheDocument();
 		expect(screen.getByText(/Pan all X axes/)).toBeInTheDocument();
 		expect(screen.getByText(/Show keyboard shortcuts/)).toBeInTheDocument();
-		expect(screen.getByText(/Drag to Reorder/)).toBeInTheDocument();
+	});
+
+	it("describes the current UI, not removed or misnamed features", () => {
+		render(<HelpModal onClose={vi.fn()} />);
+		const text = document.body.textContent ?? "";
+
+		expect(text).toContain("Fit All");
+		expect(text).toContain("Stacked Fit");
+		expect(text).toContain("IndexedDB");
+		expect(text).toContain("CSV");
+		expect(text).toContain(".webgraphy");
+		expect(text).toMatch(/Double-click its title/);
+		expect(text).not.toMatch(/LocalStorage/);
+		expect(text).not.toMatch(/numeric\/time/);
+		expect(text).not.toMatch(/cycle/i);
+		expect(text).not.toMatch(/Click on title/);
 	});
 
 	it("calls onClose when the close button is clicked", () => {

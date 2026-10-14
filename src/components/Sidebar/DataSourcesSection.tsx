@@ -50,33 +50,14 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 
 	return (
 		<ErrorBoundary level="component">
-			<section style={{ marginBottom: "24px" }}>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-					}}
-				>
-					<button
-						type="button"
-						onClick={onToggle}
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: "6px",
-							cursor: "pointer",
-							flex: 1,
-							background: "none",
-							border: "none",
-							padding: 0,
-						}}
-					>
+			<section className="sb-section">
+				<div className="sb-section-header">
+					<button type="button" onClick={onToggle} className="sb-section-toggle">
 						<h2 className="sb-section-title">Data Sources</h2>
 						{open ? (
-							<ChevronDown size={16} color={t.textMuted} />
+							<ChevronDown size={16} color="var(--text-muted-color)" />
 						) : (
-							<ChevronRight size={16} color={t.textMuted} />
+							<ChevronRight size={16} color="var(--text-muted-color)" />
 						)}
 					</button>
 					<LoadDemoDataButton />

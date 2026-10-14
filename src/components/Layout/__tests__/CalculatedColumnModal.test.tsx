@@ -51,9 +51,17 @@ describe("CalculatedColumnModal", () => {
 	it("renders correctly for adding a new column", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
-		expect(screen.getByText("Add Calculated Series")).toBeDefined();
-		expect(screen.getByLabelText("Column Name")).toBeDefined();
+		expect(screen.getByText("Add Calculated Column")).toBeDefined();
+		expect(screen.getByLabelText("Column name")).toBeDefined();
 		expect(screen.getByLabelText("Formula")).toBeDefined();
+	});
+
+	it("starts on the name field with Create Column bottom-right", () => {
+		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
+
+		expect(screen.getByLabelText("Column name")).toBe(document.activeElement);
+		const submit = screen.getByRole("button", { name: "Create Column" });
+		expect(submit.closest(".modal-footer")).not.toBeNull();
 	});
 
 	it("renders correctly for editing an existing column", () => {
@@ -66,7 +74,7 @@ describe("CalculatedColumnModal", () => {
 			/>,
 		);
 
-		expect(screen.getByText("Edit Calculated Series")).toBeDefined();
+		expect(screen.getByText("Edit Calculated Column")).toBeDefined();
 		expect(screen.getByDisplayValue("Calc A")).toBeDefined();
 		expect(screen.getByDisplayValue("[A] * 2")).toBeDefined();
 	});
@@ -80,7 +88,7 @@ describe("CalculatedColumnModal", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
 		// Fill inputs
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
@@ -88,7 +96,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		// Submit form
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		// Wait for error to display
 		await waitFor(() => {
@@ -112,7 +120,7 @@ describe("CalculatedColumnModal", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
 		// Fill inputs
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
@@ -120,7 +128,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		// Submit form
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		// Wait for error to display
 		await waitFor(() => {
@@ -142,7 +150,7 @@ describe("CalculatedColumnModal", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
 		// Fill inputs
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
@@ -150,7 +158,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		// Submit form
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		// Wait for error to display
 		await waitFor(() => {
@@ -172,7 +180,7 @@ describe("CalculatedColumnModal", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
 		// Fill inputs
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
@@ -180,7 +188,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		// Submit form
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		// Wait for error to display
 		await waitFor(() => {
@@ -202,7 +210,7 @@ describe("CalculatedColumnModal", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
 		// Fill inputs
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
@@ -210,7 +218,7 @@ describe("CalculatedColumnModal", () => {
 		});
 
 		// Submit form
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		// Wait for close to be called
 		await waitFor(() => {
@@ -228,7 +236,7 @@ describe("CalculatedColumnModal", () => {
 	it("shows validation error for empty name", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		expect(screen.getByText("Please enter a column name.")).toBeDefined();
 		expect(mockAddCalculatedColumn).not.toHaveBeenCalled();
@@ -237,11 +245,11 @@ describe("CalculatedColumnModal", () => {
 	it("shows validation error for empty formula", () => {
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "New Calc" },
 		});
 
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		expect(screen.getByText("Please enter a formula.")).toBeDefined();
 		expect(mockAddCalculatedColumn).not.toHaveBeenCalled();
@@ -259,11 +267,11 @@ describe("CalculatedColumnModal", () => {
 			/>,
 		);
 
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "Updated Name" },
 		});
 
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Save Column"));
 
 		await waitFor(() => {
 			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
@@ -284,14 +292,14 @@ describe("CalculatedColumnModal", () => {
 
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "Auto Close" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
 			target: { value: "([A] * 2" },
 		});
 
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		await waitFor(() => {
 			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(
@@ -308,14 +316,14 @@ describe("CalculatedColumnModal", () => {
 
 		render(<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />);
 
-		fireEvent.change(screen.getByLabelText("Column Name"), {
+		fireEvent.change(screen.getByLabelText("Column name"), {
 			target: { value: "Nested Auto Close" },
 		});
 		fireEvent.change(screen.getByLabelText("Formula"), {
 			target: { value: "((([A" },
 		});
 
-		fireEvent.click(screen.getByText("Create Series"));
+		fireEvent.click(screen.getByText("Create Column"));
 
 		await waitFor(() => {
 			expect(mockAddCalculatedColumn).toHaveBeenCalledWith(

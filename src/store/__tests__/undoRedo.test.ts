@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { persistence } from "../../services/persistence";
 import { HISTORY_LIMIT } from "../history";
-import { deleteWithUndo } from "../undoToast";
+import { deleteWithUndo, removeSeriesWithUndo } from "../undoToast";
 import {
 	clearHistory,
 	latestHistoryId,
@@ -452,6 +452,24 @@ describe("undo/redo", () => {
 		expect(toast?.action?.label).toBe("Undo");
 		toast?.action?.onAction();
 		expect(store().datasets.map((d) => d.id)).toEqual(["ds-1"]);
+	});
+
+	it("removeSeriesWithUndo removes several series as one undo step", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addSeries(makeSeries("s-1"));
+		store().addSeries(makeSeries("s-2"));
+		store().addSeries({ ...makeSeries("s-3"), yColumn: "Time" });
+		const depth = past().length;
+
+		removeSeriesWithUndo("Value", ["s-1", "s-2"]);
+		expect(store().series.map((s) => s.id)).toEqual(["s-3"]);
+		expect(past()).toHaveLength(depth + 1);
+
+		const toasts = useNotificationStore.getState().notifications;
+		expect(toasts).toHaveLength(1);
+		expect(toasts[0].message).toBe("Deleted 'Value'");
+		toasts[0].action?.onAction();
+		expect(store().series.map((s) => s.id)).toEqual(["s-1", "s-2", "s-3"]);
 	});
 
 	it("deleteWithUndo shows no toast when nothing was deleted", () => {
