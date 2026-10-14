@@ -29,11 +29,12 @@ function setupHook() {
 function dispatchKey(
 	type: "keydown" | "keyup",
 	key: string,
-	opts: { ctrl?: boolean; target?: HTMLElement } = {},
+	opts: { ctrl?: boolean; alt?: boolean; target?: HTMLElement } = {},
 ) {
 	const ev = new KeyboardEvent(type, {
 		key,
 		ctrlKey: !!opts.ctrl,
+		altKey: !!opts.alt,
 		bubbles: true,
 		cancelable: true,
 	});
@@ -87,6 +88,13 @@ describe("usePanZoomKeyboard", () => {
 		const { syncViewport, pressedKeys } = setupHook();
 		const input = document.createElement("input");
 		act(() => dispatchKey("keydown", "ArrowLeft", { target: input }));
+		expect(syncViewport).not.toHaveBeenCalled();
+		expect(pressedKeys.has("ArrowLeft")).toBe(false);
+	});
+
+	it("leaves Alt+arrows to the zoom history instead of panning", () => {
+		const { syncViewport, pressedKeys } = setupHook();
+		act(() => dispatchKey("keydown", "ArrowLeft", { alt: true }));
 		expect(syncViewport).not.toHaveBeenCalled();
 		expect(pressedKeys.has("ArrowLeft")).toBe(false);
 	});

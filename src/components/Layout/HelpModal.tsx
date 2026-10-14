@@ -39,6 +39,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Stacked Fit</strong> gives each Y axis its own band
 				</li>
 				<li>
+					<strong>Zoom history:</strong> <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd>{" "}
+					steps back / forward through earlier views
+				</li>
+				<li>
 					<strong>Hover:</strong> Crosshair and tooltip snap to the nearest point
 				</li>
 				<li>
@@ -56,6 +60,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				<li>
 					<strong>Double-click an axis:</strong> Auto-scale it. On a Y axis, near the
 					top or bottom fits the data into the upper or lower half
+				</li>
+				<li>
+					<strong>Exact range:</strong> Right-click an axis, or press <kbd>R</kbd> on
+					the focused axis, to type its min and max
 				</li>
 				<li>
 					<strong>Rename an X axis:</strong> Double-click its title, or press{" "}

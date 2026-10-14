@@ -35,7 +35,8 @@ export function usePanZoomKeyboard({
 				pressedKeys.current.delete(e.key);
 				return;
 			}
-			if (isEditableTarget(e.target)) return;
+			// Alt+arrows step through the zoom history (SHORTCUTS.viewBack).
+			if (isEditableTarget(e.target) || e.altKey) return;
 			const isZoomKey =
 				hasKey(SHORTCUTS.zoomIn, e.key) || hasKey(SHORTCUTS.zoomOut, e.key);
 			// Ctrl +/- would otherwise zoom the whole page (SHORTCUTS.zoomXOnly).
