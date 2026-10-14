@@ -1,4 +1,7 @@
-import { dismissNotification, notify } from "../store/useNotificationStore";
+import type {
+	dismissNotification,
+	notify,
+} from "../store/useNotificationStore";
 import {
 	type CsvTable,
 	csvChunks,
@@ -14,6 +17,16 @@ const SLICE_MS = 12;
 const ROWS_PER_CHUNK = 1000;
 /** Exports above this many rows show a progress toast while they build. */
 const PROGRESS_TOAST_ROWS = 200_000;
+
+/**
+ * Toast functions, passed in by the caller. Importing the store here would
+ * make this lazy chunk depend on zustand/React from the entry, and the
+ * bundler answers that by splitting React out of the entry chunk.
+ */
+export interface ExportFeedback {
+	notify: typeof notify;
+	dismiss: typeof dismissNotification;
+}
 
 const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -46,7 +59,11 @@ export function downloadBlob(blob: Blob, fileName: string): void {
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function exportTable(table: CsvTable, fileName: string): Promise<void> {
+async function exportTable(
+	table: CsvTable,
+	fileName: string,
+	{ notify, dismiss }: ExportFeedback,
+): Promise<void> {
 	const rows = csvRowCount(table);
 	const progress =
 		rows >= PROGRESS_TOAST_ROWS
@@ -68,13 +85,16 @@ async function exportTable(table: CsvTable, fileName: string): Promise<void> {
 			message: `CSV export failed: ${err instanceof Error ? err.message : String(err)}`,
 		});
 	} finally {
-		if (progress) dismissNotification(progress);
+		if (progress) dismiss(progress);
 	}
 }
 
 /** The whole dataset, calculated columns included. */
-export function exportDatasetCsv(ds: Dataset): Promise<void> {
-	return exportTable(datasetCsvTable(ds), csvFileName(ds.name));
+export function exportDatasetCsv(
+	ds: Dataset,
+	feedback: ExportFeedback,
+): Promise<void> {
+	return exportTable(datasetCsvTable(ds), csvFileName(ds.name), feedback);
 }
 
 /**
@@ -82,17 +102,23 @@ export function exportDatasetCsv(ds: Dataset): Promise<void> {
  * its x-axis's current range. One file per dataset: they have different x
  * columns and row sets, so a single rectangular CSV cannot hold them.
  */
-export async function exportVisibleCsv(input: {
-	series: readonly SeriesConfig[];
-	datasets: readonly Dataset[];
-	xAxes: readonly XAxisConfig[];
-}): Promise<void> {
+export async function exportVisibleCsv(
+	input: {
+		series: readonly SeriesConfig[];
+		datasets: readonly Dataset[];
+		xAxes: readonly XAxisConfig[];
+	},
+	feedback: ExportFeedback,
+): Promise<void> {
 	const tables = visibleCsvTables(input).filter((t) => csvRowCount(t.table) > 0);
 	if (tables.length === 0) {
-		notify({ kind: "info", message: "No plotted data in the visible range" });
+		feedback.notify({
+			kind: "info",
+			message: "No plotted data in the visible range",
+		});
 		return;
 	}
 	for (const { dataset, table } of tables) {
-		await exportTable(table, csvFileName(dataset.name, "-visible"));
+		await exportTable(table, csvFileName(dataset.name, "-visible"), feedback);
 	}
 }

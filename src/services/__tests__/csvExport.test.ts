@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useNotificationStore } from "../../store/useNotificationStore";
+import {
+	dismissNotification,
+	notify,
+	useNotificationStore,
+} from "../../store/useNotificationStore";
 import { datasetCsvTable, toCsvString, UTF8_BOM } from "../../utils/csv-export";
 import { processRawColumn } from "../../utils/data-processing";
 import {
@@ -44,6 +48,8 @@ const xAxes = (min: number, max: number) =>
 	[
 		{ id: "axis-1", name: "", min, max, showGrid: true, xMode: "numeric" },
 	] as XAxisConfig[];
+
+const feedback = { notify, dismiss: dismissNotification };
 
 let createSpy: ReturnType<typeof vi.fn>;
 let revokeSpy: ReturnType<typeof vi.fn>;
@@ -112,7 +118,7 @@ describe("downloadBlob", () => {
 
 describe("exportDatasetCsv", () => {
 	it("downloads every row and reports success", async () => {
-		await exportDatasetCsv(dataset);
+		await exportDatasetCsv(dataset, feedback);
 		expect(names).toEqual(["big.csv"]);
 		const text = await blobs[0].text();
 		expect(text.trimEnd().split("\r\n")).toHaveLength(N + 1);
@@ -125,7 +131,7 @@ describe("exportDatasetCsv", () => {
 		createSpy.mockImplementation(() => {
 			throw new Error("quota");
 		});
-		await exportDatasetCsv(dataset);
+		await exportDatasetCsv(dataset, feedback);
 		const [toast] = useNotificationStore.getState().notifications;
 		expect(toast.kind).toBe("error");
 		expect(toast.message).toMatch(/quota/);
@@ -134,11 +140,14 @@ describe("exportDatasetCsv", () => {
 
 describe("exportVisibleCsv", () => {
 	it("exports only the rows inside the x-axis range", async () => {
-		await exportVisibleCsv({
-			series,
-			datasets: [dataset],
-			xAxes: xAxes(10, 19),
-		});
+		await exportVisibleCsv(
+			{
+				series,
+				datasets: [dataset],
+				xAxes: xAxes(10, 19),
+			},
+			feedback,
+		);
 		expect(names).toEqual(["big-visible.csv"]);
 		const lines = (await blobs[0].text()).trimEnd().split("\r\n");
 		// `Blob.text()` decodes as UTF-8 and so consumes the BOM.
@@ -149,11 +158,14 @@ describe("exportVisibleCsv", () => {
 	});
 
 	it("says so instead of downloading an empty file", async () => {
-		await exportVisibleCsv({
-			series,
-			datasets: [dataset],
-			xAxes: xAxes(-10, -5),
-		});
+		await exportVisibleCsv(
+			{
+				series,
+				datasets: [dataset],
+				xAxes: xAxes(-10, -5),
+			},
+			feedback,
+		);
 		expect(names).toEqual([]);
 		const [toast] = useNotificationStore.getState().notifications;
 		expect(toast.kind).toBe("info");

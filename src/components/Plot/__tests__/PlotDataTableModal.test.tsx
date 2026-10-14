@@ -8,8 +8,14 @@ import type {
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
-import { useNotificationStore } from "../../../store/useNotificationStore";
+import {
+	dismissNotification,
+	notify,
+	useNotificationStore,
+} from "../../../store/useNotificationStore";
 import { PlotDataTableModal } from "../PlotDataTableModal";
+
+const feedback = { notify, dismiss: dismissNotification };
 
 vi.mock("../../../services/csvExport", () => ({
 	exportVisibleCsv: vi.fn(() => Promise.resolve()),
@@ -67,6 +73,7 @@ describe("PlotDataTableModal", () => {
 				series={series}
 				datasets={[dataset]}
 				xAxes={xAxes}
+				feedback={feedback}
 				onClose={vi.fn()}
 			/>,
 		);
@@ -88,6 +95,7 @@ describe("PlotDataTableModal", () => {
 				series={[]}
 				datasets={[dataset]}
 				xAxes={xAxes}
+				feedback={feedback}
 				onClose={vi.fn()}
 			/>,
 		);
@@ -103,6 +111,7 @@ describe("PlotDataTableModal", () => {
 					series={s}
 					datasets={[dataset]}
 					xAxes={xAxes}
+					feedback={feedback}
 					onClose={vi.fn()}
 				/>,
 			);
@@ -163,11 +172,10 @@ describe("PlotDataTableModal", () => {
 		it("exports the visible range as CSV", () => {
 			renderModal();
 			fireEvent.click(screen.getByRole("button", { name: /Export CSV/ }));
-			expect(exportVisibleCsv).toHaveBeenCalledWith({
-				series,
-				datasets: [dataset],
-				xAxes,
-			});
+			expect(exportVisibleCsv).toHaveBeenCalledWith(
+				{ series, datasets: [dataset], xAxes },
+				feedback,
+			);
 		});
 
 		it("disables both when nothing is plotted", () => {
@@ -183,6 +191,7 @@ describe("PlotDataTableModal", () => {
 				series={series}
 				datasets={[dataset]}
 				xAxes={xAxes}
+				feedback={feedback}
 				onClose={vi.fn()}
 			/>,
 		);

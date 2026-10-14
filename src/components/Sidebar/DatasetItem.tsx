@@ -3,6 +3,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 import type { Dataset } from "../../services/persistence";
@@ -211,7 +212,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						type="button"
 						onClick={() =>
 							void import("../../services/csvExport").then((m) =>
-								m.exportDatasetCsv(ds),
+								m.exportDatasetCsv(ds, { notify, dismiss: dismissNotification }),
 							)
 						}
 						style={{

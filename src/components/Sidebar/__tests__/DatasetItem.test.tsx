@@ -88,7 +88,12 @@ describe("DatasetItem", () => {
 		fireEvent.click(
 			screen.getByRole("button", { name: "Export Sensors as CSV" }),
 		);
-		await waitFor(() => expect(exportDatasetCsv).toHaveBeenCalledWith(dataset));
+		await waitFor(() =>
+			expect(exportDatasetCsv).toHaveBeenCalledWith(
+				dataset,
+				expect.objectContaining({ notify: expect.any(Function) }),
+			),
+		);
 	});
 
 	it("has no axe violations", async () => {

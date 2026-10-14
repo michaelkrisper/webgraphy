@@ -262,6 +262,7 @@ describe("SidebarHeader", () => {
 		await waitFor(() => expect(exportVisibleCsv).toHaveBeenCalledTimes(1));
 		expect(exportVisibleCsv).toHaveBeenCalledWith(
 			expect.objectContaining({ xAxes: [{ id: "axis-1", showGrid: true }] }),
+			expect.objectContaining({ notify: expect.any(Function) }),
 		);
 		expect(mockOnExportSVG).not.toHaveBeenCalled();
 		expect(mockOnExportPNG).not.toHaveBeenCalled();

@@ -1,7 +1,9 @@
 import { ClipboardCopy, Download } from "lucide-react";
 import { useMemo } from "react";
-import { exportVisibleCsv } from "../../services/csvExport";
-import { notify } from "../../store/useNotificationStore";
+import {
+	type ExportFeedback,
+	exportVisibleCsv,
+} from "../../services/csvExport";
 import { Modal } from "../Layout/Modal";
 import {
 	buildPlotDataTable,
@@ -13,6 +15,11 @@ import {
 
 interface Props extends PlotDataTableInput {
 	onClose: () => void;
+	/**
+	 * Toast functions from the host. Importing the notification store from
+	 * this lazy chunk makes the bundler split React out of the entry chunk.
+	 */
+	feedback: ExportFeedback;
 }
 
 /**
@@ -26,6 +33,7 @@ export function PlotDataTableModal({
 	datasets,
 	xAxes,
 	onClose,
+	feedback,
 }: Props) {
 	const tables = useMemo(
 		() => buildPlotDataTable({ series, datasets, xAxes }),
@@ -38,12 +46,12 @@ export function PlotDataTableModal({
 			// `navigator.clipboard` is absent outside secure contexts.
 			if (!navigator.clipboard) throw new Error("Clipboard is unavailable");
 			await navigator.clipboard.writeText(plotTableToTsv(tables));
-			notify({
+			feedback.notify({
 				kind: "success",
 				message: `Copied ${rows.toLocaleString()} rows to the clipboard`,
 			});
 		} catch (err) {
-			notify({
+			feedback.notify({
 				kind: "error",
 				message: `Could not copy the table: ${err instanceof Error ? err.message : String(err)}`,
 			});
@@ -74,7 +82,9 @@ export function PlotDataTableModal({
 				<button
 					type="button"
 					className="plot-data-btn"
-					onClick={() => void exportVisibleCsv({ series, datasets, xAxes })}
+					onClick={() =>
+						void exportVisibleCsv({ series, datasets, xAxes }, feedback)
+					}
 					disabled={tables.length === 0}
 					title="Every row in the visible range, not just the sampled ones"
 				>

@@ -18,9 +18,12 @@ import {
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+
+const EXPORT_FEEDBACK = { notify, dismiss: dismissNotification };
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const PlotDataTableModal = lazy(() =>
@@ -182,7 +185,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						else if (v === "csv") {
 							// Loaded on demand, like the SVG renderer.
 							void import("../../services/csvExport").then((m) =>
-								m.exportVisibleCsv({ series, datasets, xAxes }),
+								m.exportVisibleCsv({ series, datasets, xAxes }, EXPORT_FEEDBACK),
 							);
 						}
 					}}
@@ -259,6 +262,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						series={series}
 						datasets={datasets}
 						xAxes={xAxes}
+						feedback={EXPORT_FEEDBACK}
 						onClose={() => setDataTableOpen(false)}
 					/>
 				)}
