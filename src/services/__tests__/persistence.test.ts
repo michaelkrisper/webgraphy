@@ -316,16 +316,94 @@ describe("persistence", () => {
 			expect(loaded).toBeNull();
 		});
 
-		it("should return null on invalid split state", async () => {
+		it("should drop malformed axes but keep the config", async () => {
 			const mockDb = {
 				get: vi
 					.fn()
 					.mockResolvedValueOnce({ xAxes: [{ id: "axis-1", min: "bad" }] })
 					.mockResolvedValueOnce({
 						series: [],
+						legendVisible: false,
+						crosshairVisible: true,
+					})
+					.mockResolvedValueOnce(undefined),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const loaded = await persistence.loadAppState();
+				expect(loaded).toEqual({
+					xAxes: [],
+					yAxes: [],
+					series: [],
+					legendVisible: false,
+					crosshairVisible: true,
+				});
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
+		it("should repair non-finite axis ranges instead of losing all series", async () => {
+			// An all-NaN x column used to persist {Infinity, -Infinity} bounds,
+			// which made the viewport schema reject the whole saved state.
+			const series = [
+				{
+					id: "s1",
+					sourceId: "ds1",
+					name: "S1",
+					yColumn: "y",
+					yAxisId: "axis-1",
+					pointStyle: "none",
+					pointColor: "#000",
+					lineStyle: "solid",
+					lineColor: "#000",
+				},
+			];
+			const mockDb = {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce({
+						xAxes: [{ ...SAMPLE_APP_STATE.xAxes[0], min: Infinity, max: -Infinity }],
+						yAxes: [
+							{
+								id: "axis-1",
+								name: "Y",
+								min: Number.NaN,
+								max: 5,
+								position: "left",
+								color: "#000",
+								showGrid: true,
+							},
+						],
+					})
+					.mockResolvedValueOnce({
+						series,
 						legendVisible: true,
 						crosshairVisible: true,
 					})
+					.mockResolvedValueOnce(undefined),
+			};
+			openDBMock.mockResolvedValueOnce(mockDb);
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const loaded = await persistence.loadAppState();
+				expect(loaded?.series).toEqual(series);
+				expect(loaded?.xAxes).toEqual([
+					{ ...SAMPLE_APP_STATE.xAxes[0], min: 0, max: 100 },
+				]);
+				expect(loaded?.yAxes[0]).toMatchObject({ id: "axis-1", min: 0, max: 100 });
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
+		it("should return null on invalid split config", async () => {
+			const mockDb = {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce({ xAxes: [], yAxes: [] })
+					.mockResolvedValueOnce({ series: "bad" })
 					.mockResolvedValueOnce(undefined),
 			};
 			openDBMock.mockResolvedValueOnce(mockDb);
