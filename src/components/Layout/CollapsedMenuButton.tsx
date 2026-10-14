@@ -6,6 +6,7 @@ interface CollapsedMenuButtonProps {
 	onClick: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onExportCSV: () => void;
 	theme: Theme;
 }
 
@@ -13,6 +14,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 	onClick,
 	onExportSVG,
 	onExportPNG,
+	onExportCSV,
 }) => (
 	<div className="collapsed-menu-btns">
 		<button
@@ -27,6 +29,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 		<ExportMenu
 			onExportSVG={onExportSVG}
 			onExportPNG={onExportPNG}
+			onExportCSV={onExportCSV}
 			className="collapsed-menu-btn"
 			iconSize={18}
 		/>
