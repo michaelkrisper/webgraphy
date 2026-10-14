@@ -75,6 +75,25 @@ describe("CollapsedMenuButton", () => {
 		expect(onExportCSV).toHaveBeenCalledTimes(1);
 	});
 
+	it("opens the export options dialog from “Export image…”", () => {
+		const onExportImage = vi.fn();
+		const onExportSVG = vi.fn();
+		render(
+			<CollapsedMenuButton
+				onClick={() => {}}
+				onExportImage={onExportImage}
+				onExportSVG={onExportSVG}
+				onExportPNG={() => {}}
+				onExportCSV={() => {}}
+				theme={mockTheme}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Export Image or Data" }));
+		fireEvent.click(screen.getByRole("button", { name: "Export image…" }));
+		expect(onExportImage).toHaveBeenCalledTimes(1);
+		expect(onExportSVG).not.toHaveBeenCalled();
+	});
+
 	it("has correct positioning and styling", () => {
 		render(
 			<CollapsedMenuButton

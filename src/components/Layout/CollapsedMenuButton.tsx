@@ -4,6 +4,7 @@ import { ExportMenu } from "./ExportMenu";
 
 interface CollapsedMenuButtonProps {
 	onClick: () => void;
+	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
 	onExportCSV: () => void;
@@ -12,6 +13,7 @@ interface CollapsedMenuButtonProps {
 
 export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 	onClick,
+	onExportImage,
 	onExportSVG,
 	onExportPNG,
 	onExportCSV,
@@ -27,6 +29,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 			<img src="./favicon.svg" alt="webgraphy logo" />
 		</button>
 		<ExportMenu
+			onExportImage={onExportImage}
 			onExportSVG={onExportSVG}
 			onExportPNG={onExportPNG}
 			onExportCSV={onExportCSV}

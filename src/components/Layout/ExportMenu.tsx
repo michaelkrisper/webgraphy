@@ -3,6 +3,7 @@ import {
 	FolderOpen,
 	Grid3x3,
 	Image,
+	ImageDown,
 	Save,
 	Spline,
 } from "lucide-react";
@@ -10,6 +11,8 @@ import type React from "react";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 
 interface ExportMenuProps {
+	/** Opens the export options dialog. */
+	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
 	onExportCSV: () => void;
@@ -21,7 +24,7 @@ interface ExportMenuProps {
 	iconSize: number;
 }
 
-type MenuAction = "open" | "save" | "svg" | "png" | "csv";
+type MenuAction = "open" | "save" | "image" | "svg" | "png" | "csv";
 
 const SESSION_OPTIONS: PopupPickerOption<MenuAction>[] = [
 	{ value: "open", icon: <FolderOpen size={16} />, label: "Open session…" },
@@ -29,6 +32,7 @@ const SESSION_OPTIONS: PopupPickerOption<MenuAction>[] = [
 ];
 
 const EXPORT_OPTIONS: PopupPickerOption<MenuAction>[] = [
+	{ value: "image", icon: <ImageDown size={16} />, label: "Export image…" },
 	{ value: "svg", icon: <Spline size={16} />, label: "Export as SVG (vector)" },
 	{ value: "png", icon: <Grid3x3 size={16} />, label: "Export as PNG (pixel)" },
 	{
@@ -40,6 +44,7 @@ const EXPORT_OPTIONS: PopupPickerOption<MenuAction>[] = [
 
 /** The export popover (plus sessions where offered), shared by the sidebar header and collapsed menu. */
 export const ExportMenu: React.FC<ExportMenuProps> = ({
+	onExportImage,
 	onExportSVG,
 	onExportPNG,
 	onExportCSV,
@@ -59,6 +64,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
 			onChange={(v) => {
 				if (v === "open") onOpenSession?.();
 				else if (v === "save") onSaveSession?.();
+				else if (v === "image") onExportImage();
 				else if (v === "svg") onExportSVG();
 				else if (v === "png") onExportPNG();
 				else if (v === "csv") onExportCSV();

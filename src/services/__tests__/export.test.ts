@@ -9,6 +9,9 @@ import type {
 	YAxisConfig,
 } from "../persistence";
 
+// The woff2 asset URLs are irrelevant here (exportFonts has its own tests).
+vi.mock("../exportFontFiles", () => ({ FONT_FILES: {} }));
+
 describe("exportToSVG", () => {
 	const mockDatasets: Dataset[] = [
 		{

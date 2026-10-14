@@ -4,7 +4,7 @@ import type {
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
-import { m4ByXFloat32 } from "../../../utils/decimation";
+import { logBucketIndex, m4ByXFloat32 } from "../../../utils/decimation";
 import {
 	buildPlotDataTable,
 	formatTableValue,
@@ -99,6 +99,41 @@ describe("buildPlotDataTable", () => {
 		expect(table.rows[0]).toEqual({ x: x[0], y: y[0] });
 		const last = table.rows.length - 1;
 		expect(table.rows[last]).toEqual({ x: x[last], y: y[last] });
+	});
+
+	it("buckets log-uniformly on a log x axis", () => {
+		const logAxes = [
+			{ ...xAxes[0], min: 1, max: POINTS, scale: "log" },
+		] as XAxisConfig[];
+		const [table] = buildPlotDataTable({
+			series,
+			datasets: [makeDataset()],
+			xAxes: logAxes,
+		});
+		const w = Math.log10(POINTS) / Math.floor((MAX_TABLE_ROWS - 2) / 4);
+		const perBucket = new Map<number, number>();
+		for (const r of table.rows) {
+			const k = logBucketIndex(r.x, w);
+			perBucket.set(k, (perBucket.get(k) ?? 0) + 1);
+		}
+		// Every bucket keeps at most (first, min, max, last).
+		for (const count of perBucket.values()) expect(count).toBeLessThanOrEqual(4);
+		// Equal-width decades: the low decades get rows, not one linear bucket.
+		const decades = [0, 1, 2, 3, 4].map(
+			(d) =>
+				table.rows.filter((r) => r.x >= 10 ** d && r.x < 10 ** (d + 1)).length,
+		);
+		for (const c of decades.slice(1)) expect(c).toBeGreaterThan(10);
+		expect(decades[0]).toBeGreaterThan(0);
+	});
+
+	it("skips a log x axis whose range is not positive", () => {
+		const bad = [
+			{ ...xAxes[0], min: 0, max: 100, scale: "log" },
+		] as XAxisConfig[];
+		expect(
+			buildPlotDataTable({ series, datasets: [makeDataset()], xAxes: bad }),
+		).toEqual([]);
 	});
 
 	it("skips hidden series", () => {
