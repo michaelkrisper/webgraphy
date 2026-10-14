@@ -66,6 +66,10 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 							data-testid="session-save-trigger"
 							onClick={() => onChange("save")}
 						/>
+						<button
+							data-testid="export-csv-trigger"
+							onClick={() => onChange("csv")}
+						/>
 					</>
 				)}
 				{popoverId === "theme-popover" && (
@@ -83,6 +87,7 @@ describe("SidebarHeader", () => {
 	const mockOnExportPNG = vi.fn();
 	const mockOnOpenSession = vi.fn();
 	const mockOnSaveSession = vi.fn();
+	const mockOnExportCSV = vi.fn();
 
 	const mockLoadDemoData = vi.fn();
 	const mockUpdateXAxis = vi.fn();
@@ -123,6 +128,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -146,6 +152,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -162,6 +169,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -178,6 +186,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -194,6 +203,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -210,6 +220,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -226,6 +237,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -242,6 +254,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -261,6 +274,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -273,6 +287,25 @@ describe("SidebarHeader", () => {
 		expect(mockOnExportSVG).not.toHaveBeenCalled();
 	});
 
+	it("exports the visible data as CSV from the export menu", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("export-csv-trigger"));
+		expect(mockOnExportCSV).toHaveBeenCalledTimes(1);
+		expect(mockOnExportSVG).not.toHaveBeenCalled();
+		expect(mockOnExportPNG).not.toHaveBeenCalled();
+	});
+
 	it("handles theme selection correctly", () => {
 		render(
 			<SidebarHeader
@@ -282,6 +315,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -312,6 +346,7 @@ describe("SidebarHeader", () => {
 				onExportPNG={mockOnExportPNG}
 				onOpenSession={mockOnOpenSession}
 				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 

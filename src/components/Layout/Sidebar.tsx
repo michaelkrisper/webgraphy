@@ -3,6 +3,7 @@ import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
 import { SESSION_EXTENSION } from "../../utils/importFile";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
@@ -89,12 +90,21 @@ export const Sidebar: React.FC = () => {
 		downloadFile(pngData, "webgraphy-export.png", "image/png");
 	};
 
+	const handleExportCSV = async () => {
+		const { exportVisibleCsv } = await import("../../services/csvExport");
+		await exportVisibleCsv(
+			{ series, datasets, xAxes },
+			{ notify, dismiss: dismissNotification },
+		);
+	};
+
 	if (isCollapsed) {
 		return (
 			<CollapsedMenuButton
 				onClick={() => setIsCollapsed(false)}
 				onExportSVG={handleExportSVG}
 				onExportPNG={handleExportPNG}
+				onExportCSV={handleExportCSV}
 				theme={t}
 			/>
 		);
@@ -109,6 +119,7 @@ export const Sidebar: React.FC = () => {
 					onImport={handleImport}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
+					onExportCSV={handleExportCSV}
 					onOpenSession={() => sessionInputRef.current?.click()}
 					onSaveSession={handleSaveSession}
 				/>

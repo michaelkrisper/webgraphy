@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import "@testing-library/jest-dom";
 import type { ReactNode } from "react";
 import type { Mock } from "vitest";
+import { exportDatasetCsv } from "../../../services/csvExport";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { DatasetItem } from "../DatasetItem";
+
+vi.mock("../../../services/csvExport", () => ({
+	exportDatasetCsv: vi.fn(() => Promise.resolve()),
+}));
 
 vi.mock("../PopupPicker", () => ({
 	PopupPicker: ({
@@ -154,6 +159,20 @@ describe("DatasetItem", () => {
 		vi.runAllTimers();
 		expect(row).not.toHaveClass("sb-series-row--flash");
 		row.remove();
+	});
+
+	it("exports the whole dataset, calculated columns included, as CSV", async () => {
+		const ds = makeDataset("ds1");
+		setup([ds], []);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export Dataset ds1 as CSV" }),
+		);
+		await waitFor(() =>
+			expect(exportDatasetCsv).toHaveBeenCalledWith(
+				ds,
+				expect.objectContaining({ notify: expect.any(Function) }),
+			),
+		);
 	});
 
 	it("has no axe violations with plotted and unplotted chips", async () => {

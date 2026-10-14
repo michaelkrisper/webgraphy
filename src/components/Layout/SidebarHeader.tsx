@@ -13,10 +13,13 @@ import {
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { ExportMenu } from "./ExportMenu";
+
+const EXPORT_FEEDBACK = { notify, dismiss: dismissNotification };
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const PlotDataTableModal = lazy(() =>
@@ -114,6 +117,7 @@ interface SidebarHeaderProps {
 	onExportPNG: () => void;
 	onOpenSession: () => void;
 	onSaveSession: () => void;
+	onExportCSV: () => void;
 }
 
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
@@ -123,6 +127,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onExportPNG,
 	onOpenSession,
 	onSaveSession,
+	onExportCSV,
 }) => {
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const xAxes = useGraphStore((s) => s.xAxes);
@@ -159,6 +164,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					onExportPNG={onExportPNG}
 					onOpenSession={onOpenSession}
 					onSaveSession={onSaveSession}
+					onExportCSV={onExportCSV}
 					className="sb-hdr-btn"
 					iconSize={24}
 				/>
@@ -221,6 +227,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						series={series}
 						datasets={datasets}
 						xAxes={xAxes}
+						feedback={EXPORT_FEEDBACK}
 						onClose={() => setDataTableOpen(false)}
 					/>
 				)}
