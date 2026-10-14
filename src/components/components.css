@@ -1474,3 +1474,59 @@
 	top: 0;
 	background: var(--bg);
 }
+
+/* ── Toaster ───────────────────────────────────────── */
+/* Always mounted, so screen readers have registered the live regions before
+ * a toast lands in them. */
+.toaster {
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	z-index: 10002;
+	display: grid;
+	gap: 8px;
+	max-width: 420px;
+}
+.toast {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 4px 4px 12px;
+	background: var(--bg);
+	border: 1px solid var(--border2);
+	border-left: 3px solid var(--text-muted-color);
+	box-shadow: 0 4px 12px var(--shadow);
+	font-size: 0.85rem;
+}
+.toast--success {
+	border-left-color: var(--accent);
+}
+.toast--error {
+	border-left-color: var(--danger);
+}
+.toast > span {
+	flex: 1;
+	overflow-wrap: anywhere;
+}
+.toast-action {
+	padding: 4px 8px;
+	color: var(--accent);
+	border: 1px solid var(--border2);
+}
+.toast-close {
+	display: grid;
+	place-items: center;
+	min-width: var(--ui-size);
+	min-height: var(--ui-size);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.toast {
+		animation: toast-in 0.15s ease-out;
+	}
+	@keyframes toast-in {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+	}
+}
