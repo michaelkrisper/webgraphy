@@ -4,9 +4,10 @@
 // auto-scale (x and y) or inline title rename (x only). Extracted from
 // ChartContainer so the per-axis JSX stops drowning the render block.
 //
-// Each zone is also a keyboard stop: arrows pan, +/- zoom, A auto-scales and
-// (x only) Enter renames that one axis. Handled keys stop propagating so the
-// window-level chart shortcuts do not also move every other axis.
+// Each zone is also a keyboard stop: arrows pan, +/- zoom, A auto-scales, R
+// opens the exact-range popover (as does right-click) and (x only) Enter
+// renames that one axis. Handled keys stop propagating so the window-level
+// chart shortcuts do not also move every other axis.
 
 import { Fragment, useMemo, useRef } from "react";
 import type { XAxisMetrics, XAxisLayout } from "./chartTypes";
@@ -29,19 +30,26 @@ interface Theme {
 	gridColor: string;
 }
 
+/** Opens the exact-range popover for an axis, anchored at its zone. */
+export type EditRangeHandler = (id: string, anchor: HTMLElement) => void;
+
 function handleZoneKey(
-	e: React.KeyboardEvent,
+	e: React.KeyboardEvent<HTMLElement>,
 	kind: "x" | "y",
 	id: string,
 	onAxisStep: (id: string, step: AxisStep) => void,
 	onAutoScale: (id: string) => void,
+	onEditRange?: EditRangeHandler,
 	onRename?: (id: string) => void,
 ) {
-	// Modified keys (Ctrl +/- for X-only zoom, Ctrl+C) stay chart-wide.
+	// Modified keys (Ctrl +/- for X-only zoom, Ctrl+C, Alt+arrows for the
+	// zoom history) stay chart-wide.
 	if (e.ctrlKey || e.metaKey || e.altKey) return;
 	const step = axisStepForKey(e.key, kind);
 	if (step) onAxisStep(id, step);
 	else if (hasKey(SHORTCUTS.axisAutoScale, e.key)) onAutoScale(id);
+	else if (onEditRange && hasKey(SHORTCUTS.axisRange, e.key))
+		onEditRange(id, e.currentTarget);
 	else if (onRename && hasKey(SHORTCUTS.axisRename, e.key)) onRename(id);
 	else return;
 	e.preventDefault();
@@ -60,6 +68,7 @@ interface XInteractionProps {
 	onTouchStart: (e: React.TouchEvent, target: { xAxisId: string }) => void;
 	onAutoScaleX: (xAxisId: string) => void;
 	onAxisStep: (xAxisId: string, step: AxisStep) => void;
+	onEditRange?: EditRangeHandler;
 }
 
 export function XAxisInteractionZones({
@@ -74,6 +83,7 @@ export function XAxisInteractionZones({
 	onTouchStart,
 	onAutoScaleX,
 	onAxisStep,
+	onEditRange,
 }: XInteractionProps) {
 	const layoutMap = useMemo(() => {
 		const m = new Map();
@@ -109,8 +119,22 @@ export function XAxisInteractionZones({
 									}
 								: { "aria-hidden": true })}
 							onKeyDown={(e) =>
-								handleZoneKey(e, "x", m.id, onAxisStep, onAutoScaleX, setEditingXAxisId)
+								handleZoneKey(
+									e,
+									"x",
+									m.id,
+									onAxisStep,
+									onAutoScaleX,
+									onEditRange,
+									setEditingXAxisId,
+								)
 							}
+							onContextMenu={(e) => {
+								if (!onEditRange) return;
+								e.preventDefault();
+								e.stopPropagation();
+								onEditRange(m.id, e.currentTarget);
+							}}
 							onWheel={(e) => {
 								e.stopPropagation();
 								onWheel(e, { xAxisId: m.id });
@@ -220,6 +244,7 @@ interface YInteractionProps {
 	onTouchStart: (e: React.TouchEvent, target: { yAxisId: string }) => void;
 	onAutoScaleY: (yAxisId: string, mouseY?: number) => void;
 	onAxisStep: (yAxisId: string, step: AxisStep) => void;
+	onEditRange?: EditRangeHandler;
 }
 
 export function YAxisInteractionZones({
@@ -236,6 +261,7 @@ export function YAxisInteractionZones({
 	onTouchStart,
 	onAutoScaleY,
 	onAxisStep,
+	onEditRange,
 }: YInteractionProps) {
 	return (
 		<>
@@ -258,8 +284,21 @@ export function YAxisInteractionZones({
 							: { "aria-hidden": true })}
 						key={`wheel-${a.id}`}
 						onKeyDown={(e) =>
-							handleZoneKey(e, "y", a.id, onAxisStep, (id) => onAutoScaleY(id))
+							handleZoneKey(
+								e,
+								"y",
+								a.id,
+								onAxisStep,
+								(id) => onAutoScaleY(id),
+								onEditRange,
+							)
 						}
+						onContextMenu={(e) => {
+							if (!onEditRange) return;
+							e.preventDefault();
+							e.stopPropagation();
+							onEditRange(a.id, e.currentTarget);
+						}}
 						onWheel={(e) => {
 							e.stopPropagation();
 							onWheel(e, { yAxisId: a.id });

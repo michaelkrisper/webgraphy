@@ -9,6 +9,8 @@ export interface Shortcut {
 	readonly ctrl?: boolean;
 	/** Only together with Shift. */
 	readonly shift?: boolean;
+	/** Only together with Alt. */
+	readonly alt?: boolean;
 	readonly description: string;
 }
 
@@ -42,6 +44,17 @@ export const SHORTCUTS = {
 		keys: ["Home"],
 		shift: true,
 		description: "Stacked fit: each Y axis in its own slice",
+	},
+	/** Alt+Left is also the browser's Back; the handler claims it with preventDefault. */
+	viewBack: {
+		keys: ["ArrowLeft"],
+		alt: true,
+		description: "Previous view (zoom history)",
+	},
+	viewForward: {
+		keys: ["ArrowRight"],
+		alt: true,
+		description: "Next view (zoom history)",
 	},
 	copyTooltip: {
 		keys: ["c", "C"],
@@ -96,6 +109,10 @@ export const SHORTCUTS = {
 		keys: ["a", "A"],
 		description: "Auto-scale the focused axis",
 	},
+	axisRange: {
+		keys: ["r", "R"],
+		description: "Type an exact range for the focused axis",
+	},
 	axisRename: {
 		keys: ["Enter"],
 		description: "Rename the focused X axis",
@@ -122,6 +139,8 @@ export const SHORTCUT_GROUPS: readonly {
 			"zoomXOnly",
 			"fitAll",
 			"stackedFit",
+			"viewBack",
+			"viewForward",
 			"copyTooltip",
 			"toggleStats",
 			"clearPins",
@@ -136,6 +155,7 @@ export const SHORTCUT_GROUPS: readonly {
 			"axisZoomIn",
 			"axisZoomOut",
 			"axisAutoScale",
+			"axisRange",
 			"axisRename",
 		],
 	},
@@ -179,7 +199,7 @@ export function formatShortcutKeys(shortcut: Shortcut): string[] {
 
 /** Tooltip form of the first binding, e.g. "Shift+Home". */
 export function shortcutHint(shortcut: Shortcut): string {
-	const mods = `${shortcut.ctrl ? "Ctrl+" : ""}${shortcut.shift ? "Shift+" : ""}`;
+	const mods = `${shortcut.ctrl ? "Ctrl+" : ""}${shortcut.shift ? "Shift+" : ""}${shortcut.alt ? "Alt+" : ""}`;
 	return mods + formatShortcutKeys(shortcut)[0];
 }
 
