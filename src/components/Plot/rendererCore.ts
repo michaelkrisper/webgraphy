@@ -19,7 +19,7 @@
 import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
 import { cssToRgbaWithAlpha } from "../../utils/colors";
 import { logger } from "../../utils/logger";
-import { type DecimCache } from "./decimationCache";
+import { type DecimCache, releaseDecimSlot } from "./decimationCache";
 import { drawOverlay, type OverlayState } from "./drawOverlay";
 import {
 	drawSeriesLines,
@@ -47,6 +47,7 @@ import {
 	computeDrawRanges,
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
+	type SegmentCache,
 } from "./seriesPrep";
 
 export interface RenderLabelSegment {
@@ -94,7 +95,6 @@ export interface RendererViewport {
  */
 export interface RendererSeriesInput {
 	id: string;
-	segKey: string;
 	xAxisId: string;
 	yAxisId: string;
 	hidden: boolean;
@@ -215,12 +215,13 @@ export class RendererCore {
 		groups: [],
 	};
 
+	// Fixed-purpose scratch buffers (overlay, label chrome, label instances).
 	private buffers = new Map<string, WebGLBuffer>();
+	// Dashed-line instance buffers and their validity params, per series id;
+	// pruned in setSeries when the series goes away.
+	private dashBuffers = new Map<string, WebGLBuffer>();
 	private segParams = new Map<string, SegParams>();
-	private segmentCache = new WeakMap<
-		Float32Array,
-		{ start: number; end: number }[]
-	>();
+	private segmentCache: SegmentCache = new WeakMap();
 	private monoCache = new WeakMap<Float32Array, boolean>();
 	// GPU buffers keyed by source Float32Array identity (raw column data).
 	// Pan/zoom reuses these without re-uploading.
@@ -233,6 +234,10 @@ export class RendererCore {
 		y: new Float32Array(0),
 	};
 	private drawRangesScratch: { start: number; count: number }[] = [];
+	// Columns and (y -> x) pairs of the current series list, so setSeries can
+	// free the GPU buffers of whatever the next list drops.
+	private liveColumns = new Set<Float32Array>();
+	private livePairs = new Map<Float32Array, Set<Float32Array>>();
 
 	private constructor(
 		gl: WebGL2RenderingContext,
@@ -302,7 +307,6 @@ export class RendererCore {
 		canvas: HTMLCanvasElement | OffscreenCanvas,
 	): RendererCore | null {
 		const gl = canvas.getContext("webgl2", {
-			preserveDrawingBuffer: true,
 			antialias: true,
 			alpha: false,
 		}) as WebGL2RenderingContext | null;
@@ -339,6 +343,54 @@ export class RendererCore {
 
 	setSeries(list: RendererSeriesInput[]): void {
 		this.seriesList = list;
+		this.releaseDropped(list);
+	}
+
+	/**
+	 * Delete the GL buffers of columns, (y, x) pairs, and series that `list`
+	 * no longer references: raw column uploads, every decimation level, and
+	 * dashed-line instance buffers. The JS-side caches are WeakMaps, but GPU
+	 * memory must not wait for the GC to finalize the handles.
+	 */
+	private releaseDropped(list: RendererSeriesInput[]): void {
+		const { gl } = this;
+		const columns = new Set<Float32Array>();
+		const pairs = new Map<Float32Array, Set<Float32Array>>();
+		const ids = new Set<string>();
+		for (const s of list) {
+			columns.add(s.xData);
+			columns.add(s.yData);
+			let xs = pairs.get(s.yData);
+			if (!xs) {
+				xs = new Set();
+				pairs.set(s.yData, xs);
+			}
+			xs.add(s.xData);
+			ids.add(s.id);
+		}
+		for (const [yData, xs] of this.livePairs) {
+			const keep = pairs.get(yData);
+			for (const xData of xs) {
+				if (keep?.has(xData)) continue;
+				releaseDecimSlot(gl, this.decimCache, xData, yData);
+				releaseDecimSlot(gl, this.pointDecimCache, xData, yData);
+			}
+		}
+		for (const col of this.liveColumns) {
+			if (columns.has(col)) continue;
+			const buf = this.columnBuffers.get(col);
+			if (!buf) continue;
+			gl.deleteBuffer(buf);
+			this.columnBuffers.delete(col);
+		}
+		for (const [id, buf] of this.dashBuffers) {
+			if (ids.has(id)) continue;
+			gl.deleteBuffer(buf);
+			this.dashBuffers.delete(id);
+			this.segParams.delete(id);
+		}
+		this.liveColumns = columns;
+		this.livePairs = pairs;
 	}
 
 	setOverlay(
@@ -449,7 +501,9 @@ export class RendererCore {
 
 			const xBuffer = getOrInitBuffer(gl, xData, this.columnBuffers);
 			const yBuffer = getOrInitBuffer(gl, yData, this.columnBuffers);
-			if (!xBuffer || !yBuffer) return;
+			// Skip just this series: returning would leave the rest of the frame
+			// (other series, labels) undrawn.
+			if (!xBuffer || !yBuffer) continue;
 
 			const drawRanges = this.drawRangesScratch;
 			computeDrawRanges(
@@ -501,9 +555,9 @@ export class RendererCore {
 				bundle,
 				this.decimCache,
 				this.decimScratch,
-				this.buffers,
+				this.dashBuffers,
 				this.segParams,
-				s.segKey,
+				s.id,
 				this.interacting,
 			);
 			drawSeriesPoints(
@@ -560,44 +614,57 @@ export class RendererCore {
 			verts.push(x0, y0, x1, y0, x0, y1, x0, y1, x1, y0, x1, y1);
 		};
 
-		for (const l of labels) {
-			let runs: LabelRun[];
-			if (l.segments) {
-				runs = l.segments;
-			} else {
-				this.singleRun[0].text = l.text;
-				this.singleRun[0].color = l.color;
-				runs = this.singleRun;
+		// An atlas overflow mid-pass resets it and overwrites regions already
+		// handed out this frame, so redo the pass against the fresh atlas. One
+		// retry suffices unless this frame's labels alone overflow the atlas,
+		// in which case nothing can fit them all anyway.
+		for (let pass = 0; pass < 2; pass++) {
+			const generation = atlas.generation;
+			n = 0;
+			chromeByColor.clear();
+			for (const l of labels) {
+				let runs: LabelRun[];
+				if (l.segments) {
+					runs = l.segments;
+				} else {
+					this.singleRun[0].text = l.text;
+					this.singleRun[0].color = l.color;
+					runs = this.singleRun;
+				}
+				const region = atlas.ensure(runs, l.font);
+				if (!region) continue;
+
+				// Chrome sized from the measured text, mirroring the old 2D canvas
+				// secondary-label drawing (bg rect 14px tall, 2px separator).
+				if (l.bg) pushRect(l.bg, l.x - 2, l.y - 12, region.cssWidth + 4, 14);
+				if (l.tick) pushRect(l.tick.color, l.tick.x - 1, l.y - 12, 2, 14);
+
+				let offX = -region.pad;
+				if (l.align === "center") offX -= region.cssWidth / 2;
+				else if (l.align === "right") offX -= region.cssWidth;
+				const offY =
+					l.baseline === "middle"
+						? -region.cssHeight / 2 - region.pad
+						: -region.ascent - region.pad;
+
+				// Whole device pixels for anchor and offset: the region is 1:1 with
+				// screen pixels and rotations are quarter turns, so every corner
+				// lands on a pixel edge and NEAREST sampling stays exact.
+				const o = n * LABEL_INST_FLOATS;
+				inst[o] = Math.round(l.x * dpr);
+				inst[o + 1] = Math.round(l.y * dpr);
+				inst[o + 2] = Math.round(offX * dpr);
+				inst[o + 3] = Math.round(offY * dpr);
+				inst[o + 4] = region.wPx;
+				inst[o + 5] = region.hPx;
+				inst[o + 6] = region.u0;
+				inst[o + 7] = region.v0;
+				inst[o + 8] = region.uw;
+				inst[o + 9] = region.vh;
+				inst[o + 10] = l.rot ?? 0;
+				n++;
 			}
-			const region = atlas.ensure(runs, l.font);
-			if (!region) continue;
-
-			// Chrome sized from the measured text, mirroring the old 2D canvas
-			// secondary-label drawing (bg rect 14px tall, 2px separator).
-			if (l.bg) pushRect(l.bg, l.x - 2, l.y - 12, region.cssWidth + 4, 14);
-			if (l.tick) pushRect(l.tick.color, l.tick.x - 1, l.y - 12, 2, 14);
-
-			let offX = -region.pad;
-			if (l.align === "center") offX -= region.cssWidth / 2;
-			else if (l.align === "right") offX -= region.cssWidth;
-			const offY =
-				l.baseline === "middle"
-					? -region.cssHeight / 2 - region.pad
-					: -region.ascent - region.pad;
-
-			const o = n * LABEL_INST_FLOATS;
-			inst[o] = l.x * dpr;
-			inst[o + 1] = l.y * dpr;
-			inst[o + 2] = offX * dpr;
-			inst[o + 3] = offY * dpr;
-			inst[o + 4] = region.wPx;
-			inst[o + 5] = region.hPx;
-			inst[o + 6] = region.u0;
-			inst[o + 7] = region.v0;
-			inst[o + 8] = region.uw;
-			inst[o + 9] = region.vh;
-			inst[o + 10] = l.rot ?? 0;
-			n++;
+			if (atlas.generation === generation) break;
 		}
 		if (n === 0) return;
 

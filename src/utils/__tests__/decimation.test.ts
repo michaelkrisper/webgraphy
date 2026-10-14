@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { m4ByXFloat32, m4Float32, m4MergeOctave } from "../decimation";
+import {
+	m4ByXFloat32,
+	m4ByXSegmentsFloat32,
+	m4Float32,
+	m4MergeOctave,
+} from "../decimation";
 
 describe("m4Float32", () => {
 	it("should pass-through if n <= threshold", () => {
@@ -621,5 +626,83 @@ describe("m4MergeOctave", () => {
 		const { merged, direct } = directAndMerged(xData, yData, 0, 2);
 		expect(Array.from(merged.x)).toEqual(Array.from(direct.x));
 		expect(Array.from(merged.y)).toEqual(Array.from(direct.y));
+	});
+});
+
+describe("m4ByXSegmentsFloat32", () => {
+	const scratch = () => ({ x: new Float32Array(0), y: new Float32Array(0) });
+
+	// 0..999 with a NaN gap at 400..409 and a single sample at 700 between
+	// gaps at 699 and 701.
+	function gapped() {
+		const n = 1000;
+		const x = Float32Array.from({ length: n }, (_, i) => i);
+		const y = Float32Array.from({ length: n }, (_, i) => Math.sin(i * 0.37));
+		for (let i = 400; i < 410; i++) y[i] = Number.NaN;
+		y[699] = Number.NaN;
+		y[701] = Number.NaN;
+		const segments = [
+			{ start: 0, end: 399 },
+			{ start: 410, end: 698 },
+			{ start: 700, end: 700 },
+			{ start: 702, end: 999 },
+		];
+		return { x, y, segments };
+	}
+
+	it("decimates each segment into its own run, never across a gap", () => {
+		const { x, y, segments } = gapped();
+		const r = m4ByXSegmentsFloat32(x, y, segments, 0, 0, 999, 16, scratch());
+
+		// Single-sample segment dropped: it draws no line.
+		expect(r.runs.length).toBe(3 * 2);
+		const bounds = [
+			[0, 399],
+			[410, 698],
+			[702, 999],
+		];
+		for (let k = 0; k < 3; k++) {
+			const start = r.runs[k * 2];
+			const count = r.runs[k * 2 + 1];
+			const xs = Array.from(r.x.subarray(start, start + count));
+			expect(Math.min(...xs)).toBe(bounds[k][0]);
+			expect(Math.max(...xs)).toBe(bounds[k][1]);
+		}
+		expect(r.x.length).toBeLessThan(x.length / 2);
+		for (const v of r.y) expect(Number.isNaN(v)).toBe(false);
+	});
+
+	it("keeps every segment's extrema", () => {
+		const { x, y, segments } = gapped();
+		const r = m4ByXSegmentsFloat32(x, y, segments, 0, 0, 999, 16, scratch());
+		const kept = new Set(Array.from(r.y));
+		for (const seg of [segments[0], segments[1], segments[3]]) {
+			const slice = Array.from(y.subarray(seg.start, seg.end + 1));
+			expect(kept.has(Math.max(...slice) as number)).toBe(true);
+			expect(kept.has(Math.min(...slice) as number)).toBe(true);
+		}
+	});
+
+	it("matches the single-run M4 on a segment that spans the window", () => {
+		const { x, y, segments } = gapped();
+		const r = m4ByXSegmentsFloat32(x, y, segments, 0, 450, 650, 4, scratch());
+		const direct = m4ByXFloat32(
+			x.subarray(410, 699),
+			y.subarray(410, 699),
+			0,
+			450,
+			650,
+			4,
+		);
+		expect(r.runs).toEqual([0, direct.x.length]);
+		expect(Array.from(r.x)).toEqual(Array.from(direct.x));
+		expect(Array.from(r.y)).toEqual(Array.from(direct.y));
+	});
+
+	it("skips segments outside the window", () => {
+		const { x, y, segments } = gapped();
+		const r = m4ByXSegmentsFloat32(x, y, segments, 0, 800, 900, 8, scratch());
+		expect(r.runs.length).toBe(2);
+		expect(r.x[0]).toBeGreaterThanOrEqual(702);
 	});
 });

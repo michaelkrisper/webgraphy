@@ -9,7 +9,13 @@
  * Worker-safe: uses `OffscreenCanvas` when available (always true inside the
  * render worker) and falls back to a DOM canvas on the main-thread path.
  * Regions are shelf-packed and kept until the atlas overflows, which resets
- * it wholesale — live labels re-rasterize lazily on demand.
+ * it wholesale — live labels re-rasterize lazily on demand. A reset bumps
+ * `generation`, so a caller holding regions from before it knows they are
+ * stale.
+ *
+ * Regions are rasterized at device resolution and drawn 1:1 (quarter-turn
+ * rotations only, origins snapped to whole device pixels), so the texture is
+ * sampled NEAREST: no filtering blur, every texel lands on one pixel.
  */
 
 export interface LabelRun {
@@ -69,6 +75,8 @@ export class GlLabelAtlas {
 	private rowHeight = 0;
 	private dpr = 1;
 	private failed = false;
+	/** Bumped on every reset; regions from an older generation are stale. */
+	generation = 0;
 
 	constructor(gl: WebGL2RenderingContext) {
 		this.gl = gl;
@@ -90,8 +98,8 @@ export class GlLabelAtlas {
 			gl.UNSIGNED_BYTE,
 			null,
 		);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	}
@@ -104,6 +112,7 @@ export class GlLabelAtlas {
 	}
 
 	private reset(): void {
+		this.generation++;
 		this.regions.clear();
 		this.cursorX = 0;
 		this.cursorY = 0;

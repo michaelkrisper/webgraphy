@@ -3,7 +3,7 @@
  * Per bucket: emit (first, last, min, max) — preserves visible extrema for line plots.
  */
 
-import { findFirstGE } from "./binarySearch";
+import { findFirstGE, findLastLE, findSegmentStartIndex } from "./binarySearch";
 
 /**
  * Pixel-anchored M4 decimation. Buckets are X-world intervals tied to screen pixels,
@@ -154,6 +154,102 @@ export function m4ByXFloat32(
 		out.y = yOut;
 	}
 	return { x: xOut.subarray(0, outIdx), y: yOut.subarray(0, outIdx) };
+}
+
+/** M4 output split into NaN-free runs: flat (start, count) pairs into x/y. */
+export interface M4Runs {
+	x: Float32Array;
+	y: Float32Array;
+	runs: number[];
+}
+
+// Segments this short gain nothing from M4; copying them skips a subarray
+// view and a bucket scan each, which adds up for heavily gapped series.
+const RAW_COPY_MAX = 4;
+
+/**
+ * Gap-preserving `m4ByXFloat32`: decimates each segment (a NaN-free run of a
+ * series with monotonic x) on its own and concatenates the results, recording
+ * where each segment's output starts so a line renderer can draw the runs
+ * separately instead of bridging the gaps. The bucket grid is the same
+ * world-0-anchored one for every segment, so results nest across octaves
+ * exactly like the single-run path. Segments with a single sample are dropped
+ * (they draw no line); segments outside `[xMin, xMax]` are skipped.
+ */
+export function m4ByXSegmentsFloat32(
+	xData: Float32Array,
+	yData: Float32Array,
+	segments: readonly { start: number; end: number }[],
+	xRef: number,
+	xMin: number,
+	xMax: number,
+	bucketWidth: number,
+	scratch: { x: Float32Array; y: Float32Array },
+): M4Runs {
+	let xOut = new Float32Array(64);
+	let yOut = new Float32Array(64);
+	let len = 0;
+	const runs: number[] = [];
+	const reserve = (extra: number) => {
+		if (len + extra <= xOut.length) return;
+		let cap = xOut.length * 2;
+		while (cap < len + extra) cap *= 2;
+		const gx = new Float32Array(cap);
+		const gy = new Float32Array(cap);
+		gx.set(xOut.subarray(0, len));
+		gy.set(yOut.subarray(0, len));
+		xOut = gx;
+		yOut = gy;
+	};
+
+	if (segments.length === 0 || bucketWidth <= 0 || !(xMax >= xMin)) {
+		return { x: xOut.subarray(0, 0), y: yOut.subarray(0, 0), runs };
+	}
+	const first = findSegmentStartIndex(
+		segments as { start: number; end: number }[],
+		findLastLE(xData, xMin, xRef, 0),
+	);
+	for (let s = first; s < segments.length; s++) {
+		const seg = segments[s];
+		const count = seg.end - seg.start + 1;
+		if (count < 2) continue;
+		const segX0 = xData[seg.start] + xRef;
+		const segX1 = xData[seg.end] + xRef;
+		if (segX1 < xMin) continue;
+		if (segX0 > xMax) break;
+
+		const runStart = len;
+		if (count <= RAW_COPY_MAX) {
+			reserve(count);
+			for (let i = seg.start; i <= seg.end; i++) {
+				xOut[len] = xData[i];
+				yOut[len] = yData[i];
+				len++;
+			}
+		} else {
+			// Clamp the window to the segment so the bucket walk stays local;
+			// a segment that ends past the window still gets its in-segment
+			// edge anchors from m4ByXFloat32.
+			const lo = Math.max(xMin, segX0);
+			let hi = Math.min(xMax, segX1);
+			if (hi <= lo) hi = lo + bucketWidth; // vertical run at a single x
+			const r = m4ByXFloat32(
+				xData.subarray(seg.start, seg.end + 1),
+				yData.subarray(seg.start, seg.end + 1),
+				xRef,
+				lo,
+				hi,
+				bucketWidth,
+				scratch,
+			);
+			reserve(r.x.length);
+			xOut.set(r.x, len);
+			yOut.set(r.y, len);
+			len += r.x.length;
+		}
+		if (len > runStart) runs.push(runStart, len - runStart);
+	}
+	return { x: xOut.subarray(0, len), y: yOut.subarray(0, len), runs };
 }
 
 /**
