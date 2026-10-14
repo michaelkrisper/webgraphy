@@ -115,7 +115,12 @@ export function XAxisInteractionZones({
 								}}
 								style={{
 									position: "absolute",
-									bottom: bY + m.height - m.titleBottom + 2,
+									// Centred on the WebGL title glyphs (baseline at
+									// titleBottom) so the opaque box hides the title
+									// instead of leaving its lower half peeking out.
+									bottom: bY + m.height - m.titleBottom - 7,
+									height: 20,
+									boxSizing: "border-box",
 									left: "50%",
 									transform: "translateX(-50%)",
 									zIndex: 30,
@@ -125,7 +130,7 @@ export function XAxisInteractionZones({
 									background: themeColors.plotBg,
 									border: `1px solid ${themeColors.gridColor}`,
 									borderRadius: "4px",
-									padding: "2px 4px",
+									padding: "0 4px",
 									outline: "none",
 									width: "80%",
 									maxWidth: "300px",
