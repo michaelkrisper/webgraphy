@@ -74,10 +74,10 @@ describe("axis zone keyboard access", () => {
 
 	it("names each zone after its axis and the keys it takes", () => {
 		expect(axisZoneLabel("x", "axis-1", "Time")).toBe(
-			"X axis 1: Time — arrows pan, +/- zoom, A autoscale, Enter rename",
+			"X axis 1: Time — arrows pan, +/- zoom, A autoscale, R range, Enter rename",
 		);
 		expect(axisZoneLabel("y", "axis-3", "")).toBe(
-			"Y axis 3 — arrows pan, +/- zoom, A autoscale",
+			"Y axis 3 — arrows pan, +/- zoom, A autoscale, R range",
 		);
 	});
 
@@ -162,6 +162,40 @@ describe("axis zone keyboard access", () => {
 			["axis-2", "zoom-in"],
 		]);
 		expect(yProps.onAutoScaleY).toHaveBeenCalledWith("axis-2");
+	});
+
+	it("opens the range editor on R and on right-click, anchored at the zone", () => {
+		const onEditRange = vi.fn();
+		render(
+			<>
+				<XAxisInteractionZones {...xProps} onEditRange={onEditRange} />
+				<YAxisInteractionZones {...yProps} onEditRange={onEditRange} />
+			</>,
+		);
+		const x = screen.getByRole("group", { name: /^X axis 1/ });
+		const y = screen.getByRole("group", { name: /^Y axis 2/ });
+		fireEvent.keyDown(x, { key: "r" });
+		fireEvent.keyDown(y, { key: "R" });
+		const menu = fireEvent.contextMenu(y);
+		expect(onEditRange.mock.calls).toEqual([
+			["axis-1", x],
+			["axis-2", y],
+			["axis-2", y],
+		]);
+		// Claimed: no browser context menu over the axis.
+		expect(menu).toBe(false);
+		expect(xProps.setEditingXAxisId).not.toHaveBeenCalled();
+	});
+
+	it("leaves Alt+arrows (zoom history) to the chart", () => {
+		const onWindowKey = vi.fn();
+		window.addEventListener("keydown", onWindowKey);
+		render(<XAxisInteractionZones {...xProps} />);
+		const zone = screen.getByRole("group", { name: /^X axis 1/ });
+		fireEvent.keyDown(zone, { key: "ArrowLeft", altKey: true });
+		expect(xProps.onAxisStep).not.toHaveBeenCalled();
+		expect(onWindowKey).toHaveBeenCalledTimes(1);
+		window.removeEventListener("keydown", onWindowKey);
 	});
 
 	it("focuses the rename input and returns focus to the zone on Enter", () => {

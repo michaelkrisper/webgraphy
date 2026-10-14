@@ -53,6 +53,7 @@ describe("shortcutHint", () => {
 		expect(shortcutHint(SHORTCUTS.fitAll)).toBe("Home");
 		expect(shortcutHint(SHORTCUTS.stackedFit)).toBe("Shift+Home");
 		expect(shortcutHint(SHORTCUTS.undo)).toBe("Ctrl+Z");
+		expect(shortcutHint(SHORTCUTS.viewBack)).toBe("Alt+←");
 	});
 });
 
