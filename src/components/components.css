@@ -1530,3 +1530,23 @@
 		}
 	}
 }
+.sb-storage-readout {
+	position: absolute;
+	bottom: 100%;
+	left: 8px;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-width: calc(100% - 16px);
+	padding: 8px 10px;
+	background: var(--bg);
+	border: 1px solid var(--border-color);
+	box-shadow: 0 4px 12px var(--shadow);
+	font-size: 0.7rem;
+	color: var(--text-muted-color);
+	white-space: normal;
+}
+.sb-storage-readout strong {
+	color: var(--text-color);
+}
