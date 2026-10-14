@@ -3,6 +3,7 @@ import {
 	Columns3,
 	Crosshair,
 	FilePlus,
+	FileSpreadsheet,
 	FlaskConical,
 	Grid3x3,
 	Image,
@@ -168,11 +169,22 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 							icon: <Grid3x3 size={16} />,
 							label: "Export as PNG (pixel)",
 						},
+						{
+							value: "csv",
+							icon: <FileSpreadsheet size={16} />,
+							label: "Export visible data as CSV",
+						},
 					]}
-					current={"" as "svg" | "png" | ""}
+					current={"" as "svg" | "png" | "csv" | ""}
 					onChange={(v) => {
 						if (v === "svg") onExportSVG();
 						else if (v === "png") onExportPNG();
+						else if (v === "csv") {
+							// Loaded on demand, like the SVG renderer.
+							void import("../../services/csvExport").then((m) =>
+								m.exportVisibleCsv({ series, datasets, xAxes }),
+							);
+						}
 					}}
 					popoverId="export-popover"
 					renderTrigger={({ onClick, ref }) => (
@@ -180,8 +192,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 							ref={ref}
 							type="button"
 							onClick={onClick}
-							title="Export Image"
-							aria-label="Export Image"
+							title="Export Image or Data"
+							aria-label="Export Image or Data"
 							className="sb-hdr-btn"
 						>
 							<Image size={24} />

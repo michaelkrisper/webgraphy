@@ -1,11 +1,16 @@
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import type { Mock } from "vitest";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { useTheme } from "../../../hooks/useTheme";
 import { SidebarHeader } from "../SidebarHeader";
+import { exportVisibleCsv } from "../../../services/csvExport";
+
+vi.mock("../../../services/csvExport", () => ({
+	exportVisibleCsv: vi.fn(() => Promise.resolve()),
+}));
 
 vi.mock("../../../store/useGraphStore", () => {
 	const store = vi.fn() as ReturnType<typeof vi.fn> & {
@@ -57,6 +62,10 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 						<button
 							data-testid="export-png-trigger"
 							onClick={() => onChange("png")}
+						/>
+						<button
+							data-testid="export-csv-trigger"
+							onClick={() => onChange("csv")}
 						/>
 					</>
 				)}
@@ -237,6 +246,25 @@ describe("SidebarHeader", () => {
 
 		fireEvent.click(screen.getByTestId("export-png-trigger"));
 		expect(mockOnExportPNG).toHaveBeenCalled();
+	});
+
+	it("exports the visible data as CSV from the export menu", async () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("export-csv-trigger"));
+		await waitFor(() => expect(exportVisibleCsv).toHaveBeenCalledTimes(1));
+		expect(exportVisibleCsv).toHaveBeenCalledWith(
+			expect.objectContaining({ xAxes: [{ id: "axis-1", showGrid: true }] }),
+		);
+		expect(mockOnExportSVG).not.toHaveBeenCalled();
+		expect(mockOnExportPNG).not.toHaveBeenCalled();
 	});
 
 	it("handles theme selection correctly", () => {

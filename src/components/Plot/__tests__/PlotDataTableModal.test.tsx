@@ -1,13 +1,19 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
+import { exportVisibleCsv } from "../../../services/csvExport";
 import type {
 	Dataset,
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 import { PlotDataTableModal } from "../PlotDataTableModal";
+
+vi.mock("../../../services/csvExport", () => ({
+	exportVisibleCsv: vi.fn(() => Promise.resolve()),
+}));
 
 const dataset = {
 	id: "ds-1",
@@ -88,6 +94,87 @@ describe("PlotDataTableModal", () => {
 
 		expect(screen.queryByRole("table")).not.toBeInTheDocument();
 		expect(screen.getByText(/No data series are displayed/)).toBeInTheDocument();
+	});
+
+	describe("actions", () => {
+		const renderModal = (s = series) =>
+			render(
+				<PlotDataTableModal
+					series={s}
+					datasets={[dataset]}
+					xAxes={xAxes}
+					onClose={vi.fn()}
+				/>,
+			);
+
+		beforeEach(() => {
+			useNotificationStore.setState({ notifications: [] });
+			vi.mocked(exportVisibleCsv).mockClear();
+		});
+
+		it("copies the shown rows as TSV and confirms with a toast", async () => {
+			const writeText = vi.fn(() => Promise.resolve());
+			Object.defineProperty(navigator, "clipboard", {
+				value: { writeText },
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications).toHaveLength(1),
+			);
+			expect(writeText).toHaveBeenCalledWith(
+				"Time\tTemperature\n0\t10\n1\t20\n2\t30\n3\t40\n",
+			);
+			const [toast] = useNotificationStore.getState().notifications;
+			expect(toast.kind).toBe("success");
+			expect(toast.message).toMatch(/4 rows/);
+		});
+
+		it("reports a rejected clipboard write", async () => {
+			Object.defineProperty(navigator, "clipboard", {
+				value: { writeText: () => Promise.reject(new Error("denied")) },
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications).toHaveLength(1),
+			);
+			const [toast] = useNotificationStore.getState().notifications;
+			expect(toast.kind).toBe("error");
+			expect(toast.message).toMatch(/denied/);
+		});
+
+		it("reports a missing clipboard API", async () => {
+			Object.defineProperty(navigator, "clipboard", {
+				value: undefined,
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications[0]?.kind).toBe(
+					"error",
+				),
+			);
+		});
+
+		it("exports the visible range as CSV", () => {
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Export CSV/ }));
+			expect(exportVisibleCsv).toHaveBeenCalledWith({
+				series,
+				datasets: [dataset],
+				xAxes,
+			});
+		});
+
+		it("disables both when nothing is plotted", () => {
+			renderModal([]);
+			expect(screen.getByRole("button", { name: /Copy table/ })).toBeDisabled();
+			expect(screen.getByRole("button", { name: /Export CSV/ })).toBeDisabled();
+		});
 	});
 
 	it("has no axe violations", async () => {

@@ -1,4 +1,4 @@
-import { Calculator, Pencil, Trash2 } from "lucide-react";
+import { Calculator, Download, Pencil, Trash2 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
@@ -206,6 +206,25 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						aria-label="Add Calculated Column"
 					>
 						<Calculator size={16} />
+					</button>
+					<button
+						type="button"
+						onClick={() =>
+							void import("../../services/csvExport").then((m) =>
+								m.exportDatasetCsv(ds),
+							)
+						}
+						style={{
+							padding: "4px",
+							background: "none",
+							border: "none",
+							cursor: "pointer",
+							color: t.textMuted,
+						}}
+						title="Export Dataset as CSV"
+						aria-label={`Export ${ds.name} as CSV`}
+					>
+						<Download size={16} />
 					</button>
 					<button
 						type="button"
