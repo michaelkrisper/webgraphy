@@ -4,6 +4,7 @@ import {
 	computeDrawRanges,
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
+	type SegmentCache,
 } from "../components/Plot/seriesPrep";
 import { controlWorkload } from "./control";
 import { LARGE, makeGappySeries, makeSeries } from "./fixtures";
@@ -20,7 +21,7 @@ const gappy = makeGappySeries(LARGE);
 describe("seriesPrep", () => {
 	// Cache-hit path: what actually happens on every frame after the first.
 	const warmMono = new WeakMap<Float32Array, boolean>();
-	const warmSeg = new WeakMap<Float32Array, { start: number; end: number }[]>();
+	const warmSeg: SegmentCache = new WeakMap();
 	getOrComputeMonotonicity(clean.x, warmMono);
 	getOrComputeSegments(gappy.x, gappy.y, warmSeg);
 

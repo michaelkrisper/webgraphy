@@ -225,7 +225,6 @@ class WorkerBackend implements RenderBackend {
 			keep.add(yColId);
 			msgList.push({
 				id: s.id,
-				segKey: s.segKey,
 				xAxisId: s.xAxisId,
 				yAxisId: s.yAxisId,
 				hidden: s.hidden,

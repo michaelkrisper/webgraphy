@@ -17,13 +17,18 @@ import {
 
 const FLOATS_PER_INSTANCE = 5;
 
+// Shared across bundles: the cache compares column identity, so two bundles
+// describe the same series only when they hold the same arrays.
+const n = 8;
+const X_DATA = Float32Array.from({ length: n }, (_, i) => i);
+const Y_DATA = Float32Array.from({ length: n }, (_, i) => i * 2);
+
 function bundleWith(
 	overrides: Partial<SeriesDrawBundle> = {},
 ): SeriesDrawBundle {
-	const n = 8;
 	return {
-		xData: Float32Array.from({ length: n }, (_, i) => i),
-		yData: Float32Array.from({ length: n }, (_, i) => i * 2),
+		xData: X_DATA,
+		yData: Y_DATA,
 		xRef: 0,
 		yRef: 0,
 		xAxisMin: 0,
@@ -133,6 +138,23 @@ describe("dashCacheParams / dashParamsEqual", () => {
 			7,
 		);
 		expect(dashParamsEqual(before, after)).toBe(false);
+	});
+
+	it("misses when the series is re-pointed at different columns", () => {
+		// The cache is per series id; removing a calculated column shifts the
+		// column indices, so the same id can suddenly resolve to another
+		// array of identical length and shape.
+		const before = dashCacheParams(bundle, 7);
+		const swappedY = dashCacheParams(
+			bundleWith({ xData: bundle.xData, yData: bundle.yData.slice() }),
+			7,
+		);
+		const swappedX = dashCacheParams(
+			bundleWith({ xData: bundle.xData.slice(), yData: bundle.yData }),
+			7,
+		);
+		expect(dashParamsEqual(before, swappedY)).toBe(false);
+		expect(dashParamsEqual(before, swappedX)).toBe(false);
 	});
 
 	it("records every field it compares", () => {

@@ -4,6 +4,7 @@ import {
 	computeDrawRanges,
 	getOrComputeMonotonicity,
 	getOrComputeSegments,
+	type SegmentCache,
 } from "../seriesPrep";
 
 describe("getOrComputeMonotonicity", () => {
@@ -78,13 +79,33 @@ describe("getOrComputeSegments", () => {
 		]);
 	});
 
-	it("memoizes by yData identity, not xData", () => {
+	it("memoizes per (yData, xData) identity pair", () => {
 		const xData = new Float32Array([0, 1, 2]);
 		const yData = new Float32Array([1, 2, 3]);
-		const cache = new WeakMap<Float32Array, { start: number; end: number }[]>();
+		const cache: SegmentCache = new WeakMap();
 		const first = getOrComputeSegments(xData, yData, cache);
 		const second = getOrComputeSegments(xData, yData, cache);
 		expect(second).toBe(first);
+	});
+
+	it("recomputes breaks when the same y column is paired with a new x column", () => {
+		// Switching a dataset's x column keeps the y array; the backward jump in
+		// the new x column must still split the series.
+		const yData = new Float32Array([1, 2, 3, 4]);
+		const xSorted = new Float32Array([0, 1, 2, 3]);
+		const xWrapped = new Float32Array([0, 1, 0, 1]);
+		const cache: SegmentCache = new WeakMap();
+		expect(getOrComputeSegments(xSorted, yData, cache)).toEqual([
+			{ start: 0, end: 3 },
+		]);
+		expect(getOrComputeSegments(xWrapped, yData, cache)).toEqual([
+			{ start: 0, end: 1 },
+			{ start: 2, end: 3 },
+		]);
+		// Both pairings stay cached independently.
+		expect(getOrComputeSegments(xSorted, yData, cache)).toEqual([
+			{ start: 0, end: 3 },
+		]);
 	});
 });
 
