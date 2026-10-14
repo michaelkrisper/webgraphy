@@ -9,14 +9,16 @@ import {
 	List,
 	Moon,
 	PanelRightClose,
+	Redo2,
 	Spline,
 	Sun,
 	Table,
 	Terminal,
+	Undo2,
 } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
-import { useGraphStore } from "../../store/useGraphStore";
+import { useGraphHistory, useGraphStore } from "../../store/useGraphStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
@@ -88,16 +90,19 @@ const HeaderButton = ({
 	title,
 	color,
 	off,
+	disabled,
 }: {
 	onClick: () => void;
 	icon: React.ReactNode;
 	title: string;
 	color?: string;
 	off?: boolean;
+	disabled?: boolean;
 }) => (
 	<button
 		type="button"
 		onClick={onClick}
+		disabled={disabled}
 		title={title}
 		aria-label={title}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
@@ -131,6 +136,10 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const datasets = useGraphStore((s) => s.datasets);
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
+	const undo = useGraphStore((s) => s.undo);
+	const redo = useGraphStore((s) => s.redo);
+	const undoLabel = useGraphHistory((s) => s.past.at(-1)?.label);
+	const redoLabel = useGraphHistory((s) => s.future.at(-1)?.label);
 
 	const hdrSep = <span className="sb-hdr-sep" />;
 
@@ -150,6 +159,23 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				title="Import Data Source"
 			/>
 			<div className="sb-hdr-btns">
+				<HeaderButton
+					onClick={undo}
+					icon={<Undo2 size={24} />}
+					title={
+						undoLabel ? `Undo: ${undoLabel} (Ctrl+Z)` : "Undo (nothing to undo)"
+					}
+					disabled={!undoLabel}
+				/>
+				<HeaderButton
+					onClick={redo}
+					icon={<Redo2 size={24} />}
+					title={
+						redoLabel ? `Redo: ${redoLabel} (Ctrl+Shift+Z)` : "Redo (nothing to redo)"
+					}
+					disabled={!redoLabel}
+				/>
+				{hdrSep}
 				<HeaderButton
 					onClick={loadDemoData}
 					icon={<FlaskConical size={24} />}

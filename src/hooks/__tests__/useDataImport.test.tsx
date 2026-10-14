@@ -20,6 +20,7 @@ vi.mock("../../store/useGraphStore", () => ({
 			})),
 		},
 	),
+	withHistory: (_label: string, fn: () => unknown) => fn(),
 }));
 
 // Mock persistence

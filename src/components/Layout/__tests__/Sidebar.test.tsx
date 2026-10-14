@@ -81,7 +81,11 @@ vi.mock("../../../store/useGraphStore", () => {
 	};
 	store.getState = vi.fn();
 	store.setState = vi.fn();
-	return { useGraphStore: store };
+	return {
+		useGraphStore: store,
+		useGraphHistory: (sel: (s: { past: []; future: [] }) => unknown) =>
+			sel({ past: [], future: [] }),
+	};
 });
 
 vi.mock("../../../hooks/useDataImport", () => ({

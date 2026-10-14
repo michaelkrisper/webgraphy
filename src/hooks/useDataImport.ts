@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { ParsedDataset, SeriesConfig } from "../services/persistence";
-import { useGraphStore } from "../store/useGraphStore";
+import { useGraphStore, withHistory } from "../store/useGraphStore";
 import type { ImportSettings } from "../types/import";
 import { buildSeriesConfig } from "../utils/series";
 import { parseDataInWorker } from "../workers/parserClient";
@@ -145,7 +145,9 @@ export const useDataImport = () => {
 				const datasets = await parseDataInWorker(workerFile, workerType, settings);
 				const incoming = datasets ?? [];
 
-				processImportedDatasets(incoming, addDataset, addSeries);
+				withHistory(`import '${file.name}'`, () =>
+					processImportedDatasets(incoming, addDataset, addSeries),
+				);
 
 				setIsImporting(false);
 				setPendingFile(null);

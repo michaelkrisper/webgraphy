@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import type { Mock } from "vitest";
-import { useGraphStore } from "../../../store/useGraphStore";
+import { useGraphHistory, useGraphStore } from "../../../store/useGraphStore";
 import { useTheme } from "../../../hooks/useTheme";
 import { SidebarHeader } from "../SidebarHeader";
 
@@ -14,7 +14,7 @@ vi.mock("../../../store/useGraphStore", () => {
 	};
 	store.getState = vi.fn();
 	store.setState = vi.fn();
-	return { useGraphStore: store };
+	return { useGraphStore: store, useGraphHistory: vi.fn() };
 });
 
 vi.mock("../../../hooks/useTheme", () => ({
@@ -79,6 +79,12 @@ describe("SidebarHeader", () => {
 	const mockSetLegendVisible = vi.fn();
 	const mockSetCrosshairVisible = vi.fn();
 	const mockSetTheme = vi.fn();
+	const mockUndo = vi.fn();
+	const mockRedo = vi.fn();
+	let history: {
+		past: { label: string }[];
+		future: { label: string }[];
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -91,10 +97,16 @@ describe("SidebarHeader", () => {
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: true,
 			setCrosshairVisible: mockSetCrosshairVisible,
+			undo: mockUndo,
+			redo: mockRedo,
 		};
 		(useGraphStore as unknown as Mock).mockImplementation(
 			(sel?: (s: typeof defaultState) => unknown) =>
 				sel ? sel(defaultState) : defaultState,
+		);
+		history = { past: [], future: [] };
+		(useGraphHistory as unknown as Mock).mockImplementation(
+			(sel: (s: typeof history) => unknown) => sel(history),
 		);
 
 		(useTheme as unknown as Mock).mockReturnValue([
@@ -122,6 +134,38 @@ describe("SidebarHeader", () => {
 		expect(screen.getByTitle("Collapse Sidebar")).toBeInTheDocument();
 		// Webgraphy logo button (first button) — identified by its logo image
 		expect(screen.getByAltText("webgraphy logo")).toBeInTheDocument();
+	});
+
+	it("disables Undo/Redo when the history is empty", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+			/>,
+		);
+		expect(screen.getByTitle("Undo (nothing to undo)")).toBeDisabled();
+		expect(screen.getByTitle("Redo (nothing to redo)")).toBeDisabled();
+	});
+
+	it("labels Undo/Redo with the next action and runs them", () => {
+		history = {
+			past: [{ label: "add series 'a'" }, { label: "delete dataset 'foo'" }],
+			future: [{ label: "hide legend" }],
+		};
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+			/>,
+		);
+		fireEvent.click(screen.getByTitle("Undo: delete dataset 'foo' (Ctrl+Z)"));
+		expect(mockUndo).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByTitle("Redo: hide legend (Ctrl+Shift+Z)"));
+		expect(mockRedo).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls onCollapse when logo button is clicked", () => {

@@ -1,7 +1,8 @@
 import { Circle, EyeOff, GripVertical, Rows3, Trash2, X } from "lucide-react";
 import type React from "react";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
-import { useGraphStore } from "../../store/useGraphStore";
+import { deleteWithUndo } from "../../store/undoToast";
+import { useGraphStore, withHistory } from "../../store/useGraphStore";
 import ColorPicker from "./ColorPicker";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 
@@ -159,10 +160,12 @@ export const SeriesConfigUI: React.FC<Props> = ({
 
 	const selectYAxis = (n: number) => {
 		const nextAxisId = `axis-${n}`;
-		if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
-			updateYAxis(nextAxisId, { position: "left" });
-		}
-		handleUpdate({ yAxisId: nextAxisId });
+		withHistory(`move '${series.name || series.yColumn}' to Y-axis ${n}`, () => {
+			if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
+				updateYAxis(nextAxisId, { position: "left" });
+			}
+			handleUpdate({ yAxisId: nextAxisId });
+		});
 	};
 
 	return (
@@ -354,7 +357,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 
 			{/* Delete Button */}
 			<button
-				onClick={() => removeSeries(series.id)}
+				onClick={() =>
+					deleteWithUndo(series.name || series.yColumn, () =>
+						removeSeries(series.id),
+					)
+				}
 				className="sc-btn sc-btn--plain"
 				style={{ borderRight: "none", color: "var(--danger)" }}
 				title="Delete"
