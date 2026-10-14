@@ -7,8 +7,15 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
+      # Kept out of the main group: the e2e job's container image tag in
+      # ci.yml must be bumped by hand in the same PR (Dependabot's docker
+      # ecosystem does not read workflow container images), and CI fails until
+      # it is. A separate PR keeps that from blocking the other updates.
+      playwright:
+        patterns: ["@playwright/test"]
       npm-minor-patch:
         patterns: ["*"]
+        exclude-patterns: ["@playwright/test"]
         update-types: ["minor", "patch"]
 
   # Keep the CI workflow's actions current too.
