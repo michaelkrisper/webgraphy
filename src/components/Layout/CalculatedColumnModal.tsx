@@ -25,7 +25,6 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	initialFormula,
 }) => {
 	const addCalculatedColumn = useGraphStore((s) => s.addCalculatedColumn);
-	const removeCalculatedColumn = useGraphStore((s) => s.removeCalculatedColumn);
 	const isEditing = !!initialName;
 	const [manualName, setManualName] = useState(initialName ?? "");
 	const [nameUserEdited, setNameUserEdited] = useState(isEditing);
@@ -109,12 +108,11 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 
 		setIsCalculating(true);
 		try {
-			if (isEditing && initialName)
-				removeCalculatedColumn(dataset.id, initialName);
 			const result = await addCalculatedColumn(
 				dataset.id,
 				nameToSubmit,
 				closedFormula,
+				isEditing ? initialName : undefined,
 			);
 			if (result.success) {
 				onClose();

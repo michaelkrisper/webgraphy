@@ -206,6 +206,7 @@ describe("evaluateRolling", () => {
 			sums: {},
 			sumsSq: {},
 			counts: {},
+			stdEvictions: {},
 		} as unknown as FormulaContext;
 
 		expect(

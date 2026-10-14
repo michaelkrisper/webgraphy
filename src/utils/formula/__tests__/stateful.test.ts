@@ -39,6 +39,28 @@ describe("stateful functions skip non-finite inputs", () => {
 		expect(out[4]).toBeCloseTo(2);
 	});
 
+	it("rollingStd stays accurate on large offsets with small spread", () => {
+		// Two-pass sample std over the finite values of each trailing window.
+		const reference = (data: number[], n: number) =>
+			data.map((_, i) => {
+				const w = data.slice(Math.max(0, i - n + 1), i + 1).filter(Number.isFinite);
+				if (w.length === 0) return NaN;
+				if (w.length < 2) return 0;
+				const mean = w.reduce((a, b) => a + b, 0) / w.length;
+				const ss = w.reduce((a, b) => a + (b - mean) ** 2, 0);
+				return Math.sqrt(ss / (w.length - 1));
+			});
+		const data = Array.from({ length: 5000 }, (_, i) =>
+			i % 97 === 0 ? NaN : 1.7e9 + i * 0.5 + Math.sin(i * 0.7) * 3,
+		);
+		const out = run("rollingStd([Temp], 25)", data);
+		const ref = reference(data, 25);
+		expect(out[0]).toBeNaN();
+		for (let i = 1; i < data.length; i++) {
+			expect(Math.abs(out[i] - ref[i])).toBeLessThan(1e-5 * Math.max(1, ref[i]));
+		}
+	});
+
 	it("rollingMed/Min/Max ignore NaN and are NaN for an all-NaN window", () => {
 		const data = [5, NaN, 1, NaN, NaN, 3];
 		const med = run("rollingMed([Temp], 2)", data);
