@@ -314,6 +314,7 @@ describe("DataSourcesSection", () => {
 			}),
 		);
 
+		(useGraphStore.getState as Mock).mockReturnValue({ yAxes: [] });
 		renderComponent();
 
 		const createSeriesBtn = screen.getByRole("button", { name: "y" });

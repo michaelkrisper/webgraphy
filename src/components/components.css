@@ -1391,6 +1391,21 @@
 .sb-series-list--dragging .sb-series-row {
 	pointer-events: none;
 }
+/* Set by DatasetItem when a plotted column's chip points at its series. */
+.sb-series-row--flash {
+	background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.sb-series-row--flash {
+		animation: series-row-flash 1.2s ease-out;
+	}
+	@keyframes series-row-flash {
+		0%,
+		40% {
+			background-color: color-mix(in srgb, var(--accent) 35%, transparent);
+		}
+	}
+}
 .sb-footer {
 	padding: 8px 16px;
 	border-top: 1px solid var(--border-color);
@@ -1410,12 +1425,27 @@
 	cursor: pointer;
 }
 
+.col-chip-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px;
+	padding: 4px 6px;
+}
 .col-chip {
 	display: flex;
 	position: relative;
 	width: 100%;
 	margin: 0;
 	box-sizing: border-box;
+	border-radius: 3px;
+	background: var(--bg);
+}
+.col-chip:hover {
+	background: var(--bg3);
+}
+.col-chip--plotted,
+.col-chip--plotted:hover {
+	background: color-mix(in srgb, var(--accent) 14%, var(--bg));
 }
 .col-chip > button:first-child {
 	flex: 1;
@@ -1423,6 +1453,28 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+.col-chip-btn {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 0.7rem;
+	padding: 3px 8px;
+	border: none;
+	border-radius: 3px;
+	background: none;
+	color: var(--text-color);
+	cursor: pointer;
+	text-align: left;
+}
+.col-chip--plotted .col-chip-btn {
+	font-weight: 600;
+}
+.col-chip-swatch {
+	flex-shrink: 0;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
 }
 .col-chip-actions {
 	display: flex;
@@ -1438,7 +1490,8 @@
 .col-chip-actions button {
 	border-left: none;
 }
-.col-chip:hover .col-chip-actions {
+.col-chip:hover .col-chip-actions,
+.col-chip:focus-within .col-chip-actions {
 	opacity: 1;
 	pointer-events: auto;
 }
