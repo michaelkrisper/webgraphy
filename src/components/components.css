@@ -1273,6 +1273,11 @@
 	background-color: var(--bg3);
 	border-radius: 4px;
 }
+.sb-hdr-btn:disabled {
+	opacity: 0.35;
+	cursor: default;
+	background: none;
+}
 .sb-hdr-btn--off::after {
 	content: "";
 	position: absolute;

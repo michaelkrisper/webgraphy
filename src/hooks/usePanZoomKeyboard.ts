@@ -10,7 +10,7 @@ const PAN_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 const ZOOM_KEYS = new Set(["+", "-"]);
 const ZOOM_PREVENT_DEFAULT_KEYS = new Set(["+", "-", "=", "_"]);
 
-function isEditableTarget(target: EventTarget | null): boolean {
+export function isEditableTarget(target: EventTarget | null): boolean {
 	return (
 		target instanceof HTMLInputElement ||
 		target instanceof HTMLSelectElement ||

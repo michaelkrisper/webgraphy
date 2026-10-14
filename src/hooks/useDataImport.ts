@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { ParsedDataset, SeriesConfig } from "../services/persistence";
-import { useGraphStore } from "../store/useGraphStore";
+import { useGraphStore, withHistory } from "../store/useGraphStore";
 import { notify } from "../store/useNotificationStore";
 import type { ImportSettings } from "../types/import";
 import {
@@ -231,7 +231,9 @@ export const useDataImport = () => {
 
 				const datasets = await parseDataInWorker(workerFile, workerType, settings);
 				if (datasets.length === 0) throw new Error("no data found");
-				processImportedDatasets(datasets, addDataset, addSeries);
+				withHistory(`import '${current.file.name}'`, () =>
+					processImportedDatasets(datasets, addDataset, addSeries),
+				);
 				notify({
 					kind: "success",
 					message: importSummary(current.file.name, datasets),

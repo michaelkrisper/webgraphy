@@ -2,6 +2,7 @@ import { Calculator, Pencil, Trash2 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
+import { deleteWithUndo } from "../../store/undoToast";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
@@ -209,7 +210,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 					</button>
 					<button
 						type="button"
-						onClick={() => removeDataset(ds.id)}
+						onClick={() => deleteWithUndo(ds.name, () => removeDataset(ds.id))}
 						style={{
 							padding: "4px",
 							background: "none",
@@ -356,7 +357,9 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 													✎
 												</button>
 												<button
-													onClick={() => removeCalculatedColumn(ds.id, col)}
+													onClick={() =>
+														deleteWithUndo(col, () => removeCalculatedColumn(ds.id, col))
+													}
 													style={{
 														display: "flex",
 														alignItems: "center",

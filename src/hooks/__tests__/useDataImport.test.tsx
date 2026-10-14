@@ -18,6 +18,7 @@ import { useDataImport } from "../useDataImport";
 
 vi.mock("../../store/useGraphStore", () => ({
 	useGraphStore: Object.assign(vi.fn(), { getState: vi.fn() }),
+	withHistory: (_label: string, fn: () => unknown) => fn(),
 }));
 
 vi.mock("../../workers/parserClient", () => ({

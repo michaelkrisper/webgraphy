@@ -47,7 +47,11 @@ vi.mock("../../../store/useGraphStore", () => {
 	};
 	store.getState = vi.fn();
 	store.setState = vi.fn();
-	return { useGraphStore: store };
+	return {
+		useGraphStore: store,
+		latestHistoryId: vi.fn(),
+		undoIfLatest: vi.fn(),
+	};
 });
 
 describe("DataSourcesSection", () => {
