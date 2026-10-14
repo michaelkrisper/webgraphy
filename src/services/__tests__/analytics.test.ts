@@ -24,7 +24,8 @@ describe("analytics", () => {
 		expect(url.searchParams.get("p")).toBe("/webgraphy/");
 		expect(url.searchParams.get("t")).toBe(document.title);
 		expect(url.searchParams.get("b")).toBe("0");
-		expect(url.searchParams.get("s")).toMatch(/^\d+,\d+,[\d.]+$/);
+		expect(url.searchParams.get("s")).toMatch(/^\d+$/);
+		expect(url.searchParams.has("e")).toBe(false);
 		expect(url.searchParams.get("rnd")).toMatch(/^[a-z0-9]+$/);
 	});
 

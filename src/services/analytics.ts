@@ -36,16 +36,18 @@ function skipReason(): string | null {
 /** The beacon URL for the current page, or `null` when it must not be counted. */
 export function pageviewUrl(): string | null {
 	if (skipReason()) return null;
-	const params = new URLSearchParams({
-		p: location.pathname + location.search,
+	// Mirrors count.js: empty values are omitted, `s` is the screen width only.
+	const fields: Record<string, string> = {
+		p: location.pathname + location.search || "/",
 		t: document.title,
 		r: document.referrer,
-		e: "false",
-		s: [screen.width, screen.height, window.devicePixelRatio || 1].join(","),
+		s: String(screen.width),
 		b: String(botScore()),
 		q: location.search,
 		rnd: Math.random().toString(36).slice(2, 7),
-	});
+	};
+	const params = new URLSearchParams();
+	for (const [k, v] of Object.entries(fields)) if (v !== "") params.set(k, v);
 	return `${GOATCOUNTER_ENDPOINT}?${params}`;
 }
 
