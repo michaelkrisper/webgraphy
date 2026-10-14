@@ -542,6 +542,62 @@
 .axis-zone:focus-visible {
 	outline-offset: -2px;
 }
+.axis-range-popover {
+	position: absolute;
+	z-index: 40;
+	display: grid;
+	gap: 6px;
+	width: 200px;
+	padding: 8px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	font-size: 12px;
+	box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+	cursor: default;
+	user-select: text;
+}
+.axis-range-field {
+	display: grid;
+	grid-template-columns: 32px 1fr;
+	align-items: center;
+	gap: 6px;
+}
+.axis-range-input {
+	min-width: 0;
+	padding: 3px 5px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+}
+.axis-range-input[aria-invalid="true"] {
+	border-color: var(--danger);
+}
+.axis-range-error {
+	color: var(--danger);
+	font-size: 11px;
+}
+.axis-range-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
+.axis-range-btn {
+	padding: 3px 10px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	font: inherit;
+	cursor: pointer;
+}
+.axis-range-btn--primary {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--bg);
+	font-weight: bold;
+}
 .chart-action-btn {
 	display: flex;
 	align-items: center;

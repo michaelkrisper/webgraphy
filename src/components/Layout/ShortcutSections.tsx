@@ -18,6 +18,11 @@ const Keys: React.FC<{ shortcut: Shortcut }> = ({ shortcut }) => (
 				<kbd>Shift</kbd> +{" "}
 			</>
 		)}
+		{shortcut.alt && (
+			<>
+				<kbd>Alt</kbd> +{" "}
+			</>
+		)}
 		{formatShortcutKeys(shortcut).map((k, i) => (
 			<span key={k}>
 				{i > 0 && " / "}
