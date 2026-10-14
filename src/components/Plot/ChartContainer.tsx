@@ -540,10 +540,10 @@ export default function ChartContainer() {
 					const isInteractingNow =
 						panStateRef.current.active || isInteractingRef.current || zoomAnimating;
 
+					measureRef.current?.redraw(liveX, liveY);
 					// Worker backend with a scene context: it derives tick layout,
 					// overlay geometry, and labels itself from the axis ranges —
 					// the main thread's per-frame work ends here.
-					measureRef.current?.redraw(liveX, liveY);
 					if (webglRef.current?.sceneShared()) {
 						webglRef.current.redraw(liveX, liveY);
 						if (forceStoreUpdate || !isInteractingNow) {
