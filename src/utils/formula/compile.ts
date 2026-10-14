@@ -102,6 +102,7 @@ export function compileFormula(
 			sums: {},
 			sumsSq: {},
 			counts: {},
+			stdEvictions: {},
 			timeQueues: {},
 			timeSums: {},
 			groupSums: {},

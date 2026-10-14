@@ -137,6 +137,22 @@ describe("Regression Utilities", () => {
 			expect(result[6]).toBeGreaterThan(result[3]);
 		});
 
+		it("does not depend on row order", () => {
+			const n = 41;
+			const x = Float64Array.from({ length: n }, (_, i) => i * 0.5);
+			const y = x.map((v) => 10 / (1 + Math.exp(-1.5 * (v - 10))));
+			// Deterministic shuffle: 7 is coprime with 41.
+			const perm = Array.from({ length: n }, (_, i) => (i * 7) % n);
+			const sx = Float64Array.from(perm, (p) => x[p]);
+			const sy = Float64Array.from(perm, (p) => y[p]);
+
+			const sorted = logisticRegression(x, y);
+			const shuffled = logisticRegression(sx, sy);
+			for (let i = 0; i < n; i++) {
+				expect(shuffled[i]).toBeCloseTo(sorted[perm[i]], 6);
+			}
+		});
+
 		it("should handle zero range (flat line) gracefully", () => {
 			const x = new Float64Array([0, 1, 2]);
 			const y = new Float64Array([0, 0, 0]); // L will be 0, yRange = 0

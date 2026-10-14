@@ -4,6 +4,8 @@ export interface FormulaContext {
 	sumsSq: Record<number, number>;
 	/** Finite values currently inside a count-based rolling window. */
 	counts: Record<number, number>;
+	/** rollingStd evictions since its window moments were last recomputed. */
+	stdEvictions: Record<number, number>;
 	timeQueues: Record<number, { t: number; v: number }[]>;
 	timeSums: Record<number, number>;
 	groupSums: Record<number, number>;

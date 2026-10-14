@@ -283,6 +283,76 @@ describe("undo/redo", () => {
 		expect(store().datasets[0]).toBe(original);
 	});
 
+	it("records editing a calculated column's formula as one step", async () => {
+		const evalSpy = vi.spyOn(formulaClient, "evaluateFormulaInWorker");
+		const column = (a: number, b: number) =>
+			({
+				type: "success",
+				newColumn: {
+					isFloat64: false,
+					refPoint: 0,
+					data: new Float32Array([a, b]),
+				},
+			}) as Awaited<ReturnType<typeof formulaClient.evaluateFormulaInWorker>>;
+		evalSpy.mockResolvedValueOnce(column(2, 4));
+		store().addDataset(makeDataset("ds-1"));
+		await store().addCalculatedColumn("ds-1", "Double", "[Value] * 2");
+		store().addSeries({ ...makeSeries("s1"), yColumn: "Double", name: "Double" });
+		const before = store().datasets[0];
+		const n = past().length;
+
+		evalSpy.mockResolvedValueOnce(column(3, 6));
+		const res = await store().addCalculatedColumn(
+			"ds-1",
+			"Triple",
+			"[Value] * 3",
+			"Double",
+		);
+		expect(res.success).toBe(true);
+		expect(past()).toHaveLength(n + 1);
+		expect(past().at(-1)?.label).toBe("edit calculated column 'Triple'");
+		const ds = store().datasets[0];
+		expect(ds.columns).toEqual(["Time", "Value", "Triple"]);
+		expect(ds.data[2].formula).toBe("[Value] * 3");
+		// The plotted series follows the edited column instead of vanishing.
+		expect(store().series[0]).toMatchObject({
+			yColumn: "Triple",
+			name: "Triple",
+		});
+		// The column's own old values are not visible to its new formula.
+		expect(evalSpy.mock.lastCall?.[0].columns).toEqual(["Time", "Value"]);
+
+		store().undo();
+		expect(store().datasets[0]).toBe(before);
+		expect(store().series[0].yColumn).toBe("Double");
+	});
+
+	it("leaves state and history untouched when a formula edit fails", async () => {
+		const evalSpy = vi.spyOn(formulaClient, "evaluateFormulaInWorker");
+		evalSpy.mockResolvedValueOnce({
+			type: "success",
+			newColumn: { isFloat64: false, refPoint: 0, data: new Float32Array([2, 4]) },
+		} as Awaited<ReturnType<typeof formulaClient.evaluateFormulaInWorker>>);
+		store().addDataset(makeDataset("ds-1"));
+		await store().addCalculatedColumn("ds-1", "Double", "[Value] * 2");
+		const datasets = store().datasets;
+		const history = past();
+
+		evalSpy.mockResolvedValueOnce({
+			type: "error",
+			error: "boom",
+		} as Awaited<ReturnType<typeof formulaClient.evaluateFormulaInWorker>>);
+		const res = await store().addCalculatedColumn(
+			"ds-1",
+			"Double",
+			"[Value] * 3",
+			"Double",
+		);
+		expect(res).toEqual({ success: false, error: "boom" });
+		expect(store().datasets).toBe(datasets);
+		expect(past()).toBe(history);
+	});
+
 	it("coalesces rapid edits of the same field into one entry", () => {
 		vi.useFakeTimers();
 		store().addSeries(makeSeries("s1"));

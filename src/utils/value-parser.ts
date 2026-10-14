@@ -48,8 +48,22 @@ function getDateFormatIndices(format: string): DateFormatIndices {
 	return cached;
 }
 
+// Dates are wall-clock local time, as the axes and tooltips display them:
+// every format-driven parse and every date-only string ("2024-03-05", which
+// the Date constructor would read as UTC midnight) uses local fields. Strings
+// with an explicit offset or "Z" keep it.
+const ISO_DATE_ONLY = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/;
+
 export function parseDate(val: string, format?: string): number {
 	if (!format) {
+		const m = ISO_DATE_ONLY.exec(val);
+		const month = m?.[2] ? +m[2] : 1;
+		const day = m?.[3] ? +m[3] : 1;
+		if (m && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+			dateScratch.setFullYear(+m[1], month - 1, day);
+			dateScratch.setHours(0, 0, 0, 0);
+			return dateScratch.getTime() / 1000;
+		}
 		const d = new Date(val);
 		return d.getTime() / 1000;
 	}

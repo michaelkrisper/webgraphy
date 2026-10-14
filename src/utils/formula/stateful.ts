@@ -129,33 +129,63 @@ export function statefulRollingStd(
 	val: number,
 	n: number,
 ): number {
+	// Welford with removal: sums holds the window mean and sumsSq the sum of
+	// squared deviations from it. Raw Σx/Σx² cancel catastrophically for large
+	// offsets with a small spread (epoch timestamps, values ~1e6). Removal
+	// still accumulates rounding error over a long column, so the state is
+	// recomputed exactly once per window turnover (amortised O(1) per row).
 	if (!ctx.queues[id]) {
 		ctx.queues[id] = [];
 		ctx.sums[id] = 0;
 		ctx.sumsSq[id] = 0;
 		ctx.counts[id] = 0;
+		ctx.stdEvictions[id] = 0;
 	}
 	const q = ctx.queues[id];
 	q.push(val);
 	if (Number.isFinite(val)) {
-		ctx.sums[id] += val;
-		ctx.sumsSq[id] += val * val;
-		ctx.counts[id]++;
+		const k = ++ctx.counts[id];
+		const delta = val - ctx.sums[id];
+		ctx.sums[id] += delta / k;
+		ctx.sumsSq[id] += delta * (val - ctx.sums[id]);
 	}
 	while (q.length > n) {
 		const old = q.shift()!;
-		if (Number.isFinite(old)) {
-			ctx.sums[id] -= old;
-			ctx.sumsSq[id] -= old * old;
-			ctx.counts[id]--;
+		if (!Number.isFinite(old)) continue;
+		const k = --ctx.counts[id];
+		if (k === 0) {
+			ctx.sums[id] = 0;
+			ctx.sumsSq[id] = 0;
+			continue;
+		}
+		const delta = old - ctx.sums[id];
+		ctx.sums[id] -= delta / k;
+		ctx.sumsSq[id] -= delta * (old - ctx.sums[id]);
+		if (++ctx.stdEvictions[id] >= n) {
+			ctx.stdEvictions[id] = 0;
+			resyncWindowMoments(ctx, id, q);
 		}
 	}
 	const k = ctx.counts[id];
 	if (k === 0) return NaN;
 	if (k < 2) return 0;
-	const mean = ctx.sums[id] / k;
-	const variance = (ctx.sumsSq[id] - k * mean * mean) / (k - 1);
-	return Math.sqrt(Math.max(0, variance));
+	return Math.sqrt(Math.max(0, ctx.sumsSq[id] / (k - 1)));
+}
+
+function resyncWindowMoments(ctx: FormulaContext, id: number, q: number[]) {
+	let sum = 0;
+	let k = 0;
+	for (const v of q) {
+		if (Number.isFinite(v)) {
+			sum += v;
+			k++;
+		}
+	}
+	const mean = k > 0 ? sum / k : 0;
+	let ss = 0;
+	for (const v of q) if (Number.isFinite(v)) ss += (v - mean) * (v - mean);
+	ctx.sums[id] = mean;
+	ctx.sumsSq[id] = ss;
 }
 
 export function statefulRollingMin(

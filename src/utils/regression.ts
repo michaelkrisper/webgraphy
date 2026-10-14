@@ -220,9 +220,14 @@ export function logisticRegression(
 	if (fit.x.length === 0) return new Float64Array(n);
 	// Work in centred x so the x0 updates are not lost against epoch-scale x.
 	const meanX = mean(fit.x);
+	// The initial k is a finite-difference slope over neighbouring indices,
+	// which is only meaningful when rows are ordered by x.
+	const order = Array.from(fit.x.keys()).sort(
+		(a, b) => fit.x[a] - fit.x[b] || fit.y[a] - fit.y[b],
+	);
 	const predict = logisticFit(
-		fit.x.map((v) => v - meanX),
-		fit.y,
+		Float64Array.from(order, (i) => fit.x[i] - meanX),
+		Float64Array.from(order, (i) => fit.y[i]),
 	);
 	const result = new Float64Array(n);
 	for (let i = 0; i < n; i++) result[i] = predict(x[i] - meanX);
