@@ -110,7 +110,9 @@ describe("DataSourcesSection", () => {
 			'input[type="file"]',
 		) as HTMLInputElement;
 		expect(input.multiple).toBe(true);
-		expect(input.accept).toBe(".csv,.tsv,.txt,.dat,.json,.xlsx,.xls,.ods");
+		expect(input.accept).toBe(
+			".csv,.tsv,.txt,.dat,.json,.xlsx,.xls,.ods,.webgraphy",
+		);
 		const files = [new File(["a"], "a.csv"), new File(["b"], "b.tsv")];
 		fireEvent.change(input, { target: { files } });
 		expect(mockImportFile).toHaveBeenCalledWith(files);

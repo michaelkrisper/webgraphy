@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGraphStore } from "../../store/useGraphStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import type { ImportSettings } from "../../types/import";
-import { PREVIEW_HEAD_BYTES } from "../../utils/importFile";
+import { PREVIEW_HEAD_BYTES, pastedDataFile } from "../../utils/importFile";
+import { openSession } from "../../services/session";
 import {
 	parseDataInWorker,
 	previewJsonInWorker,
@@ -19,6 +20,10 @@ import { useDataImport } from "../useDataImport";
 vi.mock("../../store/useGraphStore", () => ({
 	useGraphStore: Object.assign(vi.fn(), { getState: vi.fn() }),
 	withHistory: (_label: string, fn: () => unknown) => fn(),
+}));
+
+vi.mock("../../services/session", () => ({
+	openSession: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("../../workers/parserClient", () => ({
@@ -139,6 +144,40 @@ describe("useDataImport", () => {
 				});
 			},
 		);
+
+		it("hands .webgraphy files to the session loader, not the dialog", async () => {
+			const session = new File(["x"], "Work.WEBGRAPHY");
+			const csv = new File(["A\tB\n1\t2"], "next.csv");
+			const { result } = await open([session, csv]);
+			await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith(session));
+			// The queue moves on to the next file.
+			expect(result.current.pendingFile?.file).toBe(csv);
+		});
+
+		it("toasts when the session code cannot be loaded", async () => {
+			vi.mocked(openSession).mockRejectedValueOnce(new Error("offline"));
+			await open([new File(["x"], "s.webgraphy")]);
+			await vi.waitFor(() =>
+				expect(lastToast()).toMatchObject({
+					kind: "error",
+					message: 'Could not open session "s.webgraphy": offline',
+				}),
+			);
+		});
+
+		it("opens pasted cells as tab-delimited text", async () => {
+			const text = "Time\tValue\n1\t2\n2\t4";
+			const file = pastedDataFile(text, new Date(2026, 0, 1, 9, 7));
+			const { result } = await open([file]);
+			expect(result.current.pendingFile).toMatchObject({
+				type: "csv",
+				preview: text,
+				defaultDelimiter: "\t",
+			});
+			expect(result.current.pendingFile?.file.name).toBe(
+				"Pasted data (09:07).tsv",
+			);
+		});
 
 		it("rejects unknown extensions with an error toast", async () => {
 			const { result } = await open([new File(["x"], "image.png")]);

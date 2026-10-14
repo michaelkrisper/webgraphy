@@ -47,6 +47,12 @@ export const SHORTCUTS = {
 		ctrl: true,
 		description: "Redo (also Ctrl+Shift+Z)",
 	},
+	/** Handled via the `paste` event Ctrl+V fires, which needs no clipboard permission. */
+	pasteData: {
+		keys: ["v", "V"],
+		ctrl: true,
+		description: "Import cells copied from a spreadsheet",
+	},
 	showShortcuts: {
 		keys: ["?"],
 		description: "Show keyboard shortcuts",
@@ -110,7 +116,7 @@ export const SHORTCUT_GROUPS: readonly {
 			"axisRename",
 		],
 	},
-	{ title: "Edit", ids: ["undo", "redo"] },
+	{ title: "Edit", ids: ["undo", "redo", "pasteData"] },
 	{ title: "Dialogs", ids: ["closeDialog"] },
 ];
 

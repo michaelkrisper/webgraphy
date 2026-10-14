@@ -1,4 +1,7 @@
-export type ImportFileType = "csv" | "json" | "excel";
+export type ImportFileType = "csv" | "json" | "excel" | "session";
+
+/** Saved workspaces; opened by `services/session`, not the import dialog. */
+export const SESSION_EXTENSION = "webgraphy";
 
 const TYPE_BY_EXTENSION: Record<string, ImportFileType> = {
 	csv: "csv",
@@ -9,6 +12,7 @@ const TYPE_BY_EXTENSION: Record<string, ImportFileType> = {
 	xlsx: "excel",
 	xls: "excel",
 	ods: "excel",
+	[SESSION_EXTENSION]: "session",
 };
 
 /** Value for the file input's `accept` attribute. */
@@ -47,4 +51,23 @@ export async function readTextHead(
 	const head = await file.slice(0, maxBytes).text();
 	const cut = head.lastIndexOf("\n");
 	return { text: cut > 0 ? head.slice(0, cut) : head, truncated: true };
+}
+
+/**
+ * What spreadsheets put on the clipboard: tab-separated lines. Needs a second
+ * row as well, since a lone line is nothing to plot.
+ */
+export function isTabularText(text: string): boolean {
+	const [first, second] = text.trimStart().split("\n", 2);
+	return !!second && first.includes("\t") && second.includes("\t");
+}
+
+/** Wraps pasted text as a `.tsv` file so it takes the normal import path. */
+export function pastedDataFile(text: string, now = new Date()): File {
+	const hhmm = [now.getHours(), now.getMinutes()]
+		.map((n) => String(n).padStart(2, "0"))
+		.join(":");
+	return new File([text], `Pasted data (${hhmm}).tsv`, {
+		type: "text/tab-separated-values",
+	});
 }

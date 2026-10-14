@@ -120,7 +120,7 @@ const ViewportSchema = z.object({
 });
 // Older persisted configs additionally carry an `axisTitles` object from a
 // removed feature; Zod strips unknown keys, so they load unchanged.
-const ConfigSchema = z.object({
+export const ConfigSchema = z.object({
 	series: z.array(SeriesConfigSchema),
 	legendVisible: z.boolean(),
 	crosshairVisible: z.boolean(),
@@ -161,7 +161,7 @@ function sanitizeAxes<T>(
 	return out;
 }
 
-function parseViewport(raw: unknown): ViewportState {
+export function parseViewport(raw: unknown): ViewportState {
 	const v = ViewportSchema.safeParse(raw);
 	if (v.success) return v.data;
 	const r = (raw ?? {}) as { xAxes?: unknown; yAxes?: unknown };
