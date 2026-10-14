@@ -1,6 +1,7 @@
 // src/components/Plot/ChartContainer.tsx
 
 import {
+	lazy,
 	Suspense,
 	useCallback,
 	useEffect,
@@ -17,6 +18,7 @@ import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
 import { useFitShortcuts } from "../../hooks/useFitShortcuts";
 import { useLaunchQueue } from "../../hooks/useLaunchQueue";
 import { usePanZoom } from "../../hooks/usePanZoom";
+import { useZoomHistory } from "../../hooks/useZoomHistory";
 import { useTheme } from "../../hooks/useTheme";
 import type {
 	SeriesConfig,
@@ -48,6 +50,7 @@ import {
 } from "./buildLabels";
 import { ChartActionButtons } from "./ChartActionButtons";
 import {
+	type EditRangeHandler,
 	XAxisInteractionZones,
 	YAxisInteractionZones,
 } from "./AxisInteractionZones";
@@ -80,6 +83,22 @@ import {
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { useChartLayout } from "./useChartLayout";
 
+const AxisRangePopover = lazy(() => import("./AxisRangePopover"));
+
+const RANGE_POPOVER_WIDTH = 200;
+const RANGE_POPOVER_HEIGHT = 130;
+
+interface RangeEdit {
+	kind: "x" | "y";
+	id: string;
+	min: number;
+	max: number;
+	isDate: boolean;
+	log: boolean;
+	style: React.CSSProperties;
+	anchor: HTMLElement;
+}
+
 export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +118,7 @@ export default function ChartContainer() {
 	// size is the canvas backing-store size.
 	const { dpr, pixelWidth, pixelHeight } = useDevicePixelSize(containerRef);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
+	const [rangeEdit, setRangeEdit] = useState<RangeEdit | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
 	const targetYs = useRef<Record<string, { min: number; max: number }>>({});
@@ -376,6 +396,64 @@ export default function ChartContainer() {
 		return titles;
 	}, [seriesByYAxisId]);
 
+	const zoomHistory = useZoomHistory({
+		targetXAxes,
+		targetYs,
+		displayedXAxes: displayedXAxesRef,
+		displayedYs: displayedYsRef,
+		smoothZoomRef,
+		syncViewport: () => syncViewportRef.current(),
+		enabled: datasets.length > 0,
+	});
+	const recordSettledViewport = zoomHistory.settled;
+
+	const openRangeEditor = useCallback(
+		(kind: "x" | "y"): EditRangeHandler =>
+			(id, anchor) => {
+				const box = containerRef.current?.getBoundingClientRect();
+				const state = useGraphStore.getState();
+				const axis = (kind === "x" ? state.xAxes : state.yAxes).find(
+					(ax) => ax.id === id,
+				);
+				if (!box || !axis) return;
+				// Where the axis is heading, should a zoom still be easing in.
+				const range = (kind === "x" ? targetXAxes : targetYs).current[id] ?? axis;
+				const a = anchor.getBoundingClientRect();
+				const clamp = (v: number, hi: number) => Math.max(4, Math.min(v, hi));
+				let style: React.CSSProperties;
+				if (kind === "x") {
+					style = {
+						left: clamp(
+							a.left - box.left + a.width / 2 - RANGE_POPOVER_WIDTH / 2,
+							box.width - RANGE_POPOVER_WIDTH - 4,
+						),
+						bottom: box.bottom - a.top + 4,
+					};
+				} else {
+					const top = clamp(a.top - box.top + 8, box.height - RANGE_POPOVER_HEIGHT);
+					style =
+						"position" in axis && axis.position === "right"
+							? { right: box.right - a.left + 4, top }
+							: { left: a.right - box.left + 4, top };
+				}
+				setRangeEdit({
+					kind,
+					id,
+					min: range.min,
+					max: range.max,
+					isDate: "xMode" in axis && axis.xMode === "date",
+					log: axis.scale === "log",
+					style,
+					anchor,
+				});
+			},
+		[],
+	);
+	const closeRangeEditor = () => {
+		if (rangeEdit?.anchor.isConnected) rangeEdit.anchor.focus();
+		setRangeEdit(null);
+	};
+
 	const isInteractingRef = useRef(false);
 	useEffect(() => {
 		isInteractingRef.current = isInteracting;
@@ -391,9 +469,10 @@ export default function ChartContainer() {
 			const next = useGraphStore.getState();
 			if (next.xAxes !== state.xAxes || next.yAxes !== state.yAxes) {
 				viewportEchoRef.current = { xAxes: next.xAxes, yAxes: next.yAxes };
+				recordSettledViewport(state, next);
 			}
 		},
-		[],
+		[recordSettledViewport],
 	);
 
 	const syncViewport = useCallback(
@@ -454,8 +533,10 @@ export default function ChartContainer() {
 					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
+					// An easing frame is not settled either: only where it lands
+					// is written back (and becomes a zoom-history step).
 					const isInteractingNow =
-						panStateRef.current.active || isInteractingRef.current;
+						panStateRef.current.active || isInteractingRef.current || zoomAnimating;
 
 					// Worker backend with a scene context: it derives tick layout,
 					// overlay geometry, and labels itself from the axis ranges —
@@ -786,6 +867,7 @@ export default function ChartContainer() {
 					onTouchStart={handleTouchStart}
 					onAutoScaleX={handleAutoScaleX}
 					onAxisStep={handleXAxisStep}
+					onEditRange={openRangeEditor("x")}
 				/>
 				<YAxisInteractionZones
 					axes={activeYAxes}
@@ -801,7 +883,27 @@ export default function ChartContainer() {
 					onTouchStart={handleTouchStart}
 					onAutoScaleY={handleAutoScaleY}
 					onAxisStep={handleYAxisStep}
+					onEditRange={openRangeEditor("y")}
 				/>
+				{rangeEdit && (
+					<Suspense fallback={null}>
+						<AxisRangePopover
+							key={`${rangeEdit.kind}:${rangeEdit.id}`}
+							kind={rangeEdit.kind}
+							axisId={rangeEdit.id}
+							min={rangeEdit.min}
+							max={rangeEdit.max}
+							isDate={rangeEdit.isDate}
+							log={rangeEdit.log}
+							style={rangeEdit.style}
+							onApply={(range) => {
+								zoomHistory.applyRange(rangeEdit.kind, rangeEdit.id, range);
+								closeRangeEditor();
+							}}
+							onCancel={closeRangeEditor}
+						/>
+					</Suspense>
+				)}
 				{datasets.length > 0 && (
 					<ChartActionButtons
 						padding={padding}
