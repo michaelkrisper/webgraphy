@@ -170,6 +170,7 @@ describe("evaluateRolling", () => {
 		const ctx = {
 			queues: {},
 			sums: {},
+			counts: {},
 		} as unknown as FormulaContext;
 
 		expect(evaluateRolling(token, [10], [], 0, ctx)).toBe(10);
@@ -200,7 +201,12 @@ describe("evaluateRolling", () => {
 	});
 
 	it("evaluates other rolling variants", () => {
-		const ctx = { queues: {}, sums: {}, sumsSq: {} } as unknown as FormulaContext;
+		const ctx = {
+			queues: {},
+			sums: {},
+			sumsSq: {},
+			counts: {},
+		} as unknown as FormulaContext;
 
 		expect(
 			evaluateRolling(
@@ -468,7 +474,7 @@ describe("evaluateFuncToken stateful variants", () => {
 			pos: 0,
 			constN: 2,
 		});
-		const ctx = { queues: {}, sums: {} } as unknown as FormulaContext;
+		const ctx = { queues: {}, sums: {}, counts: {} } as unknown as FormulaContext;
 		expect(evaluateFuncToken(token("rolling"), [10], [], [], 0, ctx)).toBe(10);
 	});
 

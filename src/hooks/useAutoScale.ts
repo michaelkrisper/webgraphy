@@ -6,6 +6,7 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../services/persistence";
+import { getOrComputeMonotonicity } from "../components/Plot/seriesPrep";
 import { useGraphStore } from "../store/useGraphStore";
 import {
 	AXIS_EPSILON,
@@ -21,8 +22,8 @@ const axisPadding = (min: number, max: number): number =>
 	(max - min || 1) * AXIS_PADDING_RATIO;
 
 /**
- * Find inclusive index range of xData (offset by refX) within [xMin, xMax]
- * via binary search. Returns null if no points fall in range.
+ * Find inclusive index range of sorted xData (offset by refX) within
+ * [xMin, xMax] via binary search. Returns null if no points fall in range.
  */
 function visibleIndexRange(
 	xData: ArrayLike<number>,
@@ -36,19 +37,45 @@ function visibleIndexRange(
 	return { startIdx, endIdx };
 }
 
-function getRangeBounds(
-	yData: Float32Array | Float64Array | number[],
+// Keyed by column identity: columns are immutable, so sortedness is computed
+// once per x array rather than on every autoscale.
+const xSortedCache = new WeakMap<Float32Array, boolean>();
+
+/**
+ * Y bounds of the points whose x lies within [xMin, xMax]. Sorted x columns
+ * are sliced by binary search; unsorted ones (scatter data, or x with NaN
+ * gaps) fall back to a linear filtered scan. Returns null if nothing is
+ * visible.
+ */
+export function visibleYBounds(
+	xData: Float32Array,
+	refX: number,
+	yData: Float32Array,
 	refY: number,
-	range: { startIdx: number; endIdx: number },
-): { min: number; max: number } {
+	xMin: number,
+	xMax: number,
+): { min: number; max: number } | null {
 	let min = Infinity;
 	let max = -Infinity;
-	for (let j = range.startIdx; j <= range.endIdx; j++) {
-		const v = yData[j] + refY;
-		if (v < min) min = v;
-		if (v > max) max = v;
+	if (getOrComputeMonotonicity(xData, xSortedCache)) {
+		const range = visibleIndexRange(xData, refX, xMin, xMax);
+		if (!range) return null;
+		for (let j = range.startIdx; j <= range.endIdx; j++) {
+			const v = yData[j] + refY;
+			if (v < min) min = v;
+			if (v > max) max = v;
+		}
+	} else {
+		const n = Math.min(xData.length, yData.length);
+		for (let j = 0; j < n; j++) {
+			const x = xData[j] + refX;
+			if (!(x >= xMin && x <= xMax)) continue;
+			const v = yData[j] + refY;
+			if (v < min) min = v;
+			if (v > max) max = v;
+		}
 	}
-	return { min, max };
+	return min === Infinity ? null : { min, max };
 }
 
 interface UseAutoScaleOptions {
@@ -132,9 +159,15 @@ function computeAutoScaleY(
 				yData = colY.data,
 				refX = colX.refPoint,
 				refY = colY.refPoint;
-			const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
-			if (range) {
-				const bounds = getRangeBounds(yData, refY, range);
+			const bounds = visibleYBounds(
+				xData,
+				refX,
+				yData,
+				refY,
+				xAxis.min,
+				xAxis.max,
+			);
+			if (bounds) {
 				if (bounds.min < yMin) yMin = bounds.min;
 				if (bounds.max > yMax) yMax = bounds.max;
 			}
@@ -287,9 +320,8 @@ function computeStackedFit(
 				yData = colY.data;
 			const refX = colX.refPoint,
 				refY = colY.refPoint;
-			const range = visibleIndexRange(xData, refX, xMin, xMax);
-			if (range) {
-				const bounds = getRangeBounds(yData, refY, range);
+			const bounds = visibleYBounds(xData, refX, yData, refY, xMin, xMax);
+			if (bounds) {
 				if (bounds.min < yMin) yMin = bounds.min;
 				if (bounds.max > yMax) yMax = bounds.max;
 			}
