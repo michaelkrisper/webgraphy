@@ -32,7 +32,9 @@ describe("main.tsx", () => {
 
 		await import("./main");
 
-		expect(mockRegisterSW).toHaveBeenCalledWith({ immediate: true });
+		expect(mockRegisterSW).toHaveBeenCalledWith(
+			expect.objectContaining({ immediate: true }),
+		);
 		expect(mockCreateRoot).toHaveBeenCalledWith(root);
 		expect(mockRender).toHaveBeenCalled();
 	});
@@ -40,7 +42,9 @@ describe("main.tsx", () => {
 	it("does not call createRoot when root element is missing", async () => {
 		await import("./main");
 
-		expect(mockRegisterSW).toHaveBeenCalledWith({ immediate: true });
+		expect(mockRegisterSW).toHaveBeenCalledWith(
+			expect.objectContaining({ immediate: true }),
+		);
 		expect(mockCreateRoot).not.toHaveBeenCalled();
 	});
 });

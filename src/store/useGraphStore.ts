@@ -986,3 +986,26 @@ function debouncedSaveState() {
 	debouncedSaveViewport();
 	debouncedSaveConfig();
 }
+
+/**
+ * Writes viewport, config and pending datasets now instead of after their
+ * debounce, for callers about to reload the page (e.g. an app update).
+ */
+export async function flushPendingSaves(): Promise<void> {
+	if (viewportTimer) clearTimeout(viewportTimer);
+	if (configTimer) clearTimeout(configTimer);
+	viewportTimer = null;
+	configTimer = null;
+	const s = useGraphStore.getState();
+	await Promise.all([
+		s.isLoaded &&
+			persistence.saveAppState({
+				xAxes: s.xAxes,
+				yAxes: s.yAxes,
+				series: s.series,
+				legendVisible: s.legendVisible,
+				crosshairVisible: s.crosshairVisible,
+			}),
+		persistence.flushAll(),
+	]);
+}

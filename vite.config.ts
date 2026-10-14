@@ -43,9 +43,14 @@ export default defineConfig({
 				]
 			: []),
 		VitePWA({
-			registerType: "autoUpdate",
+			// "prompt": a deploy waits for the user's "Reload" toast
+			// (src/registerServiceWorker.ts) instead of reloading mid-import.
+			registerType: "prompt",
 			injectRegister: null,
 			includeAssets: ["favicon.svg", "pwa-192x192.png", "pwa-512x512.png"],
+			// Manifest icons are precached through includeAssets/globPatterns
+			// instead, so globIgnores can keep the maskable one out.
+			includeManifestIcons: false,
 			// Precache self-hosted fonts (default globs omit woff2) so every
 			// theme's typography is available fully offline.
 			workbox: {
@@ -54,7 +59,13 @@ export default defineConfig({
 				// only constructed on the first .xlsx import, which most sessions
 				// never do. Precaching it would put that cost on every cold load,
 				// so it is fetched on demand and cached from then on instead.
-				globIgnores: ["**/excel.worker-*.js"],
+				// The maskable icon and store screenshots are only read by the OS
+				// install UI, never by the running app.
+				globIgnores: [
+					"**/excel.worker-*.js",
+					"**/pwa-maskable-*.png",
+					"**/screenshot-*.png",
+				],
 				runtimeCaching: [
 					{
 						urlPattern: /\/assets\/excel\.worker-.*\.js$/,
@@ -67,6 +78,8 @@ export default defineConfig({
 				],
 			},
 			manifest: {
+				// Resolves against start_url: the identity existing installs already have.
+				id: "./",
 				name: "WebGraphy",
 				short_name: "WebGraphy",
 				description:
@@ -86,6 +99,41 @@ export default defineConfig({
 						sizes: "512x512",
 						type: "image/png",
 						purpose: "any",
+					},
+					{
+						src: "pwa-maskable-512x512.png",
+						sizes: "512x512",
+						type: "image/png",
+						purpose: "maskable",
+					},
+				],
+				screenshots: [
+					{
+						src: "screenshot-wide.png",
+						sizes: "1280x800",
+						type: "image/png",
+						form_factor: "wide",
+						label: "Multiple series on independent axes",
+					},
+				],
+				launch_handler: { client_mode: "focus-existing" },
+				// Opened files reach the app through launchQueue (useLaunchQueue).
+				file_handlers: [
+					{
+						action: "./",
+						accept: {
+							"text/csv": [".csv"],
+							"text/tab-separated-values": [".tsv"],
+							"text/plain": [".txt"],
+							"application/json": [".json"],
+							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+								".xlsx",
+							],
+							"application/vnd.ms-excel": [".xls"],
+							"application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+							// Saved sessions (services/session.ts); importFiles routes them.
+							"application/x-webgraphy": [".webgraphy"],
+						},
 					},
 				],
 			},

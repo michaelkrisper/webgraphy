@@ -3,10 +3,11 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "./components/components.css";
-import { registerSW } from "virtual:pwa-register";
+import { registerServiceWorker } from "./registerServiceWorker";
+import { countPageview } from "./services/analytics";
 
-// Register the service worker for PWA support
-registerSW({ immediate: true });
+registerServiceWorker();
+countPageview();
 
 const rootElement = document.getElementById("root");
 if (rootElement) {

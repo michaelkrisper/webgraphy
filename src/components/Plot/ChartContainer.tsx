@@ -15,6 +15,7 @@ import { useDataImport } from "../../hooks/useDataImport";
 import { usePasteImport } from "../../hooks/usePasteImport";
 import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
 import { useFitShortcuts } from "../../hooks/useFitShortcuts";
+import { useLaunchQueue } from "../../hooks/useLaunchQueue";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
 import type {
@@ -91,6 +92,7 @@ export default function ChartContainer() {
 		pendingFile,
 		isImporting,
 	} = useDataImport();
+	useLaunchQueue(importFiles);
 	usePasteImport(importFiles);
 	const { width, height } = useContainerSize(containerRef, 800, 600);
 	// The WebGL layer fills the container's content box, so its device-pixel
