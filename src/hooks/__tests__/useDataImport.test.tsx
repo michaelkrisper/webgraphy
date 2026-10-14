@@ -26,6 +26,8 @@ vi.mock("../../store/useGraphStore", () => ({
 vi.mock("../../services/persistence", () => ({
 	persistence: {
 		saveDataset: vi.fn().mockResolvedValue(undefined),
+		saveViewport: vi.fn(),
+		saveConfig: vi.fn(),
 	},
 }));
 
