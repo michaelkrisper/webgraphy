@@ -5,9 +5,36 @@ import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
-import type { Dataset } from "../../services/persistence";
-import { buildSeriesConfig } from "../../utils/series";
+import type { Dataset, SeriesConfig } from "../../services/persistence";
+import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
 import { getColumnIndex } from "../../utils/columns";
+
+const FLASH_MS = 1200;
+
+/**
+ * Point the user at an existing series instead of plotting a duplicate:
+ * scroll its sidebar row into view, flash it, and emphasise it on the chart.
+ */
+function revealSeries(seriesId: string) {
+	const row = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-series-id]"),
+	).find((el) => el.dataset.seriesId === seriesId);
+	if (row) {
+		row.scrollIntoView?.({ block: "nearest" });
+		row.classList.remove("sb-series-row--flash");
+		// Force a reflow so re-adding the class restarts the animation.
+		void row.offsetWidth;
+		row.classList.add("sb-series-row--flash");
+		setTimeout(() => row.classList.remove("sb-series-row--flash"), FLASH_MS);
+	}
+	const store = useGraphStore.getState();
+	store.setHighlightedSeries(seriesId);
+	setTimeout(() => {
+		if (useGraphStore.getState().highlightedSeriesId === seriesId) {
+			useGraphStore.getState().setHighlightedSeries(null);
+		}
+	}, FLASH_MS);
+}
 
 const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 	{ length: 9 },
@@ -55,22 +82,26 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 		value: string;
 	} | null>(null);
 
-	const usedColumns = useMemo(() => {
-		const set = new Set<string>();
+	const seriesByColumn = useMemo(() => {
+		const map = new Map<string, SeriesConfig>();
 		for (const s of series) {
-			if (s.sourceId === ds.id) set.add(s.yColumn);
+			if (s.sourceId === ds.id && !map.has(s.yColumn)) map.set(s.yColumn, s);
 		}
-		return set;
+		return map;
 	}, [series, ds.id]);
 
-	const createSeries = (datasetId: string, columnName: string) => {
-		const dataset = datasets.find((d) => d.id === datasetId);
-		if (!dataset) return;
-
-		const colIdx = getColumnIndex(dataset, columnName);
-		const isCategorical = colIdx >= 0 && !!dataset.data[colIdx]?.categoryLabels;
+	const createSeries = (columnName: string) => {
+		const colIdx = getColumnIndex(ds, columnName);
+		const col = ds.data[colIdx];
+		const isCategorical = colIdx >= 0 && !!col?.categoryLabels;
+		// Read at click time: subscribing to axis ranges would re-render the
+		// sidebar on every pan/zoom sync.
+		const { yAxes } = useGraphStore.getState();
 		addSeries(
-			buildSeriesConfig(columnName, datasetId, series.length, isCategorical),
+			buildSeriesConfig(columnName, ds.id, series.length, isCategorical, {
+				yAxisId: pickYAxisId(series, yAxes, col?.bounds),
+				pointCount: ds.rowCount,
+			}),
 		);
 	};
 
@@ -128,43 +159,43 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							alignItems: "center",
 						}}
 					>
-						<PopupPicker
-							options={X_AXIS_OPTIONS}
-							current={parseInt((ds.xAxisId || "axis-1").split("-")[1], 10) || 1}
-							onChange={(n) => updateDataset(ds.id, { xAxisId: `axis-${n}` })}
-							popoverId={`x-axis-popover-${ds.id}`}
-							renderTrigger={({ onClick, ref }) => (
-								<button
-									ref={ref}
-									className="sb-xaxis-btn-mono"
-									onClick={datasets.length === 1 ? undefined : onClick}
-									type="button"
-									title="Select X-Axis (1-9)"
-									aria-label="Select X-Axis"
-									disabled={datasets.length === 1}
-									style={{
-										padding: "0 5px",
-										height: "22px",
-										boxSizing: "border-box",
-										background: "none",
-										borderTop: `1px solid ${t.border}`,
-										borderBottom: `1px solid ${t.border}`,
-										borderLeft: `1px solid ${t.border}`,
-										borderRight: "none",
-										cursor: datasets.length === 1 ? "default" : "pointer",
-										color: t.accent,
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										fontSize: "0.75rem",
-										fontWeight: "bold",
-										opacity: datasets.length === 1 ? 0.3 : 1,
-									}}
-								>
-									{(ds.xAxisId || "axis-1").split("-")[1]}
-								</button>
-							)}
-						/>
+						{datasets.length > 1 && (
+							<PopupPicker
+								options={X_AXIS_OPTIONS}
+								current={parseInt((ds.xAxisId || "axis-1").split("-")[1], 10) || 1}
+								onChange={(n) => updateDataset(ds.id, { xAxisId: `axis-${n}` })}
+								popoverId={`x-axis-popover-${ds.id}`}
+								renderTrigger={({ onClick, ref }) => (
+									<button
+										ref={ref}
+										className="sb-xaxis-btn-mono"
+										onClick={onClick}
+										type="button"
+										title="Select X-Axis (1-9)"
+										aria-label="Select X-Axis"
+										style={{
+											padding: "0 5px",
+											height: "22px",
+											boxSizing: "border-box",
+											background: "none",
+											borderTop: `1px solid ${t.border}`,
+											borderBottom: `1px solid ${t.border}`,
+											borderLeft: `1px solid ${t.border}`,
+											borderRight: "none",
+											cursor: "pointer",
+											color: t.accent,
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											fontSize: "0.75rem",
+											fontWeight: "bold",
+										}}
+									>
+										{(ds.xAxisId || "axis-1").split("-")[1]}
+									</button>
+								)}
+							/>
+						)}
 						<select
 							value={ds.xAxisColumn}
 							onChange={(e) =>
@@ -225,17 +256,9 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 				</div>
 			</div>
 
-			<div
-				style={{
-					display: "grid",
-					gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-					gap: "0",
-					borderTop: `1px solid ${t.accent}`,
-					borderLeft: `1px solid ${t.accent}`,
-				}}
-			>
+			<div className="col-chip-grid">
 				{ds.columns.map((col, colIdx) => {
-					const isUsed = usedColumns.has(col);
+					const plotted = seriesByColumn.get(col);
 					const isX = ds.xAxisColumn === col;
 					if (isX) return null;
 					const colData = ds.data[colIdx];
@@ -246,13 +269,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 					return (
 						<div
 							key={col}
-							className="col-chip"
-							style={{
-								borderRight: `1px solid ${t.accent}`,
-								borderBottom: `1px solid ${t.accent}`,
-								backgroundColor: t.bg3,
-								opacity: isUsed ? 0.7 : 1,
-							}}
+							className={`col-chip${plotted ? " col-chip--plotted" : ""}`}
 						>
 							{isRenaming ? (
 								<input
@@ -290,19 +307,31 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								<>
 									<button
 										type="button"
-										onClick={() => createSeries(ds.id, col)}
-										style={{
-											fontSize: "0.7rem",
-											padding: "3px 8px",
-											borderRadius: "0",
-											border: "none",
-											background: "none",
-											color: t.accent,
-											cursor: "pointer",
-											fontWeight: "600",
-										}}
-										title={isCalc ? `${label}\nFormula: ${colData.formula}` : label}
+										className="col-chip-btn"
+										aria-pressed={!!plotted}
+										onClick={() =>
+											plotted ? revealSeries(plotted.id) : createSeries(col)
+										}
+										title={[
+											label,
+											isCalc && `Formula: ${colData.formula}`,
+											plotted && "Plotted: click to show its series",
+										]
+											.filter(Boolean)
+											.join("\n")}
 									>
+										{plotted && (
+											<span
+												className="col-chip-swatch"
+												aria-hidden="true"
+												style={{
+													backgroundColor:
+														plotted.lineStyle === "none"
+															? plotted.pointColor
+															: plotted.lineColor,
+												}}
+											/>
+										)}
 										{isCalc ? `ƒ ${label}` : label}
 									</button>
 									<div className="col-chip-actions">
@@ -322,7 +351,6 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 												background: "none",
 												color: t.textMuted,
 												cursor: "pointer",
-												borderLeft: `1px solid ${t.accent}`,
 											}}
 											type="button"
 											title="Rename column"
@@ -347,7 +375,6 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														background: "none",
 														color: t.accent,
 														cursor: "pointer",
-														borderLeft: `1px solid ${t.accent}`,
 													}}
 													type="button"
 													title="Edit formula"
@@ -365,7 +392,6 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														background: "none",
 														color: t.danger,
 														cursor: "pointer",
-														borderLeft: `1px solid ${t.accent}`,
 													}}
 													type="button"
 													title="Delete calculated column"

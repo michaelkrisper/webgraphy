@@ -169,7 +169,7 @@ describe("Sidebar Component", () => {
 		).toBeInTheDocument();
 	});
 
-	it("does not disable the button for an already used data column", () => {
+	it("shows a plotted column as pressed and does not plot it twice", () => {
 		const mockDatasets = [
 			{
 				id: "ds-1",
@@ -213,21 +213,23 @@ describe("Sidebar Component", () => {
 			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
 		);
 
+		(useGraphStore.getState as Mock).mockReturnValue(state);
+
 		render(<Sidebar />);
 
-		// value1 is used, but its button should NOT be disabled anymore
+		// value1 is plotted: a pressed toggle that points at its series
+		// instead of adding a duplicate.
 		const value1Button = screen.getByRole("button", { name: "value1" });
 		expect(value1Button).not.toBeDisabled();
-		expect(value1Button.parentElement).toHaveStyle({ opacity: "0.7" });
-
-		// Clicking it should call addSeries
+		expect(value1Button).toHaveAttribute("aria-pressed", "true");
 		fireEvent.click(value1Button);
-		expect(mockAddSeries).toHaveBeenCalled();
+		expect(mockAddSeries).not.toHaveBeenCalled();
+		expect(state.setHighlightedSeries).toHaveBeenCalledWith("s-1");
 
-		// value2 is not used, so its button should be enabled and full opacity
 		const value2Button = screen.getByRole("button", { name: "value2" });
-		expect(value2Button).not.toBeDisabled();
-		expect(value2Button.parentElement).toHaveStyle({ opacity: "1" });
+		expect(value2Button).toHaveAttribute("aria-pressed", "false");
+		fireEvent.click(value2Button);
+		expect(mockAddSeries).toHaveBeenCalledTimes(1);
 	});
 
 	it("has no axe violations with datasets and series", async () => {

@@ -68,6 +68,7 @@ describe("useDataImport", () => {
 			);
 		vi.mocked(useGraphStore.getState).mockReturnValue({
 			series: [],
+			yAxes: [],
 		} as unknown as ReturnType<typeof useGraphStore.getState>);
 		vi.mocked(closeWorkbookInWorker).mockResolvedValue(undefined);
 	});
@@ -198,6 +199,32 @@ describe("useDataImport", () => {
 				kind: "success",
 				message: `Imported "a.csv": ${(1234).toLocaleString()} rows, 3 columns`,
 			});
+		});
+
+		it("places auto-added series on free axes, sharing one for similar ranges", async () => {
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				series: [{ yAxisId: "axis-1" }, { yAxisId: "axis-3" }],
+				yAxes: [],
+			} as unknown as ReturnType<typeof useGraphStore.getState>);
+			const col = (min: number, max: number) => ({
+				isFloat64: false,
+				refPoint: 0,
+				bounds: { min, max },
+				data: new Float32Array(0),
+			});
+			const { result } = await open([new File(["A"], "a.csv")]);
+			vi.mocked(parseDataInWorker).mockResolvedValueOnce([
+				dataset({
+					columns: ["Time", "TempIn", "TempOut", "Pressure"],
+					data: [col(0, 1), col(18, 24), col(5, 25), col(990, 1030)],
+				}),
+			]);
+			await act(() => result.current.confirmImport(settings));
+
+			const added = addSeries.mock.calls.map((c) => c[0]);
+			expect(added.map((s) => s.yAxisId)).toEqual(["axis-2", "axis-2", "axis-4"]);
+			// 1234 rows: dense enough that markers would merge into a rope.
+			expect(added.every((s) => s.pointStyle === "none")).toBe(true);
 		});
 
 		it("does not auto-add series for wide datasets", async () => {

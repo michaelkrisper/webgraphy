@@ -282,6 +282,9 @@ describe("demoData", () => {
 				expect(s.sourceId).toBe(mockDataset.id);
 				expect(s.yColumn).toBe(mockDataset.columns[i + 1]);
 				expect(s.id).toBe(mockUUID);
+				// 10k-point demo series: markers would merge into a solid rope.
+				expect(s.pointStyle).toBe("none");
+				expect(s.lineStyle).not.toBe("none");
 			});
 
 			vi.unstubAllGlobals();
