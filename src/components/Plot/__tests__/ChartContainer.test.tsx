@@ -21,6 +21,10 @@ vi.mock("../Crosshair", () => ({
 	Crosshair: vi.fn(() => <div data-testid="crosshair" />),
 }));
 
+vi.mock("../measure/MeasureTools", () => ({
+	MeasureTools: vi.fn(() => <div data-testid="measure-tools" />),
+}));
+
 vi.mock("../ChartLegend", () => ({
 	ChartLegend: vi.fn(() => <div data-testid="chart-legend" />),
 }));

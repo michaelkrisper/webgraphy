@@ -61,6 +61,14 @@ export const SHORTCUTS = {
 		ctrl: true,
 		description: "Copy the crosshair tooltip data",
 	},
+	toggleStats: {
+		keys: ["s", "S"],
+		description: "Show statistics of the visible range",
+	},
+	clearPins: {
+		keys: ["Escape"],
+		description: "Clear the measurement cursors (click the plot to pin A, B)",
+	},
 	undo: {
 		keys: ["z", "Z"],
 		ctrl: true,
@@ -134,6 +142,8 @@ export const SHORTCUT_GROUPS: readonly {
 			"viewBack",
 			"viewForward",
 			"copyTooltip",
+			"toggleStats",
+			"clearPins",
 			"showShortcuts",
 		],
 	},
