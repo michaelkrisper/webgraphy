@@ -3,6 +3,7 @@
 // on layout rather than per-button styling.
 
 import { ChartGantt, Expand } from "lucide-react";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 
 interface Padding {
 	bottom: number;
@@ -26,25 +27,11 @@ const buttonStyle = (extraLeft: number, pad: Padding, color: string) =>
 		bottom: pad.bottom - 29,
 		left: pad.left - 29 - extraLeft,
 		zIndex: 100,
-		backgroundColor: "transparent",
-		border: "none",
-		borderRadius: "4px",
 		color,
-		padding: "4px",
-		cursor: "pointer",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-		opacity: 0.6,
-		transition: "opacity 0.2s",
 	}) as const;
 
-const handleEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-	e.currentTarget.style.opacity = "1";
-};
-const handleLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-	e.currentTarget.style.opacity = "0.6";
-};
+const fitAllHint = shortcutHint(SHORTCUTS.fitAll);
+const stackedHint = shortcutHint(SHORTCUTS.stackedFit);
 
 export function ChartActionButtons({
 	padding,
@@ -57,22 +44,22 @@ export function ChartActionButtons({
 			<button
 				onClick={onStackedFit}
 				type="button"
-				title="Stacked Fit — each Y-axis fitted to its own slice"
+				title={`Stacked Fit — each Y-axis fitted to its own slice (${stackedHint})`}
 				aria-label="Stacked Fit"
+				aria-keyshortcuts={stackedHint}
+				className="chart-action-btn"
 				style={buttonStyle(28, padding, themeColors.textMuted)}
-				onMouseEnter={handleEnter}
-				onMouseLeave={handleLeave}
 			>
 				<ChartGantt size={18} />
 			</button>
 			<button
 				onClick={onFitAll}
 				type="button"
-				title="Fit All"
+				title={`Fit All (${fitAllHint})`}
 				aria-label="Fit All"
+				aria-keyshortcuts={fitAllHint}
+				className="chart-action-btn"
 				style={buttonStyle(0, padding, themeColors.textMuted)}
-				onMouseEnter={handleEnter}
-				onMouseLeave={handleLeave}
 			>
 				<Expand size={18} />
 			</button>
