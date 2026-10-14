@@ -27,7 +27,14 @@ import {
 	syncAxesWithTargets,
 	ZOOM_EASE_FACTOR,
 } from "../../utils/axisCalculations";
-import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
+import {
+	type AxisStep,
+	applyKeyboardPan,
+	applyKeyboardZoom,
+	releaseNavigationKeys,
+	stepAxisTarget,
+} from "../../utils/keyboard";
+import { prefersReducedMotion } from "../../utils/reducedMotion";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
@@ -250,6 +257,21 @@ export default function ChartContainer() {
 		});
 	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
 
+	// Keyboard steps on a focused axis zone go through the same target refs
+	// and rAF sync as every other pan/zoom.
+	const handleXAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().xAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetXAxes.current, axis, step);
+		syncViewportRef.current();
+	}, []);
+	const handleYAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().yAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetYs.current, axis, step);
+		syncViewportRef.current();
+	}, []);
+
 	const {
 		panTarget,
 		isCtrlPressed,
@@ -322,6 +344,15 @@ export default function ChartContainer() {
 		return grouped;
 	}, [series, datasets]);
 
+	// Same text the WebGL label pass draws as each y-axis title.
+	const yAxisTitles = useMemo(() => {
+		const titles: Record<string, string> = {};
+		for (const id in seriesByYAxisId) {
+			titles[id] = seriesByYAxisId[id].map((s) => s.name || s.yColumn).join(" / ");
+		}
+		return titles;
+	}, [seriesByYAxisId]);
+
 	const isInteractingRef = useRef(false);
 	useEffect(() => {
 		isInteractingRef.current = isInteracting;
@@ -346,6 +377,10 @@ export default function ChartContainer() {
 					targetXAxes.current,
 					targetYs.current,
 				);
+				const reduceMotion = prefersReducedMotion();
+				if (reduceMotion && (kbZoom || kbPan)) {
+					releaseNavigationKeys(pressedKeysRef.current);
+				}
 
 				const { xUpdates, yUpdates, hasUpdates }: AxesFrame = syncAxesWithTargets(
 					state,
@@ -357,8 +392,11 @@ export default function ChartContainer() {
 				// Wheel zoom eases toward its target over a few frames; everything
 				// else (pan, keyboard, forced syncs) snaps via factor 1, which also
 				// keeps the displayed-range records current for the next zoom.
+				// Reduced motion snaps the wheel zoom too.
 				const easeFactor =
-					smoothZoomRef.current && !forceStoreUpdate ? ZOOM_EASE_FACTOR : 1;
+					smoothZoomRef.current && !forceStoreUpdate && !reduceMotion
+						? ZOOM_EASE_FACTOR
+						: 1;
 				const xEased = easeAxisUpdates(
 					displayedXAxesRef.current,
 					xUpdates,
@@ -629,7 +667,13 @@ export default function ChartContainer() {
 			>
 				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
-					<EmptyState width={width} height={height} padding={padding} />
+					<EmptyState
+						width={width}
+						height={height}
+						padding={padding}
+						onImportFile={importFile}
+						onLoadDemo={() => useGraphStore.getState().loadDemoData()}
+					/>
 				)}
 				<div className="chart-webgl-layer">
 					<ErrorBoundary level="component">
@@ -660,9 +704,11 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleX={handleAutoScaleX}
+					onAxisStep={handleXAxisStep}
 				/>
 				<YAxisInteractionZones
 					axes={activeYAxes}
+					titles={yAxisTitles}
 					axisLayout={axisLayout}
 					leftOffsets={leftOffsets}
 					rightOffsets={rightOffsets}
@@ -673,6 +719,7 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleY={handleAutoScaleY}
+					onAxisStep={handleYAxisStep}
 				/>
 				{datasets.length > 0 && (
 					<ChartActionButtons

@@ -3,10 +3,17 @@
 // pan-zoom handlers scoped to its own axis, and reacts to double-click with
 // auto-scale (x and y) or inline title rename (x only). Extracted from
 // ChartContainer so the per-axis JSX stops drowning the render block.
+//
+// Each zone is also a keyboard stop: arrows pan, +/- zoom, A auto-scales and
+// (x only) Enter renames that one axis. Handled keys stop propagating so the
+// window-level chart shortcuts do not also move every other axis.
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import type { XAxisMetrics, XAxisLayout } from "./chartTypes";
 import { useGraphStore } from "../../store/useGraphStore";
+import { type AxisStep, axisStepForKey } from "../../utils/keyboard";
+import { hasKey, SHORTCUTS } from "../../utils/shortcuts";
+import { axisZoneLabel } from "./axisZoneLabel";
 
 interface Padding {
 	top: number;
@@ -22,6 +29,25 @@ interface Theme {
 	gridColor: string;
 }
 
+function handleZoneKey(
+	e: React.KeyboardEvent,
+	kind: "x" | "y",
+	id: string,
+	onAxisStep: (id: string, step: AxisStep) => void,
+	onAutoScale: (id: string) => void,
+	onRename?: (id: string) => void,
+) {
+	// Modified keys (Ctrl +/- for X-only zoom, Ctrl+C) stay chart-wide.
+	if (e.ctrlKey || e.metaKey || e.altKey) return;
+	const step = axisStepForKey(e.key, kind);
+	if (step) onAxisStep(id, step);
+	else if (hasKey(SHORTCUTS.axisAutoScale, e.key)) onAutoScale(id);
+	else if (onRename && hasKey(SHORTCUTS.axisRename, e.key)) onRename(id);
+	else return;
+	e.preventDefault();
+	e.stopPropagation();
+}
+
 interface XInteractionProps {
 	xAxesMetrics: XAxisMetrics[];
 	xAxesLayout: XAxisLayout[];
@@ -33,6 +59,7 @@ interface XInteractionProps {
 	onMouseDown: (e: React.MouseEvent, target: { xAxisId: string }) => void;
 	onTouchStart: (e: React.TouchEvent, target: { xAxisId: string }) => void;
 	onAutoScaleX: (xAxisId: string) => void;
+	onAxisStep: (xAxisId: string, step: AxisStep) => void;
 }
 
 export function XAxisInteractionZones({
@@ -46,6 +73,7 @@ export function XAxisInteractionZones({
 	onMouseDown,
 	onTouchStart,
 	onAutoScaleX,
+	onAxisStep,
 }: XInteractionProps) {
 	const layoutMap = useMemo(() => {
 		const m = new Map();
@@ -54,17 +82,35 @@ export function XAxisInteractionZones({
 		}
 		return m;
 	}, [xAxesLayout]);
+	const zoneRefs = useRef(new Map<string, HTMLDivElement>());
+	// Escape moves focus back to the zone, which blurs the input; the blur
+	// must not then commit the name being cancelled.
+	const cancelledRef = useRef(false);
 
 	return (
 		<>
 			{xAxesMetrics.map((m) => {
 				const bY = padding.bottom - m.cumulativeOffset - m.height;
 				const title = layoutMap.get(m.id)?.title || "";
+				const visible = m.height > 0;
 				return (
 					<Fragment key={`wheel-x-${m.id}`}>
 						<div
-							role="region"
-							aria-label={`X-Axis ${m.id} interaction area`}
+							ref={(el) => {
+								if (el) zoneRefs.current.set(m.id, el);
+								else zoneRefs.current.delete(m.id);
+							}}
+							className="axis-zone"
+							{...(visible
+								? {
+										role: "group",
+										tabIndex: 0,
+										"aria-label": axisZoneLabel("x", m.id, title),
+									}
+								: { "aria-hidden": true })}
+							onKeyDown={(e) =>
+								handleZoneKey(e, "x", m.id, onAxisStep, onAutoScaleX, setEditingXAxisId)
+							}
 							onWheel={(e) => {
 								e.stopPropagation();
 								onWheel(e, { xAxisId: m.id });
@@ -100,8 +146,14 @@ export function XAxisInteractionZones({
 						/>
 						{editingXAxisId === m.id && (
 							<input
+								autoFocus
+								aria-label={`Rename X axis ${m.id.replace(/^axis-/, "")}`}
 								defaultValue={title}
 								onBlur={(e) => {
+									if (cancelledRef.current) {
+										cancelledRef.current = false;
+										return;
+									}
 									const newName = e.target.value.trim();
 									useGraphStore.getState().updateXAxis(m.id, { name: newName });
 									setEditingXAxisId(null);
@@ -109,8 +161,12 @@ export function XAxisInteractionZones({
 								onKeyDown={(e) => {
 									if (e.key === "Enter") {
 										e.currentTarget.blur();
+										zoneRefs.current.get(m.id)?.focus();
 									} else if (e.key === "Escape") {
+										cancelledRef.current = true;
 										setEditingXAxisId(null);
+										zoneRefs.current.get(m.id)?.focus();
+										cancelledRef.current = false;
 									}
 								}}
 								style={{
@@ -146,6 +202,8 @@ interface YAxis {
 
 interface YInteractionProps {
 	axes: YAxis[];
+	/** Displayed axis titles by id, for the zones' accessible names. */
+	titles?: Record<string, string>;
 	axisLayout: Record<string, { total: number; label: number }>;
 	leftOffsets: Record<string, number>;
 	rightOffsets: Record<string, number>;
@@ -156,10 +214,12 @@ interface YInteractionProps {
 	onMouseDown: (e: React.MouseEvent, target: { yAxisId: string }) => void;
 	onTouchStart: (e: React.TouchEvent, target: { yAxisId: string }) => void;
 	onAutoScaleY: (yAxisId: string, mouseY?: number) => void;
+	onAxisStep: (yAxisId: string, step: AxisStep) => void;
 }
 
 export function YAxisInteractionZones({
 	axes,
+	titles,
 	axisLayout,
 	leftOffsets,
 	rightOffsets,
@@ -170,6 +230,7 @@ export function YAxisInteractionZones({
 	onMouseDown,
 	onTouchStart,
 	onAutoScaleY,
+	onAxisStep,
 }: YInteractionProps) {
 	return (
 		<>
@@ -179,11 +240,21 @@ export function YAxisInteractionZones({
 				const xP = isL
 					? padding.left - (leftOffsets[a.id] ?? 0) - am.total
 					: width - padding.right + (rightOffsets[a.id] ?? 0);
+				const visible = am.total > 0;
 				return (
 					<div
-						role="region"
-						aria-label={`Y-Axis ${a.id} interaction area`}
+						className="axis-zone"
+						{...(visible
+							? {
+									role: "group",
+									tabIndex: 0,
+									"aria-label": axisZoneLabel("y", a.id, titles?.[a.id] ?? ""),
+								}
+							: { "aria-hidden": true })}
 						key={`wheel-${a.id}`}
+						onKeyDown={(e) =>
+							handleZoneKey(e, "y", a.id, onAxisStep, (id) => onAutoScaleY(id))
+						}
 						onWheel={(e) => {
 							e.stopPropagation();
 							onWheel(e, { yAxisId: a.id });

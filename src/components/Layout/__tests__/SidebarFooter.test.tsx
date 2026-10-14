@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidebarFooter } from "../SidebarFooter";
+import { useShortcutsHelp } from "../shortcutsHelp";
 
 vi.mock("../HelpModal", () => ({
 	HelpModal: ({ onClose }: { onClose: () => void }) => (
@@ -62,6 +63,13 @@ describe("SidebarFooter", () => {
 
 		fireEvent.click(screen.getByTestId("close-help"));
 		expect(screen.queryByTestId("help-modal")).not.toBeInTheDocument();
+	});
+
+	it("opens the keyboard shortcuts dialog", () => {
+		render(<SidebarFooter />);
+		fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+		expect(useShortcutsHelp.getState().open).toBe(true);
+		useShortcutsHelp.getState().setOpen(false);
 	});
 
 	it("opens and closes the License modal", async () => {

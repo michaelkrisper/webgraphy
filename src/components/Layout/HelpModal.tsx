@@ -1,5 +1,6 @@
 import type React from "react";
 import { Modal } from "./Modal";
+import { ShortcutSections } from "./ShortcutSections";
 
 interface HelpModalProps {
 	onClose: () => void;
@@ -77,26 +78,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				</li>
 			</Section>
 
-			<Section title="Keyboard">
-				<li>
-					<strong>← →:</strong> Pan X axis (animated)
-				</li>
-				<li>
-					<strong>↑ ↓:</strong> Pan Y axis (hovered axis, or all)
-				</li>
-				<li>
-					<strong>+ / =:</strong> Zoom in (X and Y)
-				</li>
-				<li>
-					<strong>- / _:</strong> Zoom out (X and Y)
-				</li>
-				<li>
-					<strong>Shift + ← →:</strong> Pan all X-axes together
-				</li>
-				<li>
-					<strong>CTRL + + / -:</strong> Zoom only X axis
-				</li>
-			</Section>
+			<ShortcutSections titlePrefix="Keyboard: " />
 
 			<Section title="Sidebar — Data">
 				<li>

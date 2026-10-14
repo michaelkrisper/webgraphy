@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Layout/Sidebar";
+import { ShortcutsHelpHost } from "./components/Layout/ShortcutsHelpHost";
 import { Toaster } from "./components/Layout/Toaster";
 import ChartContainer from "./components/Plot/ChartContainer";
 import { useGraphStore } from "./store/useGraphStore";
@@ -20,6 +21,7 @@ export default function App() {
 				<Sidebar />
 			</div>
 			<Toaster />
+			<ShortcutsHelpHost />
 		</ErrorBoundary>
 	);
 }

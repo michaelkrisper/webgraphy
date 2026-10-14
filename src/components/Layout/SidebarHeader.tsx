@@ -17,6 +17,7 @@ import {
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
+import { notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
@@ -26,6 +27,9 @@ const PlotDataTableModal = lazy(() =>
 	import("../Plot/PlotDataTableModal").then((m) => ({
 		default: m.PlotDataTableModal,
 	})),
+);
+const ConfirmDialog = lazy(() =>
+	import("./ConfirmDialog").then((m) => ({ default: m.ConfirmDialog })),
 );
 
 const UnicornHeadIcon = ({ size = 24 }: { size?: number }) => (
@@ -131,6 +135,19 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const datasets = useGraphStore((s) => s.datasets);
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
+	const [confirmDemoOpen, setConfirmDemoOpen] = useState(false);
+
+	// Demo data is appended, never swapped in, so ask before mixing it into
+	// the user's own datasets.
+	const requestDemoData = () => {
+		if (datasets.length > 0) setConfirmDemoOpen(true);
+		else loadDemoData();
+	};
+	const addDemoAlongside = async () => {
+		setConfirmDemoOpen(false);
+		await loadDemoData();
+		notify({ kind: "success", message: "Demo data added" });
+	};
 
 	const hdrSep = <span className="sb-hdr-sep" />;
 
@@ -151,7 +168,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 			/>
 			<div className="sb-hdr-btns">
 				<HeaderButton
-					onClick={loadDemoData}
+					onClick={requestDemoData}
 					icon={<FlaskConical size={24} />}
 					title="Load Demo Data"
 				/>
@@ -248,6 +265,15 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						datasets={datasets}
 						xAxes={xAxes}
 						onClose={() => setDataTableOpen(false)}
+					/>
+				)}
+				{confirmDemoOpen && (
+					<ConfirmDialog
+						title="Load demo data?"
+						message="Your current data stays loaded. The demo dataset and its series are added alongside it."
+						confirmLabel="Add alongside"
+						onConfirm={addDemoAlongside}
+						onCancel={() => setConfirmDemoOpen(false)}
 					/>
 				)}
 			</Suspense>

@@ -1,5 +1,7 @@
+import { Keyboard } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
+import { useShortcutsHelp } from "./shortcutsHelp";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const HelpModal = lazy(() =>
@@ -49,6 +51,17 @@ export const SidebarFooter: React.FC = () => {
 						style={{ fontSize: "0.7rem", padding: 0 }}
 					>
 						Help
+					</button>
+					{/* Icon only: the footer row has no width left for another label. */}
+					<button
+						onClick={() => useShortcutsHelp.getState().setOpen(true)}
+						className="sb-footer-btn"
+						type="button"
+						title="Keyboard shortcuts (?)"
+						aria-label="Keyboard shortcuts"
+						style={{ padding: 0, display: "flex" }}
+					>
+						<Keyboard size={14} aria-hidden="true" />
 					</button>
 					<span style={{ opacity: 0.5 }}>|</span>
 					<button

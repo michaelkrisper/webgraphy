@@ -1,21 +1,32 @@
 import type React from "react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { THEMES } from "../../themes";
+import { IMPORT_FILE_ACCEPT } from "../../types/import";
 
 interface EmptyStateProps {
 	width: number;
 	height: number;
 	padding: { top: number; right: number; bottom: number; left: number };
+	onImportFile?: (file: File) => void;
+	onLoadDemo?: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
 	width,
 	height,
 	padding,
+	onImportFile,
+	onLoadDemo,
 }) => {
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const buttonStyle: React.CSSProperties = {
+		padding: "8px 16px",
+		border: `1px solid ${t.accent}`,
+		fontWeight: 600,
+	};
 
 	const chartWidth = width - padding.left - padding.right;
 	const chartHeight = height - padding.top - padding.bottom;
@@ -134,6 +145,48 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 					>
 						Visualize and explore your data
 					</p>
+					{(onImportFile || onLoadDemo) && (
+						<div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+							{onImportFile && (
+								<>
+									<button
+										type="button"
+										onClick={() => fileInputRef.current?.click()}
+										style={{ ...buttonStyle, background: t.accent, color: t.bg }}
+									>
+										Import file…
+									</button>
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept={IMPORT_FILE_ACCEPT}
+										aria-hidden="true"
+										tabIndex={-1}
+										onChange={(e) => {
+											const f = e.target.files?.[0];
+											if (f) onImportFile(f);
+											e.target.value = "";
+										}}
+										style={{ display: "none" }}
+									/>
+								</>
+							)}
+							{onLoadDemo && (
+								<button
+									type="button"
+									onClick={onLoadDemo}
+									style={{ ...buttonStyle, background: t.bg, color: t.text }}
+								>
+									Load demo data
+								</button>
+							)}
+						</div>
+					)}
+					{onImportFile && (
+						<p style={{ margin: 0, color: t.textMuted, fontSize: "0.85rem" }}>
+							or drop a file anywhere
+						</p>
+					)}
 				</div>
 			</div>
 		</div>

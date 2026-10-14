@@ -4,6 +4,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
+import { IMPORT_FILE_ACCEPT } from "../../types/import";
 import ErrorBoundary from "../ErrorBoundary";
 import { DatasetItem } from "./DatasetItem";
 
@@ -81,7 +82,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 				<input
 					ref={fileInputRef}
 					type="file"
-					accept=".csv,.json,.xlsx,.xls"
+					accept={IMPORT_FILE_ACCEPT}
 					onChange={(e) => {
 						const f = e.target.files?.[0];
 						if (f) importFile(f);
