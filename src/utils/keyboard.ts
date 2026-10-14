@@ -1,39 +1,83 @@
 // src/utils/keyboard.ts
 import type { useGraphStore } from "../store/useGraphStore";
+import { anyKeyPressed, hasKey, SHORTCUTS } from "./shortcuts";
+
+type Range = { min: number; max: number };
+
+/** Fraction of the visible range one keyboard pan step moves. */
+const PAN_STEP = 0.05;
+const ZOOM_IN_FACTOR = 0.85;
+const ZOOM_OUT_FACTOR = 1.15;
+
+export type AxisStep = "pan-" | "pan+" | "zoom-in" | "zoom-out";
+
+/**
+ * Moves one axis' pan/zoom target by a single keyboard step, starting from
+ * the pending target when there is one so repeated steps accumulate.
+ */
+export function stepAxisTarget(
+	targets: Record<string, Range>,
+	axis: { id: string; min: number; max: number },
+	step: AxisStep,
+): void {
+	const t = targets[axis.id] || { min: axis.min, max: axis.max };
+	const r = t.max - t.min;
+	if (step === "pan-" || step === "pan+") {
+		const d = step === "pan+" ? r * PAN_STEP : -r * PAN_STEP;
+		targets[axis.id] = { min: t.min + d, max: t.max + d };
+		return;
+	}
+	const newRange = r * (step === "zoom-in" ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR);
+	const half = (r - newRange) / 2;
+	targets[axis.id] = { min: t.min + half, max: t.max - half };
+}
+
+/** The step a key performs on a focused axis zone, or null if none. */
+export function axisStepForKey(key: string, kind: "x" | "y"): AxisStep | null {
+	if (hasKey(kind === "x" ? SHORTCUTS.axisPanX : SHORTCUTS.axisPanY, key)) {
+		return key === "ArrowRight" || key === "ArrowUp" ? "pan+" : "pan-";
+	}
+	if (hasKey(SHORTCUTS.axisZoomIn, key)) return "zoom-in";
+	if (hasKey(SHORTCUTS.axisZoomOut, key)) return "zoom-out";
+	return null;
+}
+
+/**
+ * Under reduced motion each key press is one discrete step instead of a
+ * per-frame glide while held: drop the navigation keys once applied, and the
+ * OS key repeat (which re-adds them) paces any further movement.
+ */
+export function releaseNavigationKeys(keys: Set<string>): void {
+	for (const s of [
+		SHORTCUTS.panX,
+		SHORTCUTS.panY,
+		SHORTCUTS.zoomIn,
+		SHORTCUTS.zoomOut,
+	]) {
+		for (const k of s.keys) keys.delete(k);
+	}
+}
 
 export const applyKeyboardPan = (
 	state: ReturnType<typeof useGraphStore.getState>,
 	keys: Set<string>,
-	targetXAxes: Record<string, { min: number; max: number }>,
-	targetYs: Record<string, { min: number; max: number }>,
+	targetXAxes: Record<string, Range>,
+	targetYs: Record<string, Range>,
 ) => {
-	const left = keys.has("ArrowLeft"),
-		right = keys.has("ArrowRight");
-	const up = keys.has("ArrowUp"),
-		down = keys.has("ArrowDown");
-	if (!left && !right && !up && !down) return false;
+	const panX = anyKeyPressed(SHORTCUTS.panX, keys);
+	const panY = anyKeyPressed(SHORTCUTS.panY, keys);
+	if (!panX && !panY) return false;
 
-	const step = 0.05;
-	if (left || right) {
-		const d = right ? 1 : -1;
+	if (panX) {
+		const step = keys.has("ArrowRight") ? "pan+" : "pan-";
 		state.xAxes.forEach((axis) => {
-			const t = targetXAxes[axis.id] || { min: axis.min, max: axis.max };
-			const r = t.max - t.min;
-			targetXAxes[axis.id] = {
-				min: t.min + d * r * step,
-				max: t.max + d * r * step,
-			};
+			stepAxisTarget(targetXAxes, axis, step);
 		});
 	}
-	if (up || down) {
-		const d = up ? 1 : -1;
+	if (panY) {
+		const step = keys.has("ArrowUp") ? "pan+" : "pan-";
 		state.yAxes.forEach((axis) => {
-			const t = targetYs[axis.id] || { min: axis.min, max: axis.max };
-			const r = t.max - t.min;
-			targetYs[axis.id] = {
-				min: t.min + d * r * step,
-				max: t.max + d * r * step,
-			};
+			stepAxisTarget(targetYs, axis, step);
 		});
 	}
 	return true;
@@ -46,35 +90,21 @@ export const applyKeyboardPan = (
 export const applyKeyboardZoom = (
 	state: ReturnType<typeof useGraphStore.getState>,
 	keys: Set<string>,
-	targetXAxes: Record<string, { min: number; max: number }>,
-	targetYs: Record<string, { min: number; max: number }>,
+	targetXAxes: Record<string, Range>,
+	targetYs: Record<string, Range>,
 ) => {
-	if (keys.has("+") || keys.has("=") || keys.has("-") || keys.has("_")) {
-		const isCtrl = keys.has("Control");
-		const zoomFactor = keys.has("+") || keys.has("=") ? 0.85 : 1.15;
+	const zoomIn = anyKeyPressed(SHORTCUTS.zoomIn, keys);
+	if (!zoomIn && !anyKeyPressed(SHORTCUTS.zoomOut, keys)) return false;
 
-		state.xAxes.forEach((axis) => {
-			const t = targetXAxes[axis.id] || { min: axis.min, max: axis.max };
-			const xRange = t.max - t.min;
-			const newXRange = xRange * zoomFactor;
-			targetXAxes[axis.id] = {
-				min: t.min + (xRange - newXRange) / 2,
-				max: t.max - (xRange - newXRange) / 2,
-			};
+	const step = zoomIn ? "zoom-in" : "zoom-out";
+	state.xAxes.forEach((axis) => {
+		stepAxisTarget(targetXAxes, axis, step);
+	});
+	// Ctrl narrows the zoom to the X axes (SHORTCUTS.zoomXOnly).
+	if (!keys.has("Control")) {
+		state.yAxes.forEach((axis) => {
+			stepAxisTarget(targetYs, axis, step);
 		});
-
-		if (!isCtrl) {
-			state.yAxes.forEach((axis) => {
-				const t = targetYs[axis.id] || { min: axis.min, max: axis.max };
-				const yRange = t.max - t.min;
-				const newYRange = yRange * zoomFactor;
-				targetYs[axis.id] = {
-					min: t.min + (yRange - newYRange) / 2,
-					max: t.max - (yRange - newYRange) / 2,
-				};
-			});
-		}
-		return true;
 	}
-	return false;
+	return true;
 };

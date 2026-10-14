@@ -3,9 +3,8 @@ import { COLOR_PALETTE } from "../themes";
 
 /**
  * Line and point styles cycle alongside the colour so series identity does
- * not rest on hue alone — cobalt and violet are ΔE 6.4 apart under
- * deuteranopia, teal and cyan ΔE 4.3 under tritanopia, both well inside the
- * range where thin plot lines read as the same colour.
+ * not rest on hue alone: the palette is chosen to stay distinguishable under
+ * colour-vision deficiency, but thin lines still lose most of a hue cue.
  *
  * The two periods are coprime, so the pair (line, point) enumerates all
  * twelve combinations before repeating: any two of the first twelve series

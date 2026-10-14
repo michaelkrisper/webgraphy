@@ -5,7 +5,7 @@
 
 import { useEffect } from "react";
 import { useGraphStore } from "../store/useGraphStore";
-import { isEditableTarget } from "./usePanZoomKeyboard";
+import { isEditableTarget } from "../utils/shortcuts";
 
 export function undoRedoActionFor(
 	e: Pick<

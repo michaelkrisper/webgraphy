@@ -14,7 +14,7 @@ describe("HelpModal", () => {
 		// Check section titles
 		expect(screen.getByText("Plot Area")).toBeInTheDocument();
 		expect(screen.getByText("Axes (X & Y)")).toBeInTheDocument();
-		expect(screen.getByText("Keyboard")).toBeInTheDocument();
+		expect(screen.getByText("Keyboard: Chart")).toBeInTheDocument();
 		expect(screen.getByText("Sidebar — Data")).toBeInTheDocument();
 		expect(screen.getByText("Sidebar — Series")).toBeInTheDocument();
 		expect(screen.getByText("Export")).toBeInTheDocument();
@@ -29,7 +29,9 @@ describe("HelpModal", () => {
 
 		// Check some specific content from each section
 		expect(screen.getByText("Zoom only this axis")).toBeInTheDocument();
-		expect(screen.getByText("Pan X axis (animated)")).toBeInTheDocument();
+		// The keyboard part is rendered from the shared shortcut table.
+		expect(screen.getByText(/Pan all X axes/)).toBeInTheDocument();
+		expect(screen.getByText(/Show keyboard shortcuts/)).toBeInTheDocument();
 		expect(screen.getByText(/Drag to Reorder/)).toBeInTheDocument();
 	});
 

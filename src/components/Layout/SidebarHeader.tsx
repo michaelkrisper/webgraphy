@@ -3,25 +3,20 @@ import {
 	Columns3,
 	Crosshair,
 	FilePlus,
-	FlaskConical,
-	Grid3x3,
-	Image,
 	List,
 	Moon,
 	PanelRightClose,
-	Redo2,
-	Spline,
 	Sun,
 	Table,
 	Terminal,
-	Undo2,
 } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
-import { useGraphHistory, useGraphStore } from "../../store/useGraphStore";
+import { useGraphStore } from "../../store/useGraphStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+import { ExportMenu } from "./ExportMenu";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const PlotDataTableModal = lazy(() =>
@@ -125,7 +120,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onExportSVG,
 	onExportPNG,
 }) => {
-	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
@@ -136,10 +130,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const datasets = useGraphStore((s) => s.datasets);
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
-	const undo = useGraphStore((s) => s.undo);
-	const redo = useGraphStore((s) => s.redo);
-	const undoLabel = useGraphHistory((s) => s.past.at(-1)?.label);
-	const redoLabel = useGraphHistory((s) => s.future.at(-1)?.label);
 
 	const hdrSep = <span className="sb-hdr-sep" />;
 
@@ -159,60 +149,12 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				title="Import Data Source"
 			/>
 			<div className="sb-hdr-btns">
-				<HeaderButton
-					onClick={undo}
-					icon={<Undo2 size={24} />}
-					title={
-						undoLabel ? `Undo: ${undoLabel} (Ctrl+Z)` : "Undo (nothing to undo)"
-					}
-					disabled={!undoLabel}
-				/>
-				<HeaderButton
-					onClick={redo}
-					icon={<Redo2 size={24} />}
-					title={
-						redoLabel ? `Redo: ${redoLabel} (Ctrl+Shift+Z)` : "Redo (nothing to redo)"
-					}
-					disabled={!redoLabel}
-				/>
 				{hdrSep}
-				<HeaderButton
-					onClick={loadDemoData}
-					icon={<FlaskConical size={24} />}
-					title="Load Demo Data"
-				/>
-				{hdrSep}
-				<PopupPicker
-					options={[
-						{
-							value: "svg",
-							icon: <Spline size={16} />,
-							label: "Export as SVG (vector)",
-						},
-						{
-							value: "png",
-							icon: <Grid3x3 size={16} />,
-							label: "Export as PNG (pixel)",
-						},
-					]}
-					current={"" as "svg" | "png" | ""}
-					onChange={(v) => {
-						if (v === "svg") onExportSVG();
-						else if (v === "png") onExportPNG();
-					}}
-					popoverId="export-popover"
-					renderTrigger={({ onClick, ref }) => (
-						<button
-							ref={ref}
-							type="button"
-							onClick={onClick}
-							title="Export Image"
-							aria-label="Export Image"
-							className="sb-hdr-btn"
-						>
-							<Image size={24} />
-						</button>
-					)}
+				<ExportMenu
+					onExportSVG={onExportSVG}
+					onExportPNG={onExportPNG}
+					className="sb-hdr-btn"
+					iconSize={24}
 				/>
 				<HeaderButton
 					onClick={() => setDataTableOpen(true)}

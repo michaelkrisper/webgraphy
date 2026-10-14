@@ -360,8 +360,11 @@
 	height: 16px;
 	border: 2px solid rgba(255, 255, 255, 0.3);
 	border-top-color: #fff;
-
-	animation: calc-spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.calc-spinner {
+		animation: calc-spin 1s linear infinite;
+	}
 }
 @keyframes calc-spin {
 	to {
@@ -470,6 +473,11 @@
 	color: #fff;
 
 	margin-top: 8px;
+}
+
+/* Axis zones touch the plot's clipped edges: draw the shared ring inside. */
+.axis-zone:focus-visible {
+	outline-offset: -2px;
 }
 
 /* ── CollapsedMenuButton ────────────────────────────── */

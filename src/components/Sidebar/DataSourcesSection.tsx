@@ -7,6 +7,7 @@ import { THEMES } from "../../themes";
 import { IMPORT_ACCEPT } from "../../utils/importFile";
 import ErrorBoundary from "../ErrorBoundary";
 import { DatasetItem } from "./DatasetItem";
+import { LoadDemoDataButton } from "./LoadDemoDataButton";
 
 // Pulls in the formula editor + function reference; only needed once the user
 // actually adds a calculated column, so it stays out of the entry chunk.
@@ -77,7 +78,8 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 						) : (
 							<ChevronRight size={16} color={t.textMuted} />
 						)}
-					</button>{" "}
+					</button>
+					<LoadDemoDataButton />
 				</div>
 				<input
 					ref={fileInputRef}
