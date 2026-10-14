@@ -120,6 +120,31 @@ describe("drawSeriesLines", () => {
 		expect(mockGLStateCache.lpSetLogRef).toHaveBeenCalledWith(1, 0, 3, 0);
 	});
 
+	it("decimates a dense series on a log x axis", () => {
+		const n = 10_000;
+		const xData = Float32Array.from({ length: n }, (_, i) => i + 1);
+		const yData = Float32Array.from({ length: n }, (_, i) => Math.sin(i));
+		Object.assign(mockBundle, {
+			xLog: true,
+			xRef: 0,
+			xData,
+			yData,
+			xAxisMin: 1,
+			xAxisMax: n,
+			xRange: 4,
+			sliceStart: 0,
+			sliceEnd: n - 1,
+			cachedSegments: [{ start: 0, end: n - 1 }],
+			drawRanges: [{ start: 0, count: n }],
+		});
+		callDrawSeriesLines();
+		const calls = (mockGl.drawArraysInstanced as ReturnType<typeof vi.fn>).mock
+			.calls;
+		expect(calls).toHaveLength(1);
+		// ~100 px * 3 log buckets * 4 samples, not the 9999 raw segments.
+		expect(calls[0][3]).toBeLessThan(1_500);
+	});
+
 	it("switches to the line program and sets color, transform, and width", () => {
 		mockBundle.isHighlighted = true;
 		mockBundle.dpr = 2;
