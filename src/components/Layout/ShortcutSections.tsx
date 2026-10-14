@@ -13,6 +13,11 @@ const Keys: React.FC<{ shortcut: Shortcut }> = ({ shortcut }) => (
 				<kbd>Ctrl</kbd> +{" "}
 			</>
 		)}
+		{shortcut.shift && (
+			<>
+				<kbd>Shift</kbd> +{" "}
+			</>
+		)}
 		{formatShortcutKeys(shortcut).map((k, i) => (
 			<span key={k}>
 				{i > 0 && " / "}

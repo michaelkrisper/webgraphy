@@ -14,6 +14,10 @@ export interface PopupPickerOption<T> {
 	icon: ReactNode;
 	label: string;
 	disabled?: boolean;
+	/** Tooltip, e.g. why the option is disabled. */
+	title?: string;
+	/** Rendered after the label. */
+	trailing?: ReactNode;
 }
 
 interface PopupPickerProps<T> {
@@ -119,9 +123,11 @@ export function PopupPicker<T extends string | number>({
 								onMouseEnter={() => onHoverOption?.(opt.value)}
 								onMouseLeave={() => onHoverOption?.(null)}
 								disabled={opt.disabled}
+								title={opt.title}
 							>
 								<span className="popup-picker-icon">{opt.icon}</span>
 								<span className="popup-picker-label">{opt.label}</span>
+								{opt.trailing}
 							</button>
 						);
 					})}

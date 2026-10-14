@@ -14,6 +14,7 @@ import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
 import { usePasteImport } from "../../hooks/usePasteImport";
 import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
+import { useFitShortcuts } from "../../hooks/useFitShortcuts";
 import { useLaunchQueue } from "../../hooks/useLaunchQueue";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
@@ -277,6 +278,7 @@ export default function ChartContainer() {
 			handleAutoScaleY(ax.id);
 		});
 	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
+	useFitShortcuts(handleFitAll, handleStackedFit, datasets.length > 0);
 
 	// Keyboard steps on a focused axis zone go through the same target refs
 	// and rAF sync as every other pan/zoom.

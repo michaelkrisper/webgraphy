@@ -73,5 +73,9 @@ describe("KeyboardShortcutsModal", () => {
 			.getByText(SHORTCUTS.panX.description, { exact: false })
 			.closest("li");
 		expect(pan).toHaveTextContent("← / →:");
+		const stacked = screen
+			.getByText(SHORTCUTS.stackedFit.description, { exact: false })
+			.closest("li");
+		expect(stacked).toHaveTextContent("Shift + Home:");
 	});
 });
