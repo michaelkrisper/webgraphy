@@ -88,19 +88,16 @@ const HeaderButton = ({
 	title,
 	color,
 	off,
-	disabled,
 }: {
 	onClick: () => void;
 	icon: React.ReactNode;
 	title: string;
 	color?: string;
 	off?: boolean;
-	disabled?: boolean;
 }) => (
 	<button
 		type="button"
 		onClick={onClick}
-		disabled={disabled}
 		title={title}
 		aria-label={title}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}

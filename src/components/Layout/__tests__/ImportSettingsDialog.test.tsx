@@ -183,6 +183,23 @@ describe("ImportSettingsDialog", () => {
 		fireEvent.click(confirm);
 		expect(onConfirm).not.toHaveBeenCalled();
 		expect(screen.getByLabelText("Close dialog")).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+	});
+
+	it("is titled by the file, starts on the first setting, confirms bottom-right", () => {
+		render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={"A,B\n1,2"}
+				fileType="csv"
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		expect(screen.getByRole("dialog", { name: "test.csv" })).toBeInTheDocument();
+		expect(screen.getByLabelText(/Delimiter/i)).toHaveFocus();
+		const confirm = screen.getByRole("button", { name: "Import Data" });
+		expect(confirm.closest(".modal-footer")).not.toBeNull();
 	});
 
 	it("notes a truncated preview and shows its head rows only", () => {

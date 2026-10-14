@@ -58,9 +58,35 @@ export function PlotDataTableModal({
 		}
 	};
 
+	const footer = (
+		<>
+			<button
+				type="button"
+				className="modal-btn"
+				onClick={copyTable}
+				disabled={tables.length === 0}
+			>
+				<ClipboardCopy size={14} aria-hidden="true" />
+				Copy table
+			</button>
+			<button
+				type="button"
+				className="modal-btn modal-btn--primary"
+				data-autofocus
+				onClick={() => void exportVisibleCsv({ series, datasets, xAxes }, feedback)}
+				disabled={tables.length === 0}
+				title="Every row in the visible range, not just the sampled ones"
+			>
+				<Download size={14} aria-hidden="true" />
+				Export CSV
+			</button>
+		</>
+	);
+
 	return (
 		<Modal
 			onClose={onClose}
+			footer={footer}
 			title="Plotted data"
 			ariaLabel="Close plotted data"
 			maxWidth="720px"
@@ -69,29 +95,6 @@ export function PlotDataTableModal({
 				The visible section of each series, sampled exactly as the chart draws it —
 				at most {MAX_TABLE_ROWS} rows per series.
 			</p>
-			<div className="plot-data-actions">
-				<button
-					type="button"
-					className="plot-data-btn"
-					onClick={copyTable}
-					disabled={tables.length === 0}
-				>
-					<ClipboardCopy size={14} aria-hidden="true" />
-					Copy table
-				</button>
-				<button
-					type="button"
-					className="plot-data-btn"
-					onClick={() =>
-						void exportVisibleCsv({ series, datasets, xAxes }, feedback)
-					}
-					disabled={tables.length === 0}
-					title="Every row in the visible range, not just the sampled ones"
-				>
-					<Download size={14} aria-hidden="true" />
-					Export CSV
-				</button>
-			</div>
 			<div className="plot-data-scroll">
 				{tables.length === 0 ? (
 					<p>No data series are displayed.</p>

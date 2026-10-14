@@ -1,6 +1,6 @@
 import type React from "react";
-import { useId, useRef } from "react";
-import { useDialogA11y } from "../../hooks/useDialogA11y";
+import { useId } from "react";
+import { Modal } from "./Modal";
 
 interface ConfirmDialogProps {
 	title: string;
@@ -22,39 +22,33 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 	onConfirm,
 	onCancel,
 }) => {
-	const cardRef = useRef<HTMLDivElement | null>(null);
-	const titleId = useDialogA11y(cardRef, onCancel);
 	const messageId = useId();
 
 	return (
-		<div className="modal-overlay">
-			<div
-				ref={cardRef}
-				className="modal-card"
-				role="alertdialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				aria-describedby={messageId}
-				style={{ maxWidth: "420px", width: "90%", padding: "20px" }}
-			>
-				<h2 className="modal-title" id={titleId}>
-					{title}
-				</h2>
-				<p id={messageId}>{message}</p>
-				<div className="calc-actions">
-					<button type="button" className="calc-btn-cancel" onClick={onCancel}>
+		<Modal
+			onClose={onCancel}
+			title={title}
+			role="alertdialog"
+			describedBy={messageId}
+			maxWidth="420px"
+			footer={
+				<>
+					<button type="button" className="modal-btn" onClick={onCancel}>
 						Cancel
 					</button>
 					<button
 						type="button"
-						className="calc-btn-submit"
-						style={{ color: "var(--bg)" }}
+						className="modal-btn modal-btn--primary"
 						onClick={onConfirm}
 					>
 						{confirmLabel}
 					</button>
-				</div>
-			</div>
-		</div>
+				</>
+			}
+		>
+			<p id={messageId} className="modal-message">
+				{message}
+			</p>
+		</Modal>
 	);
 };

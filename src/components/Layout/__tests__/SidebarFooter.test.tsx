@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 import { SidebarFooter } from "../SidebarFooter";
 import { useShortcutsHelp } from "../shortcutsHelp";
 
@@ -47,14 +48,29 @@ describe("SidebarFooter", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("renders version, author, and buttons", () => {
+	const openMore = () =>
+		fireEvent.click(screen.getByRole("button", { name: "More" }));
+
+	it("renders version, author, Help and the overflow button", () => {
 		render(<SidebarFooter />);
 
 		expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
 		expect(screen.getByText("© Michael Krisper")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "License" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Imprint" })).toBeInTheDocument();
+		// Secondary links stay out of the row until the overflow is opened.
+		expect(screen.queryByRole("button", { name: "License" })).toBeNull();
+		const more = screen.getByRole("button", { name: "More" });
+		expect(more).toHaveAttribute("aria-expanded", "false");
+		openMore();
+		expect(more).toHaveAttribute("aria-expanded", "true");
+		for (const name of [
+			"Keyboard shortcuts (?)",
+			"Storage usage",
+			"License",
+			"Imprint",
+		]) {
+			expect(screen.getByRole("button", { name })).toBeInTheDocument();
+		}
 	});
 
 	it("opens and closes the Help modal", async () => {
@@ -71,7 +87,10 @@ describe("SidebarFooter", () => {
 
 	it("opens the keyboard shortcuts dialog", () => {
 		render(<SidebarFooter />);
-		fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+		openMore();
+		fireEvent.click(
+			screen.getByRole("button", { name: "Keyboard shortcuts (?)" }),
+		);
 		expect(useShortcutsHelp.getState().open).toBe(true);
 		useShortcutsHelp.getState().setOpen(false);
 	});
@@ -81,6 +100,7 @@ describe("SidebarFooter", () => {
 
 		expect(screen.queryByTestId("license-modal")).not.toBeInTheDocument();
 
+		openMore();
 		fireEvent.click(screen.getByRole("button", { name: "License" }));
 		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
 
@@ -93,6 +113,7 @@ describe("SidebarFooter", () => {
 
 		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
 
+		openMore();
 		fireEvent.click(screen.getByRole("button", { name: "Imprint" }));
 		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
 
@@ -102,14 +123,18 @@ describe("SidebarFooter", () => {
 
 	it("toggles the lazily loaded storage readout", async () => {
 		render(<SidebarFooter />);
-		const btn = screen.getByRole("button", { name: "Storage" });
-		expect(btn).toHaveAttribute("aria-expanded", "false");
 
-		fireEvent.click(btn);
+		openMore();
+		fireEvent.click(screen.getByRole("button", { name: "Storage usage" }));
 		expect(await screen.findByTestId("storage-readout")).toBeInTheDocument();
-		expect(btn).toHaveAttribute("aria-expanded", "true");
 
-		fireEvent.click(btn);
+		openMore();
+		fireEvent.click(screen.getByRole("button", { name: "Hide storage usage" }));
 		expect(screen.queryByTestId("storage-readout")).not.toBeInTheDocument();
+	});
+
+	it("has no axe violations", async () => {
+		const { container } = render(<SidebarFooter />);
+		expect(await axe(container)).toHaveNoViolations();
 	});
 });

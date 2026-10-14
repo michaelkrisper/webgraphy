@@ -1,6 +1,6 @@
 import { AlertCircle, Check } from "lucide-react";
 import type React from "react";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
 	signatureContext,
 	useFormulaEditor,
@@ -32,6 +32,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	const [isCalculating, setIsCalculating] = useState(false);
 	const [showReference, setShowReference] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const formId = useId();
 
 	const {
 		formula,
@@ -132,12 +133,35 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 		insertText(`[${col}]`);
 	};
 
-	const title = (
-		<div className="modal-title-content">
-			<h2 className="modal-title">
-				{isEditing ? "Edit Calculated Series" : "Add Calculated Series"}
-			</h2>
-		</div>
+	const footer = (
+		<>
+			<button
+				type="button"
+				onClick={onClose}
+				disabled={isCalculating}
+				className="modal-btn"
+			>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				form={formId}
+				disabled={isCalculating || !!validation.msg}
+				className="modal-btn modal-btn--primary"
+			>
+				{isCalculating ? (
+					<>
+						<div className="calc-spinner" />
+						<span>Calculating...</span>
+					</>
+				) : (
+					<>
+						<Check size={18} />{" "}
+						<span>{isEditing ? "Save Column" : "Create Column"}</span>
+					</>
+				)}
+			</button>
+		</>
 	);
 
 	const renderSuggestionContent = (s: (typeof suggestions)[number]) => (
@@ -151,11 +175,16 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 	);
 
 	return (
-		<Modal onClose={onClose} title={title} maxWidth="760px" padding="0">
-			<form onSubmit={handleSubmit} className="calc-form">
+		<Modal
+			onClose={onClose}
+			title={isEditing ? "Edit Calculated Column" : "Add Calculated Column"}
+			maxWidth="760px"
+			footer={footer}
+		>
+			<form id={formId} onSubmit={handleSubmit}>
 				<div className="calc-field">
 					<label htmlFor="col-name" className="calc-label">
-						Column Name
+						Column name
 					</label>
 					<input
 						id="col-name"
@@ -281,41 +310,6 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 						<span>{error}</span>
 					</div>
 				)}
-
-				<div className="calc-actions">
-					<button
-						type="button"
-						onClick={onClose}
-						disabled={isCalculating}
-						className="calc-btn-cancel"
-						style={{
-							cursor: isCalculating ? "not-allowed" : "pointer",
-							opacity: isCalculating ? 0.6 : 1,
-						}}
-					>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={isCalculating || !!validation.msg}
-						className="calc-btn-submit"
-						style={{
-							cursor: isCalculating || validation.msg ? "not-allowed" : "pointer",
-							opacity: isCalculating ? 0.8 : validation.msg ? 0.6 : 1,
-						}}
-					>
-						{isCalculating ? (
-							<>
-								<div className="calc-spinner" />
-								<span>Calculating...</span>
-							</>
-						) : (
-							<>
-								<Check size={18} /> <span>Create Series</span>
-							</>
-						)}
-					</button>
-				</div>
 			</form>
 		</Modal>
 	);

@@ -1,6 +1,7 @@
-import { Keyboard } from "lucide-react";
+import { HardDrive, Info, Keyboard, MoreHorizontal, Scale } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
+import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { useShortcutsHelp } from "./shortcutsHelp";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
@@ -17,99 +18,78 @@ const StorageReadout = lazy(() =>
 	import("./StorageReadout").then((m) => ({ default: m.StorageReadout })),
 );
 
+type MoreItem = "shortcuts" | "storage" | "license" | "imprint";
+
 export const SidebarFooter: React.FC = () => {
 	const [showImprint, setShowImprint] = useState(false);
 	const [showHelp, setShowHelp] = useState(false);
 	const [showLicense, setShowLicense] = useState(false);
 	const [showStorage, setShowStorage] = useState(false);
 
+	// Secondary links live behind one overflow button: the sidebar is too
+	// narrow for all of them next to the version and the copyright.
+	const moreOptions: PopupPickerOption<MoreItem>[] = [
+		{
+			value: "shortcuts",
+			icon: <Keyboard size={14} />,
+			label: "Keyboard shortcuts (?)",
+		},
+		{
+			value: "storage",
+			icon: <HardDrive size={14} />,
+			label: showStorage ? "Hide storage usage" : "Storage usage",
+		},
+		{ value: "license", icon: <Scale size={14} />, label: "License" },
+		{ value: "imprint", icon: <Info size={14} />, label: "Imprint" },
+	];
+
+	const onMore = (item: MoreItem) => {
+		if (item === "shortcuts") useShortcutsHelp.getState().setOpen(true);
+		else if (item === "storage") setShowStorage((v) => !v);
+		else if (item === "license") setShowLicense(true);
+		else setShowImprint(true);
+	};
+
 	return (
 		<>
-			<footer
-				className="sb-footer"
-				style={{
-					position: "relative",
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					gap: "12px",
-					padding: "8px 12px",
-					whiteSpace: "nowrap",
-				}}
-			>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: "8px",
-						fontSize: "0.7rem",
-						color: "var(--text-muted-color)",
-					}}
-				>
-					<span style={{ opacity: 0.8 }}>v{__APP_VERSION__}</span>
-					<span style={{ opacity: 0.5 }}>|</span>
+			<footer className="sb-footer">
+				<div className="sb-footer-links">
+					<span className="sb-footer-version" title={`v${__APP_VERSION__}`}>
+						v{__APP_VERSION__}
+					</span>
+					<span className="sb-footer-sep" aria-hidden="true">
+						|
+					</span>
 					<button
 						onClick={() => setShowHelp(true)}
 						className="sb-footer-btn"
 						type="button"
-						title="Help"
-						style={{ fontSize: "0.7rem", padding: 0 }}
 					>
 						Help
 					</button>
-					{/* Icon only: the footer row has no width left for another label. */}
-					<button
-						onClick={() => useShortcutsHelp.getState().setOpen(true)}
-						className="sb-footer-btn"
-						type="button"
-						title="Keyboard shortcuts (?)"
-						aria-label="Keyboard shortcuts"
-						style={{ padding: 0, display: "flex" }}
-					>
-						<Keyboard size={14} aria-hidden="true" />
-					</button>
-					<span style={{ opacity: 0.5 }}>|</span>
-					<button
-						onClick={() => setShowLicense(true)}
-						className="sb-footer-btn"
-						type="button"
-						title="License"
-						style={{ fontSize: "0.7rem", padding: 0 }}
-					>
-						License
-					</button>
-					<span style={{ opacity: 0.5 }}>|</span>
-					<button
-						onClick={() => setShowImprint(true)}
-						className="sb-footer-btn"
-						type="button"
-						title="Imprint"
-						style={{ fontSize: "0.7rem", padding: 0 }}
-					>
-						Imprint
-					</button>
-					<span style={{ opacity: 0.5 }}>|</span>
-					<button
-						onClick={() => setShowStorage((v) => !v)}
-						className="sb-footer-btn"
-						type="button"
-						title="Browser storage usage"
-						aria-expanded={showStorage}
-						style={{ fontSize: "0.7rem", padding: 0 }}
-					>
-						Storage
-					</button>
+					<PopupPicker
+						options={moreOptions}
+						current={"" as MoreItem}
+						onChange={onMore}
+						popoverId="footer-more-popover"
+						minWidth={180}
+						renderTrigger={({ onClick, ref, isOpen }) => (
+							<button
+								ref={ref}
+								onClick={onClick}
+								className="sb-footer-btn"
+								type="button"
+								title="Keyboard shortcuts, storage, license, imprint"
+								aria-label="More"
+								aria-haspopup="true"
+								aria-expanded={isOpen}
+							>
+								<MoreHorizontal size={14} aria-hidden="true" />
+							</button>
+						)}
+					/>
 				</div>
-				<div
-					style={{
-						fontSize: "0.7rem",
-						color: "var(--text-muted-color)",
-						opacity: 0.8,
-						textAlign: "right",
-					}}
-				>
-					© Michael Krisper
-				</div>
+				<span className="sb-footer-copy">© Michael Krisper</span>
 				{showStorage && (
 					<Suspense fallback={null}>
 						<StorageReadout />

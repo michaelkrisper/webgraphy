@@ -178,6 +178,13 @@ describe("PlotDataTableModal", () => {
 			);
 		});
 
+		it("puts the actions in the footer and focuses Export CSV", () => {
+			renderModal();
+			const exportBtn = screen.getByRole("button", { name: /Export CSV/ });
+			expect(exportBtn.closest(".modal-footer")).not.toBeNull();
+			expect(exportBtn).toHaveFocus();
+		});
+
 		it("disables both when nothing is plotted", () => {
 			renderModal([]);
 			expect(screen.getByRole("button", { name: /Copy table/ })).toBeDisabled();

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Clock, EyeOff, Hash, Tag, X } from "lucide-react";
+import { Check, ChevronDown, Clock, EyeOff, Hash, Tag } from "lucide-react";
 import React, { useDeferredValue, useMemo, useState } from "react";
 import type {
 	ColumnConfig,
@@ -137,26 +137,63 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 		}));
 	};
 
+	const footer = (
+		<>
+			<button
+				type="button"
+				disabled={isImporting}
+				onClick={onCancel}
+				className="modal-btn"
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				disabled={isImporting}
+				aria-busy={isImporting}
+				onClick={() =>
+					onConfirm({
+						delimiter,
+						decimalPoint,
+						startRow,
+						commentChar,
+						columnConfigs,
+						xAxisColumn,
+						splitByColumns: splitByColumns.filter((name) =>
+							columnConfigs.some((c) => c.name === name && c.type === "categorical"),
+						),
+					})
+				}
+				className="modal-btn modal-btn--primary"
+			>
+				{isImporting ? (
+					<>
+						<span className="calc-spinner" aria-hidden="true" /> Importing…
+					</>
+				) : (
+					<>
+						<Check size={16} /> Import Data
+					</>
+				)}
+			</button>
+		</>
+	);
+
 	return (
 		<Modal
 			onClose={onCancel}
-			title=""
-			hideHeader
+			title={fileName}
 			maxWidth="96vw"
 			width="96vw"
 			height="92vh"
 			maxHeight="92vh"
-			borderRadius="8px"
 			padding="0"
+			footer={footer}
+			closeDisabled={isImporting}
 		>
 			<div className="isd-body">
 				<div className="isd-general-fields">
 					<div className="isd-fields-main">
-						<div className="isd-filename">
-							<span className="isd-filename-text" title={fileName}>
-								{fileName}
-							</span>
-						</div>
 						{fileType === "excel" && sheets && sheets.length > 1 && (
 							<div className="isd-field-group-md">
 								<label htmlFor="import-sheet" className="isd-field-label">
@@ -246,45 +283,6 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							</div>
 						)}
 					</div>
-					<button
-						type="button"
-						disabled={isImporting}
-						aria-busy={isImporting}
-						onClick={() =>
-							onConfirm({
-								delimiter,
-								decimalPoint,
-								startRow,
-								commentChar,
-								columnConfigs,
-								xAxisColumn,
-								splitByColumns: splitByColumns.filter((name) =>
-									columnConfigs.some((c) => c.name === name && c.type === "categorical"),
-								),
-							})
-						}
-						className="isd-btn-confirm"
-					>
-						{isImporting ? (
-							<>
-								<span className="calc-spinner" aria-hidden="true" /> Importing…
-							</>
-						) : (
-							<>
-								<Check size={16} /> Import Data
-							</>
-						)}
-					</button>
-					<button
-						type="button"
-						disabled={isImporting}
-						onClick={onCancel}
-						className="isd-btn-cancel"
-						aria-label="Close dialog"
-						title="Cancel"
-					>
-						<X size={20} />
-					</button>
 				</div>
 
 				{previewData.skippedLines.length > 0 && (

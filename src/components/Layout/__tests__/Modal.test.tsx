@@ -93,22 +93,30 @@ describe("Modal", () => {
 		).toBeInTheDocument();
 	});
 
-	it("hides header when hideHeader is true", () => {
+	it("can disable the close button, e.g. while work is in flight", () => {
 		const onClose = vi.fn();
 		render(
-			<Modal onClose={onClose} title="Test Title" hideHeader={true}>
+			<Modal onClose={onClose} title="Test Title" closeDisabled>
 				<div>Test Content</div>
 			</Modal>,
 		);
 
-		expect(
-			screen.queryByRole("heading", { name: "Test Title" }),
-		).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole("button", { name: "Close dialog" }),
-		).not.toBeInTheDocument();
-		// Content should still render
-		expect(screen.getByText("Test Content")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Close dialog" })).toBeDisabled();
+	});
+
+	it("lays the footer actions out after the body", () => {
+		const { container } = render(
+			<Modal
+				onClose={vi.fn()}
+				title="Test Title"
+				footer={<button type="button">OK</button>}
+			>
+				<div>Test Content</div>
+			</Modal>,
+		);
+
+		const card = container.querySelector(".modal-card") as HTMLElement;
+		expect(card.lastElementChild).toHaveClass("modal-footer");
 	});
 
 	it("applies custom styles to the modal card", () => {
@@ -129,8 +137,10 @@ describe("Modal", () => {
 		);
 
 		const modalCard = container.querySelector(".modal-card") as HTMLElement;
-		expect(modalCard).toHaveStyle({
+		expect(container.querySelector(".modal-body")).toHaveStyle({
 			padding: "10px",
+		});
+		expect(modalCard).toHaveStyle({
 			borderRadius: "5px",
 			maxWidth: "500px",
 			width: "80%",

@@ -24,141 +24,105 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 			onClose={onClose}
 			title="Help & Interactions"
 			maxWidth="900px"
-			height="99vh"
-			maxHeight="99vh"
-			padding="16px"
 			ariaLabel="Close Help"
 		>
-			<Section title="Plot Area" first>
+			<Section title="Chart" first>
 				<li>
-					<strong>Mouse Wheel:</strong> Zoom in and out
+					<strong>Wheel / drag:</strong> Zoom / pan. Hold <kbd>Shift</kbd> to move
+					all X axes together
 				</li>
 				<li>
-					<strong>Click & Drag:</strong> Pan the chart
+					<strong>Ctrl + drag:</strong> Zoom to a box
 				</li>
 				<li>
-					<strong>Shift + Interaction:</strong> Synchronize all X-axes
-					(zoom/pan/keys)
+					<strong>Double-click, or Fit All:</strong> Fit every axis to its data.{" "}
+					<strong>Stacked Fit</strong> gives each Y axis its own band
 				</li>
 				<li>
-					<strong>CTRL + Drag:</strong> Draw a zoom selection box
+					<strong>Hover:</strong> Crosshair and tooltip snap to the nearest point
 				</li>
 				<li>
-					<strong>CTRL + C:</strong> Copy current tooltip data to clipboard
+					<strong>Legend:</strong> Click an entry to hide or show its series
 				</li>
 				<li>
-					<strong>Hover:</strong> Snap crosshair and tooltip to the nearest data
-					point
-				</li>
-				<li>
-					<strong>Double Click:</strong> Auto-scale to fit all data
-				</li>
-				<li>
-					<strong>Drag & Drop file:</strong> Drop a CSV, JSON, or XLSX file onto the
-					chart to import
+					<strong>Drop a file</strong> on the chart to import it
 				</li>
 			</Section>
 
-			<Section title="Axes (X & Y)">
+			<Section title="Axes">
 				<li>
-					<strong>Mouse Wheel:</strong> Zoom only this axis
+					<strong>Wheel / drag on an axis:</strong> Zoom / pan only that axis
 				</li>
 				<li>
-					<strong>Drag:</strong> Pan only this axis
+					<strong>Double-click an axis:</strong> Auto-scale it. On a Y axis, near the
+					top or bottom fits the data into the upper or lower half
 				</li>
 				<li>
-					<strong>Double Click:</strong> Auto-scale this axis
+					<strong>Rename an X axis:</strong> Double-click its title, or press{" "}
+					<kbd>Enter</kbd> on the focused axis
+				</li>
+			</Section>
+
+			<Section title="Data">
+				<li>
+					<strong>Import:</strong> CSV, JSON or Excel, or paste spreadsheet cells (
+					<kbd>Ctrl</kbd> + <kbd>V</kbd>). The import dialog sets the delimiter,
+					decimal point, start row and column types
 				</li>
 				<li>
-					<strong>CTRL + Dbl Click (Y):</strong> Auto-scale to the upper or lower
-					half (based on click position)
+					<strong>Column chips:</strong> Click to plot a column; click a filled
+					(plotted) chip again to remove its series
 				</li>
 				<li>
-					<strong>Click on title:</strong> Rename the axis
+					<strong>X axis:</strong> Pick the X column per dataset; with several
+					datasets, also pick which X axis (1–9) it uses
+				</li>
+				<li>
+					<strong>Calculated Columns:</strong> Formulas over{" "}
+					<code>[Column Name]</code> — math, <code>if</code>, rolling windows,{" "}
+					<code>lag/diff</code>, per-time-bucket averages, Kalman <code>filter</code>{" "}
+					and regressions (<code>linreg/polyreg/expreg/logreg/kde</code>). The dialog
+					has a searchable function reference
+				</li>
+			</Section>
+
+			<Section title="Series">
+				<li>
+					<strong>Rows:</strong> Drag to reorder; pick a Y axis (share one, or New
+					axis — up to 9), its side and grid, line style, markers and colour
+				</li>
+				<li>
+					<strong>Undo:</strong> Deletes and edits can be undone (<kbd>Ctrl</kbd> +{" "}
+					<kbd>Z</kbd>, or Undo in the toast)
+				</li>
+			</Section>
+
+			<Section title="View & export">
+				<li>
+					<strong>Session &amp; Export:</strong> Save or open the whole workspace as
+					a <code>.webgraphy</code> session file; export the view as SVG or PNG or
+					the visible data as CSV
+				</li>
+				<li>
+					<strong>Toolbar:</strong> View the plotted values as a table (copy or
+					export CSV), toggle grid, crosshair and legend, pick a theme
+				</li>
+				<li>
+					<strong>Dataset CSV:</strong> The download icon on a dataset exports all
+					its rows, calculated columns included
+				</li>
+				<li>
+					<strong>Storage:</strong> Data and settings stay in this browser
+					(IndexedDB) and are restored on the next visit. Usage is under ⋯ in the
+					footer
+				</li>
+				<li>
+					<strong>Install as App:</strong> WebGraphy is a PWA — install it from the
+					browser for offline use
 				</li>
 			</Section>
 
 			<ShortcutSections titlePrefix="Keyboard: " />
-
-			<Section title="Sidebar — Data">
-				<li>
-					<strong>Import:</strong> Load CSV, JSON, or Excel (XLSX/XLS) files. Large
-					files stream through a worker; pick a sheet for Excel
-				</li>
-				<li>
-					<strong>Skipped Rows Preview:</strong> Inspect rows skipped during import
-				</li>
-				<li>
-					<strong>Calculated Columns:</strong> Reference columns with{" "}
-					<code>[Column Name]</code>. Math/trig, conditional{" "}
-					<code>if(cond, a, b)</code> with comparison (<code>&lt; &gt; ==</code>) and
-					logical (<code>&amp;&amp; ||</code>) operators, aggregates{" "}
-					<code>median/std/var</code>, NaN handling <code>isnan/coalesce</code>;
-					rolling windows <code>rolling(expr, n)</code> / <code>rollingTime</code> /
-					<code>rollingMed/Std/Min/Max</code> (plus legacy <code>avgN</code>{" "}
-					aliases); row-relative <code>lag/diff/cumsum/cumprod</code>; per-bucket{" "}
-					<code>avgDay/Hour/Minute/Second</code> and <code>sum…</code> variants;
-					Kalman <code>filter</code>; regressions{" "}
-					<code>linreg/polyreg/expreg/logreg/kde</code>. The editor has a searchable
-					function reference and live signature hints.
-				</li>
-				<li>
-					<strong>X-Axis per Dataset:</strong> Cycle the dataset's X-axis (1–9) and
-					toggle numeric/time mode
-				</li>
-			</Section>
-
-			<Section title="Sidebar — Series">
-				<li>
-					<strong>Drag to Reorder:</strong> Grab a series row to reorder draw/legend
-					order
-				</li>
-				<li>
-					<strong>Multiple Y-Axes:</strong> Up to 9 Y-axes, each with independent
-					scale, position (left/right), and color
-				</li>
-				<li>
-					<strong>Style:</strong> Line style (solid/dashed/dotted), point markers
-					(circle/square/cross), color
-				</li>
-				<li>
-					<strong>Regression:</strong> Add linear, polynomial, exponential, logistic,
-					or KDE fits
-				</li>
-				<li>
-					<strong>Visibility:</strong> Toggle per-series visibility; hover a row to
-					highlight it on the chart
-				</li>
-			</Section>
-
-			<Section title="Export">
-				<li>
-					<strong>Export Chart:</strong> Save the current view as SVG or PNG
-					(theme-aware, device-pixel scaled)
-				</li>
-				<li>
-					<strong>Auto-Save:</strong> Datasets persist in IndexedDB; UI and series
-					state in LocalStorage — restored on next visit
-				</li>
-			</Section>
-
-			<Section title="UI">
-				<li>
-					<strong>Themes:</strong> Light, Dark, Matrix, Winnie, Unicorn — cycle via
-					the theme button
-				</li>
-				<li>
-					<strong>Sidebar Collapse:</strong> Click the logo to collapse or expand the
-					sidebar
-				</li>
-				<li>
-					<strong>Legend:</strong> Toggle the top-right legend overlay
-				</li>
-				<li>
-					<strong>Install as App:</strong> Webgraphy is a PWA — install it from the
-					browser for offline access
-				</li>
-			</Section>
 		</Modal>
 	);
 };

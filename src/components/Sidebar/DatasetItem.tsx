@@ -2,7 +2,7 @@ import { Calculator, Download, Pencil, Trash2 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
-import { deleteWithUndo } from "../../store/undoToast";
+import { deleteWithUndo, removeSeriesWithUndo } from "../../store/undoToast";
 import { useGraphStore } from "../../store/useGraphStore";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
@@ -10,33 +10,6 @@ import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
 import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
 import { getColumnIndex } from "../../utils/columns";
-
-const FLASH_MS = 1200;
-
-/**
- * Point the user at an existing series instead of plotting a duplicate:
- * scroll its sidebar row into view, flash it, and emphasise it on the chart.
- */
-function revealSeries(seriesId: string) {
-	const row = Array.from(
-		document.querySelectorAll<HTMLElement>("[data-series-id]"),
-	).find((el) => el.dataset.seriesId === seriesId);
-	if (row) {
-		row.scrollIntoView?.({ block: "nearest" });
-		row.classList.remove("sb-series-row--flash");
-		// Force a reflow so re-adding the class restarts the animation.
-		void row.offsetWidth;
-		row.classList.add("sb-series-row--flash");
-		setTimeout(() => row.classList.remove("sb-series-row--flash"), FLASH_MS);
-	}
-	const store = useGraphStore.getState();
-	store.setHighlightedSeries(seriesId);
-	setTimeout(() => {
-		if (useGraphStore.getState().highlightedSeriesId === seriesId) {
-			useGraphStore.getState().setHighlightedSeries(null);
-		}
-	}, FLASH_MS);
-}
 
 const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 	{ length: 9 },
@@ -85,9 +58,12 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 	} | null>(null);
 
 	const seriesByColumn = useMemo(() => {
-		const map = new Map<string, SeriesConfig>();
+		const map = new Map<string, SeriesConfig[]>();
 		for (const s of series) {
-			if (s.sourceId === ds.id && !map.has(s.yColumn)) map.set(s.yColumn, s);
+			if (s.sourceId !== ds.id) continue;
+			const list = map.get(s.yColumn);
+			if (list) list.push(s);
+			else map.set(s.yColumn, [s]);
 		}
 		return map;
 	}, [series, ds.id]);
@@ -279,7 +255,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 
 			<div className="col-chip-grid">
 				{ds.columns.map((col, colIdx) => {
-					const plotted = seriesByColumn.get(col);
+					const plottedSeries = seriesByColumn.get(col);
+					const plotted = plottedSeries?.[0];
 					const isX = ds.xAxisColumn === col;
 					if (isX) return null;
 					const colData = ds.data[colIdx];
@@ -331,12 +308,17 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										className="col-chip-btn"
 										aria-pressed={!!plotted}
 										onClick={() =>
-											plotted ? revealSeries(plotted.id) : createSeries(col)
+											plottedSeries
+												? removeSeriesWithUndo(
+														col,
+														plottedSeries.map((s) => s.id),
+													)
+												: createSeries(col)
 										}
 										title={[
 											label,
 											isCalc && `Formula: ${colData.formula}`,
-											plotted && "Plotted: click to show its series",
+											plotted ? "Plotted: click to remove" : "Click to plot",
 										]
 											.filter(Boolean)
 											.join("\n")}

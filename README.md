@@ -79,7 +79,7 @@ Reference other columns with `[Column Name]`. Constants `pi`, `e`. Numeric liter
 
 **Operators** — arithmetic `+ − × ÷ % ^`, comparison `< > <= >= == !=`, logical `&& || !`. Comparison results are `0` / `1` so they can be combined with arithmetic.
 
-The Add Calculated Series modal includes a searchable in-app function reference and live signature hints as you type — most of the table below is also browsable there.
+The Add Calculated Column dialog includes a searchable in-app function reference and live signature hints as you type — most of the table below is also browsable there.
 
 | Function | Purpose |
 | --- | --- |
