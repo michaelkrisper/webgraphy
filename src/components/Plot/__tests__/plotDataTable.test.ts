@@ -9,6 +9,7 @@ import {
 	buildPlotDataTable,
 	formatTableValue,
 	MAX_TABLE_ROWS,
+	plotTableToTsv,
 } from "../plotDataTable";
 
 const POINTS = 100_000;
@@ -120,6 +121,78 @@ describe("buildPlotDataTable", () => {
 				xAxes: collapsed,
 			}),
 		).toEqual([]);
+	});
+});
+
+describe("refPoint reconstruction", () => {
+	const offsetDataset = (): Dataset =>
+		({
+			id: "ds-1",
+			name: "Offset",
+			columns: ["time", "value"],
+			rowCount: 3,
+			xAxisColumn: "time",
+			xAxisId: "axis-1",
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 1700000000,
+					bounds: { min: 1700000000, max: 1700000120 },
+					data: new Float32Array([0, 60, 120]),
+				},
+				{
+					isFloat64: false,
+					refPoint: 1000.25,
+					bounds: { min: 999.75, max: 1001.75 },
+					data: new Float32Array([0, -0.5, 1.5]),
+				},
+			],
+		}) as unknown as Dataset;
+	const dateAxes = [
+		{ ...xAxes[0], min: 1700000000, max: 1700000120, xMode: "date" },
+	] as XAxisConfig[];
+
+	it("adds the y column's refPoint back, not only x's", () => {
+		const [table] = buildPlotDataTable({
+			series,
+			datasets: [offsetDataset()],
+			xAxes: dateAxes,
+		});
+		expect(table.rows.map((r) => r.y)).toEqual([1000.25, 999.75, 1001.75]);
+	});
+
+	it("serialises the shown rows as TSV with ISO dates", () => {
+		const tables = buildPlotDataTable({
+			series,
+			datasets: [offsetDataset()],
+			xAxes: dateAxes,
+		});
+		expect(plotTableToTsv(tables)).toBe(
+			[
+				"Time\tValue",
+				"2023-11-14T22:13:20.000Z\t1000.25",
+				"2023-11-14T22:14:20.000Z\t999.75",
+				"2023-11-14T22:15:20.000Z\t1001.75",
+				"",
+			].join("\n"),
+		);
+	});
+
+	it("separates series with a blank line and guards their names", () => {
+		const two = [
+			series[0],
+			{ ...series[0], id: "s2", name: "=evil" },
+		] as SeriesConfig[];
+		const tsv = plotTableToTsv(
+			buildPlotDataTable({
+				series: two,
+				datasets: [offsetDataset()],
+				xAxes: dateAxes,
+			}),
+		);
+		const blocks = tsv.split("\n\n");
+		expect(blocks).toHaveLength(2);
+		expect(blocks[1].split("\n")[0]).toBe("Time\t'=evil");
 	});
 });
 
