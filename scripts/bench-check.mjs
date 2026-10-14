@@ -49,20 +49,27 @@ function loadRun(path) {
 	const out = {};
 	let compute = null;
 	let controlEnd = null;
-	for (const file of raw.files ?? []) {
-		for (const group of file.groups ?? []) {
-			for (const b of group.benchmarks ?? []) {
-				if (b.name === CONTROL_COMPUTE) {
-					compute = b.hz;
-					continue;
+	// Vitest's JSON reporter: one entry per test, each carrying the benchmarks
+	// it ran. hz is derived from the mean latency (ms), not taken from
+	// throughput.mean — the mean of per-sample rates is a different statistic
+	// and would shift every cost against a baseline recorded as 1000 / mean.
+	for (const file of raw.testResults ?? []) {
+		for (const test of file.assertionResults ?? []) {
+			for (const group of test.benchmarks ?? []) {
+				for (const b of group.tasks ?? []) {
+					const hz = 1000 / b.latency.mean;
+					if (b.name === CONTROL_COMPUTE) {
+						compute = hz;
+						continue;
+					}
+					if (b.name === CONTROL_END) {
+						controlEnd = hz;
+						continue;
+					}
+					// Test names carry the describe path; the bench name alone is
+					// the stable identity across runs.
+					out[b.name] = { hz, rme: b.latency.rme };
 				}
-				if (b.name === CONTROL_END) {
-					controlEnd = b.hz;
-					continue;
-				}
-				// Group names carry the file path; the bench name alone is the
-				// stable identity across runs.
-				out[b.name] = { hz: b.hz, rme: b.rme };
 			}
 		}
 	}
