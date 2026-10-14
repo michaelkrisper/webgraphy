@@ -151,6 +151,7 @@ function drawDecimatedLines(
 		3,
 		isInteracting,
 		bundle.cachedSegments,
+		bundle.xLog,
 	);
 	if (!entry.xBuf || !entry.yBuf) return;
 
@@ -405,14 +406,13 @@ export function drawSeriesLines(
 		// M4 decimation: only when the visible slice is denser than 4 samples
 		// per device pixel. Output preserves per-bucket (first,min,max,last) so
 		// vertical extrema survive the downsample; gapped series decimate per
-		// segment so the gaps stay open. Its buckets are uniform in linear x,
-		// i.e. not pixel-sized on a log x axis, so that draws undecimated (a
-		// log y axis is fine: min/max survive any monotonic transform).
+		// segment so the gaps stay open. On a log x axis the buckets are
+		// uniform in log10(x), so they stay pixel-sized (a log y axis needs
+		// nothing: min/max survive any monotonic transform).
 		const chartWidthPx = bundle.chartWidth * bundle.dpr;
 		const numBuckets = Math.max(8, Math.ceil(chartWidthPx));
 		const visibleCount = bundle.sliceEnd - bundle.sliceStart + 1;
-		const useDecim =
-			bundle.isMonotonic && !bundle.xLog && visibleCount > numBuckets * 4;
+		const useDecim = bundle.isMonotonic && visibleCount > numBuckets * 4;
 
 		if (useDecim) {
 			drawDecimatedLines(
@@ -468,7 +468,7 @@ export function drawSeriesPoints(
 	let decimEntry: DecimEntry | null = null;
 	let decimDrawStart = 0;
 	let decimDrawCount = 0;
-	if (isInteracting && bundle.isMonotonic && !bundle.xLog && pixelDensity > 1) {
+	if (isInteracting && bundle.isMonotonic && pixelDensity > 1) {
 		const numBuckets = Math.max(8, Math.ceil(chartWidthPx));
 		const entry = getOrComputeM4(
 			gl,
@@ -483,6 +483,8 @@ export function drawSeriesPoints(
 			numBuckets,
 			1,
 			isInteracting,
+			undefined,
+			bundle.xLog,
 		);
 		if (entry.xBuf && entry.yBuf && entry.count >= 1) {
 			const xArr = entry.xArr;

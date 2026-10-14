@@ -5,9 +5,10 @@ import type {
 	XAxisConfig,
 } from "../../services/persistence";
 import { getAxisById } from "../../utils/axisCalculations";
+import { isLogAxis } from "../../utils/axisScale";
 import { getColumnIndex } from "../../utils/columns";
 import { escapeTextCell, makeCellFormatter } from "../../utils/csv-export";
-import { m4ByXFloat32 } from "../../utils/decimation";
+import { m4ByLogXFloat32, m4ByXFloat32 } from "../../utils/decimation";
 import { formatFullDate } from "../../utils/time";
 
 /**
@@ -22,10 +23,11 @@ import { formatFullDate } from "../../utils/time";
  * - **Viewport, not whole dataset.** The rows cover the announced axis range,
  *   which is what the chart is showing and is orders of magnitude smaller
  *   than a column that routinely holds a million points.
- * - **The renderer's own decimation.** `m4ByXFloat32` is the function the
- *   renderer's decimation cache calls, so the rows are the extrema the line
- *   is actually drawn through rather than a second sampling path that can
- *   drift away from the picture.
+ * - **The renderer's own decimation.** `m4ByXFloat32` (`m4ByLogXFloat32` on
+ *   a log x axis, buckets uniform in log10(x)) is the function the renderer's
+ *   decimation cache calls, so the rows are the extrema the line is actually
+ *   drawn through rather than a second sampling path that can drift away
+ *   from the picture.
  */
 
 /**
@@ -86,10 +88,14 @@ export function buildPlotDataTable({
 		const yCol = ds.data[yIdx];
 		if (!xCol?.data || !yCol?.data) continue;
 
-		const span = xAxis.max - xAxis.min;
+		// Bucket width in scale space: decades on a log axis.
+		const log = isLogAxis(xAxis);
+		const span = log
+			? Math.log10(xAxis.max) - Math.log10(xAxis.min)
+			: xAxis.max - xAxis.min;
 		if (!Number.isFinite(span) || span <= 0) continue;
 
-		const { x, y } = m4ByXFloat32(
+		const { x, y } = (log ? m4ByLogXFloat32 : m4ByXFloat32)(
 			xCol.data,
 			yCol.data,
 			xCol.refPoint,

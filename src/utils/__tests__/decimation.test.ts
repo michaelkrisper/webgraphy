@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+	logBucketIndex,
+	m4ByLogXFloat32,
 	m4ByXFloat32,
 	m4ByXSegmentsFloat32,
 	m4Float32,
@@ -704,5 +706,229 @@ describe("m4ByXSegmentsFloat32", () => {
 		const r = m4ByXSegmentsFloat32(x, y, segments, 0, 800, 900, 8, scratch());
 		expect(r.runs.length).toBe(2);
 		expect(r.x[0]).toBeGreaterThanOrEqual(702);
+	});
+});
+
+describe("m4ByLogXFloat32", () => {
+	const scratch = () => ({ x: new Float32Array(0), y: new Float32Array(0) });
+
+	// Deterministic noise (LCG) so failures reproduce.
+	function noisy(n: number, xAt: (i: number) => number) {
+		let seed = 7;
+		const rand = () => {
+			seed = (seed * 1103515245 + 12345) % 2147483648;
+			return seed / 2147483648;
+		};
+		const x = new Float32Array(n);
+		const y = new Float32Array(n);
+		for (let i = 0; i < n; i++) {
+			x[i] = xAt(i);
+			y[i] = Math.sin(i / 9) * 10 + rand() * 4;
+		}
+		return { x, y };
+	}
+
+	/**
+	 * Brute force: assign every sample to floor(log10(xRef + v) / w), keep
+	 * (first, min, max, last) per bucket in index order, plus the nearest
+	 * sample on each side of the bucket range as continuity anchors.
+	 */
+	function reference(
+		x: Float32Array,
+		y: Float32Array,
+		xRef: number,
+		xMin: number,
+		xMax: number,
+		w: number,
+	): number[] {
+		const kStart = Math.floor(Math.log10(xMin) / w);
+		const out: number[] = [];
+		const byBucket = new Map<number, number[]>();
+		let before = -1;
+		let after = -1;
+		for (let i = 0; i < x.length; i++) {
+			const v = x[i] + xRef;
+			if (!(v > 0)) {
+				before = i;
+				continue;
+			}
+			const k = Math.floor(Math.log10(v) / w);
+			if (k < kStart) before = i;
+			else if (10 ** (k * w) >= xMax) {
+				if (after === -1) after = i;
+			} else {
+				const list = byBucket.get(k) ?? [];
+				list.push(i);
+				byBucket.set(k, list);
+			}
+		}
+		if (before >= 0 && x[before] + xRef > 0) out.push(before);
+		for (const k of [...byBucket.keys()].sort((a, b) => a - b)) {
+			const idx = byBucket.get(k) as number[];
+			let min = idx[0];
+			let max = idx[0];
+			for (const i of idx) {
+				if (y[i] < y[min]) min = i;
+				if (y[i] > y[max]) max = i;
+			}
+			const first = idx[0];
+			const last = idx[idx.length - 1];
+			const keep = new Set([first, min, max, last]);
+			out.push(...[...keep].sort((a, b) => a - b));
+		}
+		if (after >= 0) out.push(after);
+		return out;
+	}
+
+	function expectMatchesReference(
+		x: Float32Array,
+		y: Float32Array,
+		xRef: number,
+		xMin: number,
+		xMax: number,
+		w: number,
+	) {
+		const r = m4ByLogXFloat32(x, y, xRef, xMin, xMax, w);
+		const idx = reference(x, y, xRef, xMin, xMax, w);
+		expect(Array.from(r.x)).toEqual(idx.map((i) => x[i]));
+		expect(Array.from(r.y)).toEqual(idx.map((i) => y[i]));
+		return r;
+	}
+
+	it("matches a brute-force per-log-bucket (first, min, max, last)", () => {
+		// Linearly spaced samples: dense log buckets at the top, sparse
+		// (one sample or empty) at the bottom.
+		const { x, y } = noisy(20_000, (i) => 1 + i * 0.5);
+		const r = expectMatchesReference(x, y, 0, 1, 10_000, 1 / 64);
+		expect(r.x.length).toBeLessThan(x.length / 4);
+	});
+
+	it("matches the reference inside a zoomed window with edge anchors", () => {
+		const { x, y } = noisy(20_000, (i) => 1 + i * 0.5);
+		const r = expectMatchesReference(x, y, 0, 300, 2_000, 1 / 256);
+		expect(r.x[0]).toBeLessThan(300);
+		expect(r.x[r.x.length - 1]).toBeGreaterThanOrEqual(2_000);
+	});
+
+	it("compares against absolute x = refPoint + v", () => {
+		const { x, y } = noisy(5_000, (i) => i * 2);
+		expectMatchesReference(x, y, 1_000, 1_000, 11_000, 1 / 128);
+	});
+
+	it("never emits samples a log axis cannot place (x <= 0)", () => {
+		// xRef -500 puts the first 251 samples at x <= 0.
+		const { x, y } = noisy(2_000, (i) => i * 2);
+		const r = expectMatchesReference(x, y, -500, 1e-3, 4_000, 1 / 32);
+		for (const v of r.x) expect(v - 500).toBeGreaterThan(0);
+	});
+
+	it("keeps every sample when buckets are finer than the spacing", () => {
+		// 40 decades, ten samples per decade: the empty buckets in between
+		// are skipped by the search instead of being walked one by one.
+		const n = 400;
+		const x = Float32Array.from({ length: n }, (_, i) => 10 ** (i / 10 - 20));
+		const y = Float32Array.from({ length: n }, (_, i) => i % 5);
+		const r = m4ByLogXFloat32(x, y, 0, x[0], x[n - 1] * 2, 1 / 1024);
+		expect(Array.from(r.x)).toEqual(Array.from(x));
+	});
+
+	it("skips NaN y like the linear walk", () => {
+		const { x, y } = noisy(1_000, (i) => 1 + i);
+		for (let i = 100; i < 200; i++) y[i] = Number.NaN;
+		const r = m4ByLogXFloat32(x, y, 0, 1, 1_001, 1 / 64);
+		for (const v of r.y) expect(Number.isNaN(v)).toBe(false);
+	});
+
+	it("returns an empty result for a window a log axis cannot show", () => {
+		const out = { x: new Float32Array(0), y: new Float32Array(0) };
+		const x = new Float32Array([1, 2, 3]);
+		const y = new Float32Array([1, 2, 3]);
+		expect(m4ByLogXFloat32(x, y, 0, 0, 10, 0.1, out).x.length).toBe(0);
+		expect(m4ByLogXFloat32(x, y, 0, 5, 5, 0.1, out).x.length).toBe(0);
+		expect(out.x.length).toBeGreaterThan(0);
+	});
+
+	it("puts a sample on a bucket edge in the bucket that starts there", () => {
+		const w = 1 / 4;
+		for (const k of [-9, -1, 0, 1, 3, 17]) {
+			const edge = 10 ** (k * w);
+			expect(logBucketIndex(edge, w)).toBe(k);
+			expect(logBucketIndex(edge * (1 - 1e-12), w)).toBe(k - 1);
+		}
+	});
+
+	it("merges an octave up exactly like a direct log M4 pass", () => {
+		const { x, y } = noisy(20_000, (i) => 1 + i * 0.5);
+		const xRef = 3;
+		const xMin = x[0] + xRef;
+		const xMax = x[x.length - 1] + xRef;
+		let level = m4ByLogXFloat32(x, y, xRef, xMin, xMax, 1 / 512);
+		for (const w of [1 / 256, 1 / 128, 1 / 64]) {
+			level = m4MergeOctave(level.x, level.y, xRef, w, true);
+			const direct = m4ByLogXFloat32(x, y, xRef, xMin, xMax, w);
+			expect(Array.from(level.x)).toEqual(Array.from(direct.x));
+			expect(Array.from(level.y)).toEqual(Array.from(direct.y));
+		}
+	});
+
+	it("decimates gapped series per segment on log buckets", () => {
+		const n = 10_000;
+		const { x, y } = noisy(n, (i) => 1 + i);
+		for (let i = 3_000; i < 3_010; i++) y[i] = Number.NaN;
+		const segments = [
+			{ start: 0, end: 2_999 },
+			{ start: 3_010, end: n - 1 },
+		];
+		const r = m4ByXSegmentsFloat32(
+			x,
+			y,
+			segments,
+			0,
+			1,
+			n,
+			1 / 128,
+			scratch(),
+			true,
+		);
+		expect(r.runs.length).toBe(4);
+		const firstRun = r.x.subarray(r.runs[0], r.runs[0] + r.runs[1]);
+		const secondRun = r.x.subarray(r.runs[2], r.runs[2] + r.runs[3]);
+		// The gap stays open: no run crosses it.
+		expect(Math.max(...firstRun)).toBe(3_000);
+		expect(Math.min(...secondRun)).toBe(3_011);
+		expect(r.x.length).toBeLessThan(n / 4);
+		// Each run is exactly the single-run log M4 of its segment.
+		const direct = m4ByLogXFloat32(
+			x.subarray(3_010),
+			y.subarray(3_010),
+			0,
+			3_011,
+			n,
+			1 / 128,
+		);
+		expect(Array.from(secondRun)).toEqual(Array.from(direct.x));
+	});
+
+	it("treats a segment entirely at x <= 0 as off-axis", () => {
+		const x = Float32Array.from({ length: 200 }, (_, i) => i - 100);
+		const y = Float32Array.from({ length: 200 }, (_, i) => Math.sin(i));
+		y[99] = Number.NaN;
+		const segments = [
+			{ start: 0, end: 98 },
+			{ start: 100, end: 199 },
+		];
+		const r = m4ByXSegmentsFloat32(
+			x,
+			y,
+			segments,
+			0,
+			1,
+			99,
+			1 / 64,
+			scratch(),
+			true,
+		);
+		expect(r.runs.length).toBe(2);
+		for (const v of r.x) expect(v).toBeGreaterThan(0);
 	});
 });

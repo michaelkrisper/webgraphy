@@ -617,7 +617,7 @@ describe("RendererCore log axes", () => {
 		]);
 	});
 
-	it("draws dense series on a log x axis undecimated", () => {
+	it("decimates dense series on a log x axis with log-uniform buckets", () => {
 		const { gl, core } = makeCore();
 		core.setViewport(viewport);
 		const n = 20_000;
@@ -628,12 +628,9 @@ describe("RendererCore log axes", () => {
 			}),
 		]);
 		core.drawFrame([{ id: "axis-1", min: 1, max: n, scale: "log" }], axes);
-		// M4 buckets are uniform in linear x, so log x draws every segment.
-		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(
-			gl.TRIANGLES,
-			0,
-			6,
-			n - 1,
-		);
+		// M4 buckets are uniform in log10(x), so not every segment is drawn.
+		const calls = (gl.drawArraysInstanced as ReturnType<typeof vi.fn>).mock.calls;
+		expect(calls.length).toBeGreaterThan(0);
+		for (const c of calls) expect(c[3]).toBeLessThan(n / 2);
 	});
 });
