@@ -118,7 +118,7 @@ describe("Sidebar Component", () => {
 		);
 
 		(useDataImport as unknown as Mock).mockReturnValue({
-			importFile: mockImportFile,
+			importFiles: mockImportFile,
 			confirmImport: vi.fn(),
 			cancelImport: vi.fn(),
 			pendingFile: null,
@@ -152,7 +152,7 @@ describe("Sidebar Component", () => {
 
 	it("shows ImportSettingsDialog when there is a pending file", async () => {
 		(useDataImport as unknown as Mock).mockReturnValue({
-			importFile: mockImportFile,
+			importFiles: mockImportFile,
 			confirmImport: vi.fn(),
 			cancelImport: vi.fn(),
 			pendingFile: {

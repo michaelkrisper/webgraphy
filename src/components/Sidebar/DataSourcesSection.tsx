@@ -4,6 +4,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
+import { IMPORT_ACCEPT } from "../../utils/importFile";
 import ErrorBoundary from "../ErrorBoundary";
 import { DatasetItem } from "./DatasetItem";
 
@@ -19,14 +20,14 @@ interface DataSourcesSectionProps {
 	open: boolean;
 	onToggle: () => void;
 	fileInputRef: React.RefObject<HTMLInputElement | null>;
-	importFile: (file: File) => void;
+	importFiles: (files: ArrayLike<File>) => void;
 }
 
 export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 	open,
 	onToggle,
 	fileInputRef,
-	importFile,
+	importFiles,
 }) => {
 	const datasets = useGraphStore((s) => s.datasets);
 
@@ -81,10 +82,10 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 				<input
 					ref={fileInputRef}
 					type="file"
-					accept=".csv,.json,.xlsx,.xls"
+					accept={IMPORT_ACCEPT}
+					multiple
 					onChange={(e) => {
-						const f = e.target.files?.[0];
-						if (f) importFile(f);
+						if (e.target.files) importFiles(e.target.files);
 						e.target.value = "";
 					}}
 					style={{ display: "none" }}

@@ -73,8 +73,14 @@ export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
-	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
-		useDataImport();
+	const {
+		importFiles,
+		confirmImport,
+		cancelImport,
+		changeSheet,
+		pendingFile,
+		isImporting,
+	} = useDataImport();
 	const { width, height } = useContainerSize(containerRef, 800, 600);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
@@ -609,8 +615,7 @@ export default function ChartContainer() {
 				onDrop={(e) => {
 					e.preventDefault();
 					setIsDragOver(false);
-					const file = e.dataTransfer.files[0];
-					if (file) importFile(file);
+					void importFiles(e.dataTransfer.files);
 				}}
 				style={{
 					position: "relative",
@@ -719,9 +724,13 @@ export default function ChartContainer() {
 			<Suspense fallback={null}>
 				{pendingFile && (
 					<ImportSettingsDialogLazy
+						key={pendingFile.id}
 						fileName={pendingFile.file.name}
 						fileContent={pendingFile.preview}
+						previewTruncated={pendingFile.previewTruncated}
 						fileType={pendingFile.type}
+						defaultDelimiter={pendingFile.defaultDelimiter}
+						isImporting={isImporting}
 						sheets={pendingFile.sheets}
 						selectedSheet={pendingFile.selectedSheet}
 						onSheetChange={changeSheet}

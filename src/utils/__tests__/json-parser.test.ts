@@ -8,7 +8,7 @@ vi.mock("../json", async (importOriginal) => {
 	};
 });
 
-import { parseJSON } from "../json-parser";
+import { parseJSON, previewJSON } from "../json-parser";
 import { secureJSONParse } from "../json";
 
 function createFile(content: string): File {
@@ -131,6 +131,27 @@ describe("parseJSON", () => {
 
 		await expect(parseJSON(file)).rejects.toThrow(
 			"Invalid JSON format: String error",
+		);
+	});
+});
+
+describe("previewJSON", () => {
+	it("re-serialises the first rows and flags truncation", async () => {
+		const rows = Array.from({ length: 5 }, (_, i) => ({ i }));
+		const res = await previewJSON(createFile(JSON.stringify(rows)), 3);
+		expect(JSON.parse(res.preview)).toEqual(rows.slice(0, 3));
+		expect(res.previewTruncated).toBe(true);
+	});
+
+	it("wraps a single object and does not flag short input", async () => {
+		const res = await previewJSON(createFile('{"a":1}'), 3);
+		expect(JSON.parse(res.preview)).toEqual([{ a: 1 }]);
+		expect(res.previewTruncated).toBe(false);
+	});
+
+	it("rejects invalid JSON with a readable message", async () => {
+		await expect(previewJSON(createFile("{nope"), 3)).rejects.toThrow(
+			/Invalid JSON format/,
 		);
 	});
 });

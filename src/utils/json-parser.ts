@@ -2,14 +2,11 @@ import { secureJSONParse } from "./json";
 import type { ParseSettings, ColumnConfigEntry } from "./parser-types";
 import { parseValue } from "./value-parser";
 
-export async function parseJSON(file: File, settings?: ParseSettings) {
-	const { decimalPoint = ".", columnConfigs = [] } = settings || {};
-
+async function readJSON(file: Blob): Promise<unknown> {
 	const text = await file.text();
-	let raw: unknown;
 	try {
 		// secureJSONParse strips __proto__/constructor keys to prevent prototype pollution.
-		raw = secureJSONParse(text);
+		return secureJSONParse(text);
 	} catch (error) {
 		throw new Error(
 			"Invalid JSON format: " +
@@ -17,6 +14,28 @@ export async function parseJSON(file: File, settings?: ParseSettings) {
 			{ cause: error },
 		);
 	}
+}
+
+/**
+ * The first `maxRows` records re-serialised for the import dialog, so the
+ * main thread never has to read or parse the whole file.
+ */
+export async function previewJSON(
+	file: Blob,
+	maxRows: number,
+): Promise<{ preview: string; previewTruncated: boolean }> {
+	const raw = await readJSON(file);
+	const rows = Array.isArray(raw) ? raw : [raw];
+	return {
+		preview: JSON.stringify(rows.slice(0, maxRows)),
+		previewTruncated: rows.length > maxRows,
+	};
+}
+
+export async function parseJSON(file: File, settings?: ParseSettings) {
+	const { decimalPoint = ".", columnConfigs = [] } = settings || {};
+
+	const raw = await readJSON(file);
 
 	if (!Array.isArray(raw) || raw.length === 0)
 		throw new Error("Invalid JSON format: Expected a non-empty array of objects");

@@ -17,6 +17,20 @@ describe("preview", () => {
 			]);
 			expect(data.totalRows).toBe(2);
 		});
+		it("shows head and tail rows of a complete preview", () => {
+			const lines = ["n", ...Array.from({ length: 80 }, (_, i) => String(i))];
+			const data = generatePreviewData(lines.join("\n"), "csv", ",", 1, "#");
+			expect(data.gapStart).toBe(25);
+			expect(data.totalRows).toBe(80);
+			expect((data.rows as string[][]).at(-1)).toEqual(["79"]);
+		});
+		it("shows only head rows of a truncated preview", () => {
+			const lines = ["n", ...Array.from({ length: 80 }, (_, i) => String(i))];
+			const data = generatePreviewData(lines.join("\n"), "csv", ",", 1, "#", true);
+			expect(data.gapStart).toBeNull();
+			expect(data.rows).toHaveLength(50);
+			expect((data.rows as string[][]).at(-1)).toEqual(["49"]);
+		});
 		it("should parse basic JSON", () => {
 			const jsonStr = '[{"A":"1","B":"2"},{"A":"3","B":"4"}]';
 			const data = generatePreviewData(jsonStr, "json", ",", 1, "#");
