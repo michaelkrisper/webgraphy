@@ -1,16 +1,9 @@
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-	within,
-} from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import type { Mock } from "vitest";
 import { useGraphStore } from "../../../store/useGraphStore";
-import { useNotificationStore } from "../../../store/useNotificationStore";
 import { useTheme } from "../../../hooks/useTheme";
 import { SidebarHeader } from "../SidebarHeader";
 
@@ -91,7 +84,6 @@ describe("SidebarHeader", () => {
 		vi.clearAllMocks();
 
 		const defaultState = {
-			datasets: [] as unknown[],
 			loadDemoData: mockLoadDemoData,
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: true }],
@@ -123,7 +115,8 @@ describe("SidebarHeader", () => {
 		);
 
 		expect(screen.getByTitle("Import Data Source")).toBeInTheDocument();
-		expect(screen.getByTitle("Load Demo Data")).toBeInTheDocument();
+		// Demo data lives in the empty state and the Data Sources section now.
+		expect(screen.queryByTitle("Load Demo Data")).toBeNull();
 		expect(screen.getByTitle("Hide Vertical Grid")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Crosshair")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Legend")).toBeInTheDocument();
@@ -172,75 +165,6 @@ describe("SidebarHeader", () => {
 
 		fireEvent.click(screen.getByTitle("Import Data Source"));
 		expect(mockOnImport).toHaveBeenCalled();
-	});
-
-	it("calls loadDemoData when demo data button is clicked", () => {
-		render(
-			<SidebarHeader
-				onCollapse={mockOnCollapse}
-				onImport={mockOnImport}
-				onExportSVG={mockOnExportSVG}
-				onExportPNG={mockOnExportPNG}
-			/>,
-		);
-
-		fireEvent.click(screen.getByTitle("Load Demo Data"));
-		expect(mockLoadDemoData).toHaveBeenCalled();
-	});
-
-	describe("when data is already loaded", () => {
-		beforeEach(() => {
-			useNotificationStore.setState({ notifications: [] });
-			const state = {
-				datasets: [{ id: "ds-1" }],
-				loadDemoData: mockLoadDemoData,
-				xAxes: [{ id: "axis-1", showGrid: true }],
-			};
-			(useGraphStore as unknown as Mock).mockImplementation(
-				(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
-			);
-		});
-
-		const renderHeader = () =>
-			render(
-				<SidebarHeader
-					onCollapse={mockOnCollapse}
-					onImport={mockOnImport}
-					onExportSVG={mockOnExportSVG}
-					onExportPNG={mockOnExportPNG}
-				/>,
-			);
-
-		it("asks before adding demo data, and Cancel adds nothing", async () => {
-			renderHeader();
-			fireEvent.click(screen.getByTitle("Load Demo Data"));
-			const dialog = await screen.findByRole("alertdialog", {
-				name: "Load demo data?",
-			});
-			expect(mockLoadDemoData).not.toHaveBeenCalled();
-			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-			expect(screen.queryByRole("alertdialog")).toBeNull();
-			expect(mockLoadDemoData).not.toHaveBeenCalled();
-		});
-
-		it("adds the demo data alongside on confirm and says so", async () => {
-			mockLoadDemoData.mockResolvedValue(undefined);
-			renderHeader();
-			fireEvent.click(screen.getByTitle("Load Demo Data"));
-			fireEvent.click(
-				await screen.findByRole("button", { name: "Add alongside" }),
-			);
-			expect(mockLoadDemoData).toHaveBeenCalledTimes(1);
-			await waitFor(() =>
-				expect(useNotificationStore.getState().notifications).toEqual([
-					expect.objectContaining({
-						kind: "success",
-						message: "Demo data added",
-					}),
-				]),
-			);
-			expect(screen.queryByRole("alertdialog")).toBeNull();
-		});
 	});
 
 	it("toggles vertical grid visibility", () => {

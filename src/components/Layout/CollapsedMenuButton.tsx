@@ -1,6 +1,6 @@
-import { Grid3x3, Spline } from "lucide-react";
 import type React from "react";
 import type { Theme } from "../../themes";
+import { ExportMenu } from "./ExportMenu";
 
 interface CollapsedMenuButtonProps {
 	onClick: () => void;
@@ -9,7 +9,6 @@ interface CollapsedMenuButtonProps {
 	theme: Theme;
 }
 
-// Icons and wording match the expanded sidebar's export menu.
 export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 	onClick,
 	onExportSVG,
@@ -25,23 +24,11 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 		>
 			<img src="./favicon.svg" alt="webgraphy logo" />
 		</button>
-		<button
-			type="button"
-			onClick={onExportSVG}
+		<ExportMenu
+			onExportSVG={onExportSVG}
+			onExportPNG={onExportPNG}
 			className="collapsed-menu-btn"
-			title="Export as SVG (vector)"
-			aria-label="Export SVG"
-		>
-			<Spline size={18} />
-		</button>
-		<button
-			type="button"
-			onClick={onExportPNG}
-			className="collapsed-menu-btn"
-			title="Export as PNG (pixel)"
-			aria-label="Export PNG"
-		>
-			<Grid3x3 size={18} />
-		</button>
+			iconSize={18}
+		/>
 	</div>
 );

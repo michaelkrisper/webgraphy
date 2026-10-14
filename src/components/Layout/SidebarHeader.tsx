@@ -3,13 +3,9 @@ import {
 	Columns3,
 	Crosshair,
 	FilePlus,
-	FlaskConical,
-	Grid3x3,
-	Image,
 	List,
 	Moon,
 	PanelRightClose,
-	Spline,
 	Sun,
 	Table,
 	Terminal,
@@ -17,19 +13,16 @@ import {
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
-import { notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+import { ExportMenu } from "./ExportMenu";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const PlotDataTableModal = lazy(() =>
 	import("../Plot/PlotDataTableModal").then((m) => ({
 		default: m.PlotDataTableModal,
 	})),
-);
-const ConfirmDialog = lazy(() =>
-	import("./ConfirmDialog").then((m) => ({ default: m.ConfirmDialog })),
 );
 
 const UnicornHeadIcon = ({ size = 24 }: { size?: number }) => (
@@ -124,7 +117,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onExportSVG,
 	onExportPNG,
 }) => {
-	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
@@ -135,19 +127,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const datasets = useGraphStore((s) => s.datasets);
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
-	const [confirmDemoOpen, setConfirmDemoOpen] = useState(false);
-
-	// Demo data is appended, never swapped in, so ask before mixing it into
-	// the user's own datasets.
-	const requestDemoData = () => {
-		if (datasets.length > 0) setConfirmDemoOpen(true);
-		else loadDemoData();
-	};
-	const addDemoAlongside = async () => {
-		setConfirmDemoOpen(false);
-		await loadDemoData();
-		notify({ kind: "success", message: "Demo data added" });
-	};
 
 	const hdrSep = <span className="sb-hdr-sep" />;
 
@@ -167,43 +146,12 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				title="Import Data Source"
 			/>
 			<div className="sb-hdr-btns">
-				<HeaderButton
-					onClick={requestDemoData}
-					icon={<FlaskConical size={24} />}
-					title="Load Demo Data"
-				/>
 				{hdrSep}
-				<PopupPicker
-					options={[
-						{
-							value: "svg",
-							icon: <Spline size={16} />,
-							label: "Export as SVG (vector)",
-						},
-						{
-							value: "png",
-							icon: <Grid3x3 size={16} />,
-							label: "Export as PNG (pixel)",
-						},
-					]}
-					current={"" as "svg" | "png" | ""}
-					onChange={(v) => {
-						if (v === "svg") onExportSVG();
-						else if (v === "png") onExportPNG();
-					}}
-					popoverId="export-popover"
-					renderTrigger={({ onClick, ref }) => (
-						<button
-							ref={ref}
-							type="button"
-							onClick={onClick}
-							title="Export Image"
-							aria-label="Export Image"
-							className="sb-hdr-btn"
-						>
-							<Image size={24} />
-						</button>
-					)}
+				<ExportMenu
+					onExportSVG={onExportSVG}
+					onExportPNG={onExportPNG}
+					className="sb-hdr-btn"
+					iconSize={24}
 				/>
 				<HeaderButton
 					onClick={() => setDataTableOpen(true)}
@@ -265,15 +213,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						datasets={datasets}
 						xAxes={xAxes}
 						onClose={() => setDataTableOpen(false)}
-					/>
-				)}
-				{confirmDemoOpen && (
-					<ConfirmDialog
-						title="Load demo data?"
-						message="Your current data stays loaded. The demo dataset and its series are added alongside it."
-						confirmLabel="Add alongside"
-						onConfirm={addDemoAlongside}
-						onCancel={() => setConfirmDemoOpen(false)}
 					/>
 				)}
 			</Suspense>

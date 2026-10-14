@@ -54,9 +54,16 @@ describe("CollapsedMenuButton", () => {
 				theme={mockTheme}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Export SVG" }));
+		const trigger = screen.getByRole("button", { name: "Export Image" });
+		fireEvent.click(trigger);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export as SVG (vector)" }),
+		);
 		expect(onExportSVG).toHaveBeenCalledTimes(1);
-		fireEvent.click(screen.getByRole("button", { name: "Export PNG" }));
+		fireEvent.click(trigger);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export as PNG (pixel)" }),
+		);
 		expect(onExportPNG).toHaveBeenCalledTimes(1);
 		expect(onExportSVG).toHaveBeenCalledTimes(1);
 	});
