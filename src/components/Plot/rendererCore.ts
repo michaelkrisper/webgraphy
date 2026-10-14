@@ -28,6 +28,7 @@ import {
 	type SeriesDrawBundle,
 } from "./drawSeries";
 import { GlLabelAtlas, type LabelRun } from "./labelAtlas";
+import { LabelCuller } from "./labelCollision";
 import {
 	MAIN_VERTEX_SHADER,
 	MAIN_FRAGMENT_SHADER,
@@ -72,6 +73,8 @@ export interface RenderLabel {
 	bg?: string;
 	/** Secondary-label chrome: 2px separator stroke at this x. */
 	tick?: { x: number; color: string };
+	/** Labels sharing a group are culled against each other (labelCollision.ts). */
+	cullGroup?: string;
 }
 
 /** Slim axis shape the renderer needs per frame (id + visible range). */
@@ -216,6 +219,7 @@ export class RendererCore {
 	private labelInstScratch = new Float32Array(0);
 	// Reused single-run list so plain labels don't allocate per frame.
 	private singleRun: LabelRun[] = [{ text: "", color: "" }];
+	private readonly labelCuller = new LabelCuller();
 	private labelChrome: OverlayState = {
 		packed: new Float32Array(256),
 		packedLen: 0,
@@ -668,6 +672,7 @@ export class RendererCore {
 			const generation = atlas.generation;
 			n = 0;
 			chromeByColor.clear();
+			this.labelCuller.reset();
 			for (const l of labels) {
 				let runs: LabelRun[];
 				if (l.segments) {
@@ -679,6 +684,7 @@ export class RendererCore {
 				}
 				const region = atlas.ensure(runs, l.font);
 				if (!region) continue;
+				if (!this.labelCuller.accept(l, region.cssWidth)) continue;
 
 				// Chrome sized from the measured text, mirroring the old 2D canvas
 				// secondary-label drawing (bg rect 14px tall, 2px separator).

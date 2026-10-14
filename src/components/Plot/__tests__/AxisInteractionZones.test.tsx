@@ -124,6 +124,23 @@ describe("XAxisInteractionZones", () => {
 		expect(input).toBeInTheDocument();
 	});
 
+	it("places the rename input over the title glyphs, inside the axis strip", () => {
+		render(<XAxisInteractionZones {...defaultProps} editingXAxisId="x1" />);
+		const input = screen.getByDisplayValue("Test X Axis");
+		const m = defaultProps.xAxesMetrics[0];
+		const stripTop = defaultProps.padding.bottom - m.cumulativeOffset; // CSS bottom
+		const bottom = Number.parseFloat(input.style.bottom);
+		const height = Number.parseFloat(input.style.height);
+		// Strip-relative, measured downwards from the axis line.
+		const top = stripTop - (bottom + height);
+		const end = stripTop - bottom;
+		// bold 12px title: cap top ~10px above the baseline, descenders ~3px below.
+		expect(top).toBeLessThanOrEqual(m.titleBottom - 10);
+		expect(end).toBeGreaterThanOrEqual(m.titleBottom + 3);
+		expect(top).toBeGreaterThanOrEqual(0);
+		expect(end).toBeLessThanOrEqual(m.height);
+	});
+
 	it("updates X axis name on input blur", () => {
 		const updateXAxisMock = vi.fn();
 		vi.mocked(useGraphStore.getState).mockReturnValue({
