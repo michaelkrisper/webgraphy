@@ -11,7 +11,7 @@ import {
 } from "../services/persistence";
 import { AXIS_EPSILON } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
-import { compileFormula } from "../utils/formula";
+import { compileFormula, matchRegressionFormula } from "../utils/formula";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
 
 interface GraphState {
@@ -94,6 +94,26 @@ const createInitialYAxes = (): YAxisConfig[] => {
 	}));
 };
 
+/**
+ * Column bounds are {Infinity, -Infinity} for a 0-row or all-NaN column. Such
+ * a range must never reach an axis: it renders nothing and fails the Zod
+ * viewport schema on reload.
+ */
+const isFiniteRange = (r?: {
+	min: number;
+	max: number;
+}): r is { min: number; max: number } =>
+	!!r && Number.isFinite(r.min) && Number.isFinite(r.max) && r.min <= r.max;
+
+const axisRangeFor = (col?: DataColumn): { min: number; max: number } =>
+	col && isFiniteRange(col.bounds) ? col.bounds : { min: 0, max: 100 };
+
+/** Persistence drops invalid axis entries; every fixed slot must still exist. */
+const withAllSlots = <T extends { id: string }>(saved: T[], defaults: T[]) => [
+	...saved,
+	...defaults.filter((d) => !saved.some((a) => a.id === d.id)),
+];
+
 const xModeFor = (col?: DataColumn): XAxisConfig["xMode"] =>
 	col?.categoryLabels ? "categorical" : col?.isFloat64 ? "date" : "numeric";
 
@@ -141,14 +161,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			};
 		}
 
-		// Check if this is a regression formula (needs special column handling)
-		const regressionMatch = formula
-			.trim()
-			.match(/^(?:linreg|polyreg|expreg|logreg|kde)\(\[([^\]]+)\]/i);
+		// Regressions get the [x, y] columns positionally instead of the
+		// compiler's used-column list; the worker uses the same matcher.
+		const regression = matchRegressionFormula(formula);
+		if (regression && "error" in regression)
+			return { success: false, error: regression.error };
 		let columnData: { data: Float32Array; refPoint: number }[];
 
-		if (regressionMatch) {
-			const yColName = regressionMatch[1];
+		if (regression) {
+			const yColName = regression.column;
 			const xColIdx = getColumnIndex(dataset, dataset.xAxisColumn);
 			const yColIdx = getColumnIndex(dataset, yColName);
 			if (xColIdx === -1 || yColIdx === -1)
@@ -194,10 +215,16 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		}
 
 		if (result.type === "success") {
+			// The store may have changed during the worker round-trip: re-read
+			// the dataset instead of writing back the stale snapshot, which would
+			// resurrect a removed dataset or drop a concurrent edit.
+			const current = get().datasets.find((d) => d.id === datasetId);
+			if (!current)
+				return { success: false, error: "Dataset was removed during calculation" };
 			const { newColumn, sparseXColumn } = result;
 			if (sparseXColumn && newColumn) {
 				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
-				const xColName = dataset.xAxisColumn;
+				const xColName = current.xAxisColumn;
 				const sparseRowCount = sparseXColumn.data.length;
 				const sparseDataset: Dataset = {
 					id: `${datasetId}-sparse-${trimmedName}-${crypto.randomUUID()}`,
@@ -206,21 +233,30 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					data: [{ ...sparseXColumn }, { ...newColumn, formula }],
 					rowCount: sparseRowCount,
 					xAxisColumn: xColName,
-					xAxisId: dataset.xAxisId,
+					xAxisId: current.xAxisId,
 				};
+				// addDataset persists it.
 				get().addDataset(sparseDataset);
-				persistence.saveDataset(sparseDataset);
 			} else if (newColumn) {
-				const updatedDataset = {
-					...dataset,
-					columns: [...dataset.columns, trimmedName],
-					data: [...dataset.data, { ...newColumn, formula }],
-				};
-				set((state) => ({
-					datasets: state.datasets.map((d) =>
-						d.id === datasetId ? updatedDataset : d,
-					),
-				}));
+				let updatedDataset: Dataset | undefined;
+				set((state) => {
+					const ds = state.datasets.find((d) => d.id === datasetId);
+					if (!ds || ds.columns.includes(trimmedName)) return state;
+					const next: Dataset = {
+						...ds,
+						columns: [...ds.columns, trimmedName],
+						data: [...ds.data, { ...newColumn, formula }],
+					};
+					updatedDataset = next;
+					return {
+						datasets: state.datasets.map((d) => (d.id === datasetId ? next : d)),
+					};
+				});
+				if (!updatedDataset)
+					return {
+						success: false,
+						error: `Column "${trimmedName}" already exists`,
+					};
 				persistence.saveDataset(updatedDataset);
 			}
 			if (get().isLoaded) debouncedSaveState();
@@ -279,7 +315,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
 		const xColIdx = getColumnIndex(newDataset, xAxisColumn);
 		const col = newDataset.data[xColIdx];
-		const bounds = col?.bounds || { min: 0, max: 100 };
+		const bounds = axisRangeFor(col);
 		const xMode = xModeFor(col);
 
 		set((s) => ({
@@ -341,7 +377,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				const xColIdx = getColumnIndex(updatedDataset, updatedDataset.xAxisColumn);
 				const col = updatedDataset.data[xColIdx];
 				if (col) {
-					const bounds = col.bounds || { min: 0, max: 100 };
+					const bounds = axisRangeFor(col);
 					const xMode = xModeFor(col);
 
 					nextXAxes = state.xAxes.map((a) =>
@@ -438,7 +474,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const nextX = state.xAxes.map((a) => {
 				const upd = xUpdates[a.id];
 				if (
-					upd &&
+					isFiniteRange(upd) &&
 					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
 						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
@@ -450,7 +486,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			const nextY = state.yAxes.map((a) => {
 				const upd = yUpdates[a.id];
 				if (
-					upd &&
+					isFiniteRange(upd) &&
 					(Math.abs(upd.min - a.min) > AXIS_EPSILON ||
 						Math.abs(upd.max - a.max) > AXIS_EPSILON)
 				) {
@@ -489,7 +525,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					hidden: s.hidden ?? false,
 				}));
 			}
-			set({ ...savedState, datasets: allDatasets, isLoaded: true });
+			set({
+				...savedState,
+				xAxes: withAllSlots(savedState.xAxes, createInitialXAxes()),
+				yAxes: withAllSlots(savedState.yAxes, createInitialYAxes()),
+				datasets: allDatasets,
+				isLoaded: true,
+			});
 			// Don't call debouncedSaveState immediately to avoid overwriting with incomplete data
 		} else if (allDatasets.length > 0) {
 			set({ datasets: allDatasets, isLoaded: true });

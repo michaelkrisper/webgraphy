@@ -3,7 +3,9 @@ import {
 	compileFormula,
 	evaluateFormulaSync,
 	type FormulaWorkerParams,
+	matchRegressionFormula,
 } from "../formula";
+import { FUNCTIONS } from "../formulaFunctions";
 
 describe("compileFormula", () => {
 	const columns = ["Timestamp", "Temp", "Hum", "Press"];
@@ -550,6 +552,62 @@ describe("compileFormula — new language features", () => {
 	it("modulo operator", () => {
 		expect(compileFormula("7 % 3", columns).evaluate([])).toBe(1);
 		expect(compileFormula("-7 % 3", columns).evaluate([])).toBe(2);
+	});
+
+	it.each([
+		["[Temp] [Hum]", "Missing operator between values", 7],
+		["2(3)", "Missing operator between values", 2],
+		["5 %", 'Missing operand for "%"', 2],
+		["* 2", 'Missing operand for "*"', 0],
+		["-", 'Missing operand for "-"', 0],
+		["sin 5", 'Expected "(" after function sin', 0],
+		["()", "Empty formula", 0],
+		["", "Empty formula", 0],
+	])("rejects malformed %j", (formula, error, pos) => {
+		const r = compileFormula(formula, columns);
+		expect(r.error).toBe(error);
+		expect(r.errorPos).toBe(pos);
+	});
+
+	it("still accepts well-formed nested and zero-arg calls", () => {
+		for (const f of [
+			"-(-[Temp])",
+			"!([Temp] > 1) && 2",
+			"max([Temp], [Hum]) - min([Hum], 3) ^ 2",
+			"avg()",
+			"rolling([Temp], 5) + avg5([Hum])",
+			"if([Temp] > 1, [Hum], -1)",
+		]) {
+			expect(compileFormula(f, columns).error, f).toBeUndefined();
+		}
+	});
+
+	it("accepts every documented function example", () => {
+		for (const fn of FUNCTIONS) {
+			const cols = [
+				"Time",
+				...[...fn.example.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]),
+			];
+			if (fn.category === "regression") {
+				const spec = matchRegressionFormula(fn.example);
+				expect(spec && !("error" in spec), fn.example).toBe(true);
+			} else {
+				// Some examples use placeholder names (e.g. `tau`); only the
+				// structural checks must not trip on a documented example.
+				expect(
+					compileFormula(fn.example, cols).error ?? "",
+					fn.example,
+				).not.toMatch(
+					/Missing operand|Missing operator|Expected "\("|Empty formula|entire formula/,
+				);
+			}
+		}
+	});
+
+	it("rejects regression calls nested in a row-wise expression", () => {
+		const r = compileFormula("2 * linreg([Temp])", columns);
+		expect(r.error).toContain("must be the entire formula");
+		expect(r.errorPos).toBe(4);
 	});
 });
 

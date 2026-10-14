@@ -6,6 +6,7 @@ import {
 	resolveBracketedReferences,
 	tokenizeFormula,
 	shuntingYard,
+	validateRpn,
 } from "./parser";
 
 export function compileFormula(
@@ -88,6 +89,7 @@ export function compileFormula(
 		);
 
 		const { outputQueue, setUsesAllColumns } = shuntingYard(tokens);
+		validateRpn(outputQueue);
 		if (setUsesAllColumns) usesAllColumns = true;
 
 		const finalDataColumnIndices = usesAllColumns

@@ -27,10 +27,39 @@ describe("tryRegressionFormula", () => {
 		).toBeNull();
 	});
 
-	it("returns null when the referenced column is unknown", () => {
-		expect(
+	it("throws when the referenced column is unknown", () => {
+		// Returning null here used to fall through to the row-wise compiler,
+		// which evaluated the positional x column instead.
+		expect(() =>
 			tryRegressionFormula("linreg([Missing])", columns, x.length, columnData),
-		).toBeNull();
+		).toThrow("Column not found: Missing");
+	});
+
+	it.each([
+		"linreg([Value])*2",
+		"linreg([Value]) + 1",
+		"polyreg([Value], 2.5)",
+		"expreg([Value], 2)",
+	])("rejects %s instead of evaluating the x column", (formula) => {
+		expect(() =>
+			tryRegressionFormula(formula, columns, x.length, columnData),
+		).toThrow();
+	});
+
+	it("accepts a kde bandwidth in scientific notation", () => {
+		const sci = tryRegressionFormula(
+			"kde([Value], 15e-1)",
+			columns,
+			x.length,
+			columnData,
+		);
+		const dec = tryRegressionFormula(
+			"kde([Value], 1.5)",
+			columns,
+			x.length,
+			columnData,
+		);
+		expect(sci).toEqual(dec);
 	});
 
 	it("resolves a column given by its bare name after a dataset prefix", () => {
@@ -46,12 +75,12 @@ describe("tryRegressionFormula", () => {
 		expect(result?.length).toBe(x.length);
 	});
 
-	it("returns null when the positional column data is missing", () => {
+	it("throws when the positional column data is missing", () => {
 		// The caller passes [x, y] positionally; a single column means the
 		// regression has nothing to fit against.
-		expect(
+		expect(() =>
 			tryRegressionFormula("linreg([Value])", columns, x.length, [asColumn(x)]),
-		).toBeNull();
+		).toThrow();
 	});
 
 	it("fits a linear regression", () => {
@@ -68,7 +97,7 @@ describe("tryRegressionFormula", () => {
 	});
 
 	it("dispatches every regression pattern to a finite result", () => {
-		// One case per entry in REGRESSION_PATTERNS: a typo in a pattern or a
+		// One case per regression form: a matcher typo or a
 		// missing switch arm shows up as a null here.
 		const formulas = [
 			"linreg([Value])",
