@@ -28,6 +28,7 @@ import {
 	type SeriesDrawBundle,
 } from "./drawSeries";
 import { GlLabelAtlas, type LabelRun } from "./labelAtlas";
+import { LabelCuller } from "./labelCollision";
 import {
 	MAIN_VERTEX_SHADER,
 	MAIN_FRAGMENT_SHADER,
@@ -72,6 +73,8 @@ export interface RenderLabel {
 	bg?: string;
 	/** Secondary-label chrome: 2px separator stroke at this x. */
 	tick?: { x: number; color: string };
+	/** Labels sharing a group are culled against each other (labelCollision.ts). */
+	cullGroup?: string;
 }
 
 /** Slim axis shape the renderer needs per frame (id + visible range). */
@@ -86,6 +89,30 @@ export interface RendererViewport {
 	height: number;
 	padding: { top: number; right: number; bottom: number; left: number };
 	dpr: number;
+	/**
+	 * Exact drawing-buffer size in device pixels when the host measured it
+	 * (ResizeObserver device-pixel-content-box); otherwise round(css * dpr),
+	 * which can be a pixel off at fractional scaling.
+	 */
+	pixelWidth?: number;
+	pixelHeight?: number;
+}
+
+/** Size a canvas' drawing buffer for `viewport` (no-op when unchanged). */
+export function sizeCanvasToViewport(
+	canvas: HTMLCanvasElement | OffscreenCanvas,
+	viewport: RendererViewport,
+): void {
+	const pw = Math.max(
+		1,
+		viewport.pixelWidth ?? Math.round(viewport.width * viewport.dpr),
+	);
+	const ph = Math.max(
+		1,
+		viewport.pixelHeight ?? Math.round(viewport.height * viewport.dpr),
+	);
+	if (canvas.width !== pw) canvas.width = pw;
+	if (canvas.height !== ph) canvas.height = ph;
 }
 
 /**
@@ -192,6 +219,7 @@ export class RendererCore {
 	private labelInstScratch = new Float32Array(0);
 	// Reused single-run list so plain labels don't allocate per frame.
 	private singleRun: LabelRun[] = [{ text: "", color: "" }];
+	private readonly labelCuller = new LabelCuller();
 	private labelChrome: OverlayState = {
 		packed: new Float32Array(256),
 		packedLen: 0,
@@ -333,6 +361,28 @@ export class RendererCore {
 		return new RendererCore(gl, main, line, label);
 	}
 
+	/**
+	 * Rebuild on a restored context of the same canvas. Programs, buffers,
+	 * decimation caches, and the label atlas all start empty (the old ones
+	 * died with the context); the host-supplied inputs carry over from
+	 * `prev`, so the next drawFrame re-uploads and reproduces the last scene.
+	 */
+	static restore(
+		canvas: HTMLCanvasElement | OffscreenCanvas,
+		prev: RendererCore,
+	): RendererCore | null {
+		const core = RendererCore.create(canvas);
+		if (!core) return null;
+		core.viewport = prev.viewport;
+		core.plotBgRgba = prev.plotBgRgba;
+		core.seriesList = prev.seriesList;
+		core.overlay = prev.overlay;
+		core.labels = prev.labels;
+		core.highlightedSeriesId = prev.highlightedSeriesId;
+		core.interacting = prev.interacting;
+		return core;
+	}
+
 	setViewport(viewport: RendererViewport): void {
 		this.viewport = viewport;
 	}
@@ -423,8 +473,8 @@ export class RendererCore {
 		const chartHeight = height - padding.top - padding.bottom;
 		if (chartWidth <= 0 || chartHeight <= 0) return;
 
-		const pw = Math.round(width * dpr);
-		const ph = Math.round(height * dpr);
+		const pw = this.viewport.pixelWidth ?? Math.round(width * dpr);
+		const ph = this.viewport.pixelHeight ?? Math.round(height * dpr);
 
 		gl.viewport(0, 0, pw, ph);
 		const bg = this.plotBgRgba;
@@ -622,6 +672,7 @@ export class RendererCore {
 			const generation = atlas.generation;
 			n = 0;
 			chromeByColor.clear();
+			this.labelCuller.reset();
 			for (const l of labels) {
 				let runs: LabelRun[];
 				if (l.segments) {
@@ -633,6 +684,7 @@ export class RendererCore {
 				}
 				const region = atlas.ensure(runs, l.font);
 				if (!region) continue;
+				if (!this.labelCuller.accept(l, region.cssWidth)) continue;
 
 				// Chrome sized from the measured text, mirroring the old 2D canvas
 				// secondary-label drawing (bg rect 14px tall, 2px separator).

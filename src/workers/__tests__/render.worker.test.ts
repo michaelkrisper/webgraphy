@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	makeCanvasMock,
 	makeGl2Mock,
+	makeLoseContextExt,
 } from "../../components/Plot/__tests__/glMock";
 import type { SceneContext } from "../../components/Plot/frameScene";
 import {
@@ -236,6 +237,62 @@ describe("render.worker", () => {
 		// highlight alone does not queue a frame draw; it only marks the shared
 		// scene dirty for the SAB loop.
 		expect(gl.clear).not.toHaveBeenCalled();
+	});
+
+	it("sizes canvas and GL viewport from an exact device-pixel size", async () => {
+		const { gl, canvas } = initWorker();
+		send({
+			t: "viewport",
+			viewport: { ...viewport, dpr: 1.25, pixelWidth: 251, pixelHeight: 124 },
+		});
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
+		await nextFrame();
+		expect([canvas.width, canvas.height]).toEqual([251, 124]);
+		expect(gl.viewport).toHaveBeenCalledWith(0, 0, 251, 124);
+	});
+
+	it("pauses on context loss and redraws mirrored columns on restore", async () => {
+		const { gl, canvas } = initWorker();
+		const ext = makeLoseContextExt(canvas);
+		gl.getExtension.mockImplementation((() => ext) as never);
+		const frame = {
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		} as const;
+		send({ t: "series", list: [seriesMsg(501, 502, true)] });
+		send(frame);
+		await nextFrame();
+
+		send({ t: "simulateContextLoss", restore: false });
+		expect(ext.loseContext).toHaveBeenCalled();
+		vi.clearAllMocks();
+
+		// Updates keep arriving while lost — by column id only, as the host
+		// already sent the data — but nothing is drawn.
+		send({ t: "series", list: [seriesMsg(501, 502, false)] });
+		send(frame);
+		await nextFrame();
+		expect(gl.clear).not.toHaveBeenCalled();
+
+		send({ t: "simulateContextLoss", restore: true });
+		expect(ext.restoreContext).toHaveBeenCalled();
+		await nextFrame();
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+		// The worker's mirrored columns are uploaded into the new context.
+		const reuploads = gl.bufferData.mock.calls.filter(
+			(c) => c[1] instanceof Float32Array && c[2] === gl.STATIC_DRAW,
+		);
+		expect(reuploads).toHaveLength(2);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
 	});
 });
 
@@ -476,5 +533,31 @@ describe("render.worker — SharedArrayBuffer viewport path", () => {
 		await nextFrame();
 		await nextFrame();
 		expect(gl.clear).not.toHaveBeenCalled();
+	});
+
+	it("parks the loop on context loss and redraws the last viewport on restore", async () => {
+		const { gl, canvas, writer } = initShared();
+		const ext = makeLoseContextExt(canvas);
+		gl.getExtension.mockImplementation((() => ext) as never);
+		send({ t: "sceneCtx", ctx: sceneCtx, version: 13 });
+		writer.write(13, false, [{ min: 0, max: 10 }], [{ min: 0, max: 50 }]);
+		send({ t: "wake" });
+		await nextFrame();
+		await nextFrame();
+		expect(gl.clear).toHaveBeenCalled();
+
+		send({ t: "simulateContextLoss", restore: false });
+		gl.clear.mockClear();
+		writer.write(13, true, [{ min: 1, max: 11 }], [{ min: 0, max: 50 }]);
+		send({ t: "wake" });
+		await nextFrame();
+		await nextFrame();
+		expect(gl.clear).not.toHaveBeenCalled();
+
+		// No new write needed: restore alone redraws the latest snapshot.
+		send({ t: "simulateContextLoss", restore: true });
+		await nextFrame();
+		await nextFrame();
+		expect(gl.clear).toHaveBeenCalled();
 	});
 });

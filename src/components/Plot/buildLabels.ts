@@ -114,10 +114,15 @@ function buildXAxisLabels(
 
 	// Secondary labels (date context row): background quad + separator stroke
 	// are emitted as label chrome — their width depends on the rendered text.
+	// The row shares one cull group so the renderer drops labels that would
+	// overlap once measured; the period already in progress at the left edge
+	// is pinned there and emitted last, so it yields to any real boundary.
 	if (axis.ticks.secondaryLabels) {
 		const secFont = `bold 10px ${fontFamily}`;
 		const secList = axis.ticks.secondaryLabels;
 		const textY = baseY + metrics.secLabelBottom - 2;
+		const cullGroup = `sec:${axis.id}`;
+		let pinned: RenderLabel | undefined;
 		secList.forEach((sl: SecondaryLabel, i: number) => {
 			const nextSl = secList[i + 1];
 			const normX = (sl.timestamp - axis.min) / (axis.max - axis.min);
@@ -129,20 +134,23 @@ function buildXAxisLabels(
 			const nextX = padding.left + nextNormX * chartWidth;
 			if (currentX > width - padding.right || nextX < padding.left) return;
 
-			const x = Math.max(currentX + 5, padding.left + 5);
-			out.push({
+			const label: RenderLabel = {
 				text: sl.label,
 				color: lblColor,
 				font: secFont,
-				x,
+				x: Math.max(currentX + 5, padding.left + 5),
 				y: textY,
 				align: "left",
 				baseline: "alphabetic",
 				bg: ctx.secLabelBg,
 				tick:
 					currentX > padding.left ? { x: currentX, color: lblColor } : undefined,
-			});
+				cullGroup,
+			};
+			if (currentX < padding.left) pinned = label;
+			else out.push(label);
 		});
+		if (pinned) out.push(pinned);
 	}
 
 	// Axis title

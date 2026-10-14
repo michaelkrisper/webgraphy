@@ -42,7 +42,11 @@ export function PopupPicker<T extends string | number>({
 }: PopupPickerProps<T>) {
 	const [isOpen, setIsOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	const [coords, setCoords] = useState({ top: 0, left: 0 });
+	const [coords, setCoords] = useState<{
+		top?: number;
+		bottom?: number;
+		left: number;
+	}>({ top: 0, left: 0 });
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -66,10 +70,20 @@ export function PopupPicker<T extends string | number>({
 			if (left + minWidth > window.innerWidth - padding) {
 				left = rect.right + window.scrollX - minWidth;
 			}
-			setCoords({
-				top: rect.bottom + window.scrollY + 4,
-				left: Math.max(padding, left),
-			});
+			// A trigger in the lower half (the collapsed menu sits bottom-right)
+			// opens upwards so the list is not pushed off-screen.
+			const openUp = rect.top > window.innerHeight / 2;
+			setCoords(
+				openUp
+					? {
+							bottom: window.innerHeight - (rect.top + window.scrollY) + 4,
+							left: Math.max(padding, left),
+						}
+					: {
+							top: rect.bottom + window.scrollY + 4,
+							left: Math.max(padding, left),
+						},
+			);
 		}
 		setIsOpen(!isOpen);
 	};
@@ -91,7 +105,7 @@ export function PopupPicker<T extends string | number>({
 			{isOpen && (
 				<PopupPickerPopover
 					id={popoverId}
-					style={{ top: coords.top, left: coords.left, minWidth }}
+					style={{ ...coords, minWidth }}
 					onClose={close}
 				>
 					{options.map((opt) => {

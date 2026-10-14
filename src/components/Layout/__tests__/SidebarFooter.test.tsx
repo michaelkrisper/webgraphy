@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidebarFooter } from "../SidebarFooter";
+import { useShortcutsHelp } from "../shortcutsHelp";
 
 vi.mock("../HelpModal", () => ({
 	HelpModal: ({ onClose }: { onClose: () => void }) => (
@@ -36,6 +37,10 @@ vi.mock("../LicenseModal", () => ({
 	),
 }));
 
+vi.mock("../StorageReadout", () => ({
+	StorageReadout: () => <div data-testid="storage-readout" />,
+}));
+
 describe("SidebarFooter", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
@@ -64,6 +69,13 @@ describe("SidebarFooter", () => {
 		expect(screen.queryByTestId("help-modal")).not.toBeInTheDocument();
 	});
 
+	it("opens the keyboard shortcuts dialog", () => {
+		render(<SidebarFooter />);
+		fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+		expect(useShortcutsHelp.getState().open).toBe(true);
+		useShortcutsHelp.getState().setOpen(false);
+	});
+
 	it("opens and closes the License modal", async () => {
 		render(<SidebarFooter />);
 
@@ -86,5 +98,18 @@ describe("SidebarFooter", () => {
 
 		fireEvent.click(screen.getByTestId("close-imprint"));
 		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
+	});
+
+	it("toggles the lazily loaded storage readout", async () => {
+		render(<SidebarFooter />);
+		const btn = screen.getByRole("button", { name: "Storage" });
+		expect(btn).toHaveAttribute("aria-expanded", "false");
+
+		fireEvent.click(btn);
+		expect(await screen.findByTestId("storage-readout")).toBeInTheDocument();
+		expect(btn).toHaveAttribute("aria-expanded", "true");
+
+		fireEvent.click(btn);
+		expect(screen.queryByTestId("storage-readout")).not.toBeInTheDocument();
 	});
 });

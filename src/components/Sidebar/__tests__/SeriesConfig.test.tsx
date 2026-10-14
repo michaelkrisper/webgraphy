@@ -8,6 +8,9 @@ import { useGraphStore } from "../../../store/useGraphStore";
 
 vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: vi.fn(),
+	withHistory: (_label: string, fn: () => unknown) => fn(),
+	latestHistoryId: vi.fn(),
+	undoIfLatest: vi.fn(),
 }));
 
 interface ColorPickerMockProps {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { generateDemoDataset, getDemoAppState } from "../services/demoData";
 import {
+	type AppState,
 	type DataColumn,
 	type Dataset,
 	type ParsedDataset,
@@ -9,10 +10,13 @@ import {
 	type XAxisConfig,
 	type YAxisConfig,
 } from "../services/persistence";
-import { AXIS_EPSILON } from "../utils/axisCalculations";
+import { AXIS_EPSILON, DEFAULT_X_AXIS_ID } from "../utils/axisCalculations";
 import { getColumnIndex } from "../utils/columns";
 import { compileFormula, matchRegressionFormula } from "../utils/formula";
+import { logger } from "../utils/logger";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
+import { notify } from "./useNotificationStore";
+import { createHistory } from "./history";
 
 interface GraphState {
 	datasets: Dataset[];
@@ -66,6 +70,9 @@ interface GraphState {
 	) => void;
 
 	reorderSeries: (fromId: string, toIndex: number) => void;
+
+	undo: () => void;
+	redo: () => void;
 
 	loadPersistedState: () => Promise<void>;
 	loadDemoData: () => Promise<void>;
@@ -133,12 +140,16 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	highlightedSeriesId: null,
 	legendVisible: true,
 	setLegendVisible: (visible) => {
+		const before = beginHistory();
 		set({ legendVisible: visible });
+		commitHistory(before, visible ? "show legend" : "hide legend");
 		if (useGraphStore.getState().isLoaded) debouncedSaveConfig();
 	},
 	crosshairVisible: true,
 	setCrosshairVisible: (visible) => {
+		const before = beginHistory();
 		set({ crosshairVisible: visible });
+		commitHistory(before, visible ? "show crosshair" : "hide crosshair");
 		if (useGraphStore.getState().isLoaded) debouncedSaveConfig();
 	},
 	previewColor: null,
@@ -222,6 +233,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			if (!current)
 				return { success: false, error: "Dataset was removed during calculation" };
 			const { newColumn, sparseXColumn } = result;
+			const label = `add calculated column '${trimmedName}'`;
 			if (sparseXColumn && newColumn) {
 				// Sparse result (avgDay/avgHour etc.) — create a compact sub-dataset
 				const xColName = current.xAxisColumn;
@@ -236,9 +248,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 					xAxisId: current.xAxisId,
 				};
 				// addDataset persists it.
-				get().addDataset(sparseDataset);
+				withHistory(label, () => get().addDataset(sparseDataset));
 			} else if (newColumn) {
 				let updatedDataset: Dataset | undefined;
+				const before = beginHistory();
 				set((state) => {
 					const ds = state.datasets.find((d) => d.id === datasetId);
 					if (!ds || ds.columns.includes(trimmedName)) return state;
@@ -252,6 +265,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 						datasets: state.datasets.map((d) => (d.id === datasetId ? next : d)),
 					};
 				});
+				commitHistory(before, label);
 				if (!updatedDataset)
 					return {
 						success: false,
@@ -270,6 +284,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 
 	removeCalculatedColumn: (datasetId, columnName) => {
+		const before = beginHistory();
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
@@ -291,6 +306,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				series: newSeries,
 			};
 		});
+		commitHistory(before, `delete column '${columnName}'`);
 		if (get().isLoaded) debouncedSaveState();
 	},
 
@@ -318,12 +334,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const bounds = axisRangeFor(col);
 		const xMode = xModeFor(col);
 
+		const before = beginHistory();
 		set((s) => ({
 			datasets: [...s.datasets, newDataset],
 			xAxes: s.xAxes.map((a) =>
 				a.id === xAxisId ? { ...a, min: bounds.min, max: bounds.max, xMode } : a,
 			),
 		}));
+		commitHistory(before, `add dataset '${newDataset.name}'`);
 
 		persistence.saveDataset(newDataset);
 		if (get().isLoaded) debouncedSaveState();
@@ -332,6 +350,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	renameColumn: (datasetId, oldName, newName) => {
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === oldName) return;
+		const before = beginHistory();
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
@@ -359,10 +378,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				series: updatedSeries,
 			};
 		});
+		commitHistory(before, `rename column '${oldName}' to '${trimmed}'`);
 		if (get().isLoaded) debouncedSaveState();
 	},
 
 	updateDataset: (id, updates) => {
+		const before = beginHistory();
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === id);
 			if (!dataset) return state;
@@ -400,10 +421,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				xAxes: nextXAxes,
 			};
 		});
+		const name = get().datasets.find((d) => d.id === id)?.name ?? id;
+		commitHistory(before, `edit dataset '${name}'`);
 		if (get().isLoaded) debouncedSaveState();
 	},
 
 	removeDataset: (id) => {
+		const name = get().datasets.find((d) => d.id === id)?.name ?? id;
+		const before = beginHistory();
 		persistence.deleteDataset(id);
 		set((state) => {
 			const newDatasets = state.datasets.filter((d) => d.id !== id);
@@ -414,29 +439,46 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			}
 			return { datasets: newDatasets, series: newSeries };
 		});
+		commitHistory(before, `delete dataset '${name}'`);
 		if (get().isLoaded) debouncedSaveState();
 	},
 
 	addSeries: (series) => {
+		const before = beginHistory();
 		set((state) => ({ series: [...state.series, series] }));
+		commitHistory(before, `add series '${seriesName(series)}'`);
 		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateSeries: (id, updates) => {
+		const current = get().series.find((s) => s.id === id);
+		if (!current || !differs(current, updates)) return;
+		const before = beginHistory();
 		set((state) => ({
 			series: state.series.map((s) => (s.id === id ? { ...s, ...updates } : s)),
 		}));
+		commitHistory(
+			before,
+			seriesUpdateLabel(current, updates),
+			`series:${id}:${Object.keys(updates).sort().join(",")}`,
+		);
 		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	updateSeriesVisibility: (id, hidden) => {
+		const before = beginHistory();
 		set((state) => ({
 			series: state.series.map((s) => (s.id === id ? { ...s, hidden } : s)),
 		}));
+		const current = get().series.find((s) => s.id === id);
+		const name = current ? seriesName(current) : id;
+		commitHistory(before, `${hidden ? "hide" : "show"} series '${name}'`);
 		if (get().isLoaded) debouncedSaveConfig();
 	},
 
 	removeSeries: (id) => {
+		const removed = get().series.find((s) => s.id === id);
+		const before = beginHistory();
 		set((state) => {
 			const index = state.series.findIndex((s) => s.id === id);
 			const newSeries =
@@ -447,6 +489,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			}
 			return { series: newSeries };
 		});
+		commitHistory(
+			before,
+			`delete series '${removed ? seriesName(removed) : id}'`,
+		);
 		if (get().isLoaded) debouncedSaveConfig();
 	},
 
@@ -455,16 +501,32 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 
 	updateXAxis: (id, updates) => {
+		const current = get().xAxes.find((a) => a.id === id);
+		const before =
+			current && isConfigEdit(current, updates) ? beginHistory() : null;
 		set((state) => ({
 			xAxes: state.xAxes.map((a) => (a.id === id ? { ...a, ...updates } : a)),
 		}));
+		commitHistory(
+			before,
+			axisUpdateLabel("X", id, updates),
+			`x:${id}:${Object.keys(updates).sort().join(",")}`,
+		);
 		if (get().isLoaded) debouncedSaveViewport();
 	},
 
 	updateYAxis: (id, updates) => {
+		const current = get().yAxes.find((a) => a.id === id);
+		const before =
+			current && isConfigEdit(current, updates) ? beginHistory() : null;
 		set((state) => ({
 			yAxes: state.yAxes.map((a) => (a.id === id ? { ...a, ...updates } : a)),
 		}));
+		commitHistory(
+			before,
+			axisUpdateLabel("Y", id, updates),
+			`y:${id}:${Object.keys(updates).sort().join(",")}`,
+		);
 		if (get().isLoaded) debouncedSaveViewport();
 	},
 
@@ -503,6 +565,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	},
 
 	reorderSeries: (fromId, toIndex) => {
+		const before = beginHistory();
 		set((state) => {
 			const fromIndex = state.series.findIndex((s) => s.id === fromId);
 			if (fromIndex === -1) return state;
@@ -511,12 +574,49 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			newSeries.splice(toIndex, 0, item);
 			return { series: newSeries };
 		});
+		commitHistory(before, "reorder series");
 		if (get().isLoaded) debouncedSaveConfig();
 	},
 
+	undo: () => {
+		const state = get();
+		if (!state.isLoaded) return;
+		const entry = graphHistory.undo(snapshotOf(state));
+		if (entry) applySnapshot(entry.snapshot);
+	},
+
+	redo: () => {
+		const state = get();
+		if (!state.isLoaded) return;
+		const entry = graphHistory.redo(snapshotOf(state));
+		if (entry) applySnapshot(entry.snapshot);
+	},
+
 	loadPersistedState: async () => {
-		const savedState = await persistence.loadAppState();
-		const allDatasets = await persistence.getAllDatasets();
+		let savedState: AppState | null;
+		let allDatasets: Dataset[];
+		try {
+			savedState = await persistence.loadAppState();
+			allDatasets = await persistence.getAllDatasets();
+		} catch (error) {
+			// Storage disabled, private mode or a failed open: run on demo data
+			// without persistence, which also keeps whatever is on disk intact.
+			logger.error("Failed to load saved data", { error });
+			persistence.disable();
+			notify({
+				kind: "error",
+				message:
+					"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
+			});
+			try {
+				await get().loadDemoData();
+			} catch (demoError) {
+				logger.error("Failed to load demo data", { error: demoError });
+			} finally {
+				if (!get().isLoaded) set({ isLoaded: true });
+			}
+			return;
+		}
 
 		if (savedState) {
 			if (savedState.series) {
@@ -548,23 +648,229 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const demoDataset = generateDemoDataset();
 		const demoState = getDemoAppState(demoDataset);
 
-		get().addDataset(demoDataset);
+		withHistory("load demo data", () => {
+			get().addDataset(demoDataset);
 
-		set((state) => {
-			const overrides = new Map(demoState.yAxes.map((c) => [c.id, c]));
-			return {
-				yAxes: state.yAxes.map((a) => {
-					const o = overrides.get(a.id);
-					return o ? { ...a, ...o } : a;
-				}),
-				series: [...state.series, ...demoState.series],
-				isLoaded: true,
-			};
+			set((state) => {
+				const overrides = new Map(demoState.yAxes.map((c) => [c.id, c]));
+				return {
+					yAxes: state.yAxes.map((a) => {
+						const o = overrides.get(a.id);
+						return o ? { ...a, ...o } : a;
+					}),
+					series: [...state.series, ...demoState.series],
+					isLoaded: true,
+				};
+			});
 		});
 
 		debouncedSaveState();
 	},
 }));
+
+// --- Undo/redo -------------------------------------------------------------
+
+/** The user-meaningful slices undo/redo restores. Held by reference, never copied. */
+export type GraphSnapshot = Pick<
+	GraphState,
+	| "datasets"
+	| "series"
+	| "xAxes"
+	| "yAxes"
+	| "legendVisible"
+	| "crosshairVisible"
+>;
+
+const graphHistory = createHistory<GraphSnapshot>();
+
+/** Undo/redo stacks; subscribe for button state and labels. */
+export const useGraphHistory = graphHistory.store;
+
+const snapshotOf = (s: GraphSnapshot): GraphSnapshot => ({
+	datasets: s.datasets,
+	series: s.series,
+	xAxes: s.xAxes,
+	yAxes: s.yAxes,
+	legendVisible: s.legendVisible,
+	crosshairVisible: s.crosshairVisible,
+});
+
+const sameSnapshot = (a: GraphSnapshot, b: GraphSnapshot) =>
+	a.datasets === b.datasets &&
+	a.series === b.series &&
+	a.xAxes === b.xAxes &&
+	a.yAxes === b.yAxes &&
+	a.legendVisible === b.legendVisible &&
+	a.crosshairVisible === b.crosshairVisible;
+
+let historyDepth = 0;
+
+/**
+ * Starts recording one undoable step: returns the state to restore, or null
+ * when nothing should be recorded (before the initial load, or inside a
+ * {@link withHistory} group, which records the whole group instead).
+ */
+function beginHistory(): GraphSnapshot | null {
+	const state = useGraphStore.getState();
+	return historyDepth > 0 || !state.isLoaded ? null : snapshotOf(state);
+}
+
+/**
+ * Pushes the step begun by {@link beginHistory} unless the mutation left the
+ * state untouched. Edits sharing a `coalesceKey` in quick succession (colour
+ * drags, typing) merge into one entry.
+ */
+function commitHistory(
+	before: GraphSnapshot | null,
+	label: string,
+	coalesceKey?: string,
+): void {
+	if (before && !sameSnapshot(before, useGraphStore.getState())) {
+		graphHistory.push(label, before, coalesceKey);
+	}
+}
+
+/**
+ * Runs a synchronous mutation as one undoable step; actions called inside
+ * fold into it (an import adding datasets and series undoes as one step).
+ */
+export function withHistory<T>(label: string, fn: () => T): T {
+	const before = beginHistory();
+	historyDepth++;
+	try {
+		return fn();
+	} finally {
+		historyDepth--;
+		commitHistory(before, label);
+	}
+}
+
+/** Id of the newest undoable entry, e.g. to bind a toast's Undo button to it. */
+export function latestHistoryId(): number | undefined {
+	return graphHistory.store.getState().past.at(-1)?.id;
+}
+
+/**
+ * Undoes entry `id` only while it is still the newest one, so a stale toast
+ * cannot undo some later, unrelated action. Returns whether it undid.
+ */
+export function undoIfLatest(id: number): boolean {
+	if (latestHistoryId() !== id) return false;
+	useGraphStore.getState().undo();
+	return true;
+}
+
+export function clearHistory(): void {
+	graphHistory.clear();
+}
+
+const xBinding = (datasets: Dataset[], axisId: string) =>
+	datasets
+		.filter((d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === axisId)
+		.map((d) => `${d.id}\u0000${d.xAxisColumn}`)
+		.join("\n");
+
+/**
+ * Undo is not a viewport history: an axis keeps its current range unless the
+ * data plotted on it changes (e.g. a removed dataset comes back, or the x
+ * column is switched back), in which case the snapshot's range is the one
+ * that fits that data.
+ */
+function mergeViewport(cur: GraphSnapshot, target: GraphSnapshot) {
+	const keep = <A extends { id: string; min: number; max: number }>(
+		a: A,
+		current: A | undefined,
+		dataChanged: boolean,
+	): A =>
+		!current || dataChanged || (current.min === a.min && current.max === a.max)
+			? a
+			: { ...a, min: current.min, max: current.max };
+	return {
+		xAxes: target.xAxes.map((a) =>
+			keep(
+				a,
+				cur.xAxes.find((c) => c.id === a.id),
+				xBinding(cur.datasets, a.id) !== xBinding(target.datasets, a.id),
+			),
+		),
+		yAxes: target.yAxes.map((a) =>
+			keep(
+				a,
+				cur.yAxes.find((c) => c.id === a.id),
+				!cur.series.some((s) => s.yAxisId === a.id),
+			),
+		),
+	};
+}
+
+function applySnapshot(target: GraphSnapshot) {
+	const cur = useGraphStore.getState();
+	// IndexedDB already reflects `cur`: delete what disappears, re-save every
+	// dataset whose object differs (restored, or an older column set).
+	const targetIds = new Set(target.datasets.map((d) => d.id));
+	for (const d of cur.datasets) {
+		if (!targetIds.has(d.id)) persistence.deleteDataset(d.id);
+	}
+	const curById = new Map(cur.datasets.map((d) => [d.id, d]));
+	for (const d of target.datasets) {
+		if (curById.get(d.id) !== d) persistence.saveDataset(d);
+	}
+	useGraphStore.setState({
+		datasets: target.datasets,
+		series: target.series,
+		...mergeViewport(cur, target),
+		legendVisible: target.legendVisible,
+		crosshairVisible: target.crosshairVisible,
+		highlightedSeriesId: null,
+		previewColor: null,
+		previewStyle: null,
+	});
+	debouncedSaveState();
+}
+
+const seriesName = (s: SeriesConfig) => s.name || s.yColumn;
+
+const differs = <T extends object>(current: T, updates: Partial<T>) =>
+	(Object.keys(updates) as (keyof T)[]).some((k) => current[k] !== updates[k]);
+
+function seriesUpdateLabel(
+	s: SeriesConfig,
+	updates: Partial<SeriesConfig>,
+): string {
+	const name = seriesName(s);
+	if ("lineColor" in updates || "pointColor" in updates)
+		return `change color of '${name}'`;
+	if ("lineStyle" in updates) return `change line style of '${name}'`;
+	if ("pointStyle" in updates) return `change point style of '${name}'`;
+	if ("yAxisId" in updates)
+		return `move '${name}' to Y-axis ${updates.yAxisId?.split("-")[1]}`;
+	if ("yColumn" in updates || "sourceId" in updates)
+		return `change column of '${name}'`;
+	if ("name" in updates) return `rename series '${name}'`;
+	return `edit series '${name}'`;
+}
+
+/** Range-only updates are viewport changes and stay out of the history. */
+const isConfigEdit = <A extends { min: number; max: number }>(
+	current: A,
+	updates: Partial<A>,
+) =>
+	(Object.keys(updates) as (keyof A)[]).some(
+		(k) => k !== "min" && k !== "max" && current[k] !== updates[k],
+	);
+
+function axisUpdateLabel(
+	kind: "X" | "Y",
+	id: string,
+	updates: Partial<XAxisConfig & YAxisConfig>,
+): string {
+	const axis = `${kind}-axis ${id.split("-")[1]}`;
+	if ("name" in updates) return `rename ${axis}`;
+	if ("showGrid" in updates)
+		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;
+	if ("position" in updates) return `move ${axis} to the ${updates.position}`;
+	return `edit ${axis}`;
+}
 
 let viewportTimer: ReturnType<typeof setTimeout> | null = null;
 let configTimer: ReturnType<typeof setTimeout> | null = null;

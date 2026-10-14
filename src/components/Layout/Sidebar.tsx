@@ -3,6 +3,7 @@ import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
@@ -37,8 +38,14 @@ export const Sidebar: React.FC = () => {
 	const toggleSection = (key: keyof typeof openSections) =>
 		setOpenSections((s) => ({ ...s, [key]: !s[key] }));
 
-	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
-		useDataImport();
+	const {
+		importFiles,
+		confirmImport,
+		cancelImport,
+		changeSheet,
+		pendingFile,
+		isImporting,
+	} = useDataImport();
 
 	// `services/export` carries the whole standalone SVG renderer; loading it on
 	// demand keeps it out of the entry chunk (see size-budget.json).
@@ -76,11 +83,21 @@ export const Sidebar: React.FC = () => {
 		downloadFile(pngData, "webgraphy-export.png", "image/png");
 	};
 
+	const handleExportCSV = async () => {
+		const { exportVisibleCsv } = await import("../../services/csvExport");
+		await exportVisibleCsv(
+			{ series, datasets, xAxes },
+			{ notify, dismiss: dismissNotification },
+		);
+	};
+
 	if (isCollapsed) {
 		return (
 			<CollapsedMenuButton
 				onClick={() => setIsCollapsed(false)}
 				onExportSVG={handleExportSVG}
+				onExportPNG={handleExportPNG}
+				onExportCSV={handleExportCSV}
 				theme={t}
 			/>
 		);
@@ -95,6 +112,7 @@ export const Sidebar: React.FC = () => {
 					onImport={handleImport}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
+					onExportCSV={handleExportCSV}
 				/>
 
 				{/* Content */}
@@ -103,7 +121,7 @@ export const Sidebar: React.FC = () => {
 						open={openSections.sources}
 						onToggle={() => toggleSection("sources")}
 						fileInputRef={fileInputRef}
-						importFile={importFile}
+						importFiles={importFiles}
 					/>
 					<DataSeriesSection
 						open={openSections.series}
@@ -118,9 +136,13 @@ export const Sidebar: React.FC = () => {
 			<Suspense fallback={null}>
 				{pendingFile && (
 					<ImportSettingsDialogLazy
+						key={pendingFile.id}
 						fileName={pendingFile.file.name}
 						fileContent={pendingFile.preview}
+						previewTruncated={pendingFile.previewTruncated}
 						fileType={pendingFile.type}
+						defaultDelimiter={pendingFile.defaultDelimiter}
+						isImporting={isImporting}
 						sheets={pendingFile.sheets}
 						selectedSheet={pendingFile.selectedSheet}
 						onSheetChange={changeSheet}

@@ -1,5 +1,7 @@
+import { Keyboard } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
+import { useShortcutsHelp } from "./shortcutsHelp";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const HelpModal = lazy(() =>
@@ -11,17 +13,22 @@ const ImprintModal = lazy(() =>
 const LicenseModal = lazy(() =>
 	import("./LicenseModal").then((m) => ({ default: m.LicenseModal })),
 );
+const StorageReadout = lazy(() =>
+	import("./StorageReadout").then((m) => ({ default: m.StorageReadout })),
+);
 
 export const SidebarFooter: React.FC = () => {
 	const [showImprint, setShowImprint] = useState(false);
 	const [showHelp, setShowHelp] = useState(false);
 	const [showLicense, setShowLicense] = useState(false);
+	const [showStorage, setShowStorage] = useState(false);
 
 	return (
 		<>
 			<footer
 				className="sb-footer"
 				style={{
+					position: "relative",
 					display: "flex",
 					justifyContent: "space-between",
 					alignItems: "center",
@@ -50,6 +57,17 @@ export const SidebarFooter: React.FC = () => {
 					>
 						Help
 					</button>
+					{/* Icon only: the footer row has no width left for another label. */}
+					<button
+						onClick={() => useShortcutsHelp.getState().setOpen(true)}
+						className="sb-footer-btn"
+						type="button"
+						title="Keyboard shortcuts (?)"
+						aria-label="Keyboard shortcuts"
+						style={{ padding: 0, display: "flex" }}
+					>
+						<Keyboard size={14} aria-hidden="true" />
+					</button>
 					<span style={{ opacity: 0.5 }}>|</span>
 					<button
 						onClick={() => setShowLicense(true)}
@@ -70,6 +88,17 @@ export const SidebarFooter: React.FC = () => {
 					>
 						Imprint
 					</button>
+					<span style={{ opacity: 0.5 }}>|</span>
+					<button
+						onClick={() => setShowStorage((v) => !v)}
+						className="sb-footer-btn"
+						type="button"
+						title="Browser storage usage"
+						aria-expanded={showStorage}
+						style={{ fontSize: "0.7rem", padding: 0 }}
+					>
+						Storage
+					</button>
 				</div>
 				<div
 					style={{
@@ -81,6 +110,11 @@ export const SidebarFooter: React.FC = () => {
 				>
 					© Michael Krisper
 				</div>
+				{showStorage && (
+					<Suspense fallback={null}>
+						<StorageReadout />
+					</Suspense>
+				)}
 			</footer>
 
 			<Suspense fallback={null}>

@@ -1,16 +1,11 @@
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import type { Mock } from "vitest";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { useTheme } from "../../../hooks/useTheme";
 import { SidebarHeader } from "../SidebarHeader";
-import { exportVisibleCsv } from "../../../services/csvExport";
-
-vi.mock("../../../services/csvExport", () => ({
-	exportVisibleCsv: vi.fn(() => Promise.resolve()),
-}));
 
 vi.mock("../../../store/useGraphStore", () => {
 	const store = vi.fn() as ReturnType<typeof vi.fn> & {
@@ -82,6 +77,7 @@ describe("SidebarHeader", () => {
 	const mockOnImport = vi.fn();
 	const mockOnExportSVG = vi.fn();
 	const mockOnExportPNG = vi.fn();
+	const mockOnExportCSV = vi.fn();
 
 	const mockLoadDemoData = vi.fn();
 	const mockUpdateXAxis = vi.fn();
@@ -120,11 +116,13 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
 		expect(screen.getByTitle("Import Data Source")).toBeInTheDocument();
-		expect(screen.getByTitle("Load Demo Data")).toBeInTheDocument();
+		// Demo data lives in the empty state and the Data Sources section now.
+		expect(screen.queryByTitle("Load Demo Data")).toBeNull();
 		expect(screen.getByTitle("Hide Vertical Grid")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Crosshair")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Legend")).toBeInTheDocument();
@@ -140,6 +138,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -154,6 +153,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -168,25 +168,12 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Import Data Source"));
 		expect(mockOnImport).toHaveBeenCalled();
-	});
-
-	it("calls loadDemoData when demo data button is clicked", () => {
-		render(
-			<SidebarHeader
-				onCollapse={mockOnCollapse}
-				onImport={mockOnImport}
-				onExportSVG={mockOnExportSVG}
-				onExportPNG={mockOnExportPNG}
-			/>,
-		);
-
-		fireEvent.click(screen.getByTitle("Load Demo Data"));
-		expect(mockLoadDemoData).toHaveBeenCalled();
 	});
 
 	it("toggles vertical grid visibility", () => {
@@ -196,6 +183,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -210,6 +198,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -224,6 +213,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -238,6 +228,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -248,22 +239,19 @@ describe("SidebarHeader", () => {
 		expect(mockOnExportPNG).toHaveBeenCalled();
 	});
 
-	it("exports the visible data as CSV from the export menu", async () => {
+	it("exports the visible data as CSV from the export menu", () => {
 		render(
 			<SidebarHeader
 				onCollapse={mockOnCollapse}
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("export-csv-trigger"));
-		await waitFor(() => expect(exportVisibleCsv).toHaveBeenCalledTimes(1));
-		expect(exportVisibleCsv).toHaveBeenCalledWith(
-			expect.objectContaining({ xAxes: [{ id: "axis-1", showGrid: true }] }),
-			expect.objectContaining({ notify: expect.any(Function) }),
-		);
+		expect(mockOnExportCSV).toHaveBeenCalledTimes(1);
 		expect(mockOnExportSVG).not.toHaveBeenCalled();
 		expect(mockOnExportPNG).not.toHaveBeenCalled();
 	});
@@ -275,6 +263,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -303,6 +292,7 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 

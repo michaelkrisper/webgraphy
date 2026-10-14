@@ -206,4 +206,30 @@ describe("parserClient", () => {
 
 		await expect(promise).rejects.toThrow("Parser worker error");
 	});
+
+	it("requests a JSON preview with the row limit", async () => {
+		const { previewJsonInWorker } = await import("../parserClient");
+
+		const file = new File(["[]"], "a.json");
+		const promise = previewJsonInWorker(file, 50);
+
+		expect(mockWorker.postMessage).toHaveBeenCalledWith({
+			id: expect.any(Number),
+			file,
+			type: "json",
+			previewRows: 50,
+		});
+		const sentId = mockWorker.postMessage.mock.calls[0][0].id;
+		mockWorker.simulateMessage({
+			id: sentId,
+			type: "success",
+			preview: "[]",
+			previewTruncated: true,
+		});
+
+		await expect(promise).resolves.toEqual({
+			preview: "[]",
+			previewTruncated: true,
+		});
+	});
 });

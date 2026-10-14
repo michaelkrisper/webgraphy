@@ -11,6 +11,7 @@ describe("CollapsedMenuButton", () => {
 			<CollapsedMenuButton
 				onClick={() => {}}
 				onExportSVG={() => {}}
+				onExportPNG={() => {}}
 				theme={mockTheme}
 			/>,
 		);
@@ -31,6 +32,7 @@ describe("CollapsedMenuButton", () => {
 			<CollapsedMenuButton
 				onClick={handleClick}
 				onExportSVG={() => {}}
+				onExportPNG={() => {}}
 				theme={mockTheme}
 			/>,
 		);
@@ -41,11 +43,44 @@ describe("CollapsedMenuButton", () => {
 		expect(handleClick).toHaveBeenCalledTimes(1);
 	});
 
+	it("offers SVG, PNG and CSV export, like the expanded menu", () => {
+		const onExportSVG = vi.fn();
+		const onExportPNG = vi.fn();
+		const onExportCSV = vi.fn();
+		render(
+			<CollapsedMenuButton
+				onClick={() => {}}
+				onExportSVG={onExportSVG}
+				onExportPNG={onExportPNG}
+				onExportCSV={onExportCSV}
+				theme={mockTheme}
+			/>,
+		);
+		const trigger = screen.getByRole("button", { name: "Export Image or Data" });
+		fireEvent.click(trigger);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export as SVG (vector)" }),
+		);
+		expect(onExportSVG).toHaveBeenCalledTimes(1);
+		fireEvent.click(trigger);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export as PNG (pixel)" }),
+		);
+		expect(onExportPNG).toHaveBeenCalledTimes(1);
+		expect(onExportSVG).toHaveBeenCalledTimes(1);
+		fireEvent.click(trigger);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Export visible data as CSV" }),
+		);
+		expect(onExportCSV).toHaveBeenCalledTimes(1);
+	});
+
 	it("has correct positioning and styling", () => {
 		render(
 			<CollapsedMenuButton
 				onClick={() => {}}
 				onExportSVG={() => {}}
+				onExportPNG={() => {}}
 				theme={mockTheme}
 			/>,
 		);

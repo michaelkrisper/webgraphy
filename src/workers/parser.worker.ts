@@ -2,18 +2,23 @@
 
 import type { ParsedDataset } from "../services/persistence";
 import { type ParseSettings, parseData } from "../utils/data-parser";
+import { previewJSON } from "../utils/json-parser";
 
 export interface ParserRequest {
 	id: number;
 	file: File;
 	type: string;
 	settings?: ParseSettings;
+	/** Only build the import-dialog preview (JSON must be parsed whole). */
+	previewRows?: number;
 }
 
 export interface ParserResponse {
 	id: number;
 	type: "success" | "error";
 	datasets?: ParsedDataset[];
+	preview?: string;
+	previewTruncated?: boolean;
 	error?: string;
 }
 
@@ -28,8 +33,15 @@ function collectTransferables(datasets: ParsedDataset[]): ArrayBuffer[] {
 }
 
 self.onmessage = async (ev: MessageEvent<ParserRequest>) => {
-	const { id, file, type, settings } = ev.data;
+	const { id, file, type, settings, previewRows } = ev.data;
 	try {
+		if (previewRows !== undefined) {
+			if (type !== "json") throw new Error(`No worker preview for type: ${type}`);
+			const preview = await previewJSON(file, previewRows);
+			const response: ParserResponse = { id, type: "success", ...preview };
+			(self as DedicatedWorkerGlobalScope).postMessage(response);
+			return;
+		}
 		const datasets = await parseData(file, type, settings);
 		const transferables = collectTransferables(datasets);
 		const response: ParserResponse = { id, type: "success", datasets };

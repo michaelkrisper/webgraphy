@@ -42,6 +42,7 @@ describe("XAxisInteractionZones", () => {
 		onMouseDown: vi.fn(),
 		onTouchStart: vi.fn(),
 		onAutoScaleX: vi.fn(),
+		onAxisStep: vi.fn(),
 	};
 
 	beforeEach(() => {
@@ -51,14 +52,14 @@ describe("XAxisInteractionZones", () => {
 	it("renders X axis interaction zones", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
 		expect(
-			screen.getByRole("region", { name: "X-Axis x1 interaction area" }),
+			screen.getByRole("group", { name: /^X axis x1\b/ }),
 		).toBeInTheDocument();
 	});
 
 	it("calls onWheel when wheel event occurs", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "X-Axis x1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^X axis x1\b/,
 		});
 		fireEvent.wheel(zone);
 		expect(defaultProps.onWheel).toHaveBeenCalledTimes(1);
@@ -69,8 +70,8 @@ describe("XAxisInteractionZones", () => {
 
 	it("calls onMouseDown when mouse down event occurs", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "X-Axis x1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^X axis x1\b/,
 		});
 		fireEvent.mouseDown(zone);
 		expect(defaultProps.onMouseDown).toHaveBeenCalledTimes(1);
@@ -81,8 +82,8 @@ describe("XAxisInteractionZones", () => {
 
 	it("calls onTouchStart when touch start event occurs", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "X-Axis x1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^X axis x1\b/,
 		});
 		fireEvent.touchStart(zone);
 		expect(defaultProps.onTouchStart).toHaveBeenCalledTimes(1);
@@ -93,8 +94,8 @@ describe("XAxisInteractionZones", () => {
 
 	it("calls setEditingXAxisId when double clicking title area", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "X-Axis x1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^X axis x1\b/,
 		});
 
 		// titleBottom is 40. Bottom 30px is title area.
@@ -108,8 +109,8 @@ describe("XAxisInteractionZones", () => {
 
 	it("calls onAutoScaleX when double clicking outside title area", () => {
 		render(<XAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "X-Axis x1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^X axis x1\b/,
 		});
 
 		// yInside < 10 (e.g., 5) should trigger auto scale
@@ -122,6 +123,23 @@ describe("XAxisInteractionZones", () => {
 		render(<XAxisInteractionZones {...defaultProps} editingXAxisId="x1" />);
 		const input = screen.getByDisplayValue("Test X Axis");
 		expect(input).toBeInTheDocument();
+	});
+
+	it("places the rename input over the title glyphs, inside the axis strip", () => {
+		render(<XAxisInteractionZones {...defaultProps} editingXAxisId="x1" />);
+		const input = screen.getByDisplayValue("Test X Axis");
+		const m = defaultProps.xAxesMetrics[0];
+		const stripTop = defaultProps.padding.bottom - m.cumulativeOffset; // CSS bottom
+		const bottom = Number.parseFloat(input.style.bottom);
+		const height = Number.parseFloat(input.style.height);
+		// Strip-relative, measured downwards from the axis line.
+		const top = stripTop - (bottom + height);
+		const end = stripTop - bottom;
+		// bold 12px title: cap top ~10px above the baseline, descenders ~3px below.
+		expect(top).toBeLessThanOrEqual(m.titleBottom - 10);
+		expect(end).toBeGreaterThanOrEqual(m.titleBottom + 3);
+		expect(top).toBeGreaterThanOrEqual(0);
+		expect(end).toBeLessThanOrEqual(m.height);
 	});
 
 	it("updates X axis name on input blur", () => {
@@ -182,6 +200,7 @@ describe("YAxisInteractionZones", () => {
 		onMouseDown: vi.fn(),
 		onTouchStart: vi.fn(),
 		onAutoScaleY: vi.fn(),
+		onAxisStep: vi.fn(),
 	};
 
 	beforeEach(() => {
@@ -191,17 +210,17 @@ describe("YAxisInteractionZones", () => {
 	it("renders Y axis interaction zones", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
 		expect(
-			screen.getByRole("region", { name: "Y-Axis y1 interaction area" }),
+			screen.getByRole("group", { name: /^Y axis y1\b/ }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("region", { name: "Y-Axis y2 interaction area" }),
+			screen.getByRole("group", { name: /^Y axis y2\b/ }),
 		).toBeInTheDocument();
 	});
 
 	it("calls onWheel when wheel event occurs", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y1\b/,
 		});
 		fireEvent.wheel(zone);
 		expect(defaultProps.onWheel).toHaveBeenCalledTimes(1);
@@ -212,8 +231,8 @@ describe("YAxisInteractionZones", () => {
 
 	it("calls onMouseDown when mouse down event occurs", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y1\b/,
 		});
 		fireEvent.mouseDown(zone);
 		expect(defaultProps.onMouseDown).toHaveBeenCalledTimes(1);
@@ -224,8 +243,8 @@ describe("YAxisInteractionZones", () => {
 
 	it("calls onTouchStart when touch start event occurs", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y1\b/,
 		});
 		fireEvent.touchStart(zone);
 		expect(defaultProps.onTouchStart).toHaveBeenCalledTimes(1);
@@ -236,8 +255,8 @@ describe("YAxisInteractionZones", () => {
 
 	it("calls onAutoScaleY when double clicking", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y1\b/,
 		});
 
 		// clientY = 150, container top = 100 -> mouseY = 50
@@ -253,8 +272,8 @@ describe("YAxisInteractionZones", () => {
 			leftOffsets: { y3: 5 },
 		};
 		render(<YAxisInteractionZones {...customProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y3 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y3\b/,
 		});
 		// xP = padding.left (40) - leftOffsets[a.id] (5) - am.total (40 default) = -5
 		expect(zone).toHaveStyle({ left: "-5px" });
@@ -268,8 +287,8 @@ describe("YAxisInteractionZones", () => {
 			leftOffsets: {}, // missing y4
 		};
 		render(<YAxisInteractionZones {...customProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y4 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y4\b/,
 		});
 		// xP = padding.left (40) - leftOffsets (0) - total (20) = 20
 		expect(zone).toHaveStyle({ left: "20px" });
@@ -283,8 +302,8 @@ describe("YAxisInteractionZones", () => {
 			rightOffsets: {}, // missing y5
 		};
 		render(<YAxisInteractionZones {...customProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y5 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y5\b/,
 		});
 		// xP = width (800) - padding.right (20) + rightOffsets (0) = 780
 		expect(zone).toHaveStyle({ left: "780px" });
@@ -296,8 +315,8 @@ describe("YAxisInteractionZones", () => {
 			containerRef: { current: null },
 		};
 		render(<YAxisInteractionZones {...customProps} />);
-		const zone = screen.getByRole("region", {
-			name: "Y-Axis y1 interaction area",
+		const zone = screen.getByRole("group", {
+			name: /^Y axis y1\b/,
 		});
 		fireEvent.doubleClick(zone, { clientY: 150 });
 		expect(customProps.onAutoScaleY).toHaveBeenCalledWith("y1", undefined);
@@ -333,6 +352,7 @@ describe("XAxisInteractionZones additional branches", () => {
 		onMouseDown: vi.fn(),
 		onTouchStart: vi.fn(),
 		onAutoScaleX: vi.fn(),
+		onAxisStep: vi.fn(),
 	};
 
 	it("falls back to empty string when title is undefined", () => {

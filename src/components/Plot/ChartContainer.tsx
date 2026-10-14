@@ -12,6 +12,7 @@ import {
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
+import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
 import { usePanZoom } from "../../hooks/usePanZoom";
 import { useTheme } from "../../hooks/useTheme";
 import type {
@@ -27,7 +28,14 @@ import {
 	syncAxesWithTargets,
 	ZOOM_EASE_FACTOR,
 } from "../../utils/axisCalculations";
-import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
+import {
+	type AxisStep,
+	applyKeyboardPan,
+	applyKeyboardZoom,
+	releaseNavigationKeys,
+	stepAxisTarget,
+} from "../../utils/keyboard";
+import { prefersReducedMotion } from "../../utils/reducedMotion";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
@@ -73,9 +81,18 @@ export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
-	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
-		useDataImport();
+	const {
+		importFiles,
+		confirmImport,
+		cancelImport,
+		changeSheet,
+		pendingFile,
+		isImporting,
+	} = useDataImport();
 	const { width, height } = useContainerSize(containerRef, 800, 600);
+	// The WebGL layer fills the container's content box, so its device-pixel
+	// size is the canvas backing-store size.
+	const { dpr, pixelWidth, pixelHeight } = useDevicePixelSize(containerRef);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
@@ -250,6 +267,21 @@ export default function ChartContainer() {
 		});
 	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
 
+	// Keyboard steps on a focused axis zone go through the same target refs
+	// and rAF sync as every other pan/zoom.
+	const handleXAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().xAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetXAxes.current, axis, step);
+		syncViewportRef.current();
+	}, []);
+	const handleYAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().yAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetYs.current, axis, step);
+		syncViewportRef.current();
+	}, []);
+
 	const {
 		panTarget,
 		isCtrlPressed,
@@ -322,6 +354,15 @@ export default function ChartContainer() {
 		return grouped;
 	}, [series, datasets]);
 
+	// Same text the WebGL label pass draws as each y-axis title.
+	const yAxisTitles = useMemo(() => {
+		const titles: Record<string, string> = {};
+		for (const id in seriesByYAxisId) {
+			titles[id] = seriesByYAxisId[id].map((s) => s.name || s.yColumn).join(" / ");
+		}
+		return titles;
+	}, [seriesByYAxisId]);
+
 	const isInteractingRef = useRef(false);
 	useEffect(() => {
 		isInteractingRef.current = isInteracting;
@@ -346,6 +387,10 @@ export default function ChartContainer() {
 					targetXAxes.current,
 					targetYs.current,
 				);
+				const reduceMotion = prefersReducedMotion();
+				if (reduceMotion && (kbZoom || kbPan)) {
+					releaseNavigationKeys(pressedKeysRef.current);
+				}
 
 				const { xUpdates, yUpdates, hasUpdates }: AxesFrame = syncAxesWithTargets(
 					state,
@@ -357,8 +402,11 @@ export default function ChartContainer() {
 				// Wheel zoom eases toward its target over a few frames; everything
 				// else (pan, keyboard, forced syncs) snaps via factor 1, which also
 				// keeps the displayed-range records current for the next zoom.
+				// Reduced motion snaps the wheel zoom too.
 				const easeFactor =
-					smoothZoomRef.current && !forceStoreUpdate ? ZOOM_EASE_FACTOR : 1;
+					smoothZoomRef.current && !forceStoreUpdate && !reduceMotion
+						? ZOOM_EASE_FACTOR
+						: 1;
 				const xEased = easeAxisUpdates(
 					displayedXAxesRef.current,
 					xUpdates,
@@ -544,6 +592,8 @@ export default function ChartContainer() {
 	]);
 
 	// Force redraw on ANY change (ranges, names, config, sidebar, resize, theme).
+	// DPR changes count as resizes: the canvas is resized (which clears it) and
+	// the main-thread backend's overlay geometry is in device pixels.
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
@@ -553,7 +603,19 @@ export default function ChartContainer() {
 		// Use force=false to schedule via rAF, breaking synchronous render loops.
 		// Redraw is still forced because we set overlayInitRef.current = false above.
 		syncViewportRef.current(false);
-	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
+	}, [
+		isLoaded,
+		xAxes,
+		yAxes,
+		series,
+		datasets,
+		themeColors,
+		width,
+		height,
+		dpr,
+		pixelWidth,
+		pixelHeight,
+	]);
 
 	// 7. Memos for static rendering (JSX)
 	const xAxesLayout = useMemo(() => {
@@ -609,8 +671,7 @@ export default function ChartContainer() {
 				onDrop={(e) => {
 					e.preventDefault();
 					setIsDragOver(false);
-					const file = e.dataTransfer.files[0];
-					if (file) importFile(file);
+					void importFiles(e.dataTransfer.files);
 				}}
 				style={{
 					position: "relative",
@@ -629,7 +690,13 @@ export default function ChartContainer() {
 			>
 				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
-					<EmptyState width={width} height={height} padding={padding} />
+					<EmptyState
+						width={width}
+						height={height}
+						padding={padding}
+						onImportFiles={importFiles}
+						onLoadDemo={() => useGraphStore.getState().loadDemoData()}
+					/>
 				)}
 				<div className="chart-webgl-layer">
 					<ErrorBoundary level="component">
@@ -642,6 +709,9 @@ export default function ChartContainer() {
 							yAxes={yAxes}
 							width={width}
 							height={height}
+							dpr={dpr}
+							pixelWidth={pixelWidth}
+							pixelHeight={pixelHeight}
 							padding={padding}
 							isInteracting={isInteracting}
 							highlightedSeriesId={highlightedSeriesId}
@@ -660,9 +730,11 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleX={handleAutoScaleX}
+					onAxisStep={handleXAxisStep}
 				/>
 				<YAxisInteractionZones
 					axes={activeYAxes}
+					titles={yAxisTitles}
 					axisLayout={axisLayout}
 					leftOffsets={leftOffsets}
 					rightOffsets={rightOffsets}
@@ -673,6 +745,7 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleY={handleAutoScaleY}
+					onAxisStep={handleYAxisStep}
 				/>
 				{datasets.length > 0 && (
 					<ChartActionButtons
@@ -719,9 +792,13 @@ export default function ChartContainer() {
 			<Suspense fallback={null}>
 				{pendingFile && (
 					<ImportSettingsDialogLazy
+						key={pendingFile.id}
 						fileName={pendingFile.file.name}
 						fileContent={pendingFile.preview}
+						previewTruncated={pendingFile.previewTruncated}
 						fileType={pendingFile.type}
+						defaultDelimiter={pendingFile.defaultDelimiter}
+						isImporting={isImporting}
 						sheets={pendingFile.sheets}
 						selectedSheet={pendingFile.selectedSheet}
 						onSheetChange={changeSheet}

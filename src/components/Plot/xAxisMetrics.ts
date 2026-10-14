@@ -16,7 +16,7 @@ export function getXAxisRowMetrics(
 		return {
 			height: 70,
 			labelBottom: 22,
-			secLabelBottom: 38,
+			secLabelBottom: 40,
 			titleBottom: 60,
 		};
 	}

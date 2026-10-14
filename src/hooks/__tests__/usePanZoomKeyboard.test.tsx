@@ -68,6 +68,15 @@ describe("usePanZoomKeyboard", () => {
 		expect(syncViewport).toHaveBeenCalledTimes(2);
 	});
 
+	it("kicks syncViewport on the = and _ zoom aliases too", () => {
+		const { syncViewport } = setupHook();
+		act(() => {
+			dispatchKey("keydown", "=");
+			dispatchKey("keydown", "_");
+		});
+		expect(syncViewport).toHaveBeenCalledTimes(2);
+	});
+
 	it("does not kick syncViewport on unrelated keys", () => {
 		const { syncViewport } = setupHook();
 		act(() => dispatchKey("keydown", "a"));

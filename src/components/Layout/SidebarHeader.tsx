@@ -3,14 +3,9 @@ import {
 	Columns3,
 	Crosshair,
 	FilePlus,
-	FileSpreadsheet,
-	FlaskConical,
-	Grid3x3,
-	Image,
 	List,
 	Moon,
 	PanelRightClose,
-	Spline,
 	Sun,
 	Table,
 	Terminal,
@@ -22,6 +17,7 @@ import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+import { ExportMenu } from "./ExportMenu";
 
 const EXPORT_FEEDBACK = { notify, dismiss: dismissNotification };
 
@@ -92,16 +88,19 @@ const HeaderButton = ({
 	title,
 	color,
 	off,
+	disabled,
 }: {
 	onClick: () => void;
 	icon: React.ReactNode;
 	title: string;
 	color?: string;
 	off?: boolean;
+	disabled?: boolean;
 }) => (
 	<button
 		type="button"
 		onClick={onClick}
+		disabled={disabled}
 		title={title}
 		aria-label={title}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
@@ -116,6 +115,7 @@ interface SidebarHeaderProps {
 	onImport: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onExportCSV: () => void;
 }
 
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
@@ -123,8 +123,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onImport,
 	onExportSVG,
 	onExportPNG,
+	onExportCSV,
 }) => {
-	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
@@ -154,54 +154,13 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				title="Import Data Source"
 			/>
 			<div className="sb-hdr-btns">
-				<HeaderButton
-					onClick={loadDemoData}
-					icon={<FlaskConical size={24} />}
-					title="Load Demo Data"
-				/>
 				{hdrSep}
-				<PopupPicker
-					options={[
-						{
-							value: "svg",
-							icon: <Spline size={16} />,
-							label: "Export as SVG (vector)",
-						},
-						{
-							value: "png",
-							icon: <Grid3x3 size={16} />,
-							label: "Export as PNG (pixel)",
-						},
-						{
-							value: "csv",
-							icon: <FileSpreadsheet size={16} />,
-							label: "Export visible data as CSV",
-						},
-					]}
-					current={"" as "svg" | "png" | "csv" | ""}
-					onChange={(v) => {
-						if (v === "svg") onExportSVG();
-						else if (v === "png") onExportPNG();
-						else if (v === "csv") {
-							// Loaded on demand, like the SVG renderer.
-							void import("../../services/csvExport").then((m) =>
-								m.exportVisibleCsv({ series, datasets, xAxes }, EXPORT_FEEDBACK),
-							);
-						}
-					}}
-					popoverId="export-popover"
-					renderTrigger={({ onClick, ref }) => (
-						<button
-							ref={ref}
-							type="button"
-							onClick={onClick}
-							title="Export Image or Data"
-							aria-label="Export Image or Data"
-							className="sb-hdr-btn"
-						>
-							<Image size={24} />
-						</button>
-					)}
+				<ExportMenu
+					onExportSVG={onExportSVG}
+					onExportPNG={onExportPNG}
+					onExportCSV={onExportCSV}
+					className="sb-hdr-btn"
+					iconSize={24}
 				/>
 				<HeaderButton
 					onClick={() => setDataTableOpen(true)}

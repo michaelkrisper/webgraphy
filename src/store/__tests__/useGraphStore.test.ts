@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset } from "../../services/persistence";
 import { useGraphStore } from "../useGraphStore";
+import { useNotificationStore } from "../useNotificationStore";
 import * as formulaClient from "../../workers/formulaClient";
 
 class MockWorker {
@@ -50,8 +51,13 @@ vi.mock("../../services/persistence", () => ({
 		getAllDatasets: vi.fn().mockResolvedValue([]),
 		deleteDataset: vi.fn(),
 		saveAppState: vi.fn(),
+		// The debounced savers fire on a timer; on a slow run that lands while
+		// this file is still executing and would throw on a missing method.
+		saveViewport: vi.fn(),
+		saveConfig: vi.fn(),
 		loadAppState: vi.fn().mockResolvedValue(null),
 		clearAppState: vi.fn().mockResolvedValue(undefined),
+		disable: vi.fn(),
 	},
 }));
 
@@ -532,6 +538,39 @@ describe("useGraphStore", () => {
 		expect(loadDemoDataCalled).toBe(true);
 
 		useGraphStore.setState({ loadDemoData: originalLoadDemoData });
+	});
+
+	it("falls back to demo data without persistence when storage cannot be read", async () => {
+		const { persistence } = await import("../../services/persistence");
+		vi
+			.mocked(persistence.loadAppState)
+			.mockRejectedValueOnce(new Error("IndexedDB unavailable"));
+		useGraphStore.setState({ isLoaded: false });
+		useNotificationStore.setState({ notifications: [] });
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const originalLoadDemoData = useGraphStore.getState().loadDemoData;
+		const loadDemoData = vi.fn().mockRejectedValue(new Error("demo failed"));
+		useGraphStore.setState({ loadDemoData });
+		try {
+			await expect(
+				useGraphStore.getState().loadPersistedState(),
+			).resolves.toBeUndefined();
+
+			expect(persistence.disable).toHaveBeenCalled();
+			expect(loadDemoData).toHaveBeenCalled();
+			// Even a failing fallback must leave the UI usable.
+			expect(useGraphStore.getState().isLoaded).toBe(true);
+			expect(useNotificationStore.getState().notifications).toEqual([
+				expect.objectContaining({
+					kind: "error",
+					message:
+						"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
+				}),
+			]);
+		} finally {
+			errorSpy.mockRestore();
+			useGraphStore.setState({ loadDemoData: originalLoadDemoData });
+		}
 	});
 
 	it("should load demo data correctly", async () => {

@@ -1,16 +1,20 @@
-import { FileImage } from "lucide-react";
 import type React from "react";
 import type { Theme } from "../../themes";
+import { ExportMenu } from "./ExportMenu";
 
 interface CollapsedMenuButtonProps {
 	onClick: () => void;
 	onExportSVG: () => void;
+	onExportPNG: () => void;
+	onExportCSV: () => void;
 	theme: Theme;
 }
 
 export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 	onClick,
 	onExportSVG,
+	onExportPNG,
+	onExportCSV,
 }) => (
 	<div className="collapsed-menu-btns">
 		<button
@@ -22,14 +26,12 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 		>
 			<img src="./favicon.svg" alt="webgraphy logo" />
 		</button>
-		<button
-			type="button"
-			onClick={onExportSVG}
+		<ExportMenu
+			onExportSVG={onExportSVG}
+			onExportPNG={onExportPNG}
+			onExportCSV={onExportCSV}
 			className="collapsed-menu-btn"
-			title="Export SVG"
-			aria-label="Export SVG"
-		>
-			<FileImage size={18} />
-		</button>
+			iconSize={18}
+		/>
 	</div>
 );
