@@ -11,6 +11,10 @@
  *   the fallback when `OffscreenCanvas` is unavailable (and the path unit
  *   tests exercise under jsdom, where `getContext("webgl2")` is null).
  *
+ * Both survive WebGL context loss: drawing pauses while the context is
+ * lost, and on restore the core is rebuilt (`RendererCore.restore`) from
+ * the inputs it already holds and redrawn — see `contextLoss.ts`.
+ *
  * `acquireRenderBackend`/`releaseRenderBackend` make backend ownership safe
  * under React StrictMode's mount → cleanup → mount cycle: a canvas can only
  * be transferred to an OffscreenCanvas once, so release defers disposal by a
@@ -23,6 +27,7 @@ import type {
 } from "../../workers/render.worker";
 import { getAxisById } from "../../utils/axisCalculations";
 import { logger } from "../../utils/logger";
+import { watchContextLoss } from "./contextLoss";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
@@ -31,6 +36,7 @@ import {
 	type RendererSeriesInput,
 	type RendererViewport,
 	type RenderLabel,
+	sizeCanvasToViewport,
 } from "./rendererCore";
 import { VIEWPORT_SAB_BYTES, ViewportWriter } from "./viewportChannel";
 
@@ -58,19 +64,14 @@ export interface RenderBackend {
 	dispose(): void;
 }
 
-function sizeCanvas(
-	canvas: HTMLCanvasElement | OffscreenCanvas,
-	viewport: RendererViewport,
-): void {
-	const pw = Math.max(1, Math.round(viewport.width * viewport.dpr));
-	const ph = Math.max(1, Math.round(viewport.height * viewport.dpr));
-	if (canvas.width !== pw) canvas.width = pw;
-	if (canvas.height !== ph) canvas.height = ph;
-}
-
 class DirectBackend implements RenderBackend {
 	private readonly canvas: HTMLCanvasElement;
-	private readonly core: RendererCore | null;
+	private core: RendererCore | null;
+	// While the context is lost the core keeps collecting inputs (so it can
+	// be restored with them) but must not draw.
+	private contextLost = false;
+	private lastAxes: { x: RenderAxis[]; y: RenderAxis[] } | null = null;
+	private readonly unwatchContext: () => void;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -81,10 +82,25 @@ class DirectBackend implements RenderBackend {
 		this.core = RendererCore.create(canvas);
 		this.core?.setViewport(viewport);
 		this.core?.setPlotBg(plotBg);
+		this.unwatchContext = watchContextLoss(canvas, {
+			lost: () => {
+				this.contextLost = true;
+			},
+			restored: () => this.restoreContext(),
+		});
+	}
+
+	private restoreContext(): void {
+		this.contextLost = false;
+		if (!this.core) return;
+		this.core = RendererCore.restore(this.canvas, this.core);
+		if (this.core && this.lastAxes) {
+			this.core.drawFrame(this.lastAxes.x, this.lastAxes.y);
+		}
 	}
 
 	setViewport(viewport: RendererViewport): void {
-		sizeCanvas(this.canvas, viewport);
+		sizeCanvasToViewport(this.canvas, viewport);
 		this.core?.setViewport(viewport);
 	}
 
@@ -120,10 +136,13 @@ class DirectBackend implements RenderBackend {
 		if (!this.core) return;
 		this.core.setInteracting(interacting);
 		this.core.setHighlight(highlight);
+		this.lastAxes = { x: xAxes, y: yAxes };
+		if (this.contextLost) return;
 		this.core.drawFrame(xAxes, yAxes);
 	}
 
 	dispose(): void {
+		this.unwatchContext();
 		this.core?.dispose();
 	}
 }
@@ -347,7 +366,7 @@ function createBackend(
 	viewport: RendererViewport,
 	plotBg: number[],
 ): RenderBackend {
-	sizeCanvas(canvas, viewport);
+	sizeCanvasToViewport(canvas, viewport);
 	if (
 		typeof canvas.transferControlToOffscreen === "function" &&
 		typeof Worker === "function"

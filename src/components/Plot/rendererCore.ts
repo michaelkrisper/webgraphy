@@ -85,6 +85,30 @@ export interface RendererViewport {
 	height: number;
 	padding: { top: number; right: number; bottom: number; left: number };
 	dpr: number;
+	/**
+	 * Exact drawing-buffer size in device pixels when the host measured it
+	 * (ResizeObserver device-pixel-content-box); otherwise round(css * dpr),
+	 * which can be a pixel off at fractional scaling.
+	 */
+	pixelWidth?: number;
+	pixelHeight?: number;
+}
+
+/** Size a canvas' drawing buffer for `viewport` (no-op when unchanged). */
+export function sizeCanvasToViewport(
+	canvas: HTMLCanvasElement | OffscreenCanvas,
+	viewport: RendererViewport,
+): void {
+	const pw = Math.max(
+		1,
+		viewport.pixelWidth ?? Math.round(viewport.width * viewport.dpr),
+	);
+	const ph = Math.max(
+		1,
+		viewport.pixelHeight ?? Math.round(viewport.height * viewport.dpr),
+	);
+	if (canvas.width !== pw) canvas.width = pw;
+	if (canvas.height !== ph) canvas.height = ph;
 }
 
 /**
@@ -329,6 +353,28 @@ export class RendererCore {
 		return new RendererCore(gl, main, line, label);
 	}
 
+	/**
+	 * Rebuild on a restored context of the same canvas. Programs, buffers,
+	 * decimation caches, and the label atlas all start empty (the old ones
+	 * died with the context); the host-supplied inputs carry over from
+	 * `prev`, so the next drawFrame re-uploads and reproduces the last scene.
+	 */
+	static restore(
+		canvas: HTMLCanvasElement | OffscreenCanvas,
+		prev: RendererCore,
+	): RendererCore | null {
+		const core = RendererCore.create(canvas);
+		if (!core) return null;
+		core.viewport = prev.viewport;
+		core.plotBgRgba = prev.plotBgRgba;
+		core.seriesList = prev.seriesList;
+		core.overlay = prev.overlay;
+		core.labels = prev.labels;
+		core.highlightedSeriesId = prev.highlightedSeriesId;
+		core.interacting = prev.interacting;
+		return core;
+	}
+
 	setViewport(viewport: RendererViewport): void {
 		this.viewport = viewport;
 	}
@@ -371,8 +417,8 @@ export class RendererCore {
 		const chartHeight = height - padding.top - padding.bottom;
 		if (chartWidth <= 0 || chartHeight <= 0) return;
 
-		const pw = Math.round(width * dpr);
-		const ph = Math.round(height * dpr);
+		const pw = this.viewport.pixelWidth ?? Math.round(width * dpr);
+		const ph = this.viewport.pixelHeight ?? Math.round(height * dpr);
 
 		gl.viewport(0, 0, pw, ph);
 		const bg = this.plotBgRgba;
