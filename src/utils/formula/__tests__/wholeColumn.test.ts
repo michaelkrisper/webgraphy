@@ -54,6 +54,23 @@ describe("tryRegressionFormula", () => {
 		).toBeNull();
 	});
 
+	it("fits epoch-scale Float32 + refPoint columns precisely", () => {
+		// Timestamps arrive as Float32 deltas from a refPoint; the fit must see
+		// the reconstructed doubles and must not cancel on their magnitude.
+		const n = 10_000;
+		const xCol = {
+			data: Float32Array.from({ length: n }, (_, i) => i),
+			refPoint: 1.7e9,
+		};
+		const yCol = asColumn(Array.from({ length: n }, (_, i) => 0.5 * i + 5));
+		const result = tryRegressionFormula("linreg([Value])", columns, n, [
+			xCol,
+			yCol,
+		]);
+		expect(result?.[0]).toBeCloseTo(5, 6);
+		expect(result?.[n - 1]).toBeCloseTo(0.5 * (n - 1) + 5, 6);
+	});
+
 	it("fits a linear regression", () => {
 		const result = tryRegressionFormula(
 			"linreg([Value])",

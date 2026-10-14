@@ -99,6 +99,7 @@ export function compileFormula(
 			queues: {},
 			sums: {},
 			sumsSq: {},
+			counts: {},
 			timeQueues: {},
 			timeSums: {},
 			groupSums: {},

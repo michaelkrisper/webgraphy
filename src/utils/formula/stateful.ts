@@ -3,6 +3,13 @@ import { toMillis } from "./date";
 import type { FormulaContext } from "./types";
 
 // ── Stateful primitives (one slot per FUNC id) ─────────────────────────────
+//
+// Non-finite inputs (NaN gaps, ±Infinity) never enter running state: a single
+// one would otherwise poison every running sum for the rest of the column.
+// Aggregates (rolling*, cum*, group buckets, filter) are computed over the
+// finite values in their window and return NaN only when that window holds
+// none. Point-wise diff returns NaN for a non-finite row and diffs the next
+// row against the last finite value. lag is a pure shift and passes NaN on.
 
 export function statefulAvgN(
 	ctx: FormulaContext,
@@ -13,12 +20,22 @@ export function statefulAvgN(
 	if (!ctx.queues[id]) {
 		ctx.queues[id] = [];
 		ctx.sums[id] = 0;
+		ctx.counts[id] = 0;
 	}
 	const q = ctx.queues[id];
 	q.push(val);
-	ctx.sums[id] += val;
-	while (q.length > n) ctx.sums[id] -= q.shift()!;
-	return ctx.sums[id] / q.length;
+	if (Number.isFinite(val)) {
+		ctx.sums[id] += val;
+		ctx.counts[id]++;
+	}
+	while (q.length > n) {
+		const old = q.shift()!;
+		if (Number.isFinite(old)) {
+			ctx.sums[id] -= old;
+			ctx.counts[id]--;
+		}
+	}
+	return ctx.counts[id] > 0 ? ctx.sums[id] / ctx.counts[id] : NaN;
 }
 
 export function statefulAvgTime(
@@ -34,13 +51,18 @@ export function statefulAvgTime(
 	}
 	const q = ctx.timeQueues[id];
 	const tMs = toMillis(t);
-	q.push({ t: tMs, v: val });
-	ctx.timeSums[id] += val;
+	// A NaN timestamp at the queue head would never satisfy `<= cutoff` and
+	// block eviction for good, so rows without a usable time stay out.
+	if (!Number.isFinite(tMs)) return NaN;
+	if (Number.isFinite(val)) {
+		q.push({ t: tMs, v: val });
+		ctx.timeSums[id] += val;
+	}
 	const cutoff = tMs - windowSec * 1000;
 	while (q.length > 0 && q[0].t <= cutoff) {
 		ctx.timeSums[id] -= q.shift()?.v ?? 0;
 	}
-	return q.length > 0 ? ctx.timeSums[id] / q.length : 0;
+	return q.length > 0 ? ctx.timeSums[id] / q.length : NaN;
 }
 
 export function statefulAvgGroup(
@@ -49,16 +71,16 @@ export function statefulAvgGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] === key) {
+	if (ctx.groupLastKey[id] !== key) {
+		ctx.groupSums[id] = 0;
+		ctx.groupCounts[id] = 0;
+		ctx.groupLastKey[id] = key;
+	}
+	if (Number.isFinite(val)) {
 		ctx.groupSums[id] += val;
 		ctx.groupCounts[id] += 1;
-		return ctx.groupSums[id] / ctx.groupCounts[id];
 	}
-
-	ctx.groupSums[id] = val;
-	ctx.groupCounts[id] = 1;
-	ctx.groupLastKey[id] = key;
-	return val;
+	return ctx.groupCounts[id] > 0 ? ctx.groupSums[id] / ctx.groupCounts[id] : NaN;
 }
 
 export function statefulSumGroup(
@@ -67,14 +89,16 @@ export function statefulSumGroup(
 	val: number,
 	key: string | number,
 ): number {
-	if (ctx.groupLastKey[id] === key) {
-		ctx.groupSums[id] += val;
-		return ctx.groupSums[id];
+	if (ctx.groupLastKey[id] !== key) {
+		ctx.groupSums[id] = 0;
+		ctx.groupCounts[id] = 0;
+		ctx.groupLastKey[id] = key;
 	}
-
-	ctx.groupSums[id] = val;
-	ctx.groupLastKey[id] = key;
-	return val;
+	if (Number.isFinite(val)) {
+		ctx.groupSums[id] += val;
+		ctx.groupCounts[id] += 1;
+	}
+	return ctx.groupCounts[id] > 0 ? ctx.groupSums[id] : NaN;
 }
 
 export function pushBoundedQueue(
@@ -95,7 +119,8 @@ export function statefulRollingMed(
 	val: number,
 	n: number,
 ): number {
-	return median(pushBoundedQueue(ctx, id, val, n));
+	const finite = pushBoundedQueue(ctx, id, val, n).filter(Number.isFinite);
+	return finite.length > 0 ? median(finite) : NaN;
 }
 
 export function statefulRollingStd(
@@ -108,17 +133,25 @@ export function statefulRollingStd(
 		ctx.queues[id] = [];
 		ctx.sums[id] = 0;
 		ctx.sumsSq[id] = 0;
+		ctx.counts[id] = 0;
 	}
 	const q = ctx.queues[id];
 	q.push(val);
-	ctx.sums[id] += val;
-	ctx.sumsSq[id] += val * val;
+	if (Number.isFinite(val)) {
+		ctx.sums[id] += val;
+		ctx.sumsSq[id] += val * val;
+		ctx.counts[id]++;
+	}
 	while (q.length > n) {
 		const old = q.shift()!;
-		ctx.sums[id] -= old;
-		ctx.sumsSq[id] -= old * old;
+		if (Number.isFinite(old)) {
+			ctx.sums[id] -= old;
+			ctx.sumsSq[id] -= old * old;
+			ctx.counts[id]--;
+		}
 	}
-	const k = q.length;
+	const k = ctx.counts[id];
+	if (k === 0) return NaN;
 	if (k < 2) return 0;
 	const mean = ctx.sums[id] / k;
 	const variance = (ctx.sumsSq[id] - k * mean * mean) / (k - 1);
@@ -133,8 +166,9 @@ export function statefulRollingMin(
 ): number {
 	const q = pushBoundedQueue(ctx, id, val, n);
 	let m = Infinity;
-	for (let i = 0; i < q.length; i++) if (q[i] < m) m = q[i];
-	return m;
+	for (let i = 0; i < q.length; i++)
+		if (Number.isFinite(q[i]) && q[i] < m) m = q[i];
+	return m === Infinity ? NaN : m;
 }
 
 export function statefulRollingMax(
@@ -145,8 +179,9 @@ export function statefulRollingMax(
 ): number {
 	const q = pushBoundedQueue(ctx, id, val, n);
 	let m = -Infinity;
-	for (let i = 0; i < q.length; i++) if (q[i] > m) m = q[i];
-	return m;
+	for (let i = 0; i < q.length; i++)
+		if (Number.isFinite(q[i]) && q[i] > m) m = q[i];
+	return m === -Infinity ? NaN : m;
 }
 
 export function statefulLag(
@@ -168,6 +203,7 @@ export function statefulDiff(
 	id: number,
 	val: number,
 ): number {
+	if (!Number.isFinite(val)) return NaN;
 	if (!ctx.hasPrev[id]) {
 		ctx.hasPrev[id] = true;
 		ctx.prevVals[id] = val;
@@ -185,6 +221,7 @@ export function cumReduce(
 	identity: number,
 	op: (acc: number, v: number) => number,
 ): number {
+	if (!Number.isFinite(val)) return ctx.cumHas[id] ? ctx.cumState[id] : NaN;
 	if (!ctx.cumHas[id]) {
 		ctx.cumState[id] = identity;
 		ctx.cumHas[id] = true;
@@ -212,6 +249,7 @@ export function statefulFilter(
 		processNoiseArg !== undefined && Number.isFinite(processNoiseArg)
 			? processNoiseArg
 			: 1e-3;
+	if (!Number.isFinite(val)) return ctx.filterState[id]?.estimate ?? NaN;
 	if (!ctx.filterState[id]) {
 		ctx.filterState[id] = {
 			estimate: val,
