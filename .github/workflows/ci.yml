@@ -55,9 +55,20 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Must equal the exact @playwright/test version in package.json (pinned
+      # without a caret); the step below fails fast when they drift, e.g. when
+      # Dependabot bumps the package but cannot see this image tag.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     steps:
       - uses: actions/checkout@v7
+      - name: Playwright package matches container image
+        run: |
+          pkg=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          img=$(sed -n 's|^ *image: mcr.microsoft.com/playwright:v\([^-]*\)-.*|\1|p' .github/workflows/ci.yml)
+          if [ "$pkg" != "$img" ]; then
+            echo "::error::@playwright/test is '$pkg' but the e2e container image is v$img; bump both to the same exact version."
+            exit 1
+          fi
       - uses: actions/setup-node@v7
         with:
           node-version: 24
