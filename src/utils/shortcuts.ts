@@ -7,6 +7,8 @@ export interface Shortcut {
 	readonly keys: readonly string[];
 	/** Only together with Ctrl. */
 	readonly ctrl?: boolean;
+	/** Only together with Shift. */
+	readonly shift?: boolean;
 	readonly description: string;
 }
 
@@ -31,6 +33,15 @@ export const SHORTCUTS = {
 		keys: ["+", "-"],
 		ctrl: true,
 		description: "Zoom the X axes only",
+	},
+	fitAll: {
+		keys: ["Home"],
+		description: "Fit all axes to the data",
+	},
+	stackedFit: {
+		keys: ["Home"],
+		shift: true,
+		description: "Stacked fit: each Y axis in its own slice",
 	},
 	copyTooltip: {
 		keys: ["c", "C"],
@@ -95,6 +106,8 @@ export const SHORTCUT_GROUPS: readonly {
 			"zoomIn",
 			"zoomOut",
 			"zoomXOnly",
+			"fitAll",
+			"stackedFit",
 			"copyTooltip",
 			"showShortcuts",
 		],
@@ -146,6 +159,12 @@ export function formatShortcutKeys(shortcut: Shortcut): string[] {
 		if (!out.includes(label)) out.push(label);
 	}
 	return out;
+}
+
+/** Tooltip form of the first binding, e.g. "Shift+Home". */
+export function shortcutHint(shortcut: Shortcut): string {
+	const mods = `${shortcut.ctrl ? "Ctrl+" : ""}${shortcut.shift ? "Shift+" : ""}`;
+	return mods + formatShortcutKeys(shortcut)[0];
 }
 
 /**
