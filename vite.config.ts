@@ -131,6 +131,8 @@ export default defineConfig({
 							],
 							"application/vnd.ms-excel": [".xls"],
 							"application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+							// Saved sessions (services/session.ts); importFiles routes them.
+							"application/x-webgraphy": [".webgraphy"],
 						},
 					},
 				],

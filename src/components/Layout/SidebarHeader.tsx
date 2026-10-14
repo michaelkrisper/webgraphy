@@ -115,6 +115,8 @@ interface SidebarHeaderProps {
 	onImport: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onOpenSession: () => void;
+	onSaveSession: () => void;
 	onExportCSV: () => void;
 }
 
@@ -123,6 +125,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onImport,
 	onExportSVG,
 	onExportPNG,
+	onOpenSession,
+	onSaveSession,
 	onExportCSV,
 }) => {
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
@@ -158,6 +162,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				<ExportMenu
 					onExportSVG={onExportSVG}
 					onExportPNG={onExportPNG}
+					onOpenSession={onOpenSession}
+					onSaveSession={onSaveSession}
 					onExportCSV={onExportCSV}
 					className="sb-hdr-btn"
 					iconSize={24}

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { SessionPromptHost } from "./components/Layout/SessionPromptHost";
 import { Sidebar } from "./components/Layout/Sidebar";
 import { ShortcutsHelpHost } from "./components/Layout/ShortcutsHelpHost";
 import { Toaster } from "./components/Layout/Toaster";
@@ -22,6 +23,7 @@ export default function App() {
 				<ChartContainer />
 				<Sidebar />
 			</div>
+			<SessionPromptHost />
 			<Toaster />
 			<ShortcutsHelpHost />
 		</ErrorBoundary>
