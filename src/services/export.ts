@@ -1,13 +1,14 @@
 import type { Theme } from "../themes";
 import type { TextMeasurer } from "./exportLayout";
 import { embeddedFontCss, waitForFonts } from "./exportFonts";
-import { canvasLimitError } from "./exportOptions";
+import { CSS_DPI, canvasLimitError } from "./exportOptions";
 import type {
 	Dataset,
 	SeriesConfig,
 	XAxisConfig,
 	YAxisConfig,
 } from "./persistence";
+import { setPngBlobDpi } from "./pngMetadata";
 import { exportToSVG, formatDate, type SvgExportOptions } from "./svgExport";
 
 export { exportToSVG, formatDate };
@@ -229,7 +230,11 @@ export async function exportImage(
 		throw new CanvasSizeError(
 			"The browser could not encode an image this large. Choose a smaller size, scale or dpi.",
 		);
-	downloadBlob(blob, `${name}.png`);
+	// Layout px are CSS px (96 per inch), so the true resolution is 96 dpi ×
+	// pixel ratio: the chosen dpi for millimetre sizes, 192 dpi for a 2× pixel
+	// export, which then opens at its on-screen size like a HiDPI screenshot.
+	const dpi = CSS_DPI * pixelRatio;
+	downloadBlob(await setPngBlobDpi(blob, dpi), `${name}.png`);
 }
 
 /** Triggers a browser download of `blob`. */
