@@ -5,7 +5,9 @@ import { axe } from "vitest-axe";
 import type { Mock } from "vitest";
 import { useDataImport } from "../../../hooks/useDataImport";
 import { removeSeriesWithUndo } from "../../../store/undoToast";
+import { exportImage } from "../../../services/export";
 import { useGraphStore } from "../../../store/useGraphStore";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 import { Sidebar } from "../Sidebar";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -48,6 +50,7 @@ vi.mock("../../../services/export", () => ({
 	exportToSVG: vi.fn().mockReturnValue("<svg></svg>"),
 	exportToPNG: vi.fn().mockResolvedValue("data:image/png;base64,..."),
 	downloadFile: vi.fn(),
+	exportImage: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock indexedDB for the Reset/Demo buttons
@@ -244,6 +247,84 @@ describe("Sidebar Component", () => {
 		expect(value2Button).toHaveAttribute("aria-pressed", "false");
 		fireEvent.click(value2Button);
 		expect(mockAddSeries).toHaveBeenCalledTimes(1);
+	});
+
+	describe("image export", () => {
+		const openMenu = () =>
+			fireEvent.click(screen.getByRole("button", { name: "Session & Export" }));
+
+		it("exports the view as on screen from the one-click entries", async () => {
+			const plot = document.createElement("div");
+			plot.className = "plot-area";
+			Object.defineProperty(plot, "clientWidth", { value: 640 });
+			Object.defineProperty(plot, "clientHeight", { value: 480 });
+			document.body.appendChild(plot);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(
+					screen.getByRole("button", { name: "Export as SVG (vector)" }),
+				);
+				await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+				expect((exportImage as Mock).mock.calls[0][1]).toMatchObject({
+					format: "svg",
+					width: 640,
+					height: 480,
+					legend: "auto",
+				});
+			} finally {
+				plot.remove();
+			}
+		});
+
+		it("opens the options dialog and exports with its choices", async () => {
+			render(<Sidebar />);
+			openMenu();
+			fireEvent.click(screen.getByRole("button", { name: "Export image…" }));
+			const dialog = await screen.findByRole("dialog", { name: "Export Image" });
+			expect(dialog).toBeInTheDocument();
+			fireEvent.change(screen.getByLabelText("Title"), {
+				target: { value: "Run 7" },
+			});
+			fireEvent.click(screen.getByRole("radio", { name: "SVG (vector)" }));
+			fireEvent.click(screen.getByRole("button", { name: "Export" }));
+			await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+			// No plot on screen: the current view falls back to 1200 × 800.
+			expect((exportImage as Mock).mock.calls[0][1]).toMatchObject({
+				format: "svg",
+				width: 1200,
+				height: 800,
+				title: "Run 7",
+			});
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
+
+		it("reports a too-large image in an error toast", async () => {
+			const tooLarge = Object.assign(new Error("Image too large: 99999 px"), {
+				name: "CanvasSizeError",
+			});
+			(exportImage as Mock).mockRejectedValueOnce(tooLarge);
+			const plot = document.createElement("div");
+			plot.className = "plot-area";
+			document.body.appendChild(plot);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(
+					screen.getByRole("button", { name: "Export as PNG (pixel)" }),
+				);
+				await vi.waitFor(() =>
+					expect(useNotificationStore.getState().notifications).toContainEqual(
+						expect.objectContaining({
+							kind: "error",
+							message: "Image too large: 99999 px",
+						}),
+					),
+				);
+			} finally {
+				plot.remove();
+			}
+		});
 	});
 
 	it(

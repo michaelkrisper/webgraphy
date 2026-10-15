@@ -1,4 +1,15 @@
-import type { SnapResult } from "./types";
+import { swatchStyle } from "./swatch";
+import type { SnapItem, SnapResult } from "./types";
+
+function styleSwatch(
+	el: HTMLElement,
+	item: Pick<SnapItem, "color" | "lineStyle">,
+): void {
+	const st = swatchStyle(item.color, item.lineStyle);
+	el.dataset.dot = st.dot ? "true" : "";
+	el.style.borderTop = st.borderTop;
+	el.style.backgroundColor = st.backgroundColor;
+}
 
 interface RenderTooltipHTMLParams {
 	tooltip: HTMLDivElement | null;
@@ -88,6 +99,11 @@ export function renderTooltipHTML({
 
 				const itemLabelSpan = document.createElement("span");
 				itemLabelSpan.className = "chart-tooltip-item-label";
+				const swatch = document.createElement("span");
+				swatch.className = "chart-tooltip-swatch";
+				swatch.setAttribute("aria-hidden", "true");
+				itemLabelSpan.appendChild(swatch);
+				itemLabelSpan.appendChild(document.createElement("span"));
 				itemNode.appendChild(itemLabelSpan);
 
 				const intPartSpan = document.createElement("span");
@@ -106,8 +122,11 @@ export function renderTooltipHTML({
 			const intPartSpan = itemNode.children[1] as HTMLElement;
 			const decPartSpan = itemNode.children[2] as HTMLElement;
 
-			itemLabelSpan.style.color = item.color;
-			itemLabelSpan.textContent = `${item.label}:`;
+			// Series colour only on the swatch: light colours (yellow, orange)
+			// are unreadable as text on a light tooltip.
+			styleSwatch(itemLabelSpan.children[0] as HTMLElement, item);
+			itemLabelSpan.style.color = tooltipColor;
+			itemLabelSpan.children[1].textContent = `${item.label}:`;
 
 			intPartSpan.style.color = tooltipColor;
 			intPartSpan.textContent = intPart;

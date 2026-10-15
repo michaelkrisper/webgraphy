@@ -190,6 +190,8 @@ function positiveAxisBounds(
 	return min === Infinity ? null : { min, max };
 }
 
+let persistedLoad: Promise<void> | null = null;
+
 const createEmptyState = () => ({
 	datasets: [],
 	series: [],
@@ -723,60 +725,73 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		commitHistory(before, label);
 	},
 
-	loadPersistedState: async () => {
-		let savedState: AppState | null;
-		let allDatasets: Dataset[];
-		try {
-			savedState = await persistence.loadAppState();
-			allDatasets = await persistence.getAllDatasets();
-		} catch (error) {
-			// Storage disabled, private mode or a failed open: run on demo data
-			// without persistence, which also keeps whatever is on disk intact.
-			logger.error("Failed to load saved data", { error });
-			persistence.disable();
-			notify({
-				kind: "error",
-				message:
-					"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
-			});
+	loadPersistedState: () => {
+		// StrictMode runs App's startup effect twice; both calls must share one
+		// load, or an empty database gets the demo dataset added twice.
+		persistedLoad ??= (async () => {
+			let savedState: AppState | null;
+			let allDatasets: Dataset[];
 			try {
-				await get().loadDemoData();
-			} catch (demoError) {
-				logger.error("Failed to load demo data", { error: demoError });
-			} finally {
-				if (!get().isLoaded) set({ isLoaded: true });
+				savedState = await persistence.loadAppState();
+				allDatasets = await persistence.getAllDatasets();
+			} catch (error) {
+				// Storage disabled, private mode or a failed open: run on demo data
+				// without persistence, which also keeps whatever is on disk intact.
+				logger.error("Failed to load saved data", { error });
+				persistence.disable();
+				notify({
+					kind: "error",
+					message:
+						"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
+				});
+				try {
+					await get().loadDemoData();
+				} catch (demoError) {
+					logger.error("Failed to load demo data", { error: demoError });
+				} finally {
+					if (!get().isLoaded) set({ isLoaded: true });
+				}
+				return;
 			}
-			return;
-		}
 
-		if (savedState) {
-			if (savedState.series) {
-				savedState.series = savedState.series.map((s) => ({
-					...s,
-					hidden: s.hidden ?? false,
-				}));
+			if (savedState) {
+				if (savedState.series) {
+					savedState.series = savedState.series.map((s) => ({
+						...s,
+						hidden: s.hidden ?? false,
+					}));
+				}
+				set({
+					...savedState,
+					xAxes: withAllSlots(savedState.xAxes, createInitialXAxes()),
+					yAxes: withAllSlots(savedState.yAxes, createInitialYAxes()),
+					datasets: allDatasets,
+					isLoaded: true,
+				});
+				// Don't call debouncedSaveState immediately to avoid overwriting with incomplete data
+			} else if (allDatasets.length > 0) {
+				set({ datasets: allDatasets, isLoaded: true });
+			} else if (localStorage.getItem("webgraphy-cleared")) {
+				localStorage.removeItem("webgraphy-cleared");
+				set({ isLoaded: true });
+			} else {
+				const { loadDemoData } = get();
+				await loadDemoData();
 			}
-			set({
-				...savedState,
-				xAxes: withAllSlots(savedState.xAxes, createInitialXAxes()),
-				yAxes: withAllSlots(savedState.yAxes, createInitialYAxes()),
-				datasets: allDatasets,
-				isLoaded: true,
-			});
-			// Don't call debouncedSaveState immediately to avoid overwriting with incomplete data
-		} else if (allDatasets.length > 0) {
-			set({ datasets: allDatasets, isLoaded: true });
-		} else if (localStorage.getItem("webgraphy-cleared")) {
-			localStorage.removeItem("webgraphy-cleared");
-			set({ isLoaded: true });
-		} else {
-			const { loadDemoData } = get();
-			await loadDemoData();
-		}
+		})().finally(() => {
+			persistedLoad = null;
+		});
+		return persistedLoad;
 	},
 
 	loadDemoData: async () => {
-		const demoDataset = generateDemoDataset();
+		// Demo data is appended alongside whatever is loaded, so a second load
+		// needs its own dataset id.
+		const ids = new Set(get().datasets.map((d) => d.id));
+		const generated = generateDemoDataset();
+		let id = generated.id;
+		for (let n = 2; ids.has(id); n++) id = `${generated.id}-${n}`;
+		const demoDataset = { ...generated, id };
 		const demoState = getDemoAppState(demoDataset);
 
 		withHistory("load demo data", () => {

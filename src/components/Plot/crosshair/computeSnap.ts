@@ -129,13 +129,18 @@ export function computeSnap({
 		}
 		const yCatLabel = yCol.categoryLabels?.[Math.round(yVal)];
 		group.items.push({
+			seriesId: s.id,
 			label,
 			value: yVal,
+			xValue: xVal,
+			xAxisId: xAxis.id,
+			yAxisId: axis.id,
 			valueLabel: yCatLabel,
 			color: s.lineColor || "#333",
 			yScreen,
 			xScreen,
 			pointStyle: s.pointStyle,
+			lineStyle: s.lineStyle,
 		});
 	});
 
@@ -150,5 +155,10 @@ export function computeSnap({
 		padding,
 		xLog: finalXConf.scale === "log",
 	}).x;
-	return { snapScreenX, entries };
+	return {
+		snapScreenX,
+		snapX: finalBestXWorld,
+		snapXAxisId: finalXConf.id,
+		entries,
+	};
 }

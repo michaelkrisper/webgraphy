@@ -110,6 +110,7 @@ const HeaderButton = ({
 interface SidebarHeaderProps {
 	onCollapse: () => void;
 	onImport: () => void;
+	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
 	onOpenSession: () => void;
@@ -120,6 +121,7 @@ interface SidebarHeaderProps {
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onCollapse,
 	onImport,
+	onExportImage,
 	onExportSVG,
 	onExportPNG,
 	onOpenSession,
@@ -157,6 +159,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 			<div className="sb-hdr-btns">
 				{hdrSep}
 				<ExportMenu
+					onExportImage={onExportImage}
 					onExportSVG={onExportSVG}
 					onExportPNG={onExportPNG}
 					onOpenSession={onOpenSession}
