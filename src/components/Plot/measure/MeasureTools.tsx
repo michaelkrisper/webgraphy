@@ -34,6 +34,7 @@ import {
 	pinAtScreen,
 	removePin,
 } from "./pins";
+import "./measure.css";
 
 const MeasureReadout = lazy(() =>
 	import("./MeasurePanels").then((m) => ({ default: m.MeasureReadout })),

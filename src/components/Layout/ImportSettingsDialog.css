@@ -1,0 +1,289 @@
+/* Loaded with the lazy ImportSettingsDialog chunk, not the entry CSS. */
+/* ── ImportSettingsDialog ───────────────────────────── */
+.isd-body {
+	padding: 0;
+	background: var(--bg);
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-height: 0;
+}
+.isd-general-fields {
+	display: flex;
+	gap: 0;
+	margin-bottom: 0;
+	padding: 0;
+	background: var(--bg2);
+	border: none;
+	align-items: stretch;
+}
+.isd-fields-main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 20px;
+	row-gap: 0;
+	padding: 8px 24px;
+	align-items: center;
+}
+.isd-field-group-sm,
+.isd-field-group-md {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	flex: 1;
+}
+.isd-field-group-sm {
+	max-width: 160px;
+}
+.isd-field-group-md {
+	max-width: 240px;
+}
+.isd-field-label {
+	flex: 0 0 auto;
+	white-space: nowrap;
+	padding-right: 6px;
+	font-size: 13px;
+	font-weight: bold;
+	color: var(--text-mid);
+	margin-bottom: 0;
+}
+.isd-select,
+.isd-input {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 10px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	height: 32px;
+	font-size: 13px;
+}
+.isd-input[type="number"]::-webkit-inner-spin-button,
+.isd-input[type="number"]::-webkit-outer-spin-button {
+	opacity: 1;
+	height: auto;
+}
+.isd-input[type="number"] {
+	-webkit-appearance: auto;
+	appearance: auto;
+	padding-right: 2px;
+}
+.isd-skipped-lines {
+	font-family: monospace;
+	font-size: 11px;
+	background: var(--bg3);
+	border: 1px solid var(--border-color);
+	border-bottom: none;
+	padding: 4px 0;
+	max-height: 120px;
+	overflow-y: auto;
+	flex-shrink: 0;
+}
+.isd-skipped-line {
+	display: flex;
+	gap: 8px;
+	padding: 1px 8px;
+	color: var(--text-muted-color);
+	white-space: nowrap;
+}
+.isd-skipped-line-num {
+	min-width: 24px;
+	text-align: right;
+	opacity: 0.5;
+	user-select: none;
+}
+.isd-skipped-line-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.isd-table-wrap {
+	position: relative;
+	border: 1px solid var(--border-color);
+	overflow: hidden;
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+.isd-table-scroll {
+	overflow: auto;
+	flex: 1;
+	min-height: 0;
+}
+.isd-table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 13px;
+}
+.isd-col-header {
+	position: sticky;
+	top: 0;
+	background: var(--bg2);
+	padding: 0;
+	border-bottom: 2px solid var(--border-color);
+	border-right: 1px solid var(--border-color);
+	vertical-align: top;
+	min-width: 140px;
+	text-align: right;
+}
+.isd-col-header--xaxis {
+	background: color-mix(in srgb, var(--accent) 12%, var(--bg2));
+	border-bottom-color: var(--accent);
+}
+.isd-td--xaxis {
+	background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+.isd-rownum-col {
+	min-width: 40px;
+	width: 40px;
+	text-align: center;
+	color: var(--text-muted-color);
+	font-size: 11px;
+	padding: 4px 6px;
+}
+.isd-rownum-cell {
+	text-align: right;
+	color: var(--text-muted-color);
+	font-size: 11px;
+	padding: 2px 6px;
+	background: var(--bg2);
+	font-variant-numeric: tabular-nums;
+	border-right: 1px solid var(--border-color);
+}
+.isd-row--gap-first-tail > td {
+	position: relative;
+	border-top: 4px double var(--accent);
+}
+.isd-row--gap-first-tail > td:first-child {
+	position: relative;
+	overflow: visible;
+	z-index: 10;
+}
+.isd-row--gap-first-tail > td:first-child::after {
+	content: attr(data-gap-label);
+	position: absolute;
+	left: 4px;
+	top: -10px;
+	background: var(--bg);
+	border: 1px solid var(--accent);
+	border-radius: 999px;
+	padding: 1px 12px;
+	font-size: 10px;
+	color: var(--text-muted-color);
+	white-space: nowrap;
+	font-weight: 400;
+	font-style: italic;
+	pointer-events: none;
+	z-index: 9999;
+}
+.isd-col-name-btn {
+	display: block;
+	width: 100%;
+	font-weight: bold;
+	font-size: 11px;
+	padding: 4px 6px;
+	border: 1px solid transparent;
+	background: var(--bg);
+	color: var(--text-color);
+	cursor: pointer;
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.isd-col-name-btn:hover {
+	background: var(--bg3);
+	border-color: var(--border-color);
+}
+.isd-col-name-btn--xaxis {
+	background: var(--accent);
+	color: #fff;
+	border-color: var(--accent);
+}
+.isd-col-name-btn--xaxis:hover {
+	background: var(--accent);
+	color: #fff;
+}
+.isd-type-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 4px;
+	font-size: 11px;
+	border: 1px solid var(--border-color);
+	margin-left: -1px;
+	flex: 1;
+}
+.isd-type-btn-trigger {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	font-size: 11px;
+	border: none;
+	border-top: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	cursor: pointer;
+	width: 100%;
+}
+.isd-type-btn-trigger:hover {
+	background: var(--bg3);
+}
+.isd-type-btn-label {
+	flex: 1;
+	text-align: left;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.isd-type-btn-chevron {
+	flex-shrink: 0;
+	opacity: 0.6;
+}
+.isd-date-input {
+	width: 100%;
+	font-size: 10px;
+	padding: 2px 4px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	margin-top: 4px;
+}
+.isd-split-by {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
+	margin-top: 4px;
+	color: var(--text-color);
+	cursor: pointer;
+	user-select: none;
+}
+.isd-split-by input {
+	margin: 0;
+}
+.isd-data-row-even {
+	background: var(--bg);
+}
+.isd-data-row-odd {
+	background: var(--bg2);
+}
+.isd-td {
+	padding: 2px 4px;
+	border-bottom: 1px solid var(--border-color);
+	border-right: 1px solid var(--border-color);
+	white-space: nowrap;
+	text-align: right;
+	font-size: 11px;
+}
+.isd-td--more {
+	color: var(--text-muted-color);
+	text-align: center;
+	font-size: 14px;
+	letter-spacing: 2px;
+}

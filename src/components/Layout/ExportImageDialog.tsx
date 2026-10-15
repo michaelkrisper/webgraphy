@@ -17,6 +17,7 @@ import {
 	validateExportOptions,
 } from "../../services/exportOptions";
 import { Modal } from "./Modal";
+import "./ExportImageDialog.css";
 
 const LEGEND_POSITIONS: { value: LegendPosition; label: string }[] = [
 	{ value: "auto", label: "Auto" },

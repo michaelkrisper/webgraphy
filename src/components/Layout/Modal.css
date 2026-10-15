@@ -1,0 +1,163 @@
+/* Loaded with the lazy Modal chunk, not the entry CSS. */
+/* ── Modal ─────────────────────────────────────────── */
+.modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 9999;
+	backdrop-filter: blur(6px);
+}
+.modal-card {
+	background: var(--bg);
+	position: relative;
+	box-shadow:
+		0 12px 48px rgba(0, 0, 0, 0.5),
+		0 4px 20px var(--shadow);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.modal-card[tabindex="-1"]:focus-visible {
+	outline: none;
+}
+.modal-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	/* Right padding keeps the title clear of the corner close button. */
+	padding: 16px 56px 12px 24px;
+	flex-shrink: 0;
+}
+.modal-title {
+	margin: 0;
+	font-size: 1.2rem;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.modal-close {
+	position: absolute;
+	top: 14px;
+	right: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--ui-size);
+	height: var(--ui-size);
+	padding: 0;
+	background: none;
+	color: var(--text-muted-color);
+	border: none;
+	cursor: pointer;
+	transition:
+		background-color 0.15s,
+		color 0.15s;
+}
+.modal-close:hover:not(:disabled) {
+	background-color: var(--bg3);
+	color: var(--text-color);
+}
+.modal-close:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+.modal-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+}
+.modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 12px;
+	padding: 16px 24px 20px;
+	flex-shrink: 0;
+}
+.modal-message {
+	margin: 0;
+}
+.modal-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 16px;
+	border: 1px solid var(--border-color);
+	background: var(--bg);
+	color: var(--text-color);
+	cursor: pointer;
+}
+.modal-btn--primary {
+	border-color: var(--accent);
+	background: var(--accent);
+	/* Not #fff: the accent is light on the dark themes, and accent vs. bg is
+	   the pair contrast.test.ts guarantees. */
+	color: var(--bg);
+	font-weight: bold;
+}
+.modal-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+/* ── HelpModal ──────────────────────────────────────── */
+.help-section {
+	display: grid;
+	grid-template-columns: 110px 1fr;
+	gap: 0 16px;
+	margin-bottom: 10px;
+}
+.help-section-divider {
+	grid-column: 1 / -1;
+	border-top: 1px solid var(--border-color);
+	margin: 0 0 8px;
+}
+.help-section-title {
+	font-size: 0.9em;
+	font-weight: 600;
+	padding-top: 2px;
+}
+.help-section-list {
+	margin: 0;
+	padding-left: 14px;
+	line-height: 1.4;
+	font-size: 0.85em;
+}
+
+/* ── LicenseModal ───────────────────────────────────── */
+.license-text {
+	font-size: 0.9rem;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	font-family: monospace;
+	background: var(--bg2);
+	padding: 15px;
+
+	border: 1px solid var(--border-color);
+}
+.license-note {
+	font-size: 0.85em;
+	color: var(--text-muted-color);
+	margin-top: 20px;
+	line-height: 1.5;
+}
+
+/* ── ImprintModal ───────────────────────────────────── */
+.imprint-text {
+	line-height: 1.6;
+}
+.imprint-link {
+	color: var(--accent);
+}
+.imprint-note {
+	font-size: 0.85em;
+	color: var(--text-muted-color);
+	margin-top: 30px;
+	line-height: 1.5;
+}

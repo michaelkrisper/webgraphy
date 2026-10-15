@@ -73,7 +73,7 @@ import {
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
-import { MeasureTools, type MeasureToolsHandle } from "./measure/MeasureTools";
+import type { MeasureToolsHandle } from "./measure/MeasureTools";
 import { syncStoreUpdates } from "./syncStoreUpdates";
 import {
 	applyOverlayContext,
@@ -85,6 +85,11 @@ import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { useChartLayout } from "./useChartLayout";
 
 const AxisRangePopover = lazy(() => import("./AxisRangePopover"));
+// Pins only matter once there is data to click on; until the chunk arrives the
+// rAF loop's `measureRef.current?.redraw` is simply a no-op.
+const MeasureTools = lazy(() =>
+	import("./measure/MeasureTools").then((m) => ({ default: m.MeasureTools })),
+);
 
 const RANGE_POPOVER_WIDTH = 200;
 const RANGE_POPOVER_HEIGHT = 130;
@@ -916,19 +921,21 @@ export default function ChartContainer() {
 					/>
 				)}
 				{datasets.length > 0 && (
-					<MeasureTools
-						ref={measureRef}
-						containerRef={containerRef}
-						width={width}
-						height={height}
-						padding={padding}
-						series={series}
-						datasets={datasets}
-						xAxes={xAxes}
-						yAxes={yAxes}
-						lineColor={themeColors.snapLineColor}
-						plotBg={themeColors.plotBg}
-					/>
+					<Suspense fallback={null}>
+						<MeasureTools
+							ref={measureRef}
+							containerRef={containerRef}
+							width={width}
+							height={height}
+							padding={padding}
+							series={series}
+							datasets={datasets}
+							xAxes={xAxes}
+							yAxes={yAxes}
+							lineColor={themeColors.snapLineColor}
+							plotBg={themeColors.plotBg}
+						/>
+					</Suspense>
 				)}
 				{crosshairVisible && (
 					<Crosshair

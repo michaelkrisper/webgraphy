@@ -31,6 +31,7 @@ describe("main.tsx", () => {
 		document.body.appendChild(root);
 
 		await import("./main");
+		await vi.dynamicImportSettled();
 
 		expect(mockRegisterSW).toHaveBeenCalledWith(
 			expect.objectContaining({ immediate: true }),
@@ -41,6 +42,7 @@ describe("main.tsx", () => {
 
 	it("does not call createRoot when root element is missing", async () => {
 		await import("./main");
+		await vi.dynamicImportSettled();
 
 		expect(mockRegisterSW).toHaveBeenCalledWith(
 			expect.objectContaining({ immediate: true }),

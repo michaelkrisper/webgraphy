@@ -16,6 +16,7 @@ import {
 	generateColumnConfigs,
 	getPreferredXAxisColumn,
 } from "./ImportSettings/utils/preview";
+import "./ImportSettingsDialog.css";
 
 const TYPE_OPTIONS_META = [
 	{ type: "numeric" as const, icon: Hash, label: "Numeric" },

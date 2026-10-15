@@ -24,12 +24,8 @@ import { notify } from "../store/useNotificationStore";
 import { confirmReplaceWorkspace } from "../store/useSessionPrompt";
 import { SESSION_EXTENSION } from "../utils/importFile";
 import { logger } from "../utils/logger";
-import {
-	ConfigSchema,
-	type DataColumn,
-	type Dataset,
-	parseViewport,
-} from "./persistence";
+import type { DataColumn, Dataset } from "./persistence";
+import { ConfigSchema, parseViewport } from "./persistenceSchemas";
 
 export const SESSION_FORMAT_VERSION = 1;
 const MAGIC = "WEBGRAPH";
@@ -39,8 +35,8 @@ export class SessionError extends Error {}
 
 // Numbers JSON cannot carry exactly (the ±Infinity bounds of an all-NaN
 // column) travel as their `String()` form, which also round-trips every double.
-// The schemas stick to the zod/mini parts the entry chunk already uses, since
-// zod lives in the chunk shared with it.
+// The schemas stick to the zod/mini parts persistenceSchemas already uses,
+// since zod lives in the chunk shared with it.
 const encodeNumber = (n: number): string => String(n);
 const decodeNumber = Number;
 

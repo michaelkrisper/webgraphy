@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import type React from "react";
 import { useRef } from "react";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
+import "./Modal.css";
 
 interface ModalProps {
 	onClose: () => void;

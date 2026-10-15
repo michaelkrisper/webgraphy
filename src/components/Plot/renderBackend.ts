@@ -7,9 +7,10 @@
  *   decimation, and GL work leave the main thread entirely. Column data is
  *   sent once per Float32Array identity (keyed, cached worker-side) and
  *   pruned symmetrically on both sides when series disappear.
- * - `DirectBackend` runs the same core synchronously on the main thread —
- *   the fallback when `OffscreenCanvas` is unavailable (and the path unit
- *   tests exercise under jsdom, where `getContext("webgl2")` is null).
+ * - `DirectBackend` (directBackend.ts) runs the same core synchronously on
+ *   the main thread — the fallback when `OffscreenCanvas` is unavailable.
+ *   It is loaded on demand through `LazyDirectBackend`, so browsers on the
+ *   worker path never download the renderer twice (it is in the worker).
  *
  * Both survive WebGL context loss: drawing pauses while the context is
  * lost, and on restore the core is rebuilt (`RendererCore.restore`) from
@@ -27,16 +28,14 @@ import type {
 } from "../../workers/render.worker";
 import { getAxisById } from "../../utils/axisCalculations";
 import { logger } from "../../utils/logger";
-import { watchContextLoss } from "./contextLoss";
+import { sizeCanvasToViewport } from "./canvasSize";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
-import {
-	type RenderAxis,
-	RendererCore,
-	type RendererSeriesInput,
-	type RendererViewport,
-	type RenderLabel,
-	sizeCanvasToViewport,
+import type {
+	RenderAxis,
+	RendererSeriesInput,
+	RendererViewport,
+	RenderLabel,
 } from "./rendererCore";
 import { VIEWPORT_SAB_BYTES, ViewportWriter } from "./viewportChannel";
 
@@ -64,14 +63,20 @@ export interface RenderBackend {
 	dispose(): void;
 }
 
-class DirectBackend implements RenderBackend {
+/**
+ * Stands in for a `DirectBackend` while its module (the whole renderer) loads,
+ * keeping only the latest inputs and replaying them once it is there.
+ */
+class LazyDirectBackend implements RenderBackend {
+	private backend: RenderBackend | null = null;
+	private disposed = false;
+	private series: RendererSeriesInput[] | null = null;
+	private overlay: OverlayState | null = null;
+	private labels: RenderLabel[] | null = null;
+	private frame: Parameters<RenderBackend["redraw"]> | null = null;
 	private readonly canvas: HTMLCanvasElement;
-	private core: RendererCore | null;
-	// While the context is lost the core keeps collecting inputs (so it can
-	// be restored with them) but must not draw.
-	private contextLost = false;
-	private lastAxes: { x: RenderAxis[]; y: RenderAxis[] } | null = null;
-	private readonly unwatchContext: () => void;
+	private viewport: RendererViewport;
+	private plotBg: number[];
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -79,46 +84,47 @@ class DirectBackend implements RenderBackend {
 		plotBg: number[],
 	) {
 		this.canvas = canvas;
-		this.core = RendererCore.create(canvas);
-		this.core?.setViewport(viewport);
-		this.core?.setPlotBg(plotBg);
-		this.unwatchContext = watchContextLoss(canvas, {
-			lost: () => {
-				this.contextLost = true;
+		this.viewport = viewport;
+		this.plotBg = plotBg;
+		import("./directBackend").then(
+			({ DirectBackend }) => {
+				if (this.disposed) return;
+				const b = new DirectBackend(this.canvas, this.viewport, this.plotBg);
+				if (this.series) b.setSeries(this.series);
+				if (this.overlay) b.setOverlay(this.overlay);
+				if (this.labels) b.setLabels(this.labels);
+				if (this.frame) b.redraw(...this.frame);
+				this.series = this.overlay = this.labels = this.frame = null;
+				this.backend = b;
 			},
-			restored: () => this.restoreContext(),
-		});
-	}
-
-	private restoreContext(): void {
-		this.contextLost = false;
-		if (!this.core) return;
-		this.core = RendererCore.restore(this.canvas, this.core);
-		if (this.core && this.lastAxes) {
-			this.core.drawFrame(this.lastAxes.x, this.lastAxes.y);
-		}
+			(err) => logger.error("Main-thread renderer failed to load:", err),
+		);
 	}
 
 	setViewport(viewport: RendererViewport): void {
+		if (this.backend) return this.backend.setViewport(viewport);
 		sizeCanvasToViewport(this.canvas, viewport);
-		this.core?.setViewport(viewport);
+		this.viewport = viewport;
 	}
 
 	setPlotBg(rgb: number[]): void {
-		this.core?.setPlotBg(rgb);
+		if (this.backend) return this.backend.setPlotBg(rgb);
+		this.plotBg = rgb;
 	}
 
 	setSeries(list: RendererSeriesInput[]): void {
-		this.core?.setSeries(list);
+		if (this.backend) return this.backend.setSeries(list);
+		this.series = list;
 	}
 
 	setOverlay(ov: OverlayState): void {
-		// Same-thread: the core reads straight from the host-owned scratch.
-		this.core?.setOverlay(ov.packed, ov.packedLen, ov.groups);
+		if (this.backend) return this.backend.setOverlay(ov);
+		this.overlay = ov;
 	}
 
 	setLabels(labels: RenderLabel[]): void {
-		this.core?.setLabels(labels);
+		if (this.backend) return this.backend.setLabels(labels);
+		this.labels = labels;
 	}
 
 	sceneShared(): boolean {
@@ -127,23 +133,14 @@ class DirectBackend implements RenderBackend {
 
 	setSceneContext(): void {}
 
-	redraw(
-		xAxes: RenderAxis[],
-		yAxes: RenderAxis[],
-		interacting: boolean,
-		highlight: string | null,
-	): void {
-		if (!this.core) return;
-		this.core.setInteracting(interacting);
-		this.core.setHighlight(highlight);
-		this.lastAxes = { x: xAxes, y: yAxes };
-		if (this.contextLost) return;
-		this.core.drawFrame(xAxes, yAxes);
+	redraw(...args: Parameters<RenderBackend["redraw"]>): void {
+		if (this.backend) return this.backend.redraw(...args);
+		this.frame = args;
 	}
 
 	dispose(): void {
-		this.unwatchContext();
-		this.core?.dispose();
+		this.disposed = true;
+		this.backend?.dispose();
 	}
 }
 
@@ -387,7 +384,7 @@ function createBackend(
 			);
 		}
 	}
-	return new DirectBackend(canvas, viewport, plotBg);
+	return new LazyDirectBackend(canvas, viewport, plotBg);
 }
 
 const backendByCanvas = new WeakMap<HTMLCanvasElement, RenderBackend>();
