@@ -573,6 +573,41 @@ describe("useGraphStore", () => {
 		}
 	});
 
+	it("shares one in-flight load between concurrent startup calls", async () => {
+		const { persistence } = await import("../../services/persistence");
+		vi.mocked(persistence.loadAppState).mockClear();
+		vi.mocked(persistence.loadAppState).mockResolvedValue(null);
+		vi.mocked(persistence.getAllDatasets).mockResolvedValue([]);
+		useGraphStore.setState({ isLoaded: false });
+
+		// StrictMode mounts App's effect twice before the first load settles.
+		const first = useGraphStore.getState().loadPersistedState();
+		const second = useGraphStore.getState().loadPersistedState();
+		expect(second).toBe(first);
+		await Promise.all([first, second]);
+
+		expect(persistence.loadAppState).toHaveBeenCalledTimes(1);
+		const ids = useGraphStore.getState().datasets.map((d) => d.id);
+		expect(ids).toEqual(["demo-dataset"]);
+
+		// Once settled, a later call loads afresh.
+		await useGraphStore.getState().loadPersistedState();
+		expect(persistence.loadAppState).toHaveBeenCalledTimes(2);
+	});
+
+	it("gives a repeated demo load its own dataset id", async () => {
+		await useGraphStore.getState().loadDemoData();
+		await useGraphStore.getState().loadDemoData();
+		await useGraphStore.getState().loadDemoData();
+		const { datasets, series } = useGraphStore.getState();
+		expect(datasets.map((d) => d.id)).toEqual([
+			"demo-dataset",
+			"demo-dataset-2",
+			"demo-dataset-3",
+		]);
+		expect(series.filter((s) => s.sourceId === "demo-dataset-2")).toHaveLength(4);
+	});
+
 	it("should load demo data correctly", async () => {
 		const store = useGraphStore.getState();
 		await store.loadDemoData();
