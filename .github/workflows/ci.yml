@@ -74,6 +74,10 @@ jobs:
       # without a caret); the step below fails fast when they drift, e.g. when
       # Dependabot bumps the package but cannot see this image tag.
       image: mcr.microsoft.com/playwright:v1.64.1-noble
+    env:
+      # The container runs as root but Actions sets HOME to a pwuser-owned
+      # directory, which Firefox refuses to launch with.
+      HOME: /root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Playwright package matches container image

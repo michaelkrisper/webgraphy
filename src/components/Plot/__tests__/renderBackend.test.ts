@@ -3,6 +3,7 @@ import type { OverlayState } from "../drawOverlay";
 import type { SceneContext } from "../frameScene";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
 import type { RendererSeriesInput } from "../rendererCore";
+import { createViewportSnapshot, ViewportReader } from "../viewportChannel";
 import { makeCanvasMock, makeGl2Mock, makeLoseContextExt } from "./glMock";
 
 const viewport = {
@@ -305,6 +306,38 @@ describe("WorkerBackend protocol", () => {
 		expect(frame.t).toBe("frame");
 		expect(frame.overlay).toBeUndefined();
 		expect(frame.labels).toBeUndefined();
+		releaseRenderBackend(canvas);
+	});
+
+	it("republishes the last viewport under a new scene version", () => {
+		vi.stubGlobal("crossOriginIsolated", true);
+		const { backend, worker, canvas } = makeWorkerBackend();
+		const reader = new ViewportReader(messagesOf(worker)[0].viewportSab);
+		const snap = createViewportSnapshot();
+		const ctx = (xId: string) =>
+			({
+				xAxesMeta: [{ id: xId }],
+				yAxesMeta: [{ id: "axis-1" }],
+			}) as unknown as SceneContext;
+		const xAxes = [
+			{ id: "axis-1", min: 0, max: 10 },
+			{ id: "axis-2", min: 5, max: 6 },
+		];
+		const yAxes = [{ id: "axis-1", min: -1, max: 1 }];
+
+		backend.setSceneContext(ctx("axis-1"));
+		backend.redraw(xAxes, yAxes, false, null);
+		expect(reader.read(snap)).toBe(true);
+		expect(snap.version).toBe(1);
+
+		// A settled pan sends a new context but no redraw: the worker only
+		// draws snapshots of its current version, so without a republish it
+		// could never draw again (e.g. after a WebGL context restore).
+		backend.setSceneContext(ctx("axis-2"));
+		expect(reader.read(snap)).toBe(true);
+		expect(snap.version).toBe(2);
+		// Same ranges, in the new context's axis order.
+		expect(Array.from(snap.ranges.subarray(0, 4))).toEqual([5, 6, -1, 1]);
 		releaseRenderBackend(canvas);
 	});
 });

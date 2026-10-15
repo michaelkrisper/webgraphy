@@ -191,6 +191,10 @@ class WorkerBackend implements RenderBackend {
 	private yOrder: string[] = [];
 	private lastWriteAt = 0;
 	private lastHighlight: string | null = null;
+	// Last ranges written, for republishing under a new scene version.
+	private lastXAxes: RenderAxis[] | null = null;
+	private lastYAxes: RenderAxis[] = [];
+	private lastInteracting = false;
 	private rangeScratchX: { min: number; max: number }[] = [];
 	private rangeScratchY: { min: number; max: number }[] = [];
 
@@ -290,6 +294,31 @@ class WorkerBackend implements RenderBackend {
 		this.xOrder = ctx.xAxesMeta.map((m) => m.id);
 		this.yOrder = ctx.yAxesMeta.map((m) => m.id);
 		this.post({ t: "sceneCtx", ctx, version: this.sceneVersion });
+		// The worker only draws snapshots stamped with its current scene
+		// version, and a new context is not always followed by a redraw
+		// (ChartContainer skips a settled pan's echo). Republish the last
+		// ranges under the new version, or the worker has nothing it may draw:
+		// the new scene never shows, and a context restore stays blank.
+		if (this.lastXAxes) {
+			this.writeViewport(this.lastXAxes, this.lastYAxes, this.lastInteracting);
+		}
+	}
+
+	private writeViewport(
+		xAxes: RenderAxis[],
+		yAxes: RenderAxis[],
+		interacting: boolean,
+	): void {
+		if (!this.writer) return;
+		this.lastXAxes = xAxes;
+		this.lastYAxes = yAxes;
+		this.lastInteracting = interacting;
+		this.writer.write(
+			this.sceneVersion,
+			interacting,
+			this.collectRanges(xAxes, this.xOrder, this.rangeScratchX),
+			this.collectRanges(yAxes, this.yOrder, this.rangeScratchY),
+		);
 	}
 
 	/** Collect ranges for the ids in `order`, reusing the scratch entries. */
@@ -323,12 +352,7 @@ class WorkerBackend implements RenderBackend {
 				this.lastHighlight = highlight;
 				this.post({ t: "highlight", id: highlight });
 			}
-			this.writer.write(
-				this.sceneVersion,
-				interacting,
-				this.collectRanges(xAxes, this.xOrder, this.rangeScratchX),
-				this.collectRanges(yAxes, this.yOrder, this.rangeScratchY),
-			);
+			this.writeViewport(xAxes, yAxes, interacting);
 			// The worker's render loop parks itself when idle; nudge it back to
 			// life when writes resume after a pause.
 			const now = Date.now();
