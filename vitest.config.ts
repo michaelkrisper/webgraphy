@@ -41,10 +41,10 @@ export default defineConfig({
 			// Kept just under the current actuals so coverage can only go up.
 			// Ratchet these when they rise; never lower them.
 			thresholds: {
-				statements: 91,
-				branches: 80,
-				functions: 86,
-				lines: 92,
+				statements: 95,
+				branches: 87,
+				functions: 93,
+				lines: 96,
 			},
 		},
 	},
