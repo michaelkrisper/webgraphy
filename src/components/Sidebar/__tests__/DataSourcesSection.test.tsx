@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { DataSourcesSection } from "../DataSourcesSection";
 import { useGraphStore } from "../../../store/useGraphStore";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 // Mock calculated column modal to simplify testing
 vi.mock("../../Layout/CalculatedColumnModal", () => ({
@@ -332,32 +333,36 @@ describe("DataSourcesSection", () => {
 		expect(mockAddSeries).toHaveBeenCalled();
 	});
 
-	it("has no axe violations with datasets rendered", async () => {
-		const datasets = [
-			{
-				id: "ds1",
-				name: "Dataset 1",
-				rowCount: 100,
-				columns: ["x", "y", "z"],
-				xAxisColumn: "x",
-				xAxisId: "axis-1",
-				data: [{}, {}, {}],
-			},
-		];
-		(useGraphStore as unknown as Mock).mockImplementation((sel) =>
-			sel({
-				datasets,
-				series: [],
-				xAxes: [],
-				removeDataset: mockRemoveDataset,
-				updateDataset: mockUpdateDataset,
-				addSeries: mockAddSeries,
-				removeCalculatedColumn: mockRemoveCalculatedColumn,
-				renameColumn: mockRenameColumn,
-			}),
-		);
+	it(
+		"has no axe violations with datasets rendered",
+		async () => {
+			const datasets = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					rowCount: 100,
+					columns: ["x", "y", "z"],
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					data: [{}, {}, {}],
+				},
+			];
+			(useGraphStore as unknown as Mock).mockImplementation((sel) =>
+				sel({
+					datasets,
+					series: [],
+					xAxes: [],
+					removeDataset: mockRemoveDataset,
+					updateDataset: mockUpdateDataset,
+					addSeries: mockAddSeries,
+					removeCalculatedColumn: mockRemoveCalculatedColumn,
+					renameColumn: mockRenameColumn,
+				}),
+			);
 
-		const { container } = renderComponent();
-		expect(await axe(container)).toHaveNoViolations();
-	});
+			const { container } = renderComponent();
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

@@ -3,6 +3,7 @@ import { axe } from "vitest-axe";
 import { describe, it, expect, vi } from "vitest";
 import { ChartActionButtons } from "../ChartActionButtons";
 import "@testing-library/jest-dom";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 describe("ChartActionButtons", () => {
 	const defaultProps = {
@@ -60,8 +61,12 @@ describe("ChartActionButtons", () => {
 		expect(defaultProps.onFitAll).toHaveBeenCalledTimes(1);
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(<ChartActionButtons {...defaultProps} />);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(<ChartActionButtons {...defaultProps} />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

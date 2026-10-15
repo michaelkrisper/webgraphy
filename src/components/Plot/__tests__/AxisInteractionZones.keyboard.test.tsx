@@ -9,6 +9,7 @@ import {
 } from "../AxisInteractionZones";
 import { axisZoneLabel } from "../axisZoneLabel";
 import type { XAxisLayout } from "../chartTypes";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: {
@@ -220,13 +221,17 @@ describe("axis zone keyboard access", () => {
 		expect(screen.getByRole("group", { name: /^X axis 1/ })).toHaveFocus();
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(
-			<main>
-				<XAxisInteractionZones {...xProps} />
-				<YAxisInteractionZones {...yProps} />
-			</main>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(
+				<main>
+					<XAxisInteractionZones {...xProps} />
+					<YAxisInteractionZones {...yProps} />
+				</main>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

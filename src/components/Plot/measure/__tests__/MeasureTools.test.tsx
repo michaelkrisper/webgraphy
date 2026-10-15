@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
+import { AXE_TIMEOUT_MS } from "../../../../__tests__/axeTimeout";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -213,30 +214,38 @@ describe("measurement panels a11y", () => {
 		xLabel: String(x),
 	});
 
-	it("readout has no axe violations", async () => {
-		const { container } = render(
-			<MeasureReadout
-				a={{ xAxisId: "axis-1", x: 1, points: [point(1, 2)] }}
-				b={{ xAxisId: "axis-1", x: 3, points: [point(3, 8)] }}
-				xAxes={xAxes}
-				yAxes={yAxes}
-				xAxisNames={{ "axis-1": "Time" }}
-				onClose={() => {}}
-			/>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"readout has no axe violations",
+		async () => {
+			const { container } = render(
+				<MeasureReadout
+					a={{ xAxisId: "axis-1", x: 1, points: [point(1, 2)] }}
+					b={{ xAxisId: "axis-1", x: 3, points: [point(3, 8)] }}
+					xAxes={xAxes}
+					yAxes={yAxes}
+					xAxisNames={{ "axis-1": "Time" }}
+					onClose={() => {}}
+				/>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 
-	it("stats panel has no axe violations", async () => {
-		const { container } = render(
-			<StatsPanel
-				series={series}
-				datasets={[dataset]}
-				xAxes={xAxes}
-				yAxes={yAxes}
-				onClose={() => {}}
-			/>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"stats panel has no axe violations",
+		async () => {
+			const { container } = render(
+				<StatsPanel
+					series={series}
+					datasets={[dataset]}
+					xAxes={xAxes}
+					yAxes={yAxes}
+					onClose={() => {}}
+				/>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

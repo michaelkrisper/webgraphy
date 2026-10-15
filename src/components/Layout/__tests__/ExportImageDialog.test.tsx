@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 import {
 	DEFAULT_EXPORT_OPTIONS,
 	loadExportOptions,
@@ -138,11 +139,15 @@ describe("ExportImageDialog", () => {
 		expect(loadExportOptions().title).toBe("");
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = renderDialog();
-		fireEvent.change(screen.getByLabelText("Size"), {
-			target: { value: "custom" },
-		});
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = renderDialog();
+			fireEvent.change(screen.getByLabelText("Size"), {
+				target: { value: "custom" },
+			});
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

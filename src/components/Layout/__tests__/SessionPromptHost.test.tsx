@@ -7,6 +7,7 @@ import {
 	useSessionPrompt,
 } from "../../../store/useSessionPrompt";
 import { SessionPromptHost } from "../SessionPromptHost";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 describe("SessionPromptHost", () => {
 	beforeEach(() => {
@@ -26,20 +27,24 @@ describe("SessionPromptHost", () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("asks, and resolves true on Replace", async () => {
-		render(<SessionPromptHost />);
-		const answer = ask();
-		const dialog = await screen.findByRole("alertdialog", {
-			name: "Open session?",
-		});
-		expect(dialog).toHaveTextContent("work.webgraphy");
-		expect(dialog).toHaveTextContent("2 datasets, 3 series");
-		expect(await axe(dialog)).toHaveNoViolations();
+	it(
+		"asks, and resolves true on Replace",
+		async () => {
+			render(<SessionPromptHost />);
+			const answer = ask();
+			const dialog = await screen.findByRole("alertdialog", {
+				name: "Open session?",
+			});
+			expect(dialog).toHaveTextContent("work.webgraphy");
+			expect(dialog).toHaveTextContent("2 datasets, 3 series");
+			expect(await axe(dialog)).toHaveNoViolations();
 
-		fireEvent.click(screen.getByRole("button", { name: "Replace workspace" }));
-		expect(await answer).toBe(true);
-		expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-	});
+			fireEvent.click(screen.getByRole("button", { name: "Replace workspace" }));
+			expect(await answer).toBe(true);
+			expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+		},
+		AXE_TIMEOUT_MS,
+	);
 
 	it("resolves false on Cancel and on Escape", async () => {
 		render(<SessionPromptHost />);

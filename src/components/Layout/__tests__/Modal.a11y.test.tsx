@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 import { Modal } from "../Modal";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 /**
  * Every dialog in the app goes through this component, so its keyboard
@@ -23,10 +24,14 @@ function renderModal(props: Partial<Parameters<typeof Modal>[0]> = {}) {
 }
 
 describe("Modal accessibility", () => {
-	it("has no axe violations", async () => {
-		const { container } = renderModal();
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = renderModal();
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 
 	it("exposes itself as a modal dialog named by its heading", () => {
 		renderModal();

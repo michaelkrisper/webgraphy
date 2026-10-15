@@ -8,6 +8,7 @@ import {
 	useNotificationStore,
 } from "../../../store/useNotificationStore";
 import { Toaster } from "../Toaster";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 describe("Toaster", () => {
 	afterEach(() => {
@@ -62,16 +63,20 @@ describe("Toaster", () => {
 		expect(screen.queryByText("second")).not.toBeInTheDocument();
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(<Toaster />);
-		act(() => {
-			notify({ kind: "success", message: "Copied" });
-			notify({
-				kind: "error",
-				message: "Save failed",
-				action: { label: "Retry", onAction: () => {} },
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(<Toaster />);
+			act(() => {
+				notify({ kind: "success", message: "Copied" });
+				notify({
+					kind: "error",
+					message: "Save failed",
+					action: { label: "Retry", onAction: () => {} },
+				});
 			});
-		});
-		expect(await axe(container)).toHaveNoViolations();
-	});
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

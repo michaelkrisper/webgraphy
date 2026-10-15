@@ -10,9 +10,10 @@ import type {
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
-import { removeSeriesWithUndo } from "../../../store/undoToast";
+import { deleteWithUndo, removeSeriesWithUndo } from "../../../store/undoToast";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { DatasetItem } from "../DatasetItem";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../services/csvExport", () => ({
 	exportDatasetCsv: vi.fn(() => Promise.resolve()),
@@ -108,13 +109,16 @@ describe("DatasetItem", () => {
 			(sel: (s: typeof state) => unknown) => sel(state),
 		);
 		(useGraphStore.getState as Mock).mockReturnValue(state);
-		return render(
+		const setCalculatingDatasetId = vi.fn();
+		const setEditingColumn = vi.fn();
+		const view = render(
 			<DatasetItem
 				dataset={datasets[0]}
-				setCalculatingDatasetId={vi.fn()}
-				setEditingColumn={vi.fn()}
+				setCalculatingDatasetId={setCalculatingDatasetId}
+				setEditingColumn={setEditingColumn}
 			/>,
 		);
+		return { ...view, state, setCalculatingDatasetId, setEditingColumn };
 	};
 
 	beforeEach(() => {
@@ -220,11 +224,137 @@ describe("DatasetItem", () => {
 		);
 	});
 
-	it("has no axe violations with plotted and unplotted chips", async () => {
-		const { container } = setup(
-			[makeDataset("ds1"), makeDataset("ds2")],
-			[plottedTemp],
+	it("renames a column on Enter and on blur, and cancels on Escape", () => {
+		const { state } = setup([makeDataset("ds1")], []);
+		const rename = () =>
+			fireEvent.click(screen.getAllByRole("button", { name: "Rename column" })[0]);
+
+		rename();
+		let input = screen.getByDisplayValue("temp");
+		fireEvent.change(input, { target: { value: "Temperature" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(state.renameColumn).toHaveBeenLastCalledWith(
+			"ds1",
+			"temp",
+			"Temperature",
 		);
-		expect(await axe(container)).toHaveNoViolations();
+		expect(screen.queryByDisplayValue("Temperature")).toBeNull();
+
+		rename();
+		input = screen.getByDisplayValue("temp");
+		fireEvent.change(input, { target: { value: "T2" } });
+		fireEvent.blur(input);
+		expect(state.renameColumn).toHaveBeenLastCalledWith("ds1", "temp", "T2");
+
+		state.renameColumn.mockClear();
+		rename();
+		input = screen.getByDisplayValue("temp");
+		fireEvent.change(input, { target: { value: "discarded" } });
+		fireEvent.keyDown(input, { key: "Escape" });
+		expect(screen.queryByDisplayValue("discarded")).toBeNull();
+		expect(state.renameColumn).not.toHaveBeenCalled();
+		expect(screen.getByRole("button", { name: "temp" })).toBeInTheDocument();
 	});
+
+	it("marks calculated columns and offers formula edit and delete", () => {
+		const ds = makeDataset("ds1");
+		ds.data[2] = { ...ds.data[2], formula: "[temp] * 2" };
+		const { state, setEditingColumn } = setup([ds], []);
+
+		const chip = screen.getByRole("button", { name: "ƒ pressure" });
+		expect(chip.title).toContain("Formula: [temp] * 2");
+		// Only the calculated column gets the formula actions.
+		expect(screen.getAllByRole("button", { name: "Edit formula" })).toHaveLength(
+			1,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Edit formula" }));
+		expect(setEditingColumn).toHaveBeenCalledWith({
+			datasetId: "ds1",
+			name: "pressure",
+			formula: "[temp] * 2",
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete calculated column" }),
+		);
+		expect(deleteWithUndo).toHaveBeenCalledWith("pressure", expect.any(Function));
+		(deleteWithUndo as Mock).mock.calls[0][1]();
+		expect(state.removeCalculatedColumn).toHaveBeenCalledWith("ds1", "pressure");
+	});
+
+	it("deletes the dataset through the undo toast", () => {
+		const { state } = setup([makeDataset("ds1")], []);
+		fireEvent.click(screen.getByRole("button", { name: "Delete Dataset" }));
+		expect(deleteWithUndo).toHaveBeenCalledWith(
+			"Dataset ds1",
+			expect.any(Function),
+		);
+		(deleteWithUndo as Mock).mock.calls[0][1]();
+		expect(state.removeDataset).toHaveBeenCalledWith("ds1");
+	});
+
+	it("opens the Calculated Column dialog for this dataset", () => {
+		const { setCalculatingDatasetId } = setup([makeDataset("ds1")], []);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Add Calculated Column" }),
+		);
+		expect(setCalculatingDatasetId).toHaveBeenCalledWith("ds1");
+	});
+
+	it("changes the x column and hides it from the plottable chips", () => {
+		const { state } = setup([makeDataset("ds1")], []);
+		expect(screen.queryByRole("button", { name: "t" })).toBeNull();
+		fireEvent.change(
+			screen.getByRole("combobox", { name: "X-axis column for Dataset ds1" }),
+			{ target: { value: "temp" } },
+		);
+		expect(state.updateDataset).toHaveBeenCalledWith("ds1", {
+			xAxisColumn: "temp",
+		});
+	});
+
+	it("uses the point colour for the swatch of a markers-only series", () => {
+		setup([makeDataset("ds1")], [{ ...plottedTemp, lineStyle: "none" }]);
+		const swatch = screen
+			.getByRole("button", { name: "temp" })
+			.querySelector(".col-chip-swatch") as HTMLElement;
+		expect(swatch.style.backgroundColor).toBe("rgb(18, 52, 86)");
+	});
+
+	it("plots a categorical column as a categorical series", () => {
+		const ds = makeDataset("ds1");
+		ds.data[1] = { ...ds.data[1], categoryLabels: ["low", "high"] };
+		setup([ds], []);
+		fireEvent.click(screen.getByRole("button", { name: "temp" }));
+		expect(addSeries).toHaveBeenCalledTimes(1);
+		const added = addSeries.mock.calls[0][0] as SeriesConfig;
+		// Categories are discrete: markers only, never a connecting line.
+		expect(added).toMatchObject({
+			sourceId: "ds1",
+			yColumn: "temp",
+			lineStyle: "none",
+		});
+		expect(added.pointStyle).not.toBe("none");
+	});
+
+	it("disables log scale when the x axis slot is missing", () => {
+		const { state } = setup([makeDataset("ds1", "axis-7")], []);
+		const btn = screen.getByRole("button", { name: "Logarithmic X Scale" });
+		expect(btn).toBeDisabled();
+		fireEvent.click(btn);
+		expect(state.setAxisScale).not.toHaveBeenCalled();
+	});
+
+	it(
+		"has no axe violations with plotted and unplotted chips",
+		async () => {
+			const { container } = setup(
+				[makeDataset("ds1"), makeDataset("ds2")],
+				[plottedTemp],
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

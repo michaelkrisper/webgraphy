@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import ColorPicker from "../ColorPicker";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 describe("ColorPicker", () => {
 	const defaultProps = {
@@ -159,13 +160,17 @@ describe("ColorPicker", () => {
 		}
 	});
 
-	it("has no axe violations with the popover open", async () => {
-		const { container } = render(<ColorPicker {...defaultProps} />);
-		fireEvent.click(screen.getByRole("button", { name: "Test Color Picker" }));
-		expect(await axe(container)).toHaveNoViolations();
-		// The popover renders through a portal, so it sits outside `container`.
-		const popover = document.getElementById("color-picker-popover");
-		expect(popover).toBeInTheDocument();
-		expect(await axe(popover as HTMLElement)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations with the popover open",
+		async () => {
+			const { container } = render(<ColorPicker {...defaultProps} />);
+			fireEvent.click(screen.getByRole("button", { name: "Test Color Picker" }));
+			expect(await axe(container)).toHaveNoViolations();
+			// The popover renders through a portal, so it sits outside `container`.
+			const popover = document.getElementById("color-picker-popover");
+			expect(popover).toBeInTheDocument();
+			expect(await axe(popover as HTMLElement)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

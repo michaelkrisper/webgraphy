@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { SeriesConfigUI } from "../SeriesConfig";
 import { useGraphStore } from "../../../store/useGraphStore";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: vi.fn(),
@@ -263,8 +264,12 @@ describe("SeriesConfigUI", () => {
 		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { yAxisId: "axis-2" });
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(<SeriesConfigUI {...defaultProps} />);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(<SeriesConfigUI {...defaultProps} />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

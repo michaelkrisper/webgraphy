@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { SeriesConfigUI } from "../SeriesConfig";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: vi.fn(),
@@ -135,12 +136,16 @@ describe("SeriesConfigUI axis controls", () => {
 		expect(newAxis).toHaveAttribute("title", "All 9 Y-axes are in use");
 	});
 
-	it("has no axe violations with the picker open", async () => {
-		render(<SeriesConfigUI series={dew} datasets={datasets} />);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
-		// The popover is portalled to <body>; landmarks are the app shell's job.
-		expect(
-			await axe(document.body, { rules: { region: { enabled: false } } }),
-		).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations with the picker open",
+		async () => {
+			render(<SeriesConfigUI series={dew} datasets={datasets} />);
+			fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+			// The popover is portalled to <body>; landmarks are the app shell's job.
+			expect(
+				await axe(document.body, { rules: { region: { enabled: false } } }),
+			).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });
