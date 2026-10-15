@@ -16,6 +16,8 @@
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
+		"test:fast": "vitest run --changed ${TEST_BASE:-HEAD} --passWithNoTests",
+		"test:full": "vitest run --coverage",
 		"bench": "vitest bench --run --reporter=default --reporter=json --outputFile.json=bench-result.json",
 		"bench:check": "npm run bench && node scripts/bench-check.mjs",
 		"bench:update": "npm run bench && node scripts/bench-check.mjs --update",

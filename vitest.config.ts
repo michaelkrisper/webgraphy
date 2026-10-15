@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolveAppVersion } from "./appVersion.ts";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	define: {
 		__APP_VERSION__: JSON.stringify(resolveAppVersion()),
 	},
@@ -22,9 +22,6 @@ export default defineConfig({
 		// e2e/ holds Playwright specs. They match Vitest's default *.spec
 		// pattern but must only ever run under `npx playwright test`.
 		exclude: ["**/node_modules/**", "dist/**", "e2e/**", ".claude/**"],
-		// Benchmark files must not run concurrently: parallel workers compete
-		// for CPU and memory bandwidth, so each file measures the others'
-		// contention rather than its own code.
 		benchmark: {
 			include: ["src/**/*.bench.ts"],
 			// The warning works by wrapping every module export getter in a
@@ -33,7 +30,10 @@ export default defineConfig({
 			// fail the baseline gate on measurement overhead alone.
 			suppressExportGetterWarnings: true,
 		},
-		fileParallelism: false,
+		// Benchmark files must not run concurrently: parallel workers compete
+		// for CPU and memory bandwidth, so each file measures the others'
+		// contention rather than its own code. Plain tests stay parallel.
+		fileParallelism: mode !== "benchmark",
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
@@ -57,4 +57,4 @@ export default defineConfig({
 			),
 		},
 	},
-});
+}));
