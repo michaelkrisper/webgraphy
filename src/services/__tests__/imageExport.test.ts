@@ -3,6 +3,7 @@ import { THEMES } from "../../themes";
 import { CanvasSizeError, exportImage, exportToPNG } from "../export";
 import { embeddedFontCss, waitForFonts } from "../exportFonts";
 import type { Dataset, SeriesConfig, YAxisConfig } from "../persistence";
+import { PNG_1X1, physOf, readChunks } from "./pngFixture";
 
 vi.mock("../exportFonts", () => ({
 	embeddedFontCss: vi.fn(async () => "@font-face{font-family:Mock}"),
@@ -210,6 +211,27 @@ describe("exportImage", () => {
 		expect(canvas.toBlob).toHaveBeenCalled();
 		expect(downloads).toEqual(["webgraphy-export.png"]);
 		expect(blobs.at(-1)?.type).toBe("image/png");
+	});
+
+	it.each([
+		// 300 dpi millimetre export: pixelRatio = dpi / 96.
+		[300 / 96, 11811],
+		// Pixel export at 2×: tagged 192 dpi, so it opens at on-screen size.
+		[2, 7559],
+	])("tags the PNG with pHYs at pixel ratio %s", async (pixelRatio, ppm) => {
+		canvas.toBlob.mockImplementation((cb: (b: Blob | null) => void) =>
+			cb(new Blob([PNG_1X1], { type: "image/png" })),
+		);
+		await exportImage(
+			plot,
+			{ format: "png", width: 100, height: 100, pixelRatio },
+			THEMES.light,
+		);
+		const png = blobs.at(-1) as Blob;
+		expect(png.type).toBe("image/png");
+		const chunks = readChunks(new Uint8Array(await png.arrayBuffer()));
+		expect(chunks[1].type).toBe("pHYs");
+		expect(physOf(chunks[1])).toEqual({ x: ppm, y: ppm, unit: 1 });
 	});
 
 	it("fails fast with a size error before loading fonts", async () => {
