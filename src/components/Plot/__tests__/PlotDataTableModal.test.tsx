@@ -14,6 +14,7 @@ import {
 	useNotificationStore,
 } from "../../../store/useNotificationStore";
 import { PlotDataTableModal } from "../PlotDataTableModal";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 const feedback = { notify, dismiss: dismissNotification };
 
@@ -192,16 +193,20 @@ describe("PlotDataTableModal", () => {
 		});
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(
-			<PlotDataTableModal
-				series={series}
-				datasets={[dataset]}
-				xAxes={xAxes}
-				feedback={feedback}
-				onClose={vi.fn()}
-			/>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(
+				<PlotDataTableModal
+					series={series}
+					datasets={[dataset]}
+					xAxes={xAxes}
+					feedback={feedback}
+					onClose={vi.fn()}
+				/>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

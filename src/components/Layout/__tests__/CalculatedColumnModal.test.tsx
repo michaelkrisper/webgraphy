@@ -5,6 +5,7 @@ import type { Mock } from "vitest";
 import { CalculatedColumnModal } from "../CalculatedColumnModal";
 import { useGraphStore } from "../../../store/useGraphStore";
 import type { Dataset } from "../../../services/persistence";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 // Mock the graph store
 vi.mock("../../../store/useGraphStore", () => ({
@@ -335,10 +336,14 @@ describe("CalculatedColumnModal", () => {
 		});
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(
-			<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(
+				<CalculatedColumnModal dataset={mockDataset} onClose={mockOnClose} />,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

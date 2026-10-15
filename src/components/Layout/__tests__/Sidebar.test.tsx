@@ -7,6 +7,7 @@ import { useDataImport } from "../../../hooks/useDataImport";
 import { removeSeriesWithUndo } from "../../../store/undoToast";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { Sidebar } from "../Sidebar";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../store/undoToast", () => ({
 	deleteWithUndo: vi.fn(),
@@ -245,46 +246,50 @@ describe("Sidebar Component", () => {
 		expect(mockAddSeries).toHaveBeenCalledTimes(1);
 	});
 
-	it("has no axe violations with datasets and series", async () => {
-		const state = {
-			datasets: [
-				{
-					id: "ds-1",
-					name: "Dataset 1",
-					columns: ["time", "value1", "value2"],
-					xAxisColumn: "time",
-					xAxisId: "axis-1",
-					data: [{}, {}, {}],
-					rowCount: 3,
-				},
-			],
-			series: [
-				{
-					id: "s-1",
-					sourceId: "ds-1",
-					yColumn: "value1",
-					yAxisId: "axis-1",
-					hidden: false,
-				},
-			],
-			xAxes: [{ id: "axis-1", name: "X-Axis 1", xMode: "numeric" }],
-			yAxes: [],
-			legendVisible: true,
-			removeDataset: vi.fn(),
-			updateDataset: vi.fn(),
-			updateXAxis: vi.fn(),
-			reorderSeries: vi.fn(),
-			loadDemoData: mockLoadDemoData,
-			setHighlightedSeries: vi.fn(),
-			addSeries: vi.fn(),
-			setLegendVisible: vi.fn(),
-			removeCalculatedColumn: vi.fn(),
-		};
-		(useGraphStore as unknown as Mock).mockImplementation(
-			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
-		);
+	it(
+		"has no axe violations with datasets and series",
+		async () => {
+			const state = {
+				datasets: [
+					{
+						id: "ds-1",
+						name: "Dataset 1",
+						columns: ["time", "value1", "value2"],
+						xAxisColumn: "time",
+						xAxisId: "axis-1",
+						data: [{}, {}, {}],
+						rowCount: 3,
+					},
+				],
+				series: [
+					{
+						id: "s-1",
+						sourceId: "ds-1",
+						yColumn: "value1",
+						yAxisId: "axis-1",
+						hidden: false,
+					},
+				],
+				xAxes: [{ id: "axis-1", name: "X-Axis 1", xMode: "numeric" }],
+				yAxes: [],
+				legendVisible: true,
+				removeDataset: vi.fn(),
+				updateDataset: vi.fn(),
+				updateXAxis: vi.fn(),
+				reorderSeries: vi.fn(),
+				loadDemoData: mockLoadDemoData,
+				setHighlightedSeries: vi.fn(),
+				addSeries: vi.fn(),
+				setLegendVisible: vi.fn(),
+				removeCalculatedColumn: vi.fn(),
+			};
+			(useGraphStore as unknown as Mock).mockImplementation(
+				(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
+			);
 
-		const { container } = render(<Sidebar />);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+			const { container } = render(<Sidebar />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

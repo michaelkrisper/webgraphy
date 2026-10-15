@@ -136,4 +136,11 @@ describe("handleExcelRequest", () => {
 		expect(res.type).toBe("error");
 		expect(res.id).toBe(nextId - 1);
 	});
+
+	it("previews an empty sheet as empty text instead of failing", async () => {
+		const res = await openBook(workbookFile({ Empty: [] }));
+		expect(res.sheets).toEqual(["Empty"]);
+		expect(res.preview).toBe("");
+		expect(res.previewTruncated).toBe(false);
+	});
 });

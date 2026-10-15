@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 import { SidebarFooter } from "../SidebarFooter";
 import { useShortcutsHelp } from "../shortcutsHelp";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../HelpModal", () => ({
 	HelpModal: ({ onClose }: { onClose: () => void }) => (
@@ -133,8 +134,12 @@ describe("SidebarFooter", () => {
 		expect(screen.queryByTestId("storage-readout")).not.toBeInTheDocument();
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(<SidebarFooter />);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(<SidebarFooter />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

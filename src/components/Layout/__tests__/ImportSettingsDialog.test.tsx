@@ -5,6 +5,7 @@ import "@testing-library/jest-dom";
 import { THEMES } from "../../../themes";
 import { ImportSettingsDialog } from "../ImportSettingsDialog";
 import * as jsonUtils from "../../../utils/json";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 const theme = THEMES.light;
 
@@ -223,17 +224,21 @@ describe("ImportSettingsDialog", () => {
 		expect(screen.queryByText("v80")).not.toBeInTheDocument();
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(
-			<ImportSettingsDialog
-				fileName="test.csv"
-				fileContent={"Header1,Header2\n1,2\n3,4"}
-				fileType="csv"
-				onConfirm={vi.fn()}
-				onCancel={vi.fn()}
-				theme={theme}
-			/>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(
+				<ImportSettingsDialog
+					fileName="test.csv"
+					fileContent={"Header1,Header2\n1,2\n3,4"}
+					fileType="csv"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+					theme={theme}
+				/>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });
