@@ -122,6 +122,35 @@ describe("buildLabels", () => {
 		expect(jan1?.font).toBe("bold 10px sans-serif");
 	});
 
+	it("groups the period row for culling and emits the pinned label last", () => {
+		const labels = buildLabels(
+			[
+				xAxis({
+					min: 10,
+					ticks: {
+						result: [],
+						precision: 0,
+						secondaryLabels: [
+							{ timestamp: 0, label: "P0" },
+							{ timestamp: 20, label: "P1" },
+							{ timestamp: 60, label: "P2" },
+						],
+					} as XAxisLayout["ticks"],
+				}),
+			],
+			[],
+			baseCtx,
+			createLabelStringCache(),
+		);
+		const sec = labels.filter((l) => l.bg);
+		expect(sec.map((l) => l.text)).toEqual(["P1", "P2", "P0"]);
+		expect(new Set(sec.map((l) => l.cullGroup))).toEqual(new Set(["sec:x1"]));
+		expect(sec[2].x).toBe(baseCtx.padding.left + 5);
+		expect(labels.find((l) => l.text === "X Axis Title")?.cullGroup).toBe(
+			undefined,
+		);
+	});
+
 	it("maps category ticks to their names", () => {
 		const cache = createLabelStringCache();
 		const labels = buildLabels(

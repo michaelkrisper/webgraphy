@@ -270,3 +270,47 @@ describe("computeSnap", () => {
 		expect(narrow.yScreen).not.toBeCloseTo(wide.yScreen, 3);
 	});
 });
+
+describe("computeSnap on log axes", () => {
+	const logMeta = () =>
+		meta({
+			xAxis: xAxis({ min: 1, max: 1000, scale: "log" }),
+			axis: yAxis({ min: 1, max: 1000, scale: "log" }),
+			xCol: { data: Float32Array.from([1, 10, 100, 1000]), refPoint: 0 },
+			yCol: { data: Float32Array.from([1, 10, 100, -5]), refPoint: 0 },
+		});
+	const chartWidth = WIDTH - PADDING.left - PADDING.right;
+	const xAt = (v: number) => PADDING.left + (Math.log10(v) / 3) * chartWidth;
+
+	it("snaps to the sample nearest on screen, in log space", () => {
+		// x = 40 is nearer 10 in value but nearer 100 on a log axis.
+		const snap = computeSnap({
+			pos: { x: xAt(40), y: 50 },
+			seriesMetadata: [logMeta()],
+			xAxisNameById: {},
+			width: WIDTH,
+			height: HEIGHT,
+			padding: PADDING,
+		});
+		expect(snap?.snapScreenX).toBeCloseTo(xAt(100));
+		const item = snap?.entries[0].items[0];
+		expect(item?.value).toBe(100);
+		expect(item?.xScreen).toBeCloseTo(xAt(100));
+		// y = 100 is two of three decades up the 90px plot.
+		expect(item?.yScreen).toBeCloseTo(HEIGHT - PADDING.bottom - 60);
+	});
+
+	it("reports a non-positive value without a screen position", () => {
+		const snap = computeSnap({
+			pos: { x: xAt(900), y: 50 },
+			seriesMetadata: [logMeta()],
+			xAxisNameById: {},
+			width: WIDTH,
+			height: HEIGHT,
+			padding: PADDING,
+		});
+		const item = snap?.entries[0].items[0];
+		expect(item?.value).toBe(-5);
+		expect(item?.yScreen).toBeNaN();
+	});
+});

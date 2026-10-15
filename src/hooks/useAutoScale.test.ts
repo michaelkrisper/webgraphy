@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset, SeriesConfig } from "../services/persistence";
-import { useAutoScale } from "./useAutoScale";
+import { useAutoScale, visibleYBounds } from "./useAutoScale";
 
 vi.mock("../store/useGraphStore", () => ({
 	useGraphStore: {
@@ -823,10 +823,10 @@ describe("useAutoScale", () => {
 			];
 
 			rerender();
-			// expect y-axis-1 to be updated
+			// y2 spans 10..20, padded 5% each side like the initial fit.
 			expect(targetYs.current["y-axis-1"]).toBeDefined();
-			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(8.95);
-			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(21.05);
+			expect(targetYs.current["y-axis-1"].min).toBeCloseTo(9.5);
+			expect(targetYs.current["y-axis-1"].max).toBeCloseTo(20.5);
 		});
 	});
 
@@ -1364,6 +1364,86 @@ describe("useAutoScale", () => {
 			expect(syncViewport).toHaveBeenCalled();
 		});
 
+		it("fits the fresh y axis of a series added to a non-empty chart in the store", () => {
+			const syncViewport = vi.fn();
+			const batchUpdateAxes = vi.fn();
+			vi.mocked(useGraphStore.getState).mockReturnValue({
+				batchUpdateAxes,
+				yAxes: [
+					{ id: "axis-1", min: 0, max: 100 },
+					{ id: "axis-2", min: 0, max: 100 },
+				],
+			} as unknown as ReturnType<typeof useGraphStore.getState>);
+			const targetXAxes = { current: {} };
+			const targetYs: {
+				current: Record<string, { min: number; max: number }>;
+			} = { current: {} };
+			const column = (min: number, max: number) => ({
+				data: new Float32Array([min, max]),
+				refPoint: 0,
+				isFloat64: false,
+				bounds: { min, max },
+			});
+			const datasets: Dataset[] = [
+				{
+					id: "ds1",
+					name: "Dataset 1",
+					xAxisColumn: "x",
+					xAxisId: "axis-1",
+					columns: ["x", "temp", "pressure"],
+					data: [column(0, 10), column(10, 30), column(1000, 1020)],
+					rowCount: 2,
+				},
+			];
+			const base = {
+				sourceId: "ds1",
+				name: "",
+				pointStyle: "none",
+				pointColor: "#000",
+				lineStyle: "solid",
+				lineColor: "#000",
+			} as const;
+			let currentSeries: SeriesConfig[] = [
+				{ ...base, id: "s1", yColumn: "temp", yAxisId: "axis-1" },
+			];
+			const { rerender } = renderHook(() =>
+				useAutoScale({
+					isLoaded: true,
+					series: currentSeries,
+					datasets,
+					xAxes: [
+						{
+							id: "axis-1",
+							name: "X",
+							min: 0,
+							max: 10,
+							showGrid: true,
+							xMode: "numeric",
+						},
+					],
+					activeYAxes: [],
+					activeXAxesUsed: [],
+					padding: basePadding,
+					chartHeight: baseChartHeight,
+					targetXAxes,
+					targetYs,
+					syncViewport,
+				}),
+			);
+			batchUpdateAxes.mockClear();
+
+			currentSeries = [
+				...currentSeries,
+				{ ...base, id: "s2", yColumn: "pressure", yAxisId: "axis-2" },
+			];
+			rerender();
+
+			const fitted = { "axis-2": { min: 999, max: 1021 } };
+			expect(batchUpdateAxes).toHaveBeenCalledWith({}, fitted);
+			expect(targetYs.current["axis-2"]).toEqual(fitted["axis-2"]);
+			expect(targetYs.current["axis-1"]).toBeUndefined();
+		});
+
 		it("should auto-scale Y when a new series is added", () => {
 			const syncViewport = vi.fn();
 			const targetXAxes = { current: {} };
@@ -1440,5 +1520,128 @@ describe("useAutoScale", () => {
 
 			expect(targetYs.current["y-axis-1"]).toBeDefined();
 		});
+	});
+});
+
+describe("useAutoScale on log axes", () => {
+	const col = (values: number[]) => ({
+		data: new Float32Array(values),
+		refPoint: 0,
+		isFloat64: false,
+		bounds: { min: Math.min(...values), max: Math.max(...values) },
+	});
+	const datasets = [
+		{
+			id: "ds1",
+			name: "D",
+			xAxisColumn: "x",
+			xAxisId: "axis-1",
+			columns: ["x", "y"],
+			rowCount: 4,
+			data: [col([-1, 1, 10, 100]), col([-50, 0, 0.1, 1000])],
+		},
+	] as Dataset[];
+	const series = [
+		{
+			id: "s1",
+			sourceId: "ds1",
+			name: "S",
+			yColumn: "y",
+			yAxisId: "y1",
+			pointStyle: "none",
+			pointColor: "#000",
+			lineStyle: "solid",
+			lineColor: "#000",
+		},
+	] as SeriesConfig[];
+	const xLog = {
+		id: "axis-1",
+		name: "",
+		min: 1,
+		max: 100,
+		showGrid: true,
+		xMode: "numeric" as const,
+		scale: "log" as const,
+	};
+	const yLog = {
+		id: "y1",
+		name: "Y",
+		min: 1,
+		max: 10,
+		position: "left" as const,
+		color: "#000",
+		showGrid: true,
+		scale: "log" as const,
+	};
+
+	const setup = () => {
+		const targetYs = {
+			current: {} as Record<string, { min: number; max: number }>,
+		};
+		const targetXAxes = {
+			current: {} as Record<string, { min: number; max: number }>,
+		};
+		const { result } = renderHook(() =>
+			useAutoScale({
+				isLoaded: false,
+				series,
+				datasets,
+				xAxes: [xLog],
+				activeYAxes: [yLog],
+				activeXAxesUsed: [xLog],
+				padding: { top: 0, right: 0, bottom: 0, left: 0 },
+				chartHeight: 600,
+				targetXAxes,
+				targetYs,
+				syncViewport: vi.fn(),
+			}),
+		);
+		return { result, targetXAxes, targetYs };
+	};
+
+	it("fits y to positive data only, padded in log space", () => {
+		const { result, targetYs } = setup();
+		act(() => result.current.handleAutoScaleY("y1"));
+		const r = targetYs.current.y1;
+		// Positive y spans 0.1..1000 (4 decades).
+		expect(r.min).toBeGreaterThan(0);
+		expect(r.min).toBeLessThan(0.1);
+		expect(r.max).toBeGreaterThan(1000);
+		// Symmetric in decades around the data.
+		expect(Math.log10(r.max) - 3).toBeCloseTo(-1 - Math.log10(r.min));
+	});
+
+	it("fits y to the positive data visible in the x window", () => {
+		const { result, targetYs } = setup();
+		act(() => result.current.handleAutoScaleY("y1", 300));
+		const r = targetYs.current.y1;
+		// x in [1, 100] covers y 0, 0.1, 1000 -> positive 0.1..1000.
+		expect(r.min).toBeGreaterThan(0);
+		expect(r.min).toBeLessThan(0.1);
+	});
+
+	it("fits x to positive data only", () => {
+		const { result, targetXAxes } = setup();
+		act(() => result.current.handleAutoScaleX("axis-1"));
+		const r = targetXAxes.current["axis-1"];
+		expect(r.min).toBeGreaterThan(0);
+		expect(r.min).toBeLessThan(1);
+		expect(r.max).toBeGreaterThan(100);
+	});
+
+	it("stacks log axes in decades", () => {
+		const { result, targetYs } = setup();
+		act(() => result.current.handleStackedFit());
+		expect(targetYs.current.y1.min).toBeGreaterThan(0);
+	});
+});
+
+describe("visibleYBounds positiveOnly", () => {
+	it("ignores values <= 0", () => {
+		const x = new Float32Array([0, 1, 2, 3]);
+		const y = new Float32Array([-4, 0, 2, 8]);
+		expect(visibleYBounds(x, 0, y, 0, 0, 3)).toEqual({ min: -4, max: 8 });
+		expect(visibleYBounds(x, 0, y, 0, 0, 3, true)).toEqual({ min: 2, max: 8 });
+		expect(visibleYBounds(x, 0, y, 0, 0, 1, true)).toBeNull();
 	});
 });

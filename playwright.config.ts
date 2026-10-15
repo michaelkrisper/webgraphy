@@ -47,6 +47,15 @@ export default defineConfig({
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
 		},
+		{
+			// DOM-level specs only. Screenshot baselines exist for Chromium
+			// alone, context loss drives Chromium's render-worker internals, and
+			// the tab-order walk pins Chromium's focus sequence (Firefox also
+			// stops on scrollable regions).
+			name: "firefox",
+			use: { ...devices["Desktop Firefox"] },
+			testMatch: ["import.spec.ts", "workspace.spec.ts", "focus.spec.ts"],
+		},
 	],
 	webServer: {
 		// Tests the production bundle, not the dev server — that is what

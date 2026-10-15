@@ -275,4 +275,27 @@ describe("renderTooltipHTML", () => {
 
 		expect(visibleGroups()).toHaveLength(3);
 	});
+
+	it("keys the series with a swatch and keeps the label in the theme colour", () => {
+		render(
+			snapWith(
+				group("4", "Time", [
+					item("Temp", 40, { color: "#ffcc00", lineStyle: "dashed" }),
+					item("Dots", 5, { color: "#00aa00", lineStyle: "none" }),
+				]),
+			),
+		);
+
+		const [line, dots] = visibleRows().map((r) => r.children[0] as HTMLElement);
+		// Yellow text on a light tooltip was unreadable: only the swatch is
+		// coloured now.
+		expect(line.style.color).toBe("rgb(17, 17, 17)");
+		const lineSwatch = line.querySelector(".chart-tooltip-swatch") as HTMLElement;
+		expect(lineSwatch.style.borderTop).toBe("2px dashed rgb(255, 204, 0)");
+		expect(lineSwatch.getAttribute("aria-hidden")).toBe("true");
+		const dotSwatch = dots.querySelector(".chart-tooltip-swatch") as HTMLElement;
+		expect(dotSwatch.dataset.dot).toBe("true");
+		expect(dotSwatch.style.backgroundColor).toBe("rgb(0, 170, 0)");
+		expect(line.textContent).toBe("Temp:");
+	});
 });

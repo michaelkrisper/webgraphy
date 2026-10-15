@@ -1,10 +1,12 @@
 import type { ExcelWorkerRequest, ExcelWorkerResponse } from "./excel.worker";
 import { WorkerClient } from "./WorkerClient";
 
+type ExcelResult = Omit<ExcelWorkerResponse, "id" | "type" | "error">;
+
 const client = new WorkerClient<
 	ExcelWorkerRequest,
 	ExcelWorkerResponse,
-	Omit<ExcelWorkerResponse, "id" | "type">
+	ExcelResult
 >(
 	() =>
 		new Worker(new URL("./excel.worker.ts", import.meta.url), { type: "module" }),
@@ -16,18 +18,32 @@ const client = new WorkerClient<
 	},
 );
 
-export function readExcelFileInWorker(
-	file: File,
-): Promise<Omit<ExcelWorkerResponse, "id" | "type">> {
-	return client.request((id) => ({ id, action: "read", file }));
+/** Parses the workbook in the worker, which keeps it until `closeWorkbookInWorker`. */
+export function openWorkbookInWorker(file: File): Promise<ExcelResult> {
+	return client.request((id) => ({ id, action: "open", file }));
 }
 
-export function changeSheetInWorker(
-	workbookData: ArrayBuffer,
+export function previewSheetInWorker(
+	bookId: number,
 	sheetName: string,
-): Promise<Omit<ExcelWorkerResponse, "id" | "type">> {
-	return client.request(
-		(id) => ({ id, action: "changeSheet", workbookData, sheetName }),
-		[workbookData],
-	);
+): Promise<ExcelResult> {
+	return client.request((id) => ({ id, action: "preview", bookId, sheetName }));
+}
+
+export async function sheetCsvInWorker(
+	bookId: number,
+	sheetName: string,
+): Promise<Blob> {
+	const { csv } = await client.request((id) => ({
+		id,
+		action: "csv",
+		bookId,
+		sheetName,
+	}));
+	if (!csv) throw new Error("Excel worker returned no CSV");
+	return csv;
+}
+
+export async function closeWorkbookInWorker(bookId: number): Promise<void> {
+	await client.request((id) => ({ id, action: "close", bookId }));
 }

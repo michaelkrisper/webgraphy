@@ -5,9 +5,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Dataset, SeriesConfig } from "../../../services/persistence";
 import { SeriesConfigUI } from "../SeriesConfig";
 import { useGraphStore } from "../../../store/useGraphStore";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 vi.mock("../../../store/useGraphStore", () => ({
 	useGraphStore: vi.fn(),
+	withHistory: (_label: string, fn: () => unknown) => fn(),
+	latestHistoryId: vi.fn(),
+	undoIfLatest: vi.fn(),
 }));
 
 interface ColorPickerMockProps {
@@ -62,8 +66,10 @@ describe("SeriesConfigUI", () => {
 	const mockUpdateYAxis = vi.fn();
 	const mockUpdateSeriesVisibility = vi.fn();
 	const mockSetPreviewColor = vi.fn();
+	const mockSetAxisScale = vi.fn();
 
 	const defaultMockState = {
+		setAxisScale: mockSetAxisScale,
 		updateSeries: mockUpdateSeries,
 		removeSeries: mockRemoveSeries,
 		yAxes: [{ id: "axis-1", position: "left", showGrid: true }],
@@ -204,6 +210,15 @@ describe("SeriesConfigUI", () => {
 		expect(mockUpdateYAxis).toHaveBeenCalledWith("axis-1", { showGrid: false });
 	});
 
+	it("toggles the y axis to log scale", () => {
+		render(<SeriesConfigUI {...defaultProps} />);
+
+		const btn = screen.getByRole("button", { name: "Logarithmic Y Scale" });
+		expect(btn).toHaveAttribute("aria-pressed", "false");
+		fireEvent.click(btn);
+		expect(mockSetAxisScale).toHaveBeenCalledWith("y", "axis-1", "log");
+	});
+
 	it("updates line style via PopupPicker trigger", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
 
@@ -249,8 +264,12 @@ describe("SeriesConfigUI", () => {
 		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { yAxisId: "axis-2" });
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(<SeriesConfigUI {...defaultProps} />);
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(<SeriesConfigUI {...defaultProps} />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

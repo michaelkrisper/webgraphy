@@ -18,13 +18,19 @@ export interface SeriesMetadata {
 }
 
 export interface SnapItem {
+	seriesId: string;
 	label: string;
 	value: number;
+	/** World x of this series' snapped sample (its own x axis). */
+	xValue: number;
+	xAxisId: string;
+	yAxisId: string;
 	valueLabel?: string;
 	color: string;
 	yScreen: number;
 	xScreen: number;
 	pointStyle: string;
+	lineStyle: string;
 }
 
 export interface SnapGroup {
@@ -35,6 +41,9 @@ export interface SnapGroup {
 
 export interface SnapResult {
 	snapScreenX: number;
+	/** World x of the closest sample overall, on axis `snapXAxisId`. */
+	snapX: number;
+	snapXAxisId: string;
 	entries: SnapGroup[];
 }
 

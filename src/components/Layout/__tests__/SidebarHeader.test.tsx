@@ -58,6 +58,18 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 							data-testid="export-png-trigger"
 							onClick={() => onChange("png")}
 						/>
+						<button
+							data-testid="session-open-trigger"
+							onClick={() => onChange("open")}
+						/>
+						<button
+							data-testid="session-save-trigger"
+							onClick={() => onChange("save")}
+						/>
+						<button
+							data-testid="export-csv-trigger"
+							onClick={() => onChange("csv")}
+						/>
 					</>
 				)}
 				{popoverId === "theme-popover" && (
@@ -73,6 +85,9 @@ describe("SidebarHeader", () => {
 	const mockOnImport = vi.fn();
 	const mockOnExportSVG = vi.fn();
 	const mockOnExportPNG = vi.fn();
+	const mockOnOpenSession = vi.fn();
+	const mockOnSaveSession = vi.fn();
+	const mockOnExportCSV = vi.fn();
 
 	const mockLoadDemoData = vi.fn();
 	const mockUpdateXAxis = vi.fn();
@@ -111,11 +126,15 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
 		expect(screen.getByTitle("Import Data Source")).toBeInTheDocument();
-		expect(screen.getByTitle("Load Demo Data")).toBeInTheDocument();
+		// Demo data lives in the empty state and the Data Sources section now.
+		expect(screen.queryByTitle("Load Demo Data")).toBeNull();
 		expect(screen.getByTitle("Hide Vertical Grid")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Crosshair")).toBeInTheDocument();
 		expect(screen.getByTitle("Hide Legend")).toBeInTheDocument();
@@ -131,6 +150,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -145,6 +167,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -159,25 +184,14 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
 		fireEvent.click(screen.getByTitle("Import Data Source"));
 		expect(mockOnImport).toHaveBeenCalled();
-	});
-
-	it("calls loadDemoData when demo data button is clicked", () => {
-		render(
-			<SidebarHeader
-				onCollapse={mockOnCollapse}
-				onImport={mockOnImport}
-				onExportSVG={mockOnExportSVG}
-				onExportPNG={mockOnExportPNG}
-			/>,
-		);
-
-		fireEvent.click(screen.getByTitle("Load Demo Data"));
-		expect(mockLoadDemoData).toHaveBeenCalled();
 	});
 
 	it("toggles vertical grid visibility", () => {
@@ -187,6 +201,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -201,6 +218,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -215,6 +235,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -229,6 +252,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -239,6 +265,47 @@ describe("SidebarHeader", () => {
 		expect(mockOnExportPNG).toHaveBeenCalled();
 	});
 
+	it("routes the session entries of the file menu", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+
+		expect(screen.getByTitle("Session & Export")).toBeInTheDocument();
+		fireEvent.click(screen.getByTestId("session-open-trigger"));
+		expect(mockOnOpenSession).toHaveBeenCalledTimes(1);
+		expect(mockOnSaveSession).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByTestId("session-save-trigger"));
+		expect(mockOnSaveSession).toHaveBeenCalledTimes(1);
+		expect(mockOnExportSVG).not.toHaveBeenCalled();
+	});
+
+	it("exports the visible data as CSV from the export menu", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("export-csv-trigger"));
+		expect(mockOnExportCSV).toHaveBeenCalledTimes(1);
+		expect(mockOnExportSVG).not.toHaveBeenCalled();
+		expect(mockOnExportPNG).not.toHaveBeenCalled();
+	});
+
 	it("handles theme selection correctly", () => {
 		render(
 			<SidebarHeader
@@ -246,6 +313,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 
@@ -274,6 +344,9 @@ describe("SidebarHeader", () => {
 				onImport={mockOnImport}
 				onExportSVG={mockOnExportSVG}
 				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
 			/>,
 		);
 

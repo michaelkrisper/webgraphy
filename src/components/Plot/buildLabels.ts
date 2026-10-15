@@ -8,6 +8,7 @@
 
 import type { SeriesConfig } from "../../services/persistence";
 import { formatAxisLabel } from "../../utils/axisCalculations";
+import { axisFraction } from "../../utils/axisScale";
 import { findExact } from "../../utils/binarySearch";
 import type { SecondaryLabel } from "../../utils/time";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
@@ -81,10 +82,11 @@ function buildXAxisLabels(
 	// Primary tick labels
 	const primaryFont = `9px ${fontFamily}`;
 	const primaryY = baseY + metrics.labelBottom;
+	const xLog = axis.scale === "log";
 	axis.ticks.result.forEach((t) => {
 		const timestamp = typeof t === "number" ? t : t.timestamp;
-		const normX = (timestamp - axis.min) / (axis.max - axis.min);
-		if (normX < 0 || normX > 1) return;
+		const normX = axisFraction(timestamp, axis.min, axis.max, xLog);
+		if (!(normX >= 0 && normX <= 1)) return;
 		const x = padding.left + normX * chartWidth;
 		let label: string;
 		if (axis.categoryLabels) {
@@ -114,10 +116,15 @@ function buildXAxisLabels(
 
 	// Secondary labels (date context row): background quad + separator stroke
 	// are emitted as label chrome — their width depends on the rendered text.
+	// The row shares one cull group so the renderer drops labels that would
+	// overlap once measured; the period already in progress at the left edge
+	// is pinned there and emitted last, so it yields to any real boundary.
 	if (axis.ticks.secondaryLabels) {
 		const secFont = `bold 10px ${fontFamily}`;
 		const secList = axis.ticks.secondaryLabels;
 		const textY = baseY + metrics.secLabelBottom - 2;
+		const cullGroup = `sec:${axis.id}`;
+		let pinned: RenderLabel | undefined;
 		secList.forEach((sl: SecondaryLabel, i: number) => {
 			const nextSl = secList[i + 1];
 			const normX = (sl.timestamp - axis.min) / (axis.max - axis.min);
@@ -129,20 +136,23 @@ function buildXAxisLabels(
 			const nextX = padding.left + nextNormX * chartWidth;
 			if (currentX > width - padding.right || nextX < padding.left) return;
 
-			const x = Math.max(currentX + 5, padding.left + 5);
-			out.push({
+			const label: RenderLabel = {
 				text: sl.label,
 				color: lblColor,
 				font: secFont,
-				x,
+				x: Math.max(currentX + 5, padding.left + 5),
 				y: textY,
 				align: "left",
 				baseline: "alphabetic",
 				bg: ctx.secLabelBg,
 				tick:
 					currentX > padding.left ? { x: currentX, color: lblColor } : undefined,
-			});
+				cullGroup,
+			};
+			if (currentX < padding.left) pinned = label;
+			else out.push(label);
 		});
+		if (pinned) out.push(pinned);
 	}
 
 	// Axis title
@@ -181,9 +191,10 @@ function buildYAxisLabels(
 	const titleX = isLeft ? xPos + 7.5 : xPos + metrics.total - 7.5;
 
 	const tickFont = `9px ${fontFamily}`;
+	const yLog = axis.scale === "log";
 	axis.ticks.forEach((t) => {
-		const normY = (t - axis.min) / (axis.max - axis.min);
-		if (normY < 0 || normY > 1) return;
+		const normY = axisFraction(t, axis.min, axis.max, yLog);
+		if (!(normY >= 0 && normY <= 1)) return;
 		const y = padding.top + (1 - normY) * chartHeight;
 		let label: string;
 		if (axis.categoryLabels) {

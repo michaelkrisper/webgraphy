@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseDate, parseValue } from "../value-parser";
 import type { ParseConfig } from "../parser-types";
 
@@ -7,6 +7,33 @@ describe("parseDate", () => {
 		const val = "2023-10-15T12:00:00Z";
 		const expected = new Date(val).getTime() / 1000;
 		expect(parseDate(val)).toBe(expected);
+	});
+
+	describe("date-only strings", () => {
+		const tz = process.env.TZ;
+		beforeEach(() => {
+			// A zone off UTC, or local and UTC midnight would coincide.
+			process.env.TZ = "America/New_York";
+		});
+		afterEach(() => {
+			process.env.TZ = tz;
+		});
+
+		it("parse as local midnight, the same as the formatted path", () => {
+			const local = new Date(2024, 2, 5).getTime() / 1000;
+			expect(local).not.toBe(Date.UTC(2024, 2, 5) / 1000);
+			expect(parseDate("2024-03-05")).toBe(local);
+			expect(parseDate("2024-03-05", "YYYY-MM-DD")).toBe(local);
+			expect(parseDate("2024-03")).toBe(new Date(2024, 2, 1).getTime() / 1000);
+		});
+
+		it("keep an explicit time or offset as given", () => {
+			expect(parseDate("2024-03-05T00:00:00Z")).toBe(Date.UTC(2024, 2, 5) / 1000);
+			expect(parseDate("2024-03-05T10:00")).toBe(
+				new Date(2024, 2, 5, 10).getTime() / 1000,
+			);
+			expect(parseDate("2024-13-45")).toBeNaN();
+		});
 	});
 
 	it("should parse date with full format", () => {

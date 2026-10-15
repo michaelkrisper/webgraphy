@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolveAppVersion } from "./appVersion.ts";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	define: {
 		__APP_VERSION__: JSON.stringify(resolveAppVersion()),
 	},
@@ -21,14 +21,19 @@ export default defineConfig({
 		setupFiles: ["src/__tests__/setup.ts"],
 		// e2e/ holds Playwright specs. They match Vitest's default *.spec
 		// pattern but must only ever run under `npx playwright test`.
-		exclude: ["**/node_modules/**", "dist/**", "e2e/**"],
-		// Benchmark files must not run concurrently: parallel workers compete
-		// for CPU and memory bandwidth, so each file measures the others'
-		// contention rather than its own code.
+		exclude: ["**/node_modules/**", "dist/**", "e2e/**", ".claude/**"],
 		benchmark: {
 			include: ["src/**/*.bench.ts"],
+			// The warning works by wrapping every module export getter in a
+			// counting closure (Map lookup + string key per access), which made
+			// the hot-path benchmarks 2-5x slower against the control and would
+			// fail the baseline gate on measurement overhead alone.
+			suppressExportGetterWarnings: true,
 		},
-		fileParallelism: false,
+		// Benchmark files must not run concurrently: parallel workers compete
+		// for CPU and memory bandwidth, so each file measures the others'
+		// contention rather than its own code. Plain tests stay parallel.
+		fileParallelism: mode !== "benchmark",
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
@@ -36,10 +41,10 @@ export default defineConfig({
 			// Kept just under the current actuals so coverage can only go up.
 			// Ratchet these when they rise; never lower them.
 			thresholds: {
-				statements: 91,
-				branches: 80,
-				functions: 86,
-				lines: 92,
+				statements: 95,
+				branches: 87,
+				functions: 93,
+				lines: 96,
 			},
 		},
 	},
@@ -52,4 +57,4 @@ export default defineConfig({
 			),
 		},
 	},
-});
+}));

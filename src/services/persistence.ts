@@ -1,7 +1,6 @@
 import { type IDBPDatabase, openDB } from "idb";
-// `zod/mini` covers the whole surface used below and keeps ~10 KB gzip of the
-// chainable classic API out of the entry chunk (see size-budget.json).
-import * as z from "zod/mini";
+import { notify } from "../store/useNotificationStore";
+import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
 
 const DB_NAME = "webgraphy-db";
@@ -46,6 +45,8 @@ export interface XAxisConfig {
 	max: number;
 	showGrid: boolean;
 	xMode: "date" | "numeric" | "categorical";
+	/** Absent means linear (configs created before log axes existed). */
+	scale?: AxisScale;
 }
 
 export interface YAxisConfig {
@@ -56,6 +57,8 @@ export interface YAxisConfig {
 	position: "left" | "right";
 	color: string;
 	showGrid: boolean;
+	/** Absent means linear (configs created before log axes existed). */
+	scale?: AxisScale;
 }
 
 export interface SeriesConfig {
@@ -71,12 +74,12 @@ export interface SeriesConfig {
 	hidden?: boolean;
 }
 
-interface ViewportState {
+export interface ViewportState {
 	xAxes: XAxisConfig[];
 	yAxes: YAxisConfig[];
 }
 
-interface ConfigState {
+export interface ConfigState {
 	series: SeriesConfig[];
 	legendVisible: boolean;
 	crosshairVisible: boolean;
@@ -84,57 +87,15 @@ interface ConfigState {
 
 export interface AppState extends ViewportState, ConfigState {}
 
-const XAxisConfigSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	min: z.number(),
-	max: z.number(),
-	showGrid: z.boolean(),
-	xMode: z.enum(["date", "numeric", "categorical"]),
-});
-const YAxisConfigSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	min: z.number(),
-	max: z.number(),
-	position: z.enum(["left", "right"]),
-	color: z.string(),
-	showGrid: z.boolean(),
-});
-const SeriesConfigSchema = z.object({
-	id: z.string(),
-	sourceId: z.string(),
-	name: z.string(),
-	yColumn: z.string(),
-	yAxisId: z.string(),
-	pointStyle: z.enum(["circle", "square", "cross", "none"]),
-	pointColor: z.string(),
-	lineStyle: z.enum(["solid", "dashed", "dotted", "none"]),
-	lineColor: z.string(),
-	hidden: z.optional(z.boolean()),
-});
-const ViewportSchema = z.object({
-	xAxes: z.array(XAxisConfigSchema),
-	yAxes: z.array(YAxisConfigSchema),
-});
-// Older persisted configs additionally carry an `axisTitles` object from a
-// removed feature; Zod strips unknown keys, so they load unchanged.
-const ConfigSchema = z.object({
-	series: z.array(SeriesConfigSchema),
-	legendVisible: z.boolean(),
-	crosshairVisible: z.boolean(),
-});
-const LegacyAppStateSchema = z.object({
-	xAxes: z.array(XAxisConfigSchema),
-	yAxes: z.array(YAxisConfigSchema),
-	series: z.array(SeriesConfigSchema),
-});
+// The promise (not the handle) is cached so concurrent callers share one
+// connection; a failed open is not cached, so the next call retries.
+let dbPromise: Promise<IDBPDatabase> | null = null;
+// Off once loading failed (writing would clobber data we could not read) or
+// another tab upgraded the schema under us.
+let writesEnabled = true;
 
-let db: IDBPDatabase | null = null;
-
-async function getDB() {
-	if (db) return db;
-	db = await openDB(DB_NAME, VERSION, {
+function openConnection(): Promise<IDBPDatabase> {
+	const opening: Promise<IDBPDatabase> = openDB(DB_NAME, VERSION, {
 		upgrade(db) {
 			if (!db.objectStoreNames.contains(DATASET_STORE)) {
 				db.createObjectStore(DATASET_STORE, { keyPath: "id" });
@@ -143,8 +104,103 @@ async function getDB() {
 				db.createObjectStore(APP_STATE_STORE);
 			}
 		},
+		blocked() {
+			// An older build in another tab still holds the database open.
+			notify({
+				kind: "info",
+				message:
+					"WebGraphy is open in another tab — close it to finish loading your saved data.",
+			});
+		},
+		blocking(_current, _blocked, event) {
+			// A newer build in another tab wants to upgrade: let it, and stop
+			// writing with a schema that is about to be outdated.
+			writesEnabled = false;
+			if (dbPromise === opening) dbPromise = null;
+			(event.target as IDBDatabase).close();
+			notify({
+				kind: "info",
+				message: "WebGraphy was updated in another tab — reload to continue.",
+				action: { label: "Reload", onAction: () => location.reload() },
+				durationMs: Infinity,
+			});
+		},
+		terminated() {
+			// The browser closed the connection abnormally (e.g. storage cleared).
+			if (dbPromise === opening) dbPromise = null;
+		},
 	});
-	return db;
+	return opening;
+}
+
+function getDB(): Promise<IDBPDatabase> {
+	if (!dbPromise) {
+		const opening = openConnection();
+		dbPromise = opening;
+		opening.catch(() => {
+			if (dbPromise === opening) dbPromise = null;
+		});
+	}
+	return dbPromise;
+}
+
+function isQuotaError(error: unknown): boolean {
+	const name = (error as { name?: unknown } | null)?.name;
+	return name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED";
+}
+
+// Messages are stable per target so the toast store collapses repeats of a
+// failing save into one toast.
+function reportDatasetSaveError(name: string, error: unknown): void {
+	notify({
+		kind: "error",
+		message: isQuotaError(error)
+			? `Browser storage is full — dataset "${name}" was not saved. Free space or remove datasets.`
+			: `Could not save dataset "${name}" to browser storage.`,
+	});
+}
+
+function reportStateSaveError(error: unknown): void {
+	notify({
+		kind: "error",
+		message: isQuotaError(error)
+			? "Browser storage is full — chart settings were not saved. Free space or remove datasets."
+			: "Could not save chart settings to browser storage.",
+	});
+}
+
+const storageListeners = new Set<() => void>();
+
+/** Subscribes to dataset writes/deletes (for the storage readout); returns the unsubscribe. */
+export function onStorageChange(listener: () => void): () => void {
+	storageListeners.add(listener);
+	return () => {
+		storageListeners.delete(listener);
+	};
+}
+
+function emitStorageChange(): void {
+	for (const l of storageListeners) l();
+}
+
+let persistRequested = false;
+
+/**
+ * Asks once per session for persistent storage so the browser does not evict
+ * the user's datasets under storage pressure. A denial is final — no re-asking.
+ */
+function requestPersistentStorage(): void {
+	if (persistRequested) return;
+	persistRequested = true;
+	const storage = globalThis.navigator?.storage;
+	if (typeof storage?.persist !== "function") return;
+	storage.persist().then(emitStorageChange, () => {});
+}
+
+export interface StorageInfo {
+	usage: number;
+	quota: number;
+	persisted: boolean;
 }
 
 function fixDatasetTypes(dataset: Dataset): Dataset {
@@ -183,11 +239,28 @@ async function putAppState(
 	state: unknown,
 	label: string,
 ): Promise<void> {
+	if (!writesEnabled) return;
 	try {
 		const db = await getDB();
 		await db.put(APP_STATE_STORE, state, key);
 	} catch (error) {
 		logger.error("Failed to save state", { label, error });
+		reportStateSaveError(error);
+	}
+}
+
+/** Writes one dataset in its own transaction; returns whether it persisted. */
+async function writeDataset(ds: Dataset, label: string): Promise<boolean> {
+	if (!writesEnabled) return false;
+	try {
+		const db = await getDB();
+		await db.put(DATASET_STORE, ds);
+		requestPersistentStorage();
+		return true;
+	} catch (e) {
+		logger.error(label, { error: e });
+		reportDatasetSaveError(ds.name, e);
+		return false;
 	}
 }
 
@@ -196,16 +269,37 @@ async function flushDataset(id: string): Promise<void> {
 	datasetTimers.delete(id);
 	pendingDatasets.delete(id);
 	if (!ds) return;
-	try {
-		const db = await getDB();
-		await db.put(DATASET_STORE, ds);
-	} catch (e) {
-		logger.error("saveDataset failed", { error: e });
-	}
+	if (await writeDataset(ds, "saveDataset failed")) emitStorageChange();
 }
 
 export const persistence = {
+	/**
+	 * Stops all writes for the rest of the session. Used when saved data could
+	 * not be loaded, so the fallback demo session cannot overwrite it.
+	 */
+	disable(): void {
+		writesEnabled = false;
+	},
+	isEnabled(): boolean {
+		return writesEnabled;
+	},
+	async getStorageInfo(): Promise<StorageInfo | null> {
+		const storage = globalThis.navigator?.storage;
+		if (typeof storage?.estimate !== "function") return null;
+		try {
+			const [{ usage = 0, quota = 0 }, persisted] = await Promise.all([
+				storage.estimate(),
+				typeof storage.persisted === "function"
+					? storage.persisted()
+					: Promise.resolve(false),
+			]);
+			return { usage, quota, persisted };
+		} catch {
+			return null;
+		}
+	},
 	async saveDataset(dataset: Dataset): Promise<void> {
+		if (!writesEnabled) return;
 		pendingDatasets.set(dataset.id, dataset);
 		const existing = datasetTimers.get(dataset.id);
 		if (existing) clearTimeout(existing);
@@ -231,14 +325,12 @@ export const persistence = {
 
 		if (datasetsToSave.length === 0) return;
 
-		try {
-			const db = await getDB();
-			const tx = db.transaction(DATASET_STORE, "readwrite");
-			const store = tx.objectStore(DATASET_STORE);
-			await Promise.all([...datasetsToSave.map((ds) => store.put(ds)), tx.done]);
-		} catch (e) {
-			logger.error("flushAll failed", { error: e });
-		}
+		// One transaction per dataset: a shared one would abort every write
+		// when a single dataset exceeds the quota.
+		const results = await Promise.all(
+			datasetsToSave.map((ds) => writeDataset(ds, "flushAll failed")),
+		);
+		if (results.some(Boolean)) emitStorageChange();
 	},
 	async loadDataset(id: string): Promise<Dataset | undefined> {
 		const db = await getDB();
@@ -255,8 +347,22 @@ export const persistence = {
 		if (timer) clearTimeout(timer);
 		datasetTimers.delete(id);
 		pendingDatasets.delete(id);
-		const db = await getDB();
-		await db.delete(DATASET_STORE, id);
+		if (!writesEnabled) return;
+		// Callers fire and forget, so a failure must not escape as an unhandled
+		// rejection.
+		try {
+			const db = await getDB();
+			await db.delete(DATASET_STORE, id);
+		} catch (error) {
+			logger.error("deleteDataset failed", { id, error });
+			notify({
+				kind: "error",
+				message:
+					"Could not remove a dataset from browser storage — it may reappear after a reload.",
+			});
+			return;
+		}
+		emitStorageChange();
 	},
 	saveViewport(state: ViewportState): Promise<void> {
 		return putAppState(VIEWPORT_KEY, state, "viewport");
@@ -274,44 +380,60 @@ export const persistence = {
 			}),
 		]);
 	},
+	/**
+	 * Resolves `null` for absent or invalid state, but rejects when storage
+	 * itself cannot be read — the caller must then not fall back to demo data
+	 * that would overwrite what is still on disk.
+	 */
 	async loadAppState(): Promise<AppState | null> {
+		// Fetched alongside the IndexedDB reads so validation adds no latency.
+		const schemas = import("./persistenceSchemas");
+		schemas.catch(() => {});
+		let db: IDBPDatabase;
+		let vRaw: unknown;
+		let cRaw: unknown;
+		let legacy: unknown;
 		try {
-			const db = await getDB();
-			const [vRaw, cRaw, legacy] = await Promise.all([
+			db = await getDB();
+			[vRaw, cRaw, legacy] = await Promise.all([
 				db.get(APP_STATE_STORE, VIEWPORT_KEY),
 				db.get(APP_STATE_STORE, CONFIG_KEY),
 				db.get(APP_STATE_STORE, LEGACY_KEY),
 			]);
-			if (vRaw && cRaw) {
-				const v = ViewportSchema.safeParse(vRaw);
-				const c = ConfigSchema.safeParse(cRaw);
-				if (v.success && c.success) return { ...v.data, ...c.data };
-				logger.error("Invalid split state", {
-					error: v.success ? c.error : v.error,
-				});
-				return null;
-			}
-			if (legacy) {
-				const parsed = LegacyAppStateSchema.safeParse(legacy);
-				if (parsed.success) {
-					const migrated: AppState = {
-						...parsed.data,
-						legendVisible: true,
-						crosshairVisible: true,
-					};
-					await persistence.saveAppState(migrated);
-					await db.delete(APP_STATE_STORE, LEGACY_KEY);
-					return migrated;
-				}
-				logger.error("Invalid legacy state", { error: parsed.error });
-			}
-			return null;
 		} catch (error) {
 			logger.error("Failed to load state", { error });
+			throw error;
+		}
+		if (!(vRaw && cRaw) && !legacy) return null;
+		const { ConfigSchema, LegacyAppStateSchema, parseViewport } = await schemas;
+		if (vRaw && cRaw) {
+			const c = ConfigSchema.safeParse(cRaw);
+			if (c.success) return { ...parseViewport(vRaw), ...c.data };
+			logger.error("Invalid split state", { error: c.error });
 			return null;
 		}
+		if (legacy) {
+			const parsed = LegacyAppStateSchema.safeParse(legacy);
+			if (parsed.success) {
+				const migrated: AppState = {
+					...parsed.data,
+					legendVisible: true,
+					crosshairVisible: true,
+				};
+				try {
+					await persistence.saveAppState(migrated);
+					await db.delete(APP_STATE_STORE, LEGACY_KEY);
+				} catch (error) {
+					logger.error("Failed to migrate legacy state", { error });
+				}
+				return migrated;
+			}
+			logger.error("Invalid legacy state", { error: parsed.error });
+		}
+		return null;
 	},
 	async clearAppState(): Promise<void> {
+		if (!writesEnabled) return;
 		try {
 			const db = await getDB();
 			await Promise.all([

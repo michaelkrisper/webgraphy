@@ -32,6 +32,7 @@ export function makeGl2Mock() {
 		RGBA: 6408,
 		UNSIGNED_BYTE: 5121,
 		LINEAR: 9729,
+		NEAREST: 9728,
 		CLAMP_TO_EDGE: 33071,
 		TEXTURE_MIN_FILTER: 10241,
 		TEXTURE_MAG_FILTER: 10240,
@@ -98,11 +99,32 @@ export function makeGl2Mock() {
 	return gl;
 }
 
-/** Minimal canvas stand-in whose getContext returns the supplied mock. */
+/**
+ * Minimal canvas stand-in whose getContext returns the supplied mock. A real
+ * EventTarget, so tests can dispatch webglcontextlost/restored on it.
+ */
 export function makeCanvasMock(gl: unknown) {
-	return {
+	return Object.assign(new EventTarget(), {
 		width: 0,
 		height: 0,
 		getContext: vi.fn(() => gl),
-	} as unknown as HTMLCanvasElement;
+	}) as unknown as HTMLCanvasElement;
+}
+
+/**
+ * WEBGL_lose_context stand-in firing the events a browser would: a
+ * cancelable lost event, and a restored event only if that was cancelled.
+ */
+export function makeLoseContextExt(canvas: EventTarget) {
+	let restorable = false;
+	return {
+		loseContext: vi.fn(() => {
+			const ev = new Event("webglcontextlost", { cancelable: true });
+			canvas.dispatchEvent(ev);
+			restorable = ev.defaultPrevented;
+		}),
+		restoreContext: vi.fn(() => {
+			if (restorable) canvas.dispatchEvent(new Event("webglcontextrestored"));
+		}),
+	};
 }

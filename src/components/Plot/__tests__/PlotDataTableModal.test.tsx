@@ -1,13 +1,26 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
+import { exportVisibleCsv } from "../../../services/csvExport";
 import type {
 	Dataset,
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
+import {
+	dismissNotification,
+	notify,
+	useNotificationStore,
+} from "../../../store/useNotificationStore";
 import { PlotDataTableModal } from "../PlotDataTableModal";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
+
+const feedback = { notify, dismiss: dismissNotification };
+
+vi.mock("../../../services/csvExport", () => ({
+	exportVisibleCsv: vi.fn(() => Promise.resolve()),
+}));
 
 const dataset = {
 	id: "ds-1",
@@ -61,6 +74,7 @@ describe("PlotDataTableModal", () => {
 				series={series}
 				datasets={[dataset]}
 				xAxes={xAxes}
+				feedback={feedback}
 				onClose={vi.fn()}
 			/>,
 		);
@@ -82,6 +96,7 @@ describe("PlotDataTableModal", () => {
 				series={[]}
 				datasets={[dataset]}
 				xAxes={xAxes}
+				feedback={feedback}
 				onClose={vi.fn()}
 			/>,
 		);
@@ -90,15 +105,108 @@ describe("PlotDataTableModal", () => {
 		expect(screen.getByText(/No data series are displayed/)).toBeInTheDocument();
 	});
 
-	it("has no axe violations", async () => {
-		const { container } = render(
-			<PlotDataTableModal
-				series={series}
-				datasets={[dataset]}
-				xAxes={xAxes}
-				onClose={vi.fn()}
-			/>,
-		);
-		expect(await axe(container)).toHaveNoViolations();
+	describe("actions", () => {
+		const renderModal = (s = series) =>
+			render(
+				<PlotDataTableModal
+					series={s}
+					datasets={[dataset]}
+					xAxes={xAxes}
+					feedback={feedback}
+					onClose={vi.fn()}
+				/>,
+			);
+
+		beforeEach(() => {
+			useNotificationStore.setState({ notifications: [] });
+			vi.mocked(exportVisibleCsv).mockClear();
+		});
+
+		it("copies the shown rows as TSV and confirms with a toast", async () => {
+			const writeText = vi.fn(() => Promise.resolve());
+			Object.defineProperty(navigator, "clipboard", {
+				value: { writeText },
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications).toHaveLength(1),
+			);
+			expect(writeText).toHaveBeenCalledWith(
+				"Time\tTemperature\n0\t10\n1\t20\n2\t30\n3\t40\n",
+			);
+			const [toast] = useNotificationStore.getState().notifications;
+			expect(toast.kind).toBe("success");
+			expect(toast.message).toMatch(/4 rows/);
+		});
+
+		it("reports a rejected clipboard write", async () => {
+			Object.defineProperty(navigator, "clipboard", {
+				value: { writeText: () => Promise.reject(new Error("denied")) },
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications).toHaveLength(1),
+			);
+			const [toast] = useNotificationStore.getState().notifications;
+			expect(toast.kind).toBe("error");
+			expect(toast.message).toMatch(/denied/);
+		});
+
+		it("reports a missing clipboard API", async () => {
+			Object.defineProperty(navigator, "clipboard", {
+				value: undefined,
+				configurable: true,
+			});
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Copy table/ }));
+			await waitFor(() =>
+				expect(useNotificationStore.getState().notifications[0]?.kind).toBe(
+					"error",
+				),
+			);
+		});
+
+		it("exports the visible range as CSV", () => {
+			renderModal();
+			fireEvent.click(screen.getByRole("button", { name: /Export CSV/ }));
+			expect(exportVisibleCsv).toHaveBeenCalledWith(
+				{ series, datasets: [dataset], xAxes },
+				feedback,
+			);
+		});
+
+		it("puts the actions in the footer and focuses Export CSV", () => {
+			renderModal();
+			const exportBtn = screen.getByRole("button", { name: /Export CSV/ });
+			expect(exportBtn.closest(".modal-footer")).not.toBeNull();
+			expect(exportBtn).toHaveFocus();
+		});
+
+		it("disables both when nothing is plotted", () => {
+			renderModal([]);
+			expect(screen.getByRole("button", { name: /Copy table/ })).toBeDisabled();
+			expect(screen.getByRole("button", { name: /Export CSV/ })).toBeDisabled();
+		});
 	});
+
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = render(
+				<PlotDataTableModal
+					series={series}
+					datasets={[dataset]}
+					xAxes={xAxes}
+					feedback={feedback}
+					onClose={vi.fn()}
+				/>,
+			);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

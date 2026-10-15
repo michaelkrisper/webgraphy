@@ -31,6 +31,7 @@ export interface WebGLLocations {
 	dprLoc: WebGLUniformLocation | null;
 	sizeLoc: WebGLUniformLocation | null;
 	screenSpaceLoc: WebGLUniformLocation | null;
+	logRefLoc: WebGLUniformLocation | null;
 }
 
 export interface LineProgramLocations {
@@ -45,6 +46,7 @@ export interface LineProgramLocations {
 	colorLoc: WebGLUniformLocation | null;
 	widthLoc: WebGLUniformLocation | null;
 	dashLoc: WebGLUniformLocation | null;
+	logRefLoc: WebGLUniformLocation | null;
 }
 
 export class GLStateCache {
@@ -73,6 +75,7 @@ export class GLStateCache {
 	private yScaleSet = false;
 	private yScaleA = 0;
 	private yScaleB = 0;
+	private logRef: number[] | null = null;
 	private attribEnabled = new Map<number, boolean>();
 	private attribConst = new Map<number, string>();
 	private attribDivisor = new Map<number, number>();
@@ -94,6 +97,7 @@ export class GLStateCache {
 	private lpWidth = -1;
 	private lpDashA = -1;
 	private lpDashB = -1;
+	private lpLogRef: number[] | null = null;
 
 	constructor(gl: WebGL2RenderingContext, locs: WebGLLocations) {
 		this.gl = gl;
@@ -146,6 +150,7 @@ export class GLStateCache {
 		this.lineWidth = -1;
 		this.xScaleSet = false;
 		this.yScaleSet = false;
+		this.logRef = null;
 		this.attribEnabled.clear();
 		this.attribConst.clear();
 		this.attribDivisor.clear();
@@ -157,6 +162,7 @@ export class GLStateCache {
 		this.lpWidth = -1;
 		this.lpDashA = -1;
 		this.lpDashB = -1;
+		this.lpLogRef = null;
 	}
 
 	setColor(r: number, g: number, b: number, a: number): void {
@@ -228,6 +234,27 @@ export class GLStateCache {
 		this.yScaleA = a;
 		this.yScaleB = b;
 		this.yScaleSet = true;
+	}
+
+	/**
+	 * Per-axis log flags (1 = log10) and the column refPoints the log path
+	 * needs to rebuild absolute values. Linear axes pass ref 0 so series
+	 * that differ only in refPoint keep hitting the cache.
+	 */
+	setLogRef(xLog: number, yLog: number, xRef: number, yRef: number): void {
+		if (this.logRef && sameVec4(this.logRef, xLog, yLog, xRef, yRef)) return;
+		this.useMain();
+		this.gl.uniform4f(this.locs.logRefLoc, xLog, yLog, xRef, yRef);
+		this.logRef ??= [0, 0, 0, 0];
+		setVec4(this.logRef, xLog, yLog, xRef, yRef);
+	}
+
+	lpSetLogRef(xLog: number, yLog: number, xRef: number, yRef: number): void {
+		if (this.lpLogRef && sameVec4(this.lpLogRef, xLog, yLog, xRef, yRef)) return;
+		this.useLine();
+		this.gl.uniform4f(this.lineLocs?.logRefLoc ?? null, xLog, yLog, xRef, yRef);
+		this.lpLogRef ??= [0, 0, 0, 0];
+		setVec4(this.lpLogRef, xLog, yLog, xRef, yRef);
 	}
 
 	lpSetColor(r: number, g: number, b: number, a: number): void {
@@ -331,4 +358,14 @@ export class GLStateCache {
 			this.attribConst.set(loc, key);
 		}
 	}
+}
+
+const sameVec4 = (v: number[], a: number, b: number, c: number, d: number) =>
+	v[0] === a && v[1] === b && v[2] === c && v[3] === d;
+
+function setVec4(v: number[], a: number, b: number, c: number, d: number) {
+	v[0] = a;
+	v[1] = b;
+	v[2] = c;
+	v[3] = d;
 }

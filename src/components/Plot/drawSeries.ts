@@ -22,8 +22,15 @@ import {
 } from "./decimationCache";
 
 export interface SegParams {
+	// Column identities: the cache is keyed per series id, and a series can
+	// be re-pointed at different columns (x column switch, column removal
+	// shifting indices) while every numeric field below stays the same.
+	xData: Float32Array;
+	yData: Float32Array;
 	xRange: number;
 	yRange: number;
+	xLog: boolean;
+	yLog: boolean;
 	chartWidth: number;
 	chartHeight: number;
 	dpr: number;
@@ -44,8 +51,11 @@ export interface SeriesDrawBundle {
 	yRef: number;
 	xAxisMin: number;
 	xAxisMax: number;
+	/** Visible span in scale space: data units, or decades on a log axis. */
 	xRange: number;
 	yRange: number;
+	xLog: boolean;
+	yLog: boolean;
 	chartWidth: number;
 	chartHeight: number;
 	padding: { top: number; right: number; bottom: number; left: number };
@@ -140,11 +150,18 @@ function drawDecimatedLines(
 		numBuckets,
 		3,
 		isInteracting,
+		bundle.cachedSegments,
+		bundle.xLog,
 	);
-	if (!entry.xBuf || !entry.yBuf || entry.count < 2) return;
+	if (!entry.xBuf || !entry.yBuf) return;
 
-	bindColumnSegments(st, entry.xBuf, entry.yBuf, 0);
-	gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, entry.count - 1);
+	const runs = entry.runs;
+	for (let r = 0; r < runs.length; r += 2) {
+		const count = runs[r + 1];
+		if (count < 2) continue;
+		bindColumnSegments(st, entry.xBuf, entry.yBuf, runs[r]);
+		gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count - 1);
+	}
 }
 
 function drawPlainLines(st: GLStateCache, bundle: SeriesDrawBundle): void {
@@ -195,8 +212,12 @@ export function dashCacheParams(
 	totalLineSegs: number,
 ): SegParams {
 	return {
+		xData: bundle.xData,
+		yData: bundle.yData,
 		xRange: bundle.xRange,
 		yRange: bundle.yRange,
+		xLog: bundle.xLog,
+		yLog: bundle.yLog,
 		chartWidth: bundle.chartWidth,
 		chartHeight: bundle.chartHeight,
 		dpr: bundle.dpr,
@@ -219,8 +240,12 @@ export function dashParamsEqual(
 ): boolean {
 	return (
 		a !== undefined &&
+		a.xData === b.xData &&
+		a.yData === b.yData &&
 		a.xRange === b.xRange &&
 		a.yRange === b.yRange &&
+		a.xLog === b.xLog &&
+		a.yLog === b.yLog &&
 		a.chartWidth === b.chartWidth &&
 		a.chartHeight === b.chartHeight &&
 		a.dpr === b.dpr &&
@@ -234,7 +259,8 @@ export function dashParamsEqual(
  * Packs one instance per dash segment as (x0, y0, x1, y1, cumulative distance).
  * The distance runs in device pixels along each range so the fragment shader
  * can phase the dash pattern; it restarts at every range because a gap breaks
- * the line anyway.
+ * the line anyway — and after a sample a log axis cannot place (<= 0), which
+ * the shader drops like a gap.
  *
  * Pure and GL-free, which is what makes it testable in isolation.
  */
@@ -246,8 +272,12 @@ export function buildDashInstances(
 		drawRanges,
 		xData,
 		yData,
+		xRef,
+		yRef,
 		xRange,
 		yRange,
+		xLog,
+		yLog,
 		chartWidth,
 		chartHeight,
 		dpr,
@@ -277,7 +307,10 @@ export function buildDashInstances(
 			out[off + 2] = bx;
 			out[off + 3] = by;
 			out[off + 4] = cumDist;
-			cumDist += Math.sqrt(((bx - ax) * scaleX) ** 2 + ((by - ay) * scaleY) ** 2);
+			const dx = xLog ? Math.log10(xRef + bx) - Math.log10(xRef + ax) : bx - ax;
+			const dy = yLog ? Math.log10(yRef + by) - Math.log10(yRef + ay) : by - ay;
+			const d = Math.sqrt((dx * scaleX) ** 2 + (dy * scaleY) ** 2);
+			cumDist = Number.isFinite(d) ? cumDist + d : 0;
 			outIdx++;
 		}
 	}
@@ -356,6 +389,12 @@ export function drawSeriesLines(
 	st.useLine();
 	st.lpSetXScaleOff(bundle.xScale, bundle.xOff);
 	st.lpSetYScaleOff(bundle.yScale, bundle.yOff);
+	st.lpSetLogRef(
+		bundle.xLog ? 1 : 0,
+		bundle.yLog ? 1 : 0,
+		bundle.xLog ? bundle.xRef : 0,
+		bundle.yLog ? bundle.yRef : 0,
+	);
 	const c = bundle.lineColorRgba;
 	st.lpSetColor(c[0], c[1], c[2], 1.0);
 	st.lpSetWidth((bundle.isHighlighted ? 2.5 : 1.0) * bundle.dpr);
@@ -366,14 +405,14 @@ export function drawSeriesLines(
 
 		// M4 decimation: only when the visible slice is denser than 4 samples
 		// per device pixel. Output preserves per-bucket (first,min,max,last) so
-		// vertical extrema survive the downsample.
+		// vertical extrema survive the downsample; gapped series decimate per
+		// segment so the gaps stay open. On a log x axis the buckets are
+		// uniform in log10(x), so they stay pixel-sized (a log y axis needs
+		// nothing: min/max survive any monotonic transform).
 		const chartWidthPx = bundle.chartWidth * bundle.dpr;
 		const numBuckets = Math.max(8, Math.ceil(chartWidthPx));
 		const visibleCount = bundle.sliceEnd - bundle.sliceStart + 1;
-		const useDecim =
-			bundle.isMonotonic &&
-			bundle.cachedSegments.length === 1 &&
-			visibleCount > numBuckets * 4;
+		const useDecim = bundle.isMonotonic && visibleCount > numBuckets * 4;
 
 		if (useDecim) {
 			drawDecimatedLines(
@@ -444,6 +483,8 @@ export function drawSeriesPoints(
 			numBuckets,
 			1,
 			isInteracting,
+			undefined,
+			bundle.xLog,
 		);
 		if (entry.xBuf && entry.yBuf && entry.count >= 1) {
 			const xArr = entry.xArr;

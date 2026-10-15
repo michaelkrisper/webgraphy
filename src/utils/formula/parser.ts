@@ -209,6 +209,15 @@ export function tokenizeFormula(
 
 			if (KNOWN_FUNCTION_NAMES.has(lower)) {
 				const meta = FUNCTION_BY_NAME.get(lower)!;
+				// Regressions need whole columns and only run as the entire
+				// formula (see regressionMatch.ts); nested, they would evaluate
+				// row by row to a meaningless pass-through.
+				if (meta.category === "regression") {
+					throw new FormulaError(
+						`${meta.signature}: must be the entire formula, e.g. ${meta.example}`,
+						startPos,
+					);
+				}
 				if (meta.needsTime) ensureTimeColumn();
 				tokens.push({
 					type: "FUNC",
@@ -441,4 +450,44 @@ export function shuntingYard(tokens: Token[]): {
 		outputQueue.push(top);
 	}
 	return { outputQueue, setUsesAllColumns: usesAllColumns };
+}
+
+/**
+ * Simulates the RPN stack so malformed input is rejected at compile time
+ * instead of the interpreter silently returning whatever sits in stack[0]
+ * ("[a] [b]", "5 %", "2(3)"). Every operator/function must find its operands
+ * and exactly one value must remain.
+ */
+export function validateRpn(outputQueue: Token[]): void {
+	// Leftmost source position of each pending value, for error reporting.
+	const starts: number[] = [];
+	const consume = (n: number, token: Token, what: string) => {
+		if (starts.length < n)
+			throw new FormulaError(`Missing operand for ${what}`, token.pos);
+		let start = token.pos;
+		for (let k = 0; k < n; k++) start = Math.min(start, starts.pop()!);
+		starts.push(start);
+	};
+	for (const token of outputQueue) {
+		if (
+			token.type === "NUMBER" ||
+			token.type === "VAR" ||
+			token.type === "CONST"
+		) {
+			starts.push(token.pos);
+		} else if (token.type === "FUNC") {
+			if (token.args === undefined)
+				throw new FormulaError(
+					`Expected "(" after function ${token.value}`,
+					token.pos,
+				);
+			consume(token.args, token, `${token.value}()`);
+		} else if (token.type === "OP") {
+			const shown = token.value === "u-" ? "-" : token.value;
+			consume(token.unary ? 1 : 2, token, `"${shown}"`);
+		}
+	}
+	if (starts.length === 0) throw new FormulaError("Empty formula", 0);
+	if (starts.length > 1)
+		throw new FormulaError("Missing operator between values", starts[1]);
 }

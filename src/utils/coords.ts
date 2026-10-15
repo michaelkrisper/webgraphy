@@ -1,3 +1,5 @@
+import { axisFraction, axisValueAt } from "./axisScale";
+
 export interface Viewport {
 	xMin: number;
 	xMax: number;
@@ -6,6 +8,9 @@ export interface Viewport {
 	width: number;
 	height: number;
 	padding?: { top: number; right: number; bottom: number; left: number };
+	/** Log10 axes: positions are linear in log10(value); values <= 0 map to NaN. */
+	xLog?: boolean;
+	yLog?: boolean;
 }
 
 /**
@@ -24,8 +29,10 @@ export const worldToScreen = (x: number, y: number, view: Viewport) => {
 	const yRange = view.yMax - view.yMin;
 	// A zero-width range (e.g. a single data point) would divide by zero; center
 	// the degenerate axis instead of emitting NaN/Infinity screen coords.
-	const fx = xRange !== 0 ? (x - view.xMin) / xRange : 0.5;
-	const fy = yRange !== 0 ? (y - view.yMin) / yRange : 0.5;
+	const fx =
+		xRange !== 0 ? axisFraction(x, view.xMin, view.xMax, !!view.xLog) : 0.5;
+	const fy =
+		yRange !== 0 ? axisFraction(y, view.yMin, view.yMax, !!view.yLog) : 0.5;
 	const sx = p.left + fx * chartWidth;
 	const sy = view.height - p.bottom - fy * chartHeight;
 	return { x: sx, y: sy };
@@ -43,9 +50,17 @@ export const screenToWorld = (sx: number, sy: number, view: Viewport) => {
 	const chartWidth = view.width - p.left - p.right;
 	const chartHeight = view.height - p.top - p.bottom;
 
-	const x = view.xMin + ((sx - p.left) / chartWidth) * (view.xMax - view.xMin);
-	const y =
-		view.yMin +
-		((view.height - p.bottom - sy) / chartHeight) * (view.yMax - view.yMin);
+	const x = axisValueAt(
+		(sx - p.left) / chartWidth,
+		view.xMin,
+		view.xMax,
+		!!view.xLog,
+	);
+	const y = axisValueAt(
+		(view.height - p.bottom - sy) / chartHeight,
+		view.yMin,
+		view.yMax,
+		!!view.yLog,
+	);
 	return { x, y };
 };

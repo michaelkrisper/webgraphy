@@ -6,7 +6,7 @@ describe("getXAxisRowMetrics", () => {
 		expect(getXAxisRowMetrics("date")).toEqual({
 			height: 70,
 			labelBottom: 22,
-			secLabelBottom: 38,
+			secLabelBottom: 40,
 			titleBottom: 60,
 		});
 	});
@@ -55,7 +55,7 @@ describe("computeXAxesMetrics", () => {
 			{ id: "B", xMode: "numeric" },
 		]);
 		expect(date.labelBottom).toBe(22);
-		expect(date.secLabelBottom).toBe(38);
+		expect(date.secLabelBottom).toBe(40);
 		expect(num.labelBottom).toBe(26);
 		expect(num.secLabelBottom).toBe(0);
 	});

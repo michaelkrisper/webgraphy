@@ -228,14 +228,19 @@ export const THEMES: Record<ThemeName, Theme> = {
 	},
 };
 
-// Refined series palette — works on both light and dark
+// Series palette. One set for every theme: each colour sits in the mid
+// luminance band that clears 3:1 (WCAG 1.4.11) against all five plot
+// backgrounds, so a series keeps its colour across theme switches and
+// persisted series need no remapping. Hues were picked to stay apart under
+// simulated deuteranopia/protanopia/tritanopia — no teal/cyan or
+// cobalt/violet near-twins. Both properties are pinned in contrast.test.ts.
 export const COLOR_PALETTE = [
-	"#1f4ed8", // cobalt
-	"#d97706", // amber
-	"#0d8770", // teal
-	"#db2777", // magenta
-	"#7c3aed", // violet
-	"#0891b2", // cyan
+	"#2951eb", // cobalt
+	"#bb7804", // ochre
+	"#049967", // jade
+	"#b81f81", // magenta
+	"#a26fd3", // lavender
+	"#d20f3b", // crimson
 ];
 
 export const THEME_CYCLE: ThemeName[] = [

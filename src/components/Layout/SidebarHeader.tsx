@@ -3,13 +3,9 @@ import {
 	Columns3,
 	Crosshair,
 	FilePlus,
-	FlaskConical,
-	Grid3x3,
-	Image,
 	List,
 	Moon,
 	PanelRightClose,
-	Spline,
 	Sun,
 	Table,
 	Terminal,
@@ -17,9 +13,13 @@ import {
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
 import { useGraphStore } from "../../store/useGraphStore";
+import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
+import { ExportMenu } from "./ExportMenu";
+
+const EXPORT_FEEDBACK = { notify, dismiss: dismissNotification };
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
 const PlotDataTableModal = lazy(() =>
@@ -110,17 +110,24 @@ const HeaderButton = ({
 interface SidebarHeaderProps {
 	onCollapse: () => void;
 	onImport: () => void;
+	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onOpenSession: () => void;
+	onSaveSession: () => void;
+	onExportCSV: () => void;
 }
 
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onCollapse,
 	onImport,
+	onExportImage,
 	onExportSVG,
 	onExportPNG,
+	onOpenSession,
+	onSaveSession,
+	onExportCSV,
 }) => {
-	const loadDemoData = useGraphStore((s) => s.loadDemoData);
 	const updateXAxis = useGraphStore((s) => s.updateXAxis);
 	const xAxes = useGraphStore((s) => s.xAxes);
 	const legendVisible = useGraphStore((s) => s.legendVisible);
@@ -150,43 +157,16 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				title="Import Data Source"
 			/>
 			<div className="sb-hdr-btns">
-				<HeaderButton
-					onClick={loadDemoData}
-					icon={<FlaskConical size={24} />}
-					title="Load Demo Data"
-				/>
 				{hdrSep}
-				<PopupPicker
-					options={[
-						{
-							value: "svg",
-							icon: <Spline size={16} />,
-							label: "Export as SVG (vector)",
-						},
-						{
-							value: "png",
-							icon: <Grid3x3 size={16} />,
-							label: "Export as PNG (pixel)",
-						},
-					]}
-					current={"" as "svg" | "png" | ""}
-					onChange={(v) => {
-						if (v === "svg") onExportSVG();
-						else if (v === "png") onExportPNG();
-					}}
-					popoverId="export-popover"
-					renderTrigger={({ onClick, ref }) => (
-						<button
-							ref={ref}
-							type="button"
-							onClick={onClick}
-							title="Export Image"
-							aria-label="Export Image"
-							className="sb-hdr-btn"
-						>
-							<Image size={24} />
-						</button>
-					)}
+				<ExportMenu
+					onExportImage={onExportImage}
+					onExportSVG={onExportSVG}
+					onExportPNG={onExportPNG}
+					onOpenSession={onOpenSession}
+					onSaveSession={onSaveSession}
+					onExportCSV={onExportCSV}
+					className="sb-hdr-btn"
+					iconSize={24}
 				/>
 				<HeaderButton
 					onClick={() => setDataTableOpen(true)}
@@ -247,6 +227,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 						series={series}
 						datasets={datasets}
 						xAxes={xAxes}
+						feedback={EXPORT_FEEDBACK}
 						onClose={() => setDataTableOpen(false)}
 					/>
 				)}

@@ -12,6 +12,9 @@ export interface OverlayXEntry {
 	max: number;
 	showGrid: boolean;
 	ticks: number[];
+	/** Log axes: unlabelled ticks (short marks, light grid). */
+	minorTicks?: number[];
+	log?: boolean;
 	categoryLabels?: string[];
 }
 
@@ -21,6 +24,8 @@ export interface OverlayYEntry {
 	max: number;
 	showGrid: boolean;
 	ticks: number[];
+	minorTicks?: number[];
+	log?: boolean;
 	position: "left" | "right";
 	categoryLabels?: string[];
 }
@@ -37,6 +42,7 @@ const BASE_VERTEX_COUNT = 12 + 12 + 32;
 
 interface VertexCountAxis {
 	ticks: { length: number };
+	minorTicks?: { length: number };
 	showGrid: boolean;
 }
 
@@ -51,11 +57,13 @@ export function estimateOverlayVertexCount(
 	yAxes: readonly VertexCountAxis[],
 ): number {
 	let est = BASE_VERTEX_COUNT;
-	if (xAxes[0]?.showGrid) est += xAxes[0].ticks.length * 4;
-	for (const ax of xAxes) est += (ax.ticks.length + 1) * 4 + 6;
+	const tickCount = (ax: VertexCountAxis) =>
+		ax.ticks.length + (ax.minorTicks?.length ?? 0);
+	if (xAxes[0]?.showGrid) est += tickCount(xAxes[0]) * 4;
+	for (const ax of xAxes) est += (tickCount(ax) + 1) * 4 + 6;
 	for (const ax of yAxes) {
-		if (ax.showGrid) est += ax.ticks.length * 4;
-		est += (ax.ticks.length + 1) * 4 + 6;
+		if (ax.showGrid) est += tickCount(ax) * 4;
+		est += (tickCount(ax) + 1) * 4 + 6;
 	}
 	return est;
 }
@@ -77,6 +85,8 @@ export function updateOverlayAxes(
 				max: a.max,
 				showGrid: a.showGrid,
 				ticks: [],
+				minorTicks: a.ticks.minorTicks,
+				log: a.scale === "log",
 				categoryLabels: a.categoryLabels,
 			};
 			sx[i] = entry;
@@ -85,6 +95,8 @@ export function updateOverlayAxes(
 			entry.min = a.min;
 			entry.max = a.max;
 			entry.showGrid = a.showGrid;
+			entry.minorTicks = a.ticks.minorTicks;
+			entry.log = a.scale === "log";
 			entry.categoryLabels = a.categoryLabels;
 		}
 		const src = a.ticks.result;
@@ -107,6 +119,8 @@ export function updateOverlayAxes(
 				max: a.max,
 				showGrid: a.showGrid,
 				ticks: a.ticks,
+				minorTicks: a.minorTicks,
+				log: a.scale === "log",
 				position: a.position,
 				categoryLabels: a.categoryLabels,
 			};
@@ -117,6 +131,8 @@ export function updateOverlayAxes(
 			entry.max = a.max;
 			entry.showGrid = a.showGrid;
 			entry.ticks = a.ticks;
+			entry.minorTicks = a.minorTicks;
+			entry.log = a.scale === "log";
 			entry.position = a.position;
 			entry.categoryLabels = a.categoryLabels;
 		}

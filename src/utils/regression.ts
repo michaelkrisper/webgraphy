@@ -1,7 +1,39 @@
 /**
  * Regression and curve fitting utilities.
  * All functions take x,y arrays and return fitted y values.
+ *
+ * Fits use only the rows where both x and y are finite, so one gap does not
+ * turn the whole curve into NaN; the result is still evaluated at every x.
+ * x (and y where it helps) is centred before accumulating sums: the raw form
+ * n·Σx² − (Σx)² cancels catastrophically for epoch-scale x.
  */
+
+/** The (x, y) pairs where both are finite, compacted; the inputs if all are. */
+function finitePairs(
+	x: Float64Array,
+	y: Float64Array,
+): { x: Float64Array; y: Float64Array } {
+	const n = x.length;
+	let valid = 0;
+	for (let i = 0; i < n; i++)
+		if (Number.isFinite(x[i]) && Number.isFinite(y[i])) valid++;
+	if (valid === n) return { x, y };
+	const cx = new Float64Array(valid);
+	const cy = new Float64Array(valid);
+	for (let i = 0, j = 0; i < n; i++) {
+		if (Number.isFinite(x[i]) && Number.isFinite(y[i])) {
+			cx[j] = x[i];
+			cy[j++] = y[i];
+		}
+	}
+	return { x: cx, y: cy };
+}
+
+function mean(v: Float64Array): number {
+	let s = 0;
+	for (let i = 0; i < v.length; i++) s += v[i];
+	return s / v.length;
+}
 
 /** Linear regression: y = ax + b */
 export function linearRegression(
@@ -9,22 +41,22 @@ export function linearRegression(
 	y: Float64Array,
 ): Float64Array {
 	const n = x.length;
-	let sx = 0,
-		sy = 0,
-		sxy = 0,
-		sxx = 0;
-	for (let i = 0; i < n; i++) {
-		sx += x[i];
-		sy += y[i];
-		sxy += x[i] * y[i];
-		sxx += x[i] * x[i];
+	const fit = finitePairs(x, y);
+	const m = fit.x.length;
+	if (m < 2) return new Float64Array(n);
+	const meanX = mean(fit.x);
+	const meanY = mean(fit.y);
+	let sxx = 0,
+		sxy = 0;
+	for (let i = 0; i < m; i++) {
+		const dx = fit.x[i] - meanX;
+		sxx += dx * dx;
+		sxy += dx * (fit.y[i] - meanY);
 	}
-	const denom = n * sxx - sx * sx;
-	if (Math.abs(denom) < 1e-30) return new Float64Array(n);
-	const a = (n * sxy - sx * sy) / denom;
-	const b = (sy - a * sx) / n;
+	if (!(sxx > 0)) return new Float64Array(n);
+	const slope = sxy / sxx;
 	const result = new Float64Array(n);
-	for (let i = 0; i < n; i++) result[i] = a * x[i] + b;
+	for (let i = 0; i < n; i++) result[i] = meanY + slope * (x[i] - meanX);
 	return result;
 }
 
@@ -35,39 +67,42 @@ export function polynomialRegression(
 	degree: number,
 ): Float64Array {
 	const n = x.length;
-	const d = Math.min(degree, Math.min(n - 1, 10)); // Cap at 10 for stability
+	const fit = finitePairs(x, y);
+	const nFit = fit.x.length;
+	const d = Math.min(degree, Math.min(nFit - 1, 10)); // Cap at 10 for stability
+	if (d < 0) return new Float64Array(n);
 	const m = d + 1;
 
 	// Center and scale x before building the normal equations. Raw values such
 	// as epoch timestamps raised to high powers wreck the conditioning of X^T X;
 	// fitting in normalized space and evaluating at the same points leaves the
 	// fitted y values unchanged but keeps the solve numerically stable.
-	let meanX = 0;
-	for (let i = 0; i < n; i++) meanX += x[i];
-	meanX /= n;
+	// y is centred too, so a large constant offset does not swamp X^T y.
+	const meanX = mean(fit.x);
+	const meanY = mean(fit.y);
 	let varX = 0;
-	for (let i = 0; i < n; i++) {
-		const dxv = x[i] - meanX;
+	for (let i = 0; i < nFit; i++) {
+		const dxv = fit.x[i] - meanX;
 		varX += dxv * dxv;
 	}
-	const scaleX = Math.sqrt(varX / n) || 1;
-	const xs = new Float64Array(n);
-	for (let i = 0; i < n; i++) xs[i] = (x[i] - meanX) / scaleX;
+	const scaleX = Math.sqrt(varX / nFit) || 1;
 
 	// Compute X^T * X and X^T * y
 	const XtX = new Float64Array(m * m);
 	const Xty = new Float64Array(m);
 
-	for (let i = 0; i < n; i++) {
+	for (let i = 0; i < nFit; i++) {
+		const xs = (fit.x[i] - meanX) / scaleX;
+		const yc = fit.y[i] - meanY;
 		let xpow = 1;
 		for (let j = 0; j < m; j++) {
-			Xty[j] += xpow * y[i];
+			Xty[j] += xpow * yc;
 			let xpow2 = 1;
 			for (let k = 0; k < m; k++) {
 				XtX[j * m + k] += xpow * xpow2;
-				xpow2 *= xs[i];
+				xpow2 *= xs;
 			}
-			xpow *= xs[i];
+			xpow *= xs;
 		}
 	}
 
@@ -76,11 +111,12 @@ export function polynomialRegression(
 
 	const result = new Float64Array(n);
 	for (let i = 0; i < n; i++) {
-		let val = 0,
+		const xs = (x[i] - meanX) / scaleX;
+		let val = meanY,
 			xpow = 1;
 		for (let j = 0; j < m; j++) {
 			val += coeffs[j] * xpow;
-			xpow *= xs[i];
+			xpow *= xs;
 		}
 		result[i] = val;
 	}
@@ -144,21 +180,22 @@ export function exponentialRegression(
 	y: Float64Array,
 ): Float64Array {
 	const n = x.length;
-	// Filter positive y values for log transform
+	// Non-finite y stays NaN in logY and is dropped by linearRegression.
 	const logY = new Float64Array(n);
 	let allPositive = true;
+	let minY = Infinity;
 	for (let i = 0; i < n; i++) {
-		if (y[i] <= 0) {
-			allPositive = false;
-			break;
+		if (!Number.isFinite(y[i])) {
+			logY[i] = NaN;
+			continue;
 		}
+		if (y[i] <= 0) allPositive = false;
+		if (y[i] < minY) minY = y[i];
 		logY[i] = Math.log(y[i]);
 	}
 
 	if (!allPositive) {
 		// Shift y to make all positive
-		let minY = Infinity;
-		for (let i = 0; i < n; i++) if (y[i] < minY) minY = y[i];
 		const shift = Math.abs(minY) + 1;
 		for (let i = 0; i < n; i++) logY[i] = Math.log(y[i] + shift);
 		const fitted = linearRegression(x, logY);
@@ -179,6 +216,26 @@ export function logisticRegression(
 	y: Float64Array,
 ): Float64Array {
 	const n = x.length;
+	const fit = finitePairs(x, y);
+	if (fit.x.length === 0) return new Float64Array(n);
+	// Work in centred x so the x0 updates are not lost against epoch-scale x.
+	const meanX = mean(fit.x);
+	// The initial k is a finite-difference slope over neighbouring indices,
+	// which is only meaningful when rows are ordered by x.
+	const order = Array.from(fit.x.keys()).sort(
+		(a, b) => fit.x[a] - fit.x[b] || fit.y[a] - fit.y[b],
+	);
+	const predict = logisticFit(
+		Float64Array.from(order, (i) => fit.x[i] - meanX),
+		Float64Array.from(order, (i) => fit.y[i]),
+	);
+	const result = new Float64Array(n);
+	for (let i = 0; i < n; i++) result[i] = predict(x[i] - meanX);
+	return result;
+}
+
+function logisticFit(x: Float64Array, y: Float64Array): (x: number) => number {
+	const n = x.length;
 
 	// Estimate parameters
 	let yMin = Infinity,
@@ -189,7 +246,7 @@ export function logisticRegression(
 	}
 	const L = yMax + 0.05 * (yMax - yMin); // Upper asymptote, 5% above the range
 	const yRange = L - yMin;
-	if (yRange < 1e-10) return new Float64Array(n);
+	if (yRange < 1e-10) return () => 0;
 
 	// Find midpoint (where y ≈ L/2)
 	const halfL = (yMin + L) / 2;
@@ -231,17 +288,30 @@ export function logisticRegression(
 		x0 -= lr * gradX0;
 	}
 
-	const result = new Float64Array(n);
-	for (let i = 0; i < n; i++) {
-		const z = -k * (x[i] - x0);
+	return (xi) => {
+		const z = -k * (xi - x0);
 		const ez = Math.exp(Math.max(-50, Math.min(50, z)));
-		result[i] = yMin + yRange / (1 + ez);
-	}
-	return result;
+		return yMin + yRange / (1 + ez);
+	};
 }
 
 /** KDE (Kernel Density Estimation) smoothing with Gaussian kernel */
 export function kdeSmoothing(
+	x: Float64Array,
+	y: Float64Array,
+	bandwidth?: number,
+): Float64Array {
+	const fit = finitePairs(x, y);
+	if (fit.x === x) return kdeSmoothingFinite(x, y, bandwidth);
+	// Smooth the finite pairs only; rows without one have no value to smooth.
+	const smoothed = kdeSmoothingFinite(fit.x, fit.y, bandwidth);
+	const result = new Float64Array(x.length).fill(NaN);
+	for (let i = 0, j = 0; i < x.length; i++)
+		if (Number.isFinite(x[i]) && Number.isFinite(y[i])) result[i] = smoothed[j++];
+	return result;
+}
+
+function kdeSmoothingFinite(
 	x: Float64Array,
 	y: Float64Array,
 	bandwidth?: number,
@@ -251,14 +321,13 @@ export function kdeSmoothing(
 	// Auto bandwidth using Silverman's rule on x spacing
 	let h = bandwidth;
 	if (!h) {
-		let sumX = 0,
-			sumX2 = 0;
+		const meanX = mean(x);
+		let varX = 0;
 		for (let i = 0; i < n; i++) {
-			sumX += x[i];
-			sumX2 += x[i] * x[i];
+			const dx = x[i] - meanX;
+			varX += dx * dx;
 		}
-		const meanX = sumX / n;
-		const stdX = Math.sqrt(sumX2 / n - meanX * meanX);
+		const stdX = Math.sqrt(varX / n);
 		h = 1.06 * stdX * n ** -0.2;
 		if (h < 1e-12) h = (x[n - 1] - x[0]) / (n * 0.1);
 	}

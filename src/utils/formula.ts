@@ -13,3 +13,7 @@
 export * from "./formula/types";
 export { compileFormula } from "./formula/compile";
 export { evaluateFormulaSync } from "./formula/wholeColumn";
+export {
+	matchRegressionFormula,
+	type RegressionSpec,
+} from "./formula/regressionMatch";

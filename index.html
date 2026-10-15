@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="pwa-192x192.png">
     <!-- Security Enhancement: Content Security Policy. Fonts are self-hosted
          (see src/fonts.ts), so no external font/style origins are needed. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://gc.zgo.at; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://webgraphy.goatcounter.com; worker-src 'self' blob:; connect-src 'self' https://webgraphy.goatcounter.com; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://webgraphy.goatcounter.com; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests;" />
     <meta name="referrer" content="no-referrer" />
     <title>WebGraphy - High Performance Visualization</title>
     <meta name="description" content="Professional high-performance data visualization tool using WebGL." />
@@ -17,7 +17,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script data-goatcounter="https://webgraphy.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
   </body>
 </html>

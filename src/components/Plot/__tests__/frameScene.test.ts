@@ -121,3 +121,60 @@ describe("buildFrameScene", () => {
 		expect(secondary.length).toBeGreaterThan(0);
 	});
 });
+
+describe("buildFrameScene log axes", () => {
+	const logCtx: SceneContext = {
+		...ctx,
+		xAxesMeta: [{ ...ctx.xAxesMeta[0], scale: "log" }],
+		yAxesMeta: [{ ...ctx.yAxesMeta[0], scale: "log" }],
+	};
+
+	it("lays out decade ticks, minor ticks, and log labels", () => {
+		const scene = buildFrameScene(
+			logCtx,
+			1,
+			snap([1, 1e6], [0.001, 10]),
+			1,
+			createFrameSceneCaches(),
+		);
+		const x = scene.xLayouts[0];
+		expect(x.scale).toBe("log");
+		expect(x.ticks.result).toContain(1000);
+		expect(x.ticks.minorTicks?.length).toBeGreaterThan(0);
+		const y = scene.yLayouts[0];
+		expect(y.ticks).toContain(0.01);
+		expect(y.minorTicks?.length).toBeGreaterThan(0);
+
+		const texts = scene.labels.map((l) => l.text);
+		expect(texts).toContain("0.001");
+		expect(texts).toContain("10⁶");
+
+		// Decades sit evenly spaced: 10 is 1/6 of the way along [1, 1e6].
+		const chartWidth = ctx.width - ctx.padding.left - ctx.padding.right;
+		const ten = scene.labels.find((l) => l.text === "10");
+		expect(ten?.x).toBeCloseTo(ctx.padding.left + chartWidth / 6);
+	});
+
+	it("draws a lighter minor-grid group beneath the major grid", () => {
+		const scene = buildFrameScene(
+			logCtx,
+			1,
+			snap([1, 1e6], [0.001, 10]),
+			1,
+			createFrameSceneCaches(),
+		);
+		const alphas = scene.overlay.groups
+			.filter((g) => g.topology === "LINES")
+			.map((g) => g.rgba[3]);
+		expect(alphas).toContain(0.4);
+		const minor = scene.overlay.groups.find((g) => g.rgba[3] === 0.4);
+		const major = scene.overlay.groups.find(
+			(g, i) => i > 0 && g.topology === "LINES" && g.rgba[3] === 1,
+		);
+		expect(minor!.offset).toBeLessThan(major!.offset);
+		const finite = Array.from(
+			scene.overlay.packed.subarray(0, scene.overlay.packedLen),
+		).every(Number.isFinite);
+		expect(finite).toBe(true);
+	});
+});

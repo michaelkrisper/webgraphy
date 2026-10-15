@@ -52,8 +52,11 @@ export function drawCanvas({
 			const { xScreen: xs, yScreen: ys, pointStyle: style, color } = item;
 
 			// Skip markers for points outside the plot area — they would
-			// otherwise draw over axis labels/titles in the gutters.
+			// otherwise draw over axis labels/titles in the gutters — and for
+			// values a log axis cannot place (NaN screen position).
 			if (
+				!Number.isFinite(xs) ||
+				!Number.isFinite(ys) ||
 				ys < padding.top ||
 				ys > height - padding.bottom ||
 				xs < padding.left ||

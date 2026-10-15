@@ -10,6 +10,10 @@ vi.mock("../../services/persistence", () => ({
 		getAllDatasets: vi.fn().mockResolvedValue([]),
 		deleteDataset: vi.fn(),
 		saveAppState: vi.fn(),
+		// The debounced savers fire on a timer; on a slow run that lands while
+		// this file is still executing and would throw on a missing method.
+		saveViewport: vi.fn(),
+		saveConfig: vi.fn(),
 		loadAppState: vi.fn().mockResolvedValue(null),
 		clearAppState: vi.fn().mockResolvedValue(undefined),
 	},

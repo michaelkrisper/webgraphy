@@ -34,17 +34,36 @@ export function getOrComputeMonotonicity(
 	return isMonotonic;
 }
 
+export interface Segment {
+	start: number;
+	end: number;
+}
+
+/**
+ * Segments keyed by yData identity, then xData identity: breaks depend on
+ * both columns (NaN y gaps and backward x jumps), so switching a dataset's x
+ * column must not serve the breaks computed for the previous one.
+ */
+export type SegmentCache = WeakMap<
+	Float32Array,
+	WeakMap<Float32Array, Segment[]>
+>;
+
 /**
  * Split a series into contiguous segments. A segment ends whenever the y
- * value is NaN (a gap) or x jumps backwards (an unsorted wrap). Cached on the
- * y array identity since the renderer keys segments by y.
+ * value is NaN (a gap) or x jumps backwards (an unsorted wrap).
  */
 export function getOrComputeSegments(
 	xData: Float32Array,
 	yData: Float32Array,
-	segmentCache: WeakMap<Float32Array, { start: number; end: number }[]>,
-): { start: number; end: number }[] {
-	let cachedSegments = segmentCache.get(yData);
+	segmentCache: SegmentCache,
+): Segment[] {
+	let byX = segmentCache.get(yData);
+	if (!byX) {
+		byX = new WeakMap();
+		segmentCache.set(yData, byX);
+	}
+	let cachedSegments = byX.get(xData);
 	if (!cachedSegments) {
 		cachedSegments = [];
 		let segStart = -1;
@@ -65,7 +84,7 @@ export function getOrComputeSegments(
 		if (segStart !== -1) {
 			cachedSegments.push({ start: segStart, end: len - 1 });
 		}
-		segmentCache.set(yData, cachedSegments);
+		byX.set(xData, cachedSegments);
 	}
 	return cachedSegments;
 }

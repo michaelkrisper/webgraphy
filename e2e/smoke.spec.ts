@@ -162,8 +162,8 @@ test("exports a well-formed SVG", async ({ page }) => {
 	await freshApp(page);
 
 	const downloadPromise = page.waitForEvent("download");
-	await page.getByRole("button", { name: /export/i }).click();
-	await page.getByRole("button", { name: /SVG/i }).click();
+	await page.getByRole("button", { name: "Session & Export" }).click();
+	await page.getByRole("button", { name: /^Export as SVG/ }).click();
 	const download = await downloadPromise;
 
 	const stream = await download.createReadStream();

@@ -90,6 +90,10 @@ export class ViewportReader {
 	private i32: Int32Array;
 	private f64: Float64Array;
 	private lastSeq = 0;
+	// A read that races a write sees a torn mix of old and new values, so it
+	// lands here first and only reaches the caller's snapshot once the
+	// sequence check confirms it is consistent.
+	private scratch = createViewportSnapshot();
 
 	constructor(buffer: SharedArrayBuffer | ArrayBuffer) {
 		this.i32 = new Int32Array(buffer, 0, HEADER_I32);
@@ -98,20 +102,27 @@ export class ViewportReader {
 
 	/**
 	 * Copies the latest consistent snapshot into `out`. Returns false when
-	 * nothing new was published or a write raced this read (retry next frame).
+	 * nothing new was published or a write raced this read (retry next frame);
+	 * `out` is left untouched in both cases.
 	 */
 	read(out: ViewportSnapshot): boolean {
-		const { i32, f64 } = this;
+		const { i32, f64, scratch } = this;
 		const s1 = Atomics.load(i32, SEQ);
 		if ((s1 & 1) === 1 || s1 === this.lastSeq) return false;
-		out.version = i32[VERSION];
-		out.interacting = i32[INTERACTING] === 1;
-		out.xCount = i32[X_COUNT];
-		out.yCount = i32[Y_COUNT];
-		const n = (out.xCount + out.yCount) * 2;
-		for (let i = 0; i < n; i++) out.ranges[i] = f64[i];
+		scratch.version = i32[VERSION];
+		scratch.interacting = i32[INTERACTING] === 1;
+		// Clamped: a torn read may pair counts with another write's ranges.
+		scratch.xCount = Math.min(Math.max(i32[X_COUNT], 0), MAX_AXES);
+		scratch.yCount = Math.min(Math.max(i32[Y_COUNT], 0), MAX_AXES);
+		const n = (scratch.xCount + scratch.yCount) * 2;
+		for (let i = 0; i < n; i++) scratch.ranges[i] = f64[i];
 		if (Atomics.load(i32, SEQ) !== s1) return false;
 		this.lastSeq = s1;
+		out.version = scratch.version;
+		out.interacting = scratch.interacting;
+		out.xCount = scratch.xCount;
+		out.yCount = scratch.yCount;
+		out.ranges.set(scratch.ranges.subarray(0, n));
 		return true;
 	}
 }

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { useGraphStore } from "../../store/useGraphStore";
-import { applyKeyboardPan, applyKeyboardZoom } from "../keyboard";
+import {
+	applyKeyboardPan,
+	applyKeyboardZoom,
+	axisStepForKey,
+	releaseNavigationKeys,
+	stepAxisTarget,
+} from "../keyboard";
 
 describe("applyKeyboardPan", () => {
 	it("should return false when no matching keys are pressed", () => {
@@ -276,5 +282,110 @@ describe("applyKeyboardZoom", () => {
 		expect(targetXAxes.x1.max).toBeCloseTo(102.5);
 		expect(targetYs.y1.min).toBeCloseTo(17.5);
 		expect(targetYs.y1.max).toBeCloseTo(102.5);
+	});
+
+	it("zooms on = and _ as well as + and -", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
+		const zoomIn: Record<string, { min: number; max: number }> = {};
+		applyKeyboardZoom(state, new Set(["="]), zoomIn, {});
+		expect(zoomIn.x1).toEqual({ min: 7.5, max: 92.5 });
+		const zoomOut: Record<string, { min: number; max: number }> = {};
+		applyKeyboardZoom(state, new Set(["_"]), zoomOut, {});
+		expect(zoomOut.x1.min).toBeCloseTo(-7.5);
+	});
+});
+
+describe("stepAxisTarget", () => {
+	const axis = { id: "a", min: 0, max: 100 };
+
+	it("pans one axis by 5% of its range in either direction", () => {
+		const targets: Record<string, { min: number; max: number }> = {};
+		stepAxisTarget(targets, axis, "pan+");
+		expect(targets.a).toEqual({ min: 5, max: 105 });
+		stepAxisTarget(targets, axis, "pan-");
+		stepAxisTarget(targets, axis, "pan-");
+		expect(targets.a.min).toBeCloseTo(-5);
+		expect(targets.a.max).toBeCloseTo(95);
+	});
+
+	it("zooms about the centre of the pending target", () => {
+		const targets = { a: { min: 10, max: 110 } };
+		stepAxisTarget(targets, axis, "zoom-in");
+		expect(targets.a.min).toBeCloseTo(17.5);
+		expect(targets.a.max).toBeCloseTo(102.5);
+		stepAxisTarget(targets, axis, "zoom-out");
+		expect(targets.a.max - targets.a.min).toBeCloseTo(85 * 1.15);
+	});
+
+	it("leaves other axes' targets alone", () => {
+		const other = { min: 1, max: 2 };
+		const targets = { other };
+		stepAxisTarget(targets, axis, "pan+");
+		expect(targets.other).toBe(other);
+	});
+});
+
+describe("axisStepForKey", () => {
+	it("maps only the axis' own arrow pair to pans", () => {
+		expect(axisStepForKey("ArrowRight", "x")).toBe("pan+");
+		expect(axisStepForKey("ArrowLeft", "x")).toBe("pan-");
+		expect(axisStepForKey("ArrowUp", "x")).toBeNull();
+		expect(axisStepForKey("ArrowUp", "y")).toBe("pan+");
+		expect(axisStepForKey("ArrowDown", "y")).toBe("pan-");
+		expect(axisStepForKey("ArrowLeft", "y")).toBeNull();
+	});
+
+	it("maps +/= and -/_ to zoom on either kind", () => {
+		for (const kind of ["x", "y"] as const) {
+			expect(axisStepForKey("+", kind)).toBe("zoom-in");
+			expect(axisStepForKey("=", kind)).toBe("zoom-in");
+			expect(axisStepForKey("-", kind)).toBe("zoom-out");
+			expect(axisStepForKey("_", kind)).toBe("zoom-out");
+		}
+		expect(axisStepForKey("a", "x")).toBeNull();
+	});
+});
+
+describe("releaseNavigationKeys", () => {
+	it("drops pan/zoom keys but keeps modifiers and unrelated keys", () => {
+		const keys = new Set(["ArrowLeft", "ArrowUp", "+", "_", "Control", "c"]);
+		releaseNavigationKeys(keys);
+		expect([...keys].sort()).toEqual(["Control", "c"]);
+	});
+
+	it("turns a held key into exactly one step per press", () => {
+		const state = {
+			xAxes: [{ id: "x1", min: 0, max: 100 }],
+			yAxes: [],
+		} as unknown as ReturnType<typeof useGraphStore.getState>;
+		const keys = new Set(["ArrowRight"]);
+		const targets: Record<string, { min: number; max: number }> = {};
+		// Two rAF frames with the key still physically held.
+		for (let frame = 0; frame < 2; frame++) {
+			if (applyKeyboardPan(state, keys, targets, {})) {
+				releaseNavigationKeys(keys);
+			}
+		}
+		expect(targets.x1).toEqual({ min: 5, max: 105 });
+	});
+});
+
+describe("stepAxisTarget on a log axis", () => {
+	it("pans and zooms in log10 space", () => {
+		const targets: Record<string, { min: number; max: number }> = {};
+		const axis = { id: "a", min: 1, max: 1000, scale: "log" as const };
+		stepAxisTarget(targets, axis, "pan+");
+		// 5% of 3 decades.
+		expect(Math.log10(targets.a.min)).toBeCloseTo(0.15);
+		expect(Math.log10(targets.a.max)).toBeCloseTo(3.15);
+		stepAxisTarget(targets, axis, "zoom-out");
+		expect(targets.a.min).toBeGreaterThan(0);
+		// Zoom keeps the geometric centre.
+		expect(Math.log10(targets.a.min) + Math.log10(targets.a.max)).toBeCloseTo(
+			3.3,
+		);
 	});
 });

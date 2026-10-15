@@ -1,5 +1,6 @@
 // src/components/Plot/chartTypes.ts
 import type { YAxisConfig } from "../../services/persistence";
+import type { AxisScale } from "../../utils/axisScale";
 import type { SecondaryLabel, TimeTick } from "../../utils/time";
 
 type XTicks =
@@ -9,6 +10,8 @@ type XTicks =
 			precision: number;
 			isXDate: false;
 			secondaryLabels?: undefined;
+			/** Log axes: unlabelled ticks between the labelled ones. */
+			minorTicks?: number[];
 	  }
 	| {
 			result: TimeTick[];
@@ -16,6 +19,7 @@ type XTicks =
 			secondaryLabels: SecondaryLabel[];
 			step?: undefined;
 			precision?: undefined;
+			minorTicks?: undefined;
 	  };
 
 export interface XAxisLayout {
@@ -26,6 +30,8 @@ export interface XAxisLayout {
 	title: string;
 	color: string;
 	showGrid: boolean;
+	/** Absent = linear. */
+	scale?: AxisScale;
 	// If set, axis tick labels are categorical.
 	// Default mapping: tick value t maps to categoryLabels[Math.round(t)].
 	// If categoryTicks is provided, the i-th label corresponds to categoryTicks[i].
@@ -37,6 +43,8 @@ export interface YAxisLayout extends YAxisConfig {
 	ticks: number[];
 	precision: number;
 	actualStep: number;
+	/** Log axes: unlabelled ticks between the labelled ones. */
+	minorTicks?: number[];
 	// If set, axis tick labels are categorical: tick value t maps to categoryLabels[Math.round(t)].
 	categoryLabels?: string[];
 }

@@ -9,6 +9,9 @@ import type {
 	YAxisConfig,
 } from "../persistence";
 
+// The woff2 asset URLs are irrelevant here (exportFonts has its own tests).
+vi.mock("../exportFontFiles", () => ({ FONT_FILES: {} }));
+
 describe("exportToSVG", () => {
 	const mockDatasets: Dataset[] = [
 		{
@@ -808,5 +811,94 @@ describe("exportToSVG edge cases", () => {
 		const yAxes: YAxisConfig[] = [];
 		const svg = exportToSVG(datasets, series, xAxes, yAxes, 0, 0, THEMES.light);
 		expect(svg).toContain('<svg width="0" height="0"');
+	});
+});
+
+describe("exportToSVG log axes", () => {
+	const ds: Dataset = {
+		id: "ds1",
+		name: "D",
+		columns: ["X", "Y"],
+		rowCount: 4,
+		xAxisColumn: "X",
+		xAxisId: "axis-1",
+		data: [
+			{
+				data: new Float32Array([1, 10, 100, 1000]),
+				bounds: { min: 1, max: 1000 },
+				isFloat64: false,
+				refPoint: 0,
+			},
+			{
+				data: new Float32Array([0.01, -5, 1, 100]),
+				bounds: { min: -5, max: 100 },
+				isFloat64: false,
+				refPoint: 0,
+			},
+		],
+	};
+	const series: SeriesConfig[] = [
+		{
+			id: "s1",
+			sourceId: "ds1",
+			name: "S",
+			yColumn: "Y",
+			yAxisId: "y1",
+			pointStyle: "circle",
+			pointColor: "#ff0000",
+			lineStyle: "solid",
+			lineColor: "#ff0000",
+		},
+	];
+	const xAxes: XAxisConfig[] = [
+		{
+			id: "axis-1",
+			name: "X",
+			min: 1,
+			max: 1000,
+			showGrid: true,
+			xMode: "numeric",
+			scale: "log",
+		},
+	];
+	const yAxes: YAxisConfig[] = [
+		{
+			id: "y1",
+			name: "Y",
+			min: 0.001,
+			max: 1e5,
+			position: "left",
+			color: "#000",
+			showGrid: true,
+			scale: "log",
+		},
+	];
+	const svg = exportToSVG([ds], series, xAxes, yAxes, 800, 600, THEMES.light);
+
+	it("labels decades like the plot", () => {
+		expect(svg).toContain(">0.001</text>");
+		expect(svg).toContain(">1000</text>");
+		expect(svg).toContain(">10⁴</text>");
+		expect(svg).toContain(">10⁵</text>");
+	});
+
+	it("draws lighter minor grid lines", () => {
+		expect(svg).toContain('stroke-opacity="0.4"');
+	});
+
+	it("places points on the log scale and drops values it cannot place", () => {
+		const circles = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)"/g)].map(
+			(m) => [Number(m[1]), Number(m[2])],
+		);
+		// -5 has no log position: three of four points remain.
+		expect(circles).toHaveLength(3);
+		expect(circles.flat().every(Number.isFinite)).toBe(true);
+		// x = 1, 100, 1000 sit at 0, 2/3 and 3/3 of the x span.
+		const [a, b, c] = circles.map((p) => p[0]);
+		expect((b - a) / (c - a)).toBeCloseTo(2 / 3);
+		// The path breaks at the gap: two subpaths.
+		const path = svg.match(/<path d="([^"]+)" fill="none"/)?.[1] ?? "";
+		expect(path.match(/M/g)).toHaveLength(2);
+		expect(path).not.toContain("NaN");
 	});
 });

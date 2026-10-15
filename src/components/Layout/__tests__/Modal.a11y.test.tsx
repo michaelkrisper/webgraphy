@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 import { Modal } from "../Modal";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 /**
  * Every dialog in the app goes through this component, so its keyboard
@@ -23,10 +24,14 @@ function renderModal(props: Partial<Parameters<typeof Modal>[0]> = {}) {
 }
 
 describe("Modal accessibility", () => {
-	it("has no axe violations", async () => {
-		const { container } = renderModal();
-		expect(await axe(container)).toHaveNoViolations();
-	});
+	it(
+		"has no axe violations",
+		async () => {
+			const { container } = renderModal();
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 
 	it("exposes itself as a modal dialog named by its heading", () => {
 		renderModal();
@@ -47,13 +52,28 @@ describe("Modal accessibility", () => {
 		expect(screen.getByRole("dialog")).toHaveAccessibleName("Import settings");
 	});
 
-	it("moves focus into the dialog on open", async () => {
+	it("moves focus to the first control that is not Close", async () => {
 		renderModal();
 
-		// The close button is first in DOM order (the header precedes the
-		// body), so it is where focus lands.
+		// Close precedes the body in DOM order, but landing on it would make a
+		// stray Enter dismiss the dialog that was just opened.
 		await waitFor(() =>
-			expect(screen.getByRole("button", { name: "Close dialog" })).toHaveFocus(),
+			expect(screen.getByRole("button", { name: "First" })).toHaveFocus(),
+		);
+	});
+
+	it("prefers a control marked data-autofocus", async () => {
+		render(
+			<Modal onClose={vi.fn()} title="Settings">
+				<button type="button">First</button>
+				<button type="button" data-autofocus>
+					Primary
+				</button>
+			</Modal>,
+		);
+
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Primary" })).toHaveFocus(),
 		);
 	});
 
@@ -74,25 +94,28 @@ describe("Modal accessibility", () => {
 		const second = screen.getByRole("button", { name: "Second" });
 		const close = screen.getByRole("button", { name: "Close dialog" });
 
-		await waitFor(() => expect(close).toHaveFocus());
-		await user.tab();
-		expect(first).toHaveFocus();
+		await waitFor(() => expect(first).toHaveFocus());
 		await user.tab();
 		expect(second).toHaveFocus();
 		// Past the last control, focus wraps to the first rather than escaping
 		// to the page behind the backdrop.
 		await user.tab();
 		expect(close).toHaveFocus();
+		await user.tab();
+		expect(first).toHaveFocus();
 	});
 
 	it("wraps backwards with Shift+Tab", async () => {
 		const user = userEvent.setup();
 		renderModal();
 
+		const first = screen.getByRole("button", { name: "First" });
 		const second = screen.getByRole("button", { name: "Second" });
 		const close = screen.getByRole("button", { name: "Close dialog" });
 
-		await waitFor(() => expect(close).toHaveFocus());
+		await waitFor(() => expect(first).toHaveFocus());
+		await user.tab({ shift: true });
+		expect(close).toHaveFocus();
 		await user.tab({ shift: true });
 		expect(second).toHaveFocus();
 	});
@@ -106,7 +129,7 @@ describe("Modal accessibility", () => {
 
 		const { unmount } = renderModal();
 		await waitFor(() =>
-			expect(screen.getByRole("button", { name: "Close dialog" })).toHaveFocus(),
+			expect(screen.getByRole("button", { name: "First" })).toHaveFocus(),
 		);
 
 		unmount();
@@ -117,9 +140,9 @@ describe("Modal accessibility", () => {
 		opener.remove();
 	});
 
-	it("focuses the dialog itself when it contains no controls", async () => {
+	it("focuses the dialog itself when Close is its only control", async () => {
 		render(
-			<Modal onClose={vi.fn()} title="Empty" hideHeader ariaLabel="Empty">
+			<Modal onClose={vi.fn()} title="Empty">
 				<p>Nothing to focus here.</p>
 			</Modal>,
 		);

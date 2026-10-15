@@ -1,6 +1,7 @@
 // src/components/Plot/ChartContainer.tsx
 
 import {
+	lazy,
 	Suspense,
 	useCallback,
 	useEffect,
@@ -12,7 +13,12 @@ import {
 import { useAutoScale } from "../../hooks/useAutoScale";
 import { useContainerSize } from "../../hooks/useContainerSize";
 import { useDataImport } from "../../hooks/useDataImport";
+import { usePasteImport } from "../../hooks/usePasteImport";
+import { useDevicePixelSize } from "../../hooks/useDevicePixelSize";
+import { useFitShortcuts } from "../../hooks/useFitShortcuts";
+import { useLaunchQueue } from "../../hooks/useLaunchQueue";
 import { usePanZoom } from "../../hooks/usePanZoom";
+import { useZoomHistory } from "../../hooks/useZoomHistory";
 import { useTheme } from "../../hooks/useTheme";
 import type {
 	SeriesConfig,
@@ -27,7 +33,14 @@ import {
 	syncAxesWithTargets,
 	ZOOM_EASE_FACTOR,
 } from "../../utils/axisCalculations";
-import { applyKeyboardPan, applyKeyboardZoom } from "../../utils/keyboard";
+import {
+	type AxisStep,
+	applyKeyboardPan,
+	applyKeyboardZoom,
+	releaseNavigationKeys,
+	stepAxisTarget,
+} from "../../utils/keyboard";
+import { prefersReducedMotion } from "../../utils/reducedMotion";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
@@ -37,6 +50,7 @@ import {
 } from "./buildLabels";
 import { ChartActionButtons } from "./ChartActionButtons";
 import {
+	type EditRangeHandler,
 	XAxisInteractionZones,
 	YAxisInteractionZones,
 } from "./AxisInteractionZones";
@@ -59,6 +73,7 @@ import {
 import { Crosshair } from "./Crosshair";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import { EmptyState } from "./EmptyState";
+import type { MeasureToolsHandle } from "./measure/MeasureTools";
 import { syncStoreUpdates } from "./syncStoreUpdates";
 import {
 	applyOverlayContext,
@@ -69,14 +84,47 @@ import {
 import { WebGLRenderer, type WebGLRendererHandle } from "./WebGLRenderer";
 import { useChartLayout } from "./useChartLayout";
 
+const AxisRangePopover = lazy(() => import("./AxisRangePopover"));
+// Pins only matter once there is data to click on; until the chunk arrives the
+// rAF loop's `measureRef.current?.redraw` is simply a no-op.
+const MeasureTools = lazy(() =>
+	import("./measure/MeasureTools").then((m) => ({ default: m.MeasureTools })),
+);
+
+const RANGE_POPOVER_WIDTH = 200;
+const RANGE_POPOVER_HEIGHT = 130;
+
+interface RangeEdit {
+	kind: "x" | "y";
+	id: string;
+	min: number;
+	max: number;
+	isDate: boolean;
+	log: boolean;
+	style: React.CSSProperties;
+	anchor: HTMLElement;
+}
+
 export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
-	const { importFile, confirmImport, cancelImport, changeSheet, pendingFile } =
-		useDataImport();
+	const {
+		importFiles,
+		confirmImport,
+		cancelImport,
+		changeSheet,
+		pendingFile,
+		isImporting,
+	} = useDataImport();
+	useLaunchQueue(importFiles);
+	usePasteImport(importFiles);
 	const { width, height } = useContainerSize(containerRef, 800, 600);
+	// The WebGL layer fills the container's content box, so its device-pixel
+	// size is the canvas backing-store size.
+	const { dpr, pixelWidth, pixelHeight } = useDevicePixelSize(containerRef);
 	const [editingXAxisId, setEditingXAxisId] = useState<string | null>(null);
+	const [rangeEdit, setRangeEdit] = useState<RangeEdit | null>(null);
 
 	const targetXAxes = useRef<Record<string, { min: number; max: number }>>({});
 	const targetYs = useRef<Record<string, { min: number; max: number }>>({});
@@ -89,6 +137,7 @@ export default function ChartContainer() {
 		{},
 	);
 	const webglRef = useRef<WebGLRendererHandle | null>(null);
+	const measureRef = useRef<MeasureToolsHandle | null>(null);
 	const labelStringCacheRef = useRef(createLabelStringCache());
 	const pressedKeysRef = useRef<Set<string>>(new Set());
 	const overlayScratchRef = useRef<{
@@ -227,6 +276,13 @@ export default function ChartContainer() {
 	);
 	const rafId = useRef<number | null>(null);
 	const overlayInitRef = useRef(false);
+	// Axis arrays the last frame drew and then wrote to the store. Their echo
+	// through the redraw effect below would draw the same frame again.
+	const viewportEchoRef = useRef<{
+		xAxes: XAxisConfig[];
+		yAxes: YAxisConfig[];
+	} | null>(null);
+	const sceneDepsRef = useRef<readonly unknown[] | null>(null);
 
 	// 5. Hooks
 	const { handleAutoScaleY, handleAutoScaleX, handleStackedFit } = useAutoScale({
@@ -249,6 +305,22 @@ export default function ChartContainer() {
 			handleAutoScaleY(ax.id);
 		});
 	}, [handleAutoScaleX, handleAutoScaleY, activeYAxes]);
+	useFitShortcuts(handleFitAll, handleStackedFit, datasets.length > 0);
+
+	// Keyboard steps on a focused axis zone go through the same target refs
+	// and rAF sync as every other pan/zoom.
+	const handleXAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().xAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetXAxes.current, axis, step);
+		syncViewportRef.current();
+	}, []);
+	const handleYAxisStep = useCallback((id: string, step: AxisStep) => {
+		const axis = useGraphStore.getState().yAxes.find((a) => a.id === id);
+		if (!axis) return;
+		stepAxisTarget(targetYs.current, axis, step);
+		syncViewportRef.current();
+	}, []);
 
 	const {
 		panTarget,
@@ -322,10 +394,93 @@ export default function ChartContainer() {
 		return grouped;
 	}, [series, datasets]);
 
+	// Same text the WebGL label pass draws as each y-axis title.
+	const yAxisTitles = useMemo(() => {
+		const titles: Record<string, string> = {};
+		for (const id in seriesByYAxisId) {
+			titles[id] = seriesByYAxisId[id].map((s) => s.name || s.yColumn).join(" / ");
+		}
+		return titles;
+	}, [seriesByYAxisId]);
+
+	const zoomHistory = useZoomHistory({
+		targetXAxes,
+		targetYs,
+		displayedXAxes: displayedXAxesRef,
+		displayedYs: displayedYsRef,
+		smoothZoomRef,
+		syncViewport: () => syncViewportRef.current(),
+		enabled: datasets.length > 0,
+	});
+	const recordSettledViewport = zoomHistory.settled;
+
+	const openRangeEditor = useCallback(
+		(kind: "x" | "y"): EditRangeHandler =>
+			(id, anchor) => {
+				const box = containerRef.current?.getBoundingClientRect();
+				const state = useGraphStore.getState();
+				const axis = (kind === "x" ? state.xAxes : state.yAxes).find(
+					(ax) => ax.id === id,
+				);
+				if (!box || !axis) return;
+				// Where the axis is heading, should a zoom still be easing in.
+				const range = (kind === "x" ? targetXAxes : targetYs).current[id] ?? axis;
+				const a = anchor.getBoundingClientRect();
+				const clamp = (v: number, hi: number) => Math.max(4, Math.min(v, hi));
+				let style: React.CSSProperties;
+				if (kind === "x") {
+					style = {
+						left: clamp(
+							a.left - box.left + a.width / 2 - RANGE_POPOVER_WIDTH / 2,
+							box.width - RANGE_POPOVER_WIDTH - 4,
+						),
+						bottom: box.bottom - a.top + 4,
+					};
+				} else {
+					const top = clamp(a.top - box.top + 8, box.height - RANGE_POPOVER_HEIGHT);
+					style =
+						"position" in axis && axis.position === "right"
+							? { right: box.right - a.left + 4, top }
+							: { left: a.right - box.left + 4, top };
+				}
+				setRangeEdit({
+					kind,
+					id,
+					min: range.min,
+					max: range.max,
+					isDate: "xMode" in axis && axis.xMode === "date",
+					log: axis.scale === "log",
+					style,
+					anchor,
+				});
+			},
+		[],
+	);
+	const closeRangeEditor = () => {
+		if (rangeEdit?.anchor.isConnected) rangeEdit.anchor.focus();
+		setRangeEdit(null);
+	};
+
 	const isInteractingRef = useRef(false);
 	useEffect(() => {
 		isInteractingRef.current = isInteracting;
 	}, [isInteracting]);
+
+	const commitViewport = useCallback(
+		(
+			state: ReturnType<typeof useGraphStore.getState>,
+			xUpdates: AxesFrame["xUpdates"],
+			yUpdates: AxesFrame["yUpdates"],
+		) => {
+			syncStoreUpdates(state, xUpdates, yUpdates);
+			const next = useGraphStore.getState();
+			if (next.xAxes !== state.xAxes || next.yAxes !== state.yAxes) {
+				viewportEchoRef.current = { xAxes: next.xAxes, yAxes: next.yAxes };
+				recordSettledViewport(state, next);
+			}
+		},
+		[recordSettledViewport],
+	);
 
 	const syncViewport = useCallback(
 		(forceStoreUpdate = false, immediate = false) => {
@@ -346,6 +501,10 @@ export default function ChartContainer() {
 					targetXAxes.current,
 					targetYs.current,
 				);
+				const reduceMotion = prefersReducedMotion();
+				if (reduceMotion && (kbZoom || kbPan)) {
+					releaseNavigationKeys(pressedKeysRef.current);
+				}
 
 				const { xUpdates, yUpdates, hasUpdates }: AxesFrame = syncAxesWithTargets(
 					state,
@@ -357,8 +516,11 @@ export default function ChartContainer() {
 				// Wheel zoom eases toward its target over a few frames; everything
 				// else (pan, keyboard, forced syncs) snaps via factor 1, which also
 				// keeps the displayed-range records current for the next zoom.
+				// Reduced motion snaps the wheel zoom too.
 				const easeFactor =
-					smoothZoomRef.current && !forceStoreUpdate ? ZOOM_EASE_FACTOR : 1;
+					smoothZoomRef.current && !forceStoreUpdate && !reduceMotion
+						? ZOOM_EASE_FACTOR
+						: 1;
 				const xEased = easeAxisUpdates(
 					displayedXAxesRef.current,
 					xUpdates,
@@ -378,16 +540,19 @@ export default function ChartContainer() {
 					overlayInitRef.current = true;
 					const { liveX, liveY } = buildLiveAxes(xUpdates, yUpdates);
 
+					// An easing frame is not settled either: only where it lands
+					// is written back (and becomes a zoom-history step).
 					const isInteractingNow =
-						panStateRef.current.active || isInteractingRef.current;
+						panStateRef.current.active || isInteractingRef.current || zoomAnimating;
 
+					measureRef.current?.redraw(liveX, liveY);
 					// Worker backend with a scene context: it derives tick layout,
 					// overlay geometry, and labels itself from the axis ranges —
 					// the main thread's per-frame work ends here.
 					if (webglRef.current?.sceneShared()) {
 						webglRef.current.redraw(liveX, liveY);
 						if (forceStoreUpdate || !isInteractingNow) {
-							syncStoreUpdates(state, xUpdates, yUpdates);
+							commitViewport(state, xUpdates, yUpdates);
 						}
 						if (kbZoom || kbPan || zoomAnimating) {
 							syncViewportRef.current(false);
@@ -432,7 +597,7 @@ export default function ChartContainer() {
 
 					// Only sync back to store if not currently interacting (panning/zooming)
 					if (forceStoreUpdate || !isInteractingNow) {
-						syncStoreUpdates(state, xUpdates, yUpdates);
+						commitViewport(state, xUpdates, yUpdates);
 					}
 				}
 				if (kbZoom || kbPan || zoomAnimating) {
@@ -449,6 +614,7 @@ export default function ChartContainer() {
 		},
 		[
 			buildLiveAxes,
+			commitViewport,
 			computeXAxesLayout,
 			computeYAxesLayout,
 			xAxesMetrics,
@@ -510,6 +676,7 @@ export default function ChartContainer() {
 					name: a.name,
 					showGrid: a.showGrid,
 					xMode: a.xMode,
+					scale: a.scale,
 					columnNames,
 					categoryLabels: cat?.labels,
 					categoryTicks: cat?.ticks,
@@ -521,6 +688,7 @@ export default function ChartContainer() {
 				color: a.color,
 				position: a.position,
 				showGrid: a.showGrid,
+				scale: a.scale,
 				categoryLabels: yAxisCategoryLabels.get(a.id),
 			})),
 		});
@@ -544,16 +712,54 @@ export default function ChartContainer() {
 	]);
 
 	// Force redraw on ANY change (ranges, names, config, sidebar, resize, theme).
+	// DPR changes count as resizes: the canvas is resized (which clears it) and
+	// the main-thread backend's overlay geometry is in device pixels.
 	// We update targets first to prevent syncAxesWithTargets from seeing "new" world
 	// changes if the update came from the store (e.g. undo/redo or sidebar).
 	useEffect(() => {
+		const sceneDeps = [
+			isLoaded,
+			series,
+			datasets,
+			themeColors,
+			width,
+			height,
+			dpr,
+			pixelWidth,
+			pixelHeight,
+		];
+		const prevSceneDeps = sceneDepsRef.current;
+		sceneDepsRef.current = sceneDeps;
+		const echo = viewportEchoRef.current;
+		viewportEchoRef.current = null;
 		if (!isLoaded) return;
+		// Only the ranges the last frame drew and synced came back: that frame
+		// is current. Without this, settling a pan/zoom drew two full frames.
+		if (
+			echo?.xAxes === xAxes &&
+			echo.yAxes === yAxes &&
+			prevSceneDeps?.every((d, i) => d === sceneDeps[i])
+		) {
+			return;
+		}
 		resetAxisTargets(xAxes, yAxes, targetXAxes.current, targetYs.current);
 		overlayInitRef.current = false;
 		// Use force=false to schedule via rAF, breaking synchronous render loops.
 		// Redraw is still forced because we set overlayInitRef.current = false above.
 		syncViewportRef.current(false);
-	}, [isLoaded, xAxes, yAxes, series, datasets, themeColors, width, height]);
+	}, [
+		isLoaded,
+		xAxes,
+		yAxes,
+		series,
+		datasets,
+		themeColors,
+		width,
+		height,
+		dpr,
+		pixelWidth,
+		pixelHeight,
+	]);
 
 	// 7. Memos for static rendering (JSX)
 	const xAxesLayout = useMemo(() => {
@@ -609,8 +815,7 @@ export default function ChartContainer() {
 				onDrop={(e) => {
 					e.preventDefault();
 					setIsDragOver(false);
-					const file = e.dataTransfer.files[0];
-					if (file) importFile(file);
+					void importFiles(e.dataTransfer.files);
 				}}
 				style={{
 					position: "relative",
@@ -629,7 +834,13 @@ export default function ChartContainer() {
 			>
 				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
-					<EmptyState width={width} height={height} padding={padding} />
+					<EmptyState
+						width={width}
+						height={height}
+						padding={padding}
+						onImportFiles={importFiles}
+						onLoadDemo={() => useGraphStore.getState().loadDemoData()}
+					/>
 				)}
 				<div className="chart-webgl-layer">
 					<ErrorBoundary level="component">
@@ -642,6 +853,9 @@ export default function ChartContainer() {
 							yAxes={yAxes}
 							width={width}
 							height={height}
+							dpr={dpr}
+							pixelWidth={pixelWidth}
+							pixelHeight={pixelHeight}
 							padding={padding}
 							isInteracting={isInteracting}
 							highlightedSeriesId={highlightedSeriesId}
@@ -660,9 +874,12 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleX={handleAutoScaleX}
+					onAxisStep={handleXAxisStep}
+					onEditRange={openRangeEditor("x")}
 				/>
 				<YAxisInteractionZones
 					axes={activeYAxes}
+					titles={yAxisTitles}
 					axisLayout={axisLayout}
 					leftOffsets={leftOffsets}
 					rightOffsets={rightOffsets}
@@ -673,7 +890,28 @@ export default function ChartContainer() {
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
 					onAutoScaleY={handleAutoScaleY}
+					onAxisStep={handleYAxisStep}
+					onEditRange={openRangeEditor("y")}
 				/>
+				{rangeEdit && (
+					<Suspense fallback={null}>
+						<AxisRangePopover
+							key={`${rangeEdit.kind}:${rangeEdit.id}`}
+							kind={rangeEdit.kind}
+							axisId={rangeEdit.id}
+							min={rangeEdit.min}
+							max={rangeEdit.max}
+							isDate={rangeEdit.isDate}
+							log={rangeEdit.log}
+							style={rangeEdit.style}
+							onApply={(range) => {
+								zoomHistory.applyRange(rangeEdit.kind, rangeEdit.id, range);
+								closeRangeEditor();
+							}}
+							onCancel={closeRangeEditor}
+						/>
+					</Suspense>
+				)}
 				{datasets.length > 0 && (
 					<ChartActionButtons
 						padding={padding}
@@ -681,6 +919,23 @@ export default function ChartContainer() {
 						onStackedFit={handleStackedFit}
 						onFitAll={handleFitAll}
 					/>
+				)}
+				{datasets.length > 0 && (
+					<Suspense fallback={null}>
+						<MeasureTools
+							ref={measureRef}
+							containerRef={containerRef}
+							width={width}
+							height={height}
+							padding={padding}
+							series={series}
+							datasets={datasets}
+							xAxes={xAxes}
+							yAxes={yAxes}
+							lineColor={themeColors.snapLineColor}
+							plotBg={themeColors.plotBg}
+						/>
+					</Suspense>
 				)}
 				{crosshairVisible && (
 					<Crosshair
@@ -719,9 +974,13 @@ export default function ChartContainer() {
 			<Suspense fallback={null}>
 				{pendingFile && (
 					<ImportSettingsDialogLazy
+						key={pendingFile.id}
 						fileName={pendingFile.file.name}
 						fileContent={pendingFile.preview}
+						previewTruncated={pendingFile.previewTruncated}
 						fileType={pendingFile.type}
+						defaultDelimiter={pendingFile.defaultDelimiter}
+						isImporting={isImporting}
 						sheets={pendingFile.sheets}
 						selectedSheet={pendingFile.selectedSheet}
 						onSheetChange={changeSheet}

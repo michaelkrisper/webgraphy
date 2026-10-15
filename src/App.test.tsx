@@ -46,6 +46,14 @@ describe("App Component", () => {
 		expect(screen.getByTestId("sidebar")).toBeInTheDocument();
 	});
 
+	it("mounts the toast region once", () => {
+		render(<App />);
+
+		expect(screen.getAllByRole("region", { name: "Notifications" })).toHaveLength(
+			1,
+		);
+	});
+
 	it("calls loadPersistedState on mount", () => {
 		render(<App />);
 

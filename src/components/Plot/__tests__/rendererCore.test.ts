@@ -3,6 +3,7 @@ import {
 	RendererCore,
 	type RendererSeriesInput,
 	type RenderLabel,
+	sizeCanvasToViewport,
 } from "../rendererCore";
 import { makeCanvasMock, makeGl2Mock } from "./glMock";
 
@@ -11,7 +12,6 @@ function makeSeries(
 ): RendererSeriesInput {
 	return {
 		id: "s1",
-		segKey: "seg-ds1-0-1-dyn",
 		xAxisId: "axis-1",
 		yAxisId: "axis-1",
 		hidden: false,
@@ -143,11 +143,175 @@ describe("RendererCore", () => {
 		expect(gl.bufferData.mock.calls.length).toBe(uploads);
 	});
 
+	it("skips only the series whose column upload fails", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		// Call 1 is the overlay buffer, call 2 the first series' x column.
+		let calls = 0;
+		gl.createBuffer.mockImplementation(() => (++calls === 2 ? null : {}));
+		core.setSeries([
+			makeSeries({ id: "broken" }),
+			makeSeries({
+				id: "ok",
+				xData: new Float32Array([0, 5, 10]),
+				yData: new Float32Array([0, 1, 0]),
+			}),
+		]);
+		core.drawFrame(axes, axes);
+
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 2);
+		expect(gl.disable).toHaveBeenCalledWith(gl.SCISSOR_TEST);
+	});
+
+	it("deletes column and decimation buffers when their series go away", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		let id = 0;
+		gl.createBuffer.mockImplementation(() => ({ id: id++ }));
+		// Dense enough (vs. a 180px plot) to go through M4 decimation.
+		const n = 20_000;
+		const big = makeSeries({
+			xData: Float32Array.from({ length: n }, (_, i) => i),
+			yData: Float32Array.from({ length: n }, (_, i) => Math.sin(i)),
+		});
+		const wide = [{ id: "axis-1", min: 0, max: n }];
+		core.setSeries([big]);
+		core.drawFrame(wide, wide);
+		const created = gl.createBuffer.mock.results.map((r) => r.value);
+		// overlay + 2 columns + at least one decimated x/y pair.
+		expect(created.length).toBeGreaterThanOrEqual(5);
+		expect(gl.deleteBuffer).not.toHaveBeenCalled();
+
+		core.setSeries([]);
+		const deleted = new Set(gl.deleteBuffer.mock.calls.map((c) => c[0]));
+		// Everything but the overlay scratch buffer is freed.
+		expect(deleted.size).toBe(created.length - 1);
+		expect(deleted.has(created[0])).toBe(false);
+	});
+
+	it("keeps buffers of columns that stay referenced", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		const s = makeSeries();
+		core.setSeries([s]);
+		core.drawFrame(axes, axes);
+		core.setSeries([{ ...s, lineColorRgba: [0, 0, 1] }]);
+		expect(gl.deleteBuffer).not.toHaveBeenCalled();
+	});
+
+	it("rebuilds a dashed series when its id is re-pointed at another column", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		const a = makeSeries({ lineStyle: "dashed" });
+		core.setSeries([a]);
+		core.drawFrame(axes, axes);
+		const dashUploads = () =>
+			gl.bufferData.mock.calls.filter(
+				(c) => c[1] instanceof Float32Array && c[1].length === 9 * 5,
+			);
+		expect(dashUploads()).toHaveLength(1);
+
+		// Same id and shape, different y column — what removing a calculated
+		// column does when it shifts the indices of the ones after it.
+		const yB = new Float32Array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5]);
+		core.setSeries([{ ...a, yData: yB }]);
+		core.drawFrame(axes, axes);
+		const uploads = dashUploads();
+		expect(uploads).toHaveLength(2);
+		expect((uploads[1][1] as Float32Array)[1]).toBe(5);
+	});
+
+	it("frees a dashed series' instance buffer once the series is removed", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		let id = 0;
+		gl.createBuffer.mockImplementation(() => ({ id: id++ }));
+		core.setSeries([makeSeries({ lineStyle: "dashed" })]);
+		core.drawFrame(axes, axes);
+		// overlay, x column, y column, dash instances.
+		const dashBuf = gl.createBuffer.mock.results[3].value;
+		core.setSeries([]);
+		expect(gl.deleteBuffer).toHaveBeenCalledWith(dashBuf);
+	});
+
+	it("decimates a gapped dense series per segment without bridging the gap", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		const n = 20_000;
+		const yData = Float32Array.from({ length: n }, (_, i) => Math.sin(i));
+		yData[n / 2] = Number.NaN;
+		core.setSeries([
+			makeSeries({
+				xData: Float32Array.from({ length: n }, (_, i) => i),
+				yData,
+			}),
+		]);
+		const wide = [{ id: "axis-1", min: 0, max: n }];
+		core.drawFrame(wide, wide);
+
+		const draws = gl.drawArraysInstanced.mock.calls;
+		// One draw per side of the gap, each far below the raw sample count.
+		expect(draws).toHaveLength(2);
+		const total = draws.reduce((sum, c) => sum + (c[3] as number), 0);
+		expect(total).toBeLessThan(n / 4);
+	});
+
 	it("releases GL resources on dispose", () => {
 		const { gl, core } = makeCore();
 		core.dispose();
 		expect(gl.deleteProgram).toHaveBeenCalledTimes(3);
 		expect(gl.deleteShader).toHaveBeenCalledTimes(6);
+	});
+
+	it("restores onto a fresh context with its inputs and empty GPU caches", () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const lost = RendererCore.create(canvas)!;
+		lost.setViewport(viewport);
+		lost.setPlotBg([0.5, 0.25, 0]);
+		lost.setSeries([makeSeries()]);
+		lost.setHighlight("s1");
+		lost.drawFrame(axes, axes);
+		vi.clearAllMocks();
+
+		const core = RendererCore.restore(canvas, lost);
+		expect(core).not.toBeNull();
+		expect(core).not.toBe(lost);
+		// All three programs are rebuilt on the restored context.
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+
+		core!.drawFrame(axes, axes);
+		expect(gl.clearColor).toHaveBeenCalledWith(0.5, 0.25, 0, 1);
+		// The old column buffers died with the context: both columns upload
+		// again, even though the Float32Arrays are the same objects.
+		const s = makeSeries();
+		const columnUploads = gl.bufferData.mock.calls.filter(
+			(c) =>
+				c[1] instanceof Float32Array &&
+				c[1].length === s.xData.length &&
+				c[2] === gl.STATIC_DRAW,
+		);
+		expect(columnUploads).toHaveLength(2);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
+	});
+
+	it("returns null from restore when the context cannot be re-acquired", () => {
+		const { core } = makeCore();
+		expect(RendererCore.restore(makeCanvasMock(null), core)).toBeNull();
+	});
+
+	it("uses the exact device-pixel size for the GL viewport when given", () => {
+		const { gl, core } = makeCore();
+		core.setViewport({
+			...viewport,
+			dpr: 1.25,
+			pixelWidth: 251,
+			pixelHeight: 124,
+		});
+		core.setSeries([]);
+		core.drawFrame(axes, axes);
+		// round(200 * 1.25) = 250, but the measured backing store is 251.
+		expect(gl.viewport).toHaveBeenCalledWith(0, 0, 251, 124);
 	});
 
 	describe("label pass", () => {
@@ -228,6 +392,106 @@ describe("RendererCore", () => {
 			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
 		});
 
+		it("snaps label quads to whole device pixels and samples NEAREST", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport({ ...viewport, dpr: 1.5 });
+			core.setSeries([]);
+			core.setLabels([
+				{ ...labels[0], x: 10.3, y: 20.7 },
+				{ ...labels[2], x: 5.4, y: 50.2 },
+			]);
+			core.drawFrame(axes, axes);
+
+			const inst = gl.bufferData.mock.calls.at(-1)?.[1] as Float32Array;
+			for (let l = 0; l < 2; l++) {
+				for (let k = 0; k < 4; k++) {
+					expect(Number.isInteger(inst[l * 11 + k])).toBe(true);
+				}
+			}
+			expect(gl.texParameteri).toHaveBeenCalledWith(
+				gl.TEXTURE_2D,
+				gl.TEXTURE_MAG_FILTER,
+				gl.NEAREST,
+			);
+			expect(gl.texParameteri).not.toHaveBeenCalledWith(
+				gl.TEXTURE_2D,
+				expect.anything(),
+				gl.LINEAR,
+			);
+		});
+
+		it("restarts the label pass when the atlas resets mid-frame", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			// 400 chars * 5px + padding fills a 2048px atlas row by itself, and
+			// 13px rows give 78 rows per atlas.
+			const wide = (i: number): RenderLabel => ({
+				text: `${String(i).padStart(3, "0")}${"x".repeat(397)}`,
+				color: "#000000",
+				font: "9px sans",
+				x: 0,
+				y: 0,
+				align: "left",
+				baseline: "alphabetic",
+			});
+			core.setLabels(Array.from({ length: 70 }, (_, i) => wide(i)));
+			core.drawFrame(axes, axes);
+
+			// 50 cached labels plus 20 new ones: the 9th new label overflows the
+			// atlas, whose reset reuses rows the cached labels were handed.
+			const frame2 = [
+				...Array.from({ length: 50 }, (_, i) => wide(i)),
+				...Array.from({ length: 20 }, (_, i) => wide(100 + i)),
+			];
+			core.setLabels(frame2);
+			core.drawFrame(axes, axes);
+
+			const inst = gl.bufferData.mock.calls.at(-1)?.[1] as Float32Array;
+			expect(inst.length).toBe(frame2.length * 11);
+			// v0 per label: no two labels may share an atlas row.
+			const rows = new Set<number>();
+			for (let i = 0; i < frame2.length; i++) rows.add(inst[i * 11 + 7]);
+			expect(rows.size).toBe(frame2.length);
+		});
+
+		it("culls same-group labels that overlap once measured, chrome included", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			const period = (text: string, x: number): RenderLabel => ({
+				...labels[1],
+				text,
+				x,
+				tick: undefined,
+				cullGroup: "sec:x",
+			});
+			// "01/2026" (35px measured) at 30 leaves no room for "12/2025" at 10.
+			core.setLabels([period("01/2026", 30), period("12/2025", 10)]);
+			core.drawFrame(axes, axes);
+			expect(gl.drawArraysInstanced).toHaveBeenLastCalledWith(
+				gl.TRIANGLES,
+				0,
+				6,
+				1,
+			);
+			// Only the surviving label's background quad is drawn.
+			expect(gl.drawArrays).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6);
+			expect(gl.drawArrays).not.toHaveBeenCalledWith(gl.TRIANGLES, 6, 6);
+
+			core.setLabels([period("01/2026", 60), period("12/2025", 10)]);
+			core.drawFrame(axes, axes);
+			expect(gl.drawArraysInstanced).toHaveBeenLastCalledWith(
+				gl.TRIANGLES,
+				0,
+				6,
+				2,
+			);
+		});
+
 		it("skips the label pass entirely when rasterization is unavailable", () => {
 			vi
 				.spyOn(HTMLCanvasElement.prototype, "getContext")
@@ -241,5 +505,132 @@ describe("RendererCore", () => {
 			core.drawFrame(axes, axes);
 			expect(gl.drawArraysInstanced).not.toHaveBeenCalled();
 		});
+
+		it("re-rasterizes labels into a new atlas after a context restore", () => {
+			mockCanvas2d();
+			const gl = makeGl2Mock();
+			const canvas = makeCanvasMock(gl);
+			const lost = RendererCore.create(canvas)!;
+			lost.setViewport(viewport);
+			lost.setSeries([]);
+			lost.setLabels(labels);
+			lost.drawFrame(axes, axes);
+			vi.clearAllMocks();
+
+			RendererCore.restore(canvas, lost)!.drawFrame(axes, axes);
+			expect(gl.createTexture).toHaveBeenCalledTimes(1);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+			expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 3);
+		});
+
+		it("re-rasterizes labels when the DPR changes", () => {
+			mockCanvas2d();
+			const { gl, core } = makeCore();
+			core.setViewport(viewport);
+			core.setSeries([]);
+			core.setLabels(labels);
+			core.drawFrame(axes, axes);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(3);
+
+			core.setViewport({ ...viewport, dpr: 2 });
+			core.drawFrame(axes, axes);
+			expect(gl.texSubImage2D).toHaveBeenCalledTimes(6);
+		});
+	});
+});
+
+describe("sizeCanvasToViewport", () => {
+	it("sizes from css * dpr, or from the exact device-pixel size", () => {
+		const canvas = makeCanvasMock(null);
+		sizeCanvasToViewport(canvas, { ...viewport, dpr: 1.5 });
+		expect([canvas.width, canvas.height]).toEqual([300, 150]);
+		sizeCanvasToViewport(canvas, {
+			...viewport,
+			dpr: 1.5,
+			pixelWidth: 301,
+			pixelHeight: 149,
+		});
+		expect([canvas.width, canvas.height]).toEqual([301, 149]);
+		sizeCanvasToViewport(canvas, { ...viewport, width: 0, height: 0 });
+		expect([canvas.width, canvas.height]).toEqual([1, 1]);
+	});
+});
+
+describe("RendererCore log axes", () => {
+	/** Every value uploaded to the `u_log_ref` uniform of either program. */
+	function logRefCalls(gl: ReturnType<typeof makeGl2Mock>) {
+		const locs = new Set(
+			gl.getUniformLocation.mock.calls
+				.map((c, i) =>
+					c[1] === "u_log_ref" ? gl.getUniformLocation.mock.results[i].value : null,
+				)
+				.filter(Boolean),
+		);
+		expect(locs.size).toBe(2);
+		return gl.uniform4f.mock.calls
+			.filter((c) => locs.has(c[0]))
+			.map((c) => c.slice(1));
+	}
+
+	it("flags log axes and passes the column refPoints to both programs", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries({ xRef: 5, yRef: 7, pointStyle: "circle" })]);
+		const logX = [{ id: "axis-1", min: 1, max: 1000, scale: "log" as const }];
+		core.drawFrame(logX, axes);
+		const calls = logRefCalls(gl);
+		// Main program (points) and line program, x log only: y's ref stays 0
+		// so linear series keep hitting the uniform cache.
+		expect(calls).toEqual([
+			[1, 0, 5, 0],
+			[1, 0, 5, 0],
+		]);
+	});
+
+	it("maps x in decades: offset/scale put log10(min) at the plot's left edge", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries()]);
+		const logX = [{ id: "axis-1", min: 1, max: 1000, scale: "log" as const }];
+		core.drawFrame(logX, axes);
+		const xLoc =
+			gl.getUniformLocation.mock.results[
+				gl.getUniformLocation.mock.calls.findIndex(
+					(c) => c[1] === "u_x_scale_offset",
+				)
+			].value;
+		const [, scale, offset] = gl.uniform2f.mock.calls.find((c) => c[0] === xLoc)!;
+		// 180px chart width over 3 decades, left padding 10.
+		expect(scale).toBeCloseTo(60);
+		expect(0 * scale + offset).toBeCloseTo(10);
+		expect(3 * scale + offset).toBeCloseTo(190);
+	});
+
+	it("leaves linear axes unflagged", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		core.setSeries([makeSeries({ xRef: 5, yRef: 7 })]);
+		core.drawFrame(axes, axes);
+		expect(logRefCalls(gl)).toEqual([
+			[0, 0, 0, 0],
+			[0, 0, 0, 0],
+		]);
+	});
+
+	it("decimates dense series on a log x axis with log-uniform buckets", () => {
+		const { gl, core } = makeCore();
+		core.setViewport(viewport);
+		const n = 20_000;
+		core.setSeries([
+			makeSeries({
+				xData: Float32Array.from({ length: n }, (_, i) => i + 1),
+				yData: Float32Array.from({ length: n }, (_, i) => Math.sin(i)),
+			}),
+		]);
+		core.drawFrame([{ id: "axis-1", min: 1, max: n, scale: "log" }], axes);
+		// M4 buckets are uniform in log10(x), so not every segment is drawn.
+		const calls = (gl.drawArraysInstanced as ReturnType<typeof vi.fn>).mock.calls;
+		expect(calls.length).toBeGreaterThan(0);
+		for (const c of calls) expect(c[3]).toBeLessThan(n / 2);
 	});
 });

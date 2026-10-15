@@ -1,28 +1,45 @@
 // src/hooks/useAutoScale.ts
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type {
+	DataColumn,
 	Dataset,
 	SeriesConfig,
 	XAxisConfig,
 	YAxisConfig,
 } from "../services/persistence";
+import { getOrComputeMonotonicity } from "../components/Plot/seriesPrep";
 import { useGraphStore } from "../store/useGraphStore";
 import {
 	AXIS_EPSILON,
 	DEFAULT_X_AXIS_ID,
 	getAxisById,
 } from "../utils/axisCalculations";
+import {
+	fromScale,
+	padRange,
+	positiveBounds,
+	toScale,
+} from "../utils/axisScale";
 import { findFirstGE, findLastLE } from "../utils/binarySearch";
 import { getColumnIndex } from "../utils/columns";
-
-const AXIS_PADDING_RATIO = 0.05;
+import { AXIS_PADDING_RATIO, fitForNewSeries } from "./newSeriesFit";
 
 const axisPadding = (min: number, max: number): number =>
 	(max - min || 1) * AXIS_PADDING_RATIO;
 
 /**
- * Find inclusive index range of xData (offset by refX) within [xMin, xMax]
- * via binary search. Returns null if no points fall in range.
+ * Bounds an axis fits to: the column bounds, or on a log axis only the
+ * positive values (a log axis cannot show the rest).
+ */
+const fitBounds = (
+	col: Pick<DataColumn, "data" | "refPoint" | "bounds">,
+	log: boolean,
+): { min: number; max: number } | null =>
+	log ? positiveBounds(col.data, col.refPoint) : col.bounds;
+
+/**
+ * Find inclusive index range of sorted xData (offset by refX) within
+ * [xMin, xMax] via binary search. Returns null if no points fall in range.
  */
 function visibleIndexRange(
 	xData: ArrayLike<number>,
@@ -36,19 +53,67 @@ function visibleIndexRange(
 	return { startIdx, endIdx };
 }
 
-function getRangeBounds(
-	yData: Float32Array | Float64Array | number[],
+// Keyed by column identity: columns are immutable, so sortedness is computed
+// once per x array rather than on every autoscale.
+const xSortedCache = new WeakMap<Float32Array, boolean>();
+
+/**
+ * Y bounds of the points whose x lies within [xMin, xMax]. Sorted x columns
+ * are sliced by binary search; unsorted ones (scatter data, or x with NaN
+ * gaps) fall back to a linear filtered scan. Returns null if nothing is
+ * visible. With `positiveOnly` (log y axes) values <= 0 are ignored.
+ */
+export function visibleYBounds(
+	xData: Float32Array,
+	refX: number,
+	yData: Float32Array,
 	refY: number,
-	range: { startIdx: number; endIdx: number },
-): { min: number; max: number } {
+	xMin: number,
+	xMax: number,
+	positiveOnly = false,
+): { min: number; max: number } | null {
 	let min = Infinity;
 	let max = -Infinity;
-	for (let j = range.startIdx; j <= range.endIdx; j++) {
-		const v = yData[j] + refY;
-		if (v < min) min = v;
-		if (v > max) max = v;
+	if (getOrComputeMonotonicity(xData, xSortedCache)) {
+		const range = visibleIndexRange(xData, refX, xMin, xMax);
+		if (!range) return null;
+		for (let j = range.startIdx; j <= range.endIdx; j++) {
+			const v = yData[j] + refY;
+			if (positiveOnly && !(v > 0)) continue;
+			if (v < min) min = v;
+			if (v > max) max = v;
+		}
+	} else {
+		const n = Math.min(xData.length, yData.length);
+		for (let j = 0; j < n; j++) {
+			const x = xData[j] + refX;
+			if (!(x >= xMin && x <= xMax)) continue;
+			const v = yData[j] + refY;
+			if (positiveOnly && !(v > 0)) continue;
+			if (v < min) min = v;
+			if (v > max) max = v;
+		}
 	}
-	return { min, max };
+	return min === Infinity ? null : { min, max };
+}
+
+/** Positive-value bounds over the y columns of `axisSeries`. */
+function positiveYBounds(
+	axisSeries: readonly SeriesConfig[],
+	dsById: ReadonlyMap<string, Dataset>,
+): { min: number; max: number } | null {
+	let min = Infinity;
+	let max = -Infinity;
+	for (const s of axisSeries) {
+		const ds = dsById.get(s.sourceId);
+		if (!ds) continue;
+		const col = ds.data[getColumnIndex(ds, s.yColumn)];
+		const b = col ? positiveBounds(col.data, col.refPoint) : null;
+		if (!b) continue;
+		if (b.min < min) min = b.min;
+		if (b.max > max) max = b.max;
+	}
+	return min === Infinity ? null : { min, max };
 }
 
 interface UseAutoScaleOptions {
@@ -97,18 +162,22 @@ function computeAutoScaleY(
 		syncViewport: sv,
 		datasetsById: dsById,
 		xAxes,
+		activeYAxes,
 		seriesByYAxisId: sByY,
 		yBoundsByAxisId,
 	} = deps;
 
 	const axisSeries = sByY.get(axisId);
 	if (!axisSeries || axisSeries.length === 0) return;
+	const log = getAxisById(activeYAxes, axisId)?.scale === "log";
 
 	let yMin = Infinity,
 		yMax = -Infinity;
 
 	if (mouseY === undefined) {
-		const cached = yBoundsByAxisId.get(axisId);
+		const cached = log
+			? positiveYBounds(axisSeries, dsById)
+			: yBoundsByAxisId.get(axisId);
 		if (cached) {
 			yMin = cached.min;
 			yMax = cached.max;
@@ -132,9 +201,16 @@ function computeAutoScaleY(
 				yData = colY.data,
 				refX = colX.refPoint,
 				refY = colY.refPoint;
-			const range = visibleIndexRange(xData, refX, xAxis.min, xAxis.max);
-			if (range) {
-				const bounds = getRangeBounds(yData, refY, range);
+			const bounds = visibleYBounds(
+				xData,
+				refX,
+				yData,
+				refY,
+				xAxis.min,
+				xAxis.max,
+				log,
+			);
+			if (bounds) {
 				if (bounds.min < yMin) yMin = bounds.min;
 				if (bounds.max > yMax) yMax = bounds.max;
 			}
@@ -142,29 +218,33 @@ function computeAutoScaleY(
 	}
 
 	if (yMin !== Infinity) {
+		// Fit in scale space (log10 on a log axis) so padding and the
+		// stacking offsets below are proportional to what is on screen.
+		const lo = toScale(yMin, log);
+		const hi = toScale(yMax, log);
 		let nMin: number, nMax: number;
-		const r = yMax - yMin || 1;
+		const r = hi - lo || 1;
 		const pad = r * AXIS_PADDING_RATIO;
 		if (mouseY !== undefined) {
 			if (mouseY < p.top + ch / 3) {
-				nMin = yMin - r - 3 * pad;
-				nMax = yMax + pad;
+				nMin = lo - r - 3 * pad;
+				nMax = hi + pad;
 			} else if (mouseY > p.top + (2 * ch) / 3) {
-				nMin = yMin - pad;
-				nMax = yMax + r + 3 * pad;
+				nMin = lo - pad;
+				nMax = hi + r + 3 * pad;
 			} else {
-				nMin = yMin - pad;
-				nMax = yMax + pad;
+				nMin = lo - pad;
+				nMax = hi + pad;
 			}
 		} else {
-			nMin = yMin - pad;
-			nMax = yMax + pad;
+			nMin = lo - pad;
+			nMax = hi + pad;
 		}
 
 		const professionalPad = axisPadding(nMin, nMax);
 		targetYs[axisId] = {
-			min: nMin - professionalPad,
-			max: nMax + professionalPad,
+			min: fromScale(nMin - professionalPad, log),
+			max: fromScale(nMax + professionalPad, log),
 		};
 		sv();
 	}
@@ -183,6 +263,7 @@ function computeAutoScaleX(
 		syncViewport: sv,
 		datasets: allDs,
 		activeDatasetIdsSet: activeDsIds,
+		xAxes,
 	} = deps;
 
 	if (allDs.length === 0) return;
@@ -207,19 +288,20 @@ function computeAutoScaleX(
 	axesToScale.forEach((id) => {
 		const activeDs = activeDsByAxis.get(id);
 		if (!activeDs || activeDs.length === 0) return;
+		const log = getAxisById(xAxes, id)?.scale === "log";
 		let xMin = Infinity,
 			xMax = -Infinity;
 		activeDs.forEach((ds) => {
 			const xIdx = getColumnIndex(ds, ds.xAxisColumn),
 				col = ds.data[xIdx];
-			if (col?.bounds) {
-				if (col.bounds.min < xMin) xMin = col.bounds.min;
-				if (col.bounds.max > xMax) xMax = col.bounds.max;
+			const b = col?.bounds ? fitBounds(col, log) : null;
+			if (b) {
+				if (b.min < xMin) xMin = b.min;
+				if (b.max > xMax) xMax = b.max;
 			}
 		});
 		if (xMin !== Infinity) {
-			const pad = axisPadding(xMin, xMax);
-			targetXAxes[id] = { min: xMin - pad, max: xMax + pad };
+			targetXAxes[id] = padRange(xMin, xMax, AXIS_PADDING_RATIO, log);
 		}
 	});
 	sv();
@@ -263,6 +345,7 @@ function computeStackedFit(
 	orderedAxisIds.forEach((axisId, i) => {
 		const axisSeries = sByY.get(axisId);
 		if (!axisSeries || axisSeries.length === 0) return;
+		const log = getAxisById(ayAxes, axisId)?.scale === "log";
 
 		let yMin = Infinity,
 			yMax = -Infinity;
@@ -287,9 +370,8 @@ function computeStackedFit(
 				yData = colY.data;
 			const refX = colX.refPoint,
 				refY = colY.refPoint;
-			const range = visibleIndexRange(xData, refX, xMin, xMax);
-			if (range) {
-				const bounds = getRangeBounds(yData, refY, range);
+			const bounds = visibleYBounds(xData, refX, yData, refY, xMin, xMax, log);
+			if (bounds) {
 				if (bounds.min < yMin) yMin = bounds.min;
 				if (bounds.max > yMax) yMax = bounds.max;
 			}
@@ -297,9 +379,12 @@ function computeStackedFit(
 
 		if (yMin === Infinity) return;
 
-		const pad = axisPadding(yMin, yMax);
-		const dMin = yMin - pad;
-		const dMax = yMax + pad;
+		// Slice layout in scale space: on a log axis each slice spans decades.
+		const lo = toScale(yMin, log);
+		const hi = toScale(yMax, log);
+		const pad = axisPadding(lo, hi);
+		const dMin = lo - pad;
+		const dMax = hi + pad;
 		const paddedRange = dMax - dMin;
 
 		const sliceBot = (i + 1) * sliceH;
@@ -307,7 +392,10 @@ function computeStackedFit(
 		const targetMin = dMin - (totalRange * (ch - sliceBot)) / ch;
 		const targetMax = targetMin + totalRange;
 
-		targetYs[axisId] = { min: targetMin, max: targetMax };
+		targetYs[axisId] = {
+			min: fromScale(targetMin, log),
+			max: fromScale(targetMax, log),
+		};
 	});
 
 	sv();
@@ -486,10 +574,12 @@ export function useAutoScale({
 				const col = ds.data[xIdx];
 				if (!col?.bounds || !Number.isFinite(col.bounds.min)) return;
 				const xId = ds.xAxisId || DEFAULT_X_AXIS_ID;
+				const b = fitBounds(col, getAxisById(xAxes, xId)?.scale === "log");
+				if (!b) return;
 				const cur = xBounds.get(xId) || { min: Infinity, max: -Infinity };
 				xBounds.set(xId, {
-					min: Math.min(cur.min, col.bounds.min),
-					max: Math.max(cur.max, col.bounds.max),
+					min: Math.min(cur.min, b.min),
+					max: Math.max(cur.max, b.max),
 				});
 			});
 
@@ -500,8 +590,12 @@ export function useAutoScale({
 					!Number.isNaN(bounds.min) &&
 					!Number.isNaN(bounds.max)
 				) {
-					const pad = axisPadding(bounds.min, bounds.max);
-					const nextX = { min: bounds.min - pad, max: bounds.max + pad };
+					const nextX = padRange(
+						bounds.min,
+						bounds.max,
+						AXIS_PADDING_RATIO,
+						getAxisById(xAxes, id)?.scale === "log",
+					);
 					if (!Number.isNaN(nextX.min) && !Number.isNaN(nextX.max)) {
 						xs[id] = nextX;
 						xUpdates[id] = nextX;
@@ -513,15 +607,17 @@ export function useAutoScale({
 			// Calculate Y bounds per axis
 			const ys = targetYs.current;
 			activeYAxes.forEach((axis) => {
-				const bounds = depsRef.current.yBoundsByAxisId.get(axis.id);
+				const log = axis.scale === "log";
+				const bounds = log
+					? positiveYBounds(seriesByYAxisId.get(axis.id) ?? [], datasetsById)
+					: depsRef.current.yBoundsByAxisId.get(axis.id);
 				if (
 					bounds &&
 					bounds.min !== Infinity &&
 					!Number.isNaN(bounds.min) &&
 					!Number.isNaN(bounds.max)
 				) {
-					const pad = axisPadding(bounds.min, bounds.max);
-					const nextY = { min: bounds.min - pad, max: bounds.max + pad };
+					const nextY = padRange(bounds.min, bounds.max, AXIS_PADDING_RATIO, log);
 					if (!Number.isNaN(nextY.min) && !Number.isNaN(nextY.max)) {
 						ys[axis.id] = nextY;
 						yUpdates[axis.id] = nextY;
@@ -548,23 +644,29 @@ export function useAutoScale({
 		targetYs,
 	]);
 
-	// New series detection
+	// Fit the axes of newly added (or rebound) series. Written to the store,
+	// not just the target refs: ChartContainer resets the targets from the
+	// store on every series change, which would discard a target-only fit.
+	// The first loaded series list is left to the initial-fit effect above.
 	const prevSeriesRef = useRef(series);
+	const seenLoadedRef = useRef(false);
 	useEffect(() => {
-		if (!isLoaded) return;
-		if (series.length > prevSeriesRef.current.length) {
-			const added = series[series.length - 1];
-			if (added) handleAutoScaleY(added.yAxisId);
-		} else {
-			const prevMap = new Map(prevSeriesRef.current.map((ps) => [ps.id, ps]));
-			series.forEach((s) => {
-				const prev = prevMap.get(s.id);
-				if (prev && (prev.yColumn !== s.yColumn || prev.sourceId !== s.sourceId))
-					handleAutoScaleY(s.yAxisId);
-			});
-		}
+		const prev = prevSeriesRef.current;
 		prevSeriesRef.current = series;
-	}, [series, isLoaded, handleAutoScaleY]);
+		if (!isLoaded) return;
+		if (!seenLoadedRef.current) {
+			seenLoadedRef.current = true;
+			return;
+		}
+		if (prev === series) return;
+		const state = useGraphStore.getState();
+		const { x, y } = fitForNewSeries(prev, series, datasetsById, state.yAxes);
+		if (Object.keys(x).length === 0 && Object.keys(y).length === 0) return;
+		Object.assign(targetXAxes.current, x);
+		Object.assign(targetYs.current, y);
+		state.batchUpdateAxes(x, y);
+		syncViewport();
+	}, [series, isLoaded, datasetsById, targetXAxes, targetYs, syncViewport]);
 
 	const handleStackedFit = useCallback(() => {
 		computeStackedFit(depsRef.current, targetXAxes, targetYs);

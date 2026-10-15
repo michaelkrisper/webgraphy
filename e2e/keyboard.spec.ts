@@ -146,10 +146,11 @@ test("a dialog opened mid-path returns focus to its opener", async ({
 	await opener.focus();
 	await page.keyboard.press("Enter");
 
-	// Focus must land inside the dialog, not stay behind it.
+	// Focus must land inside the dialog, not stay behind it. Help has no
+	// fields, so that is the dialog itself rather than its Close button.
 	await expect
-		.poll(() => focused(page).then((s) => s?.name ?? ""))
-		.toMatch(/Close Help/);
+		.poll(() => focused(page).then((s) => s?.testid ?? ""))
+		.toMatch(/modal-card/);
 
 	await page.keyboard.press("Escape");
 	await expect.poll(() => focused(page).then((s) => s?.name ?? "")).toBe("Help");

@@ -3,7 +3,7 @@
  * Per bucket: emit (first, last, min, max) — preserves visible extrema for line plots.
  */
 
-import { findFirstGE } from "./binarySearch";
+import { findFirstGE, findLastLE, findSegmentStartIndex } from "./binarySearch";
 
 /**
  * Pixel-anchored M4 decimation. Buckets are X-world intervals tied to screen pixels,
@@ -157,6 +157,274 @@ export function m4ByXFloat32(
 }
 
 /**
+ * Index k of the log-uniform bucket holding `x` (> 0), i.e. the k with
+ * 10^(k·w) <= x < 10^((k+1)·w). Membership is decided against bucket edges
+ * computed exactly as `10 ** (k * w)` — the same expression every log-bucket
+ * walk compares against — so the scan and the octave merge agree on samples
+ * where log10 would round across an edge. With w a power of two, k·w is exact
+ * and the edges of an octave nest bit-for-bit in the next coarser one.
+ */
+export function logBucketIndex(x: number, w: number): number {
+	let k = Math.floor(Math.log10(x) / w);
+	if (10 ** (k * w) > x) k--;
+	else if (10 ** ((k + 1) * w) <= x) k++;
+	return k;
+}
+
+/**
+ * First index in [from, n) with `xData[j] + xRef >= target`, else n. Galloping
+ * (doubling probe, then binary search) costs O(log distance), so it is cheap
+ * both for sparse buckets (answer is next door) and dense ones.
+ */
+function gallopFirstGE(
+	xData: Float32Array,
+	xRef: number,
+	target: number,
+	from: number,
+	n: number,
+): number {
+	if (from >= n || xData[from] + xRef >= target) return from;
+	let prev = from;
+	let step = 1;
+	let probe = from + 1;
+	while (probe < n && xData[probe] + xRef < target) {
+		prev = probe;
+		step *= 2;
+		probe = prev + step;
+	}
+	let lo = prev + 1;
+	let hi = Math.min(probe, n);
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (xData[mid] + xRef < target) lo = mid + 1;
+		else hi = mid;
+	}
+	return lo;
+}
+
+/**
+ * `m4ByXFloat32` for a log x axis: buckets are uniform in log10(x) — i.e.
+ * pixel-sized on screen — with `bucketWidth` in decades and the grid anchored
+ * at x = 1 (log10 = 0), so it nests across octaves exactly like the linear
+ * grid. `xMin`/`xMax` are absolute data units and must be > 0; samples with
+ * x <= 0 have no position on a log axis and are never emitted (the line
+ * shader drops a segment touching one like a gap, so nothing is lost).
+ *
+ * Bucket edges are found by galloping binary search on the sorted column
+ * (absolute x = xRef + v), so the per-sample loop only touches y and the
+ * per-bucket cost is one log10 plus O(log bucket size) compares.
+ */
+export function m4ByLogXFloat32(
+	xData: Float32Array,
+	yData: Float32Array,
+	xRef: number,
+	xMin: number,
+	xMax: number,
+	bucketWidth: number,
+	out?: { x: Float32Array; y: Float32Array },
+): { x: Float32Array; y: Float32Array } {
+	const n = xData.length;
+	const w = bucketWidth;
+	const valid = n > 0 && w > 0 && xMin > 0 && xMax > xMin;
+	const kStart = valid ? logBucketIndex(xMin, w) : 0;
+	// Buckets whose start lies below xMax, plus slack for log10 rounding,
+	// four samples each, and the two continuity anchors.
+	const numBuckets = valid ? Math.ceil(Math.log10(xMax) / w) - kStart + 2 : 0;
+	const maxPoints = Math.max(4, numBuckets * 4 + 2);
+	let xOut = out ? out.x : new Float32Array(maxPoints);
+	let yOut = out ? out.y : new Float32Array(maxPoints);
+	if (xOut.length < maxPoints) {
+		xOut = new Float32Array(maxPoints);
+		yOut = new Float32Array(maxPoints);
+	}
+	if (out) {
+		out.x = xOut;
+		out.y = yOut;
+	}
+	if (!valid || !(numBuckets > 0)) {
+		return { x: xOut.subarray(0, 0), y: yOut.subarray(0, 0) };
+	}
+
+	let outIdx = 0;
+	let i = findFirstGE(xData, 10 ** (kStart * w), xRef, n);
+
+	// Leading continuity anchor, as in the linear walk — only if a log axis
+	// can place it.
+	if (i > 0) {
+		let anchor = i - 1;
+		while (anchor >= 0 && Number.isNaN(yData[anchor])) anchor--;
+		if (anchor >= 0 && xData[anchor] + xRef > 0) {
+			xOut[outIdx] = xData[anchor];
+			yOut[outIdx] = yData[anchor];
+			outIdx++;
+		}
+	}
+
+	while (i < n) {
+		const xi = xData[i] + xRef;
+		if (!(xi > 0)) {
+			i++;
+			continue;
+		}
+		const k = logBucketIndex(xi, w);
+		if (10 ** (k * w) >= xMax) break;
+		const end = gallopFirstGE(xData, xRef, 10 ** ((k + 1) * w), i + 1, n);
+
+		let lastIdx = -1;
+		let minIdx = -1;
+		let maxIdx = -1;
+		for (let j = i; j < end; j++) {
+			const y = yData[j];
+			if (!Number.isNaN(y)) {
+				if (minIdx === -1 || y < yData[minIdx]) minIdx = j;
+				if (maxIdx === -1 || y > yData[maxIdx]) maxIdx = j;
+				lastIdx = j;
+			}
+		}
+		const firstIdx = i;
+		i = end;
+		if (minIdx === -1) continue;
+
+		const start = !Number.isNaN(yData[firstIdx]) ? firstIdx : minIdx;
+		// Same (first, min, max, last) shape as the linear walk, index-ordered.
+		const inner1 = Math.min(minIdx, maxIdx);
+		const inner2 = Math.max(minIdx, maxIdx);
+		xOut[outIdx] = xData[start];
+		yOut[outIdx] = yData[start];
+		outIdx++;
+		if (inner1 !== start && inner1 !== lastIdx) {
+			xOut[outIdx] = xData[inner1];
+			yOut[outIdx] = yData[inner1];
+			outIdx++;
+		}
+		if (inner2 !== start && inner2 !== lastIdx && inner2 !== inner1) {
+			xOut[outIdx] = xData[inner2];
+			yOut[outIdx] = yData[inner2];
+			outIdx++;
+		}
+		if (lastIdx !== start) {
+			xOut[outIdx] = xData[lastIdx];
+			yOut[outIdx] = yData[lastIdx];
+			outIdx++;
+		}
+	}
+
+	// Trailing continuity anchor: first non-NaN point at/after xMax.
+	if (i < n) {
+		let anchor = i;
+		while (anchor < n && Number.isNaN(yData[anchor])) anchor++;
+		if (anchor < n) {
+			xOut[outIdx] = xData[anchor];
+			yOut[outIdx] = yData[anchor];
+			outIdx++;
+		}
+	}
+
+	return { x: xOut.subarray(0, outIdx), y: yOut.subarray(0, outIdx) };
+}
+
+/** M4 output split into NaN-free runs: flat (start, count) pairs into x/y. */
+export interface M4Runs {
+	x: Float32Array;
+	y: Float32Array;
+	runs: number[];
+}
+
+// Segments this short gain nothing from M4; copying them skips a subarray
+// view and a bucket scan each, which adds up for heavily gapped series.
+const RAW_COPY_MAX = 4;
+
+/**
+ * Gap-preserving `m4ByXFloat32`: decimates each segment (a NaN-free run of a
+ * series with monotonic x) on its own and concatenates the results, recording
+ * where each segment's output starts so a line renderer can draw the runs
+ * separately instead of bridging the gaps. The bucket grid is the same
+ * world-0-anchored one for every segment, so results nest across octaves
+ * exactly like the single-run path. Segments with a single sample are dropped
+ * (they draw no line); segments outside `[xMin, xMax]` are skipped.
+ *
+ * With `log` set the segments go through `m4ByLogXFloat32` (`bucketWidth` in
+ * decades, `xMin`/`xMax` > 0).
+ */
+export function m4ByXSegmentsFloat32(
+	xData: Float32Array,
+	yData: Float32Array,
+	segments: readonly { start: number; end: number }[],
+	xRef: number,
+	xMin: number,
+	xMax: number,
+	bucketWidth: number,
+	scratch: { x: Float32Array; y: Float32Array },
+	log = false,
+): M4Runs {
+	let xOut = new Float32Array(64);
+	let yOut = new Float32Array(64);
+	let len = 0;
+	const runs: number[] = [];
+	const reserve = (extra: number) => {
+		if (len + extra <= xOut.length) return;
+		let cap = xOut.length * 2;
+		while (cap < len + extra) cap *= 2;
+		const gx = new Float32Array(cap);
+		const gy = new Float32Array(cap);
+		gx.set(xOut.subarray(0, len));
+		gy.set(yOut.subarray(0, len));
+		xOut = gx;
+		yOut = gy;
+	};
+
+	if (segments.length === 0 || bucketWidth <= 0 || !(xMax >= xMin)) {
+		return { x: xOut.subarray(0, 0), y: yOut.subarray(0, 0), runs };
+	}
+	const first = findSegmentStartIndex(
+		segments as { start: number; end: number }[],
+		findLastLE(xData, xMin, xRef, 0),
+	);
+	for (let s = first; s < segments.length; s++) {
+		const seg = segments[s];
+		const count = seg.end - seg.start + 1;
+		if (count < 2) continue;
+		const segX0 = xData[seg.start] + xRef;
+		const segX1 = xData[seg.end] + xRef;
+		if (segX1 < xMin) continue;
+		if (segX0 > xMax) break;
+
+		const runStart = len;
+		if (count <= RAW_COPY_MAX) {
+			reserve(count);
+			for (let i = seg.start; i <= seg.end; i++) {
+				xOut[len] = xData[i];
+				yOut[len] = yData[i];
+				len++;
+			}
+		} else {
+			// Clamp the window to the segment so the bucket walk stays local;
+			// a segment that ends past the window still gets its in-segment
+			// edge anchors from m4ByXFloat32.
+			const lo = Math.max(xMin, segX0);
+			let hi = Math.min(xMax, segX1);
+			// Vertical run at a single x: widen to one bucket.
+			if (hi <= lo) hi = log ? lo * 10 ** bucketWidth : lo + bucketWidth;
+			const r = (log ? m4ByLogXFloat32 : m4ByXFloat32)(
+				xData.subarray(seg.start, seg.end + 1),
+				yData.subarray(seg.start, seg.end + 1),
+				xRef,
+				lo,
+				hi,
+				bucketWidth,
+				scratch,
+			);
+			reserve(r.x.length);
+			xOut.set(r.x, len);
+			yOut.set(r.y, len);
+			len += r.x.length;
+		}
+		if (len > runStart) runs.push(runStart, len - runStart);
+	}
+	return { x: xOut.subarray(0, len), y: yOut.subarray(0, len), runs };
+}
+
+/**
  * Merge an M4 level (bucket width `w`, world-0-anchored grid, index-ordered
  * output of `m4ByXFloat32` over the full data span) into the next-coarser
  * octave (`coarseWidth = 2 * w`). Exact: because the power-of-two grids nest,
@@ -167,12 +435,16 @@ export function m4ByXFloat32(
  *
  * Input must be NaN-free (m4 output always is) and contain no edge anchors
  * (full-span levels have none).
+ *
+ * With `log` set the level comes from `m4ByLogXFloat32` (widths in decades,
+ * all x > 0) and buckets are split on its log-uniform edges.
  */
 export function m4MergeOctave(
 	xData: Float32Array,
 	yData: Float32Array,
 	xRef: number,
 	coarseWidth: number,
+	log = false,
 ): { x: Float32Array; y: Float32Array } {
 	const n = xData.length;
 	const xOut = new Float32Array(n);
@@ -180,17 +452,28 @@ export function m4MergeOctave(
 	let out = 0;
 	let i = 0;
 	while (i < n) {
-		const b = Math.floor((xData[i] + xRef) / coarseWidth);
 		const firstI = i;
 		let lastI = i;
 		let minI = i;
 		let maxI = i;
 		let j = i + 1;
-		while (j < n && Math.floor((xData[j] + xRef) / coarseWidth) === b) {
-			if (yData[j] < yData[minI]) minI = j;
-			if (yData[j] > yData[maxI]) maxI = j;
-			lastI = j;
-			j++;
+		if (log) {
+			const k = logBucketIndex(xData[i] + xRef, coarseWidth);
+			const bEnd = 10 ** ((k + 1) * coarseWidth);
+			while (j < n && xData[j] + xRef < bEnd) {
+				if (yData[j] < yData[minI]) minI = j;
+				if (yData[j] > yData[maxI]) maxI = j;
+				lastI = j;
+				j++;
+			}
+		} else {
+			const b = Math.floor((xData[i] + xRef) / coarseWidth);
+			while (j < n && Math.floor((xData[j] + xRef) / coarseWidth) === b) {
+				if (yData[j] < yData[minI]) minI = j;
+				if (yData[j] > yData[maxI]) maxI = j;
+				lastI = j;
+				j++;
+			}
 		}
 		// Emit (first, min, max, last) deduplicated, in index order — same
 		// per-bucket shape m4ByXFloat32 produces.

@@ -4,11 +4,12 @@ import type {
 	SeriesConfig,
 	XAxisConfig,
 } from "../../../services/persistence";
-import { m4ByXFloat32 } from "../../../utils/decimation";
+import { logBucketIndex, m4ByXFloat32 } from "../../../utils/decimation";
 import {
 	buildPlotDataTable,
 	formatTableValue,
 	MAX_TABLE_ROWS,
+	plotTableToTsv,
 } from "../plotDataTable";
 
 const POINTS = 100_000;
@@ -100,6 +101,41 @@ describe("buildPlotDataTable", () => {
 		expect(table.rows[last]).toEqual({ x: x[last], y: y[last] });
 	});
 
+	it("buckets log-uniformly on a log x axis", () => {
+		const logAxes = [
+			{ ...xAxes[0], min: 1, max: POINTS, scale: "log" },
+		] as XAxisConfig[];
+		const [table] = buildPlotDataTable({
+			series,
+			datasets: [makeDataset()],
+			xAxes: logAxes,
+		});
+		const w = Math.log10(POINTS) / Math.floor((MAX_TABLE_ROWS - 2) / 4);
+		const perBucket = new Map<number, number>();
+		for (const r of table.rows) {
+			const k = logBucketIndex(r.x, w);
+			perBucket.set(k, (perBucket.get(k) ?? 0) + 1);
+		}
+		// Every bucket keeps at most (first, min, max, last).
+		for (const count of perBucket.values()) expect(count).toBeLessThanOrEqual(4);
+		// Equal-width decades: the low decades get rows, not one linear bucket.
+		const decades = [0, 1, 2, 3, 4].map(
+			(d) =>
+				table.rows.filter((r) => r.x >= 10 ** d && r.x < 10 ** (d + 1)).length,
+		);
+		for (const c of decades.slice(1)) expect(c).toBeGreaterThan(10);
+		expect(decades[0]).toBeGreaterThan(0);
+	});
+
+	it("skips a log x axis whose range is not positive", () => {
+		const bad = [
+			{ ...xAxes[0], min: 0, max: 100, scale: "log" },
+		] as XAxisConfig[];
+		expect(
+			buildPlotDataTable({ series, datasets: [makeDataset()], xAxes: bad }),
+		).toEqual([]);
+	});
+
 	it("skips hidden series", () => {
 		const hidden = [{ ...series[0], hidden: true }] as SeriesConfig[];
 		expect(
@@ -120,6 +156,78 @@ describe("buildPlotDataTable", () => {
 				xAxes: collapsed,
 			}),
 		).toEqual([]);
+	});
+});
+
+describe("refPoint reconstruction", () => {
+	const offsetDataset = (): Dataset =>
+		({
+			id: "ds-1",
+			name: "Offset",
+			columns: ["time", "value"],
+			rowCount: 3,
+			xAxisColumn: "time",
+			xAxisId: "axis-1",
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 1700000000,
+					bounds: { min: 1700000000, max: 1700000120 },
+					data: new Float32Array([0, 60, 120]),
+				},
+				{
+					isFloat64: false,
+					refPoint: 1000.25,
+					bounds: { min: 999.75, max: 1001.75 },
+					data: new Float32Array([0, -0.5, 1.5]),
+				},
+			],
+		}) as unknown as Dataset;
+	const dateAxes = [
+		{ ...xAxes[0], min: 1700000000, max: 1700000120, xMode: "date" },
+	] as XAxisConfig[];
+
+	it("adds the y column's refPoint back, not only x's", () => {
+		const [table] = buildPlotDataTable({
+			series,
+			datasets: [offsetDataset()],
+			xAxes: dateAxes,
+		});
+		expect(table.rows.map((r) => r.y)).toEqual([1000.25, 999.75, 1001.75]);
+	});
+
+	it("serialises the shown rows as TSV with ISO dates", () => {
+		const tables = buildPlotDataTable({
+			series,
+			datasets: [offsetDataset()],
+			xAxes: dateAxes,
+		});
+		expect(plotTableToTsv(tables)).toBe(
+			[
+				"Time\tValue",
+				"2023-11-14T22:13:20.000Z\t1000.25",
+				"2023-11-14T22:14:20.000Z\t999.75",
+				"2023-11-14T22:15:20.000Z\t1001.75",
+				"",
+			].join("\n"),
+		);
+	});
+
+	it("separates series with a blank line and guards their names", () => {
+		const two = [
+			series[0],
+			{ ...series[0], id: "s2", name: "=evil" },
+		] as SeriesConfig[];
+		const tsv = plotTableToTsv(
+			buildPlotDataTable({
+				series: two,
+				datasets: [offsetDataset()],
+				xAxes: dateAxes,
+			}),
+		);
+		const blocks = tsv.split("\n\n");
+		expect(blocks).toHaveLength(2);
+		expect(blocks[1].split("\n")[0]).toBe("Time\t'=evil");
 	});
 });
 

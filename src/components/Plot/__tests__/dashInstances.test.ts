@@ -17,13 +17,18 @@ import {
 
 const FLOATS_PER_INSTANCE = 5;
 
+// Shared across bundles: the cache compares column identity, so two bundles
+// describe the same series only when they hold the same arrays.
+const n = 8;
+const X_DATA = Float32Array.from({ length: n }, (_, i) => i);
+const Y_DATA = Float32Array.from({ length: n }, (_, i) => i * 2);
+
 function bundleWith(
 	overrides: Partial<SeriesDrawBundle> = {},
 ): SeriesDrawBundle {
-	const n = 8;
 	return {
-		xData: Float32Array.from({ length: n }, (_, i) => i),
-		yData: Float32Array.from({ length: n }, (_, i) => i * 2),
+		xData: X_DATA,
+		yData: Y_DATA,
 		xRef: 0,
 		yRef: 0,
 		xAxisMin: 0,
@@ -135,6 +140,23 @@ describe("dashCacheParams / dashParamsEqual", () => {
 		expect(dashParamsEqual(before, after)).toBe(false);
 	});
 
+	it("misses when the series is re-pointed at different columns", () => {
+		// The cache is per series id; removing a calculated column shifts the
+		// column indices, so the same id can suddenly resolve to another
+		// array of identical length and shape.
+		const before = dashCacheParams(bundle, 7);
+		const swappedY = dashCacheParams(
+			bundleWith({ xData: bundle.xData, yData: bundle.yData.slice() }),
+			7,
+		);
+		const swappedX = dashCacheParams(
+			bundleWith({ xData: bundle.xData.slice(), yData: bundle.yData }),
+			7,
+		);
+		expect(dashParamsEqual(before, swappedY)).toBe(false);
+		expect(dashParamsEqual(before, swappedX)).toBe(false);
+	});
+
 	it("records every field it compares", () => {
 		// Guards against a field being added to SegParams but not to the
 		// comparison, which would silently serve stale geometry.
@@ -210,5 +232,45 @@ describe("buildDashInstances", () => {
 		// Starts at index 3, not 0.
 		expect(out[0]).toBe(3);
 		expect(out[1]).toBe(6);
+	});
+});
+
+describe("buildDashInstances on log axes", () => {
+	it("measures dash distance in log-space pixels", () => {
+		const x = new Float32Array([1, 10, 100]);
+		const y = new Float32Array([5, 5, 5]);
+		const bundle = bundleWith({
+			xData: x,
+			yData: y,
+			xLog: true,
+			xRange: 2, // decades
+			chartWidth: 200,
+			drawRanges: [{ start: 0, count: 3 }],
+		});
+		const out = buildDashInstances(bundle, computeDashSteps(bundle.drawRanges));
+		// Each decade is 100px wide.
+		expect(out[FLOATS_PER_INSTANCE + 4]).toBeCloseTo(100);
+	});
+
+	it("restarts the dash phase after a value a log axis cannot place", () => {
+		const x = new Float32Array([0, 1, 2, 3]);
+		const y = new Float32Array([1, -1, 10, 100]);
+		const bundle = bundleWith({
+			xData: x,
+			yData: y,
+			yLog: true,
+			yRange: 2,
+			drawRanges: [{ start: 0, count: 4 }],
+		});
+		const out = buildDashInstances(bundle, computeDashSteps(bundle.drawRanges));
+		expect(out[FLOATS_PER_INSTANCE + 4]).toBe(0);
+		expect(out[2 * FLOATS_PER_INSTANCE + 4]).toBe(0);
+		expect(Array.from(out).every(Number.isFinite)).toBe(true);
+	});
+
+	it("invalidates the cache when an axis switches scale", () => {
+		const a = dashCacheParams(bundleWith(), 7);
+		const b = dashCacheParams(bundleWith({ yLog: true }), 7);
+		expect(dashParamsEqual(a, b)).toBe(false);
 	});
 });

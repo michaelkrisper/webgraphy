@@ -4,8 +4,10 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useGraphStore } from "../../store/useGraphStore";
 import { THEMES } from "../../themes";
+import { IMPORT_ACCEPT } from "../../utils/importFile";
 import ErrorBoundary from "../ErrorBoundary";
 import { DatasetItem } from "./DatasetItem";
+import { LoadDemoDataButton } from "./LoadDemoDataButton";
 
 // Pulls in the formula editor + function reference; only needed once the user
 // actually adds a calculated column, so it stays out of the entry chunk.
@@ -19,14 +21,14 @@ interface DataSourcesSectionProps {
 	open: boolean;
 	onToggle: () => void;
 	fileInputRef: React.RefObject<HTMLInputElement | null>;
-	importFile: (file: File) => void;
+	importFiles: (files: ArrayLike<File>) => void;
 }
 
 export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 	open,
 	onToggle,
 	fileInputRef,
-	importFile,
+	importFiles,
 }) => {
 	const datasets = useGraphStore((s) => s.datasets);
 
@@ -48,43 +50,25 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 
 	return (
 		<ErrorBoundary level="component">
-			<section style={{ marginBottom: "24px" }}>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-					}}
-				>
-					<button
-						type="button"
-						onClick={onToggle}
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: "6px",
-							cursor: "pointer",
-							flex: 1,
-							background: "none",
-							border: "none",
-							padding: 0,
-						}}
-					>
+			<section className="sb-section">
+				<div className="sb-section-header">
+					<button type="button" onClick={onToggle} className="sb-section-toggle">
 						<h2 className="sb-section-title">Data Sources</h2>
 						{open ? (
-							<ChevronDown size={16} color={t.textMuted} />
+							<ChevronDown size={16} color="var(--text-muted-color)" />
 						) : (
-							<ChevronRight size={16} color={t.textMuted} />
+							<ChevronRight size={16} color="var(--text-muted-color)" />
 						)}
-					</button>{" "}
+					</button>
+					<LoadDemoDataButton />
 				</div>
 				<input
 					ref={fileInputRef}
 					type="file"
-					accept=".csv,.json,.xlsx,.xls"
+					accept={IMPORT_ACCEPT}
+					multiple
 					onChange={(e) => {
-						const f = e.target.files?.[0];
-						if (f) importFile(f);
+						if (e.target.files) importFiles(e.target.files);
 						e.target.value = "";
 					}}
 					style={{ display: "none" }}

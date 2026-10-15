@@ -3,10 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "./components/components.css";
-import { registerSW } from "virtual:pwa-register";
 
-// Register the service worker for PWA support
-registerSW({ immediate: true });
+void import("./deferredStartup").then((m) => m.runDeferredStartup());
 
 const rootElement = document.getElementById("root");
 if (rootElement) {

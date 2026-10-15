@@ -1,10 +1,15 @@
 // src/components/Plot/Crosshair.tsx
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { DEFAULT_X_AXIS_ID, getAxisById } from "../../utils/axisCalculations";
-import { getColumnIndex } from "../../utils/columns";
-import { computeSnap, drawCanvas, renderTooltipHTML } from "./crosshair";
-import type { SnapResult, SeriesMetadata } from "./crosshair";
-import type { Dataset } from "../../services/persistence";
+import {
+	buildSeriesMetadata,
+	buildXAxisNames,
+	computeSnap,
+	copySnap,
+	drawCanvas,
+	renderTooltipHTML,
+	shouldCopyTooltip,
+} from "./crosshair";
+import type { SnapResult } from "./crosshair";
 
 const Crosshair = React.memo(
 	({
@@ -28,49 +33,12 @@ const Crosshair = React.memo(
 		const posRef = useRef<{ x: number; y: number } | null>(null);
 		const lastSnapRef = useRef<SnapResult | null>(null);
 
-		const datasetsById = useMemo(
-			() => new Map(datasets.map((d) => [d.id, d])),
-			[datasets],
+		const seriesMetadata = useMemo(
+			() => buildSeriesMetadata(series, datasets, xAxes, yAxes),
+			[series, datasets, xAxes, yAxes],
 		);
 
-		const seriesMetadata = useMemo(() => {
-			return series
-				.filter((s) => !s.hidden)
-				.map((s) => {
-					const ds = datasetsById.get(s.sourceId);
-					const axis = getAxisById(yAxes, s.yAxisId);
-					const xAxis = getAxisById(xAxes, ds?.xAxisId || DEFAULT_X_AXIS_ID);
-					if (!ds || !axis || !xAxis) return null;
-					const xIdx = getColumnIndex(ds, ds.xAxisColumn);
-					const yIdx = getColumnIndex(ds, s.yColumn);
-					if (xIdx === -1 || yIdx === -1) return null;
-					const xCol = ds.data[xIdx];
-					const yCol = ds.data[yIdx];
-					if (!xCol?.data || !yCol?.data) return null;
-					return { series: s, ds, axis, xAxis, xIdx, yIdx, xCol, yCol };
-				})
-				.filter(Boolean) as SeriesMetadata[];
-		}, [datasetsById, yAxes, xAxes, series]);
-
-		const xAxisNameById = useMemo(() => {
-			const dsByX: Record<string, Dataset[]> = {};
-			datasets.forEach((d) => {
-				const xId = d.xAxisId || DEFAULT_X_AXIS_ID;
-				if (!dsByX[xId]) dsByX[xId] = [];
-				dsByX[xId].push(d);
-			});
-			const out: Record<string, string> = {};
-			for (const xId in dsByX) {
-				const dss = dsByX[xId];
-				const uniqueSet = new Set<string>();
-				for (const d of dss) {
-					uniqueSet.add(d.xAxisColumn);
-				}
-				const uniqueColumns = Array.from(uniqueSet);
-				out[xId] = dss.length > 1 ? uniqueColumns.join(" / ") : uniqueColumns[0];
-			}
-			return out;
-		}, [datasets]);
+		const xAxisNameById = useMemo(() => buildXAxisNames(datasets), [datasets]);
 
 		const computeSnapFn = useCallback(
 			(pos: { x: number; y: number }): SnapResult | null => {
@@ -215,22 +183,11 @@ const Crosshair = React.memo(
 
 		useEffect(() => {
 			const handleKeyDown = (e: KeyboardEvent) => {
-				if (e.ctrlKey && (e.key === "c" || e.key === "C")) {
-					const snap = lastSnapRef.current;
-					if (!snap) return;
-					const text = snap.entries
-						.map((g) => {
-							const itemsText = g.items
-								.map(
-									(i) =>
-										`${i.label}: ${i.valueLabel ?? i.value.toLocaleString(undefined, { maximumSignificantDigits: 7 })}`,
-								)
-								.join("\n");
-							return `${g.xAxisName}: ${g.xLabel}\n${itemsText}`;
-						})
-						.join("\n\n");
-					navigator.clipboard.writeText(text);
-				}
+				if (!shouldCopyTooltip(e)) return;
+				const snap = lastSnapRef.current;
+				if (!snap) return;
+				e.preventDefault();
+				void copySnap(snap);
 			};
 			window.addEventListener("keydown", handleKeyDown);
 			return () => window.removeEventListener("keydown", handleKeyDown);

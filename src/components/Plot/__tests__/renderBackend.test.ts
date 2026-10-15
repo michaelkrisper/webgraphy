@@ -3,7 +3,8 @@ import type { OverlayState } from "../drawOverlay";
 import type { SceneContext } from "../frameScene";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
 import type { RendererSeriesInput } from "../rendererCore";
-import { makeCanvasMock, makeGl2Mock } from "./glMock";
+import { createViewportSnapshot, ViewportReader } from "../viewportChannel";
+import { makeCanvasMock, makeGl2Mock, makeLoseContextExt } from "./glMock";
 
 const viewport = {
 	width: 200,
@@ -17,7 +18,6 @@ function makeSeries(
 ): RendererSeriesInput {
 	return {
 		id: "s1",
-		segKey: "seg-ds1-0-1-dyn",
 		xAxisId: "axis-1",
 		yAxisId: "axis-1",
 		hidden: false,
@@ -60,10 +60,11 @@ afterEach(() => {
 });
 
 describe("DirectBackend (no OffscreenCanvas support)", () => {
-	it("renders on the main thread through a RendererCore", () => {
+	it("renders on the main thread through a RendererCore", async () => {
 		const gl = makeGl2Mock();
 		const canvas = makeCanvasMock(gl);
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 
 		expect(canvas.getContext).toHaveBeenCalledWith(
 			"webgl2",
@@ -85,13 +86,100 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		releaseRenderBackend(canvas);
 	});
 
-	it("resizes the canvas on setViewport", () => {
+	it("resizes the canvas on setViewport", async () => {
 		const canvas = makeCanvasMock(makeGl2Mock());
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 		backend.setViewport({ ...viewport, width: 300, dpr: 2 });
 		expect(canvas.width).toBe(600);
 		expect(canvas.height).toBe(200);
 		releaseRenderBackend(canvas);
+	});
+
+	it("sizes the canvas from the exact device-pixel size when given", async () => {
+		const canvas = makeCanvasMock(makeGl2Mock());
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
+		backend.setViewport({
+			...viewport,
+			dpr: 1.25,
+			pixelWidth: 251,
+			pixelHeight: 124,
+		});
+		expect([canvas.width, canvas.height]).toEqual([251, 124]);
+		releaseRenderBackend(canvas);
+	});
+
+	it("pauses on context loss and redraws the last frame on restore", async () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const ext = makeLoseContextExt(canvas);
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
+		const xs = [{ id: "axis-1", min: 0, max: 10 }];
+		backend.setSeries([makeSeries()]);
+		backend.redraw(xs, xs, false, null);
+
+		ext.loseContext();
+		vi.clearAllMocks();
+		// Inputs keep flowing while lost, but nothing reaches the dead context.
+		const series = makeSeries({ id: "s2" });
+		backend.setSeries([series]);
+		backend.redraw(xs, xs, false, null);
+		expect(gl.clear).not.toHaveBeenCalled();
+
+		ext.restoreContext();
+		// Programs rebuilt, the latest series' columns re-uploaded, and the
+		// last frame drawn again without waiting for the host.
+		expect(gl.createProgram).toHaveBeenCalledTimes(3);
+		expect(gl.bufferData).toHaveBeenCalledWith(
+			gl.ARRAY_BUFFER,
+			series.xData,
+			gl.STATIC_DRAW,
+		);
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalled();
+
+		releaseRenderBackend(canvas);
+	});
+
+	it("cancels webglcontextlost so the browser will restore the context", async () => {
+		const canvas = makeCanvasMock(makeGl2Mock());
+		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
+		const ev = new Event("webglcontextlost", { cancelable: true });
+		canvas.dispatchEvent(ev);
+		expect(ev.defaultPrevented).toBe(true);
+		releaseRenderBackend(canvas);
+	});
+
+	it("buffers the latest inputs until the renderer module has loaded", async () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		const xs = [{ id: "axis-1", min: 0, max: 10 }];
+		backend.setViewport({ ...viewport, width: 300 });
+		backend.setSeries([makeSeries()]);
+		backend.redraw(xs, xs, false, null);
+		// Sized right away so layout never sees a stale backing store.
+		expect(canvas.width).toBe(300);
+		expect(canvas.getContext).not.toHaveBeenCalled();
+
+		await vi.dynamicImportSettled();
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalled();
+		releaseRenderBackend(canvas);
+	});
+
+	it("never builds a renderer for a backend disposed while loading", async () => {
+		vi.useFakeTimers();
+		const canvas = makeCanvasMock(makeGl2Mock());
+		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		releaseRenderBackend(canvas);
+		vi.runAllTimers();
+		vi.useRealTimers();
+		await vi.dynamicImportSettled();
+		expect(canvas.getContext).not.toHaveBeenCalled();
 	});
 });
 
@@ -218,6 +306,38 @@ describe("WorkerBackend protocol", () => {
 		expect(frame.t).toBe("frame");
 		expect(frame.overlay).toBeUndefined();
 		expect(frame.labels).toBeUndefined();
+		releaseRenderBackend(canvas);
+	});
+
+	it("republishes the last viewport under a new scene version", () => {
+		vi.stubGlobal("crossOriginIsolated", true);
+		const { backend, worker, canvas } = makeWorkerBackend();
+		const reader = new ViewportReader(messagesOf(worker)[0].viewportSab);
+		const snap = createViewportSnapshot();
+		const ctx = (xId: string) =>
+			({
+				xAxesMeta: [{ id: xId }],
+				yAxesMeta: [{ id: "axis-1" }],
+			}) as unknown as SceneContext;
+		const xAxes = [
+			{ id: "axis-1", min: 0, max: 10 },
+			{ id: "axis-2", min: 5, max: 6 },
+		];
+		const yAxes = [{ id: "axis-1", min: -1, max: 1 }];
+
+		backend.setSceneContext(ctx("axis-1"));
+		backend.redraw(xAxes, yAxes, false, null);
+		expect(reader.read(snap)).toBe(true);
+		expect(snap.version).toBe(1);
+
+		// A settled pan sends a new context but no redraw: the worker only
+		// draws snapshots of its current version, so without a republish it
+		// could never draw again (e.g. after a WebGL context restore).
+		backend.setSceneContext(ctx("axis-2"));
+		expect(reader.read(snap)).toBe(true);
+		expect(snap.version).toBe(2);
+		// Same ranges, in the new context's axis order.
+		expect(Array.from(snap.ranges.subarray(0, 4))).toEqual([5, 6, -1, 1]);
 		releaseRenderBackend(canvas);
 	});
 });

@@ -253,3 +253,47 @@ describe("computePinchGesture", () => {
 		expect(g?.zfY).toBeCloseTo(1, 10);
 	});
 });
+
+describe("log-axis pan/zoom", () => {
+	it("zooms around the cursor in log coordinates", () => {
+		// Cursor at 10 sits 1/3 across [1, 1000]; halving the log span keeps
+		// it there.
+		const r = applyZoomToRange(10, 1, 1000, 1 / 3, 0.5, true);
+		expect(Math.log10(r.max) - Math.log10(r.min)).toBeCloseTo(1.5);
+		const f =
+			(Math.log10(10) - Math.log10(r.min)) /
+			(Math.log10(r.max) - Math.log10(r.min));
+		expect(f).toBeCloseTo(1 / 3);
+		expect(r.min).toBeGreaterThan(0);
+	});
+
+	it("pans by a constant factor and never reaches 0", () => {
+		// Dragging a full chart width shifts the range by its own span.
+		const r = panRangeByPixels(1, 100, 400, 400, true);
+		expect(r.min).toBeCloseTo(100);
+		expect(r.max).toBeCloseTo(10000);
+		const back = panRangeByPixels(1, 100, -4000, 400, true);
+		expect(Math.log10(back.min)).toBeCloseTo(-20);
+		expect(back.min).toBeGreaterThan(0);
+	});
+
+	it("maps a zoom box through the log transform", () => {
+		const tx: Record<string, { min: number; max: number }> = {};
+		const ty: Record<string, { min: number; max: number }> = {};
+		applyZoomBoxToAxes(
+			{ minX: 100, maxX: 200, minY: 0, maxY: 100 },
+			[{ id: "x", min: 1, max: 1e4, scale: "log" }],
+			[{ id: "y", min: 1, max: 1e4, scale: "log" }],
+			400,
+			400,
+			{ top: 0, right: 0, bottom: 0, left: 0 },
+			tx,
+			ty,
+			false,
+		);
+		expect(tx.x.min).toBeCloseTo(10);
+		expect(tx.x.max).toBeCloseTo(100);
+		expect(ty.y.min).toBeCloseTo(1000);
+		expect(ty.y.max).toBeCloseTo(1e4);
+	});
+});

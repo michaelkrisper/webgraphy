@@ -4,8 +4,17 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { Mock } from "vitest";
 import { useDataImport } from "../../../hooks/useDataImport";
+import { removeSeriesWithUndo } from "../../../store/undoToast";
+import { exportImage } from "../../../services/export";
 import { useGraphStore } from "../../../store/useGraphStore";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 import { Sidebar } from "../Sidebar";
+import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
+
+vi.mock("../../../store/undoToast", () => ({
+	deleteWithUndo: vi.fn(),
+	removeSeriesWithUndo: vi.fn(),
+}));
 
 // Mock the components
 vi.mock("../ImportSettingsDialog", () => ({
@@ -41,6 +50,7 @@ vi.mock("../../../services/export", () => ({
 	exportToSVG: vi.fn().mockReturnValue("<svg></svg>"),
 	exportToPNG: vi.fn().mockResolvedValue("data:image/png;base64,..."),
 	downloadFile: vi.fn(),
+	exportImage: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock indexedDB for the Reset/Demo buttons
@@ -81,7 +91,11 @@ vi.mock("../../../store/useGraphStore", () => {
 	};
 	store.getState = vi.fn();
 	store.setState = vi.fn();
-	return { useGraphStore: store };
+	return {
+		useGraphStore: store,
+		useGraphHistory: (sel: (s: { past: []; future: [] }) => unknown) =>
+			sel({ past: [], future: [] }),
+	};
 });
 
 vi.mock("../../../hooks/useDataImport", () => ({
@@ -118,7 +132,7 @@ describe("Sidebar Component", () => {
 		);
 
 		(useDataImport as unknown as Mock).mockReturnValue({
-			importFile: mockImportFile,
+			importFiles: mockImportFile,
 			confirmImport: vi.fn(),
 			cancelImport: vi.fn(),
 			pendingFile: null,
@@ -140,19 +154,22 @@ describe("Sidebar Component", () => {
 	it("opens modals when links are clicked", async () => {
 		render(<Sidebar />);
 
+		const more = screen.getByRole("button", { name: "More" });
+		fireEvent.click(more);
 		fireEvent.click(screen.getByText("Imprint"));
 		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
 
+		fireEvent.click(more);
 		fireEvent.click(screen.getByText("License"));
 		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByTitle("Help"));
+		fireEvent.click(screen.getByRole("button", { name: "Help" }));
 		expect(await screen.findByTestId("help-modal")).toBeInTheDocument();
 	});
 
 	it("shows ImportSettingsDialog when there is a pending file", async () => {
 		(useDataImport as unknown as Mock).mockReturnValue({
-			importFile: mockImportFile,
+			importFiles: mockImportFile,
 			confirmImport: vi.fn(),
 			cancelImport: vi.fn(),
 			pendingFile: {
@@ -169,7 +186,7 @@ describe("Sidebar Component", () => {
 		).toBeInTheDocument();
 	});
 
-	it("does not disable the button for an already used data column", () => {
+	it("shows a plotted column as pressed and toggles it off on click", () => {
 		const mockDatasets = [
 			{
 				id: "ds-1",
@@ -213,63 +230,147 @@ describe("Sidebar Component", () => {
 			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
 		);
 
+		(useGraphStore.getState as Mock).mockReturnValue(state);
+
 		render(<Sidebar />);
 
-		// value1 is used, but its button should NOT be disabled anymore
+		// value1 is plotted: a pressed toggle whose click removes its series
+		// instead of adding a duplicate.
 		const value1Button = screen.getByRole("button", { name: "value1" });
 		expect(value1Button).not.toBeDisabled();
-		expect(value1Button.parentElement).toHaveStyle({ opacity: "0.7" });
-
-		// Clicking it should call addSeries
+		expect(value1Button).toHaveAttribute("aria-pressed", "true");
 		fireEvent.click(value1Button);
-		expect(mockAddSeries).toHaveBeenCalled();
+		expect(mockAddSeries).not.toHaveBeenCalled();
+		expect(removeSeriesWithUndo).toHaveBeenCalledWith("value1", ["s-1"]);
 
-		// value2 is not used, so its button should be enabled and full opacity
 		const value2Button = screen.getByRole("button", { name: "value2" });
-		expect(value2Button).not.toBeDisabled();
-		expect(value2Button.parentElement).toHaveStyle({ opacity: "1" });
+		expect(value2Button).toHaveAttribute("aria-pressed", "false");
+		fireEvent.click(value2Button);
+		expect(mockAddSeries).toHaveBeenCalledTimes(1);
 	});
 
-	it("has no axe violations with datasets and series", async () => {
-		const state = {
-			datasets: [
-				{
-					id: "ds-1",
-					name: "Dataset 1",
-					columns: ["time", "value1", "value2"],
-					xAxisColumn: "time",
-					xAxisId: "axis-1",
-					data: [{}, {}, {}],
-					rowCount: 3,
-				},
-			],
-			series: [
-				{
-					id: "s-1",
-					sourceId: "ds-1",
-					yColumn: "value1",
-					yAxisId: "axis-1",
-					hidden: false,
-				},
-			],
-			xAxes: [{ id: "axis-1", name: "X-Axis 1", xMode: "numeric" }],
-			yAxes: [],
-			legendVisible: true,
-			removeDataset: vi.fn(),
-			updateDataset: vi.fn(),
-			updateXAxis: vi.fn(),
-			reorderSeries: vi.fn(),
-			loadDemoData: mockLoadDemoData,
-			setHighlightedSeries: vi.fn(),
-			addSeries: vi.fn(),
-			setLegendVisible: vi.fn(),
-			removeCalculatedColumn: vi.fn(),
-		};
-		(useGraphStore as unknown as Mock).mockImplementation(
-			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
-		);
+	describe("image export", () => {
+		const openMenu = () =>
+			fireEvent.click(screen.getByRole("button", { name: "Session & Export" }));
 
-		const { container } = render(<Sidebar />);
-		expect(await axe(container)).toHaveNoViolations();
+		it("exports the view as on screen from the one-click entries", async () => {
+			const plot = document.createElement("div");
+			plot.className = "plot-area";
+			Object.defineProperty(plot, "clientWidth", { value: 640 });
+			Object.defineProperty(plot, "clientHeight", { value: 480 });
+			document.body.appendChild(plot);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(
+					screen.getByRole("button", { name: "Export as SVG (vector)" }),
+				);
+				await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+				expect((exportImage as Mock).mock.calls[0][1]).toMatchObject({
+					format: "svg",
+					width: 640,
+					height: 480,
+					legend: "auto",
+				});
+			} finally {
+				plot.remove();
+			}
+		});
+
+		it("opens the options dialog and exports with its choices", async () => {
+			render(<Sidebar />);
+			openMenu();
+			fireEvent.click(screen.getByRole("button", { name: "Export image…" }));
+			const dialog = await screen.findByRole("dialog", { name: "Export Image" });
+			expect(dialog).toBeInTheDocument();
+			fireEvent.change(screen.getByLabelText("Title"), {
+				target: { value: "Run 7" },
+			});
+			fireEvent.click(screen.getByRole("radio", { name: "SVG (vector)" }));
+			fireEvent.click(screen.getByRole("button", { name: "Export" }));
+			await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+			// No plot on screen: the current view falls back to 1200 × 800.
+			expect((exportImage as Mock).mock.calls[0][1]).toMatchObject({
+				format: "svg",
+				width: 1200,
+				height: 800,
+				title: "Run 7",
+			});
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
+
+		it("reports a too-large image in an error toast", async () => {
+			const tooLarge = Object.assign(new Error("Image too large: 99999 px"), {
+				name: "CanvasSizeError",
+			});
+			(exportImage as Mock).mockRejectedValueOnce(tooLarge);
+			const plot = document.createElement("div");
+			plot.className = "plot-area";
+			document.body.appendChild(plot);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(
+					screen.getByRole("button", { name: "Export as PNG (pixel)" }),
+				);
+				await vi.waitFor(() =>
+					expect(useNotificationStore.getState().notifications).toContainEqual(
+						expect.objectContaining({
+							kind: "error",
+							message: "Image too large: 99999 px",
+						}),
+					),
+				);
+			} finally {
+				plot.remove();
+			}
+		});
 	});
+
+	it(
+		"has no axe violations with datasets and series",
+		async () => {
+			const state = {
+				datasets: [
+					{
+						id: "ds-1",
+						name: "Dataset 1",
+						columns: ["time", "value1", "value2"],
+						xAxisColumn: "time",
+						xAxisId: "axis-1",
+						data: [{}, {}, {}],
+						rowCount: 3,
+					},
+				],
+				series: [
+					{
+						id: "s-1",
+						sourceId: "ds-1",
+						yColumn: "value1",
+						yAxisId: "axis-1",
+						hidden: false,
+					},
+				],
+				xAxes: [{ id: "axis-1", name: "X-Axis 1", xMode: "numeric" }],
+				yAxes: [],
+				legendVisible: true,
+				removeDataset: vi.fn(),
+				updateDataset: vi.fn(),
+				updateXAxis: vi.fn(),
+				reorderSeries: vi.fn(),
+				loadDemoData: mockLoadDemoData,
+				setHighlightedSeries: vi.fn(),
+				addSeries: vi.fn(),
+				setLegendVisible: vi.fn(),
+				removeCalculatedColumn: vi.fn(),
+			};
+			(useGraphStore as unknown as Mock).mockImplementation(
+				(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
+			);
+
+			const { container } = render(<Sidebar />);
+			expect(await axe(container)).toHaveNoViolations();
+		},
+		AXE_TIMEOUT_MS,
+	);
 });

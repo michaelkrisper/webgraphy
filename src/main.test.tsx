@@ -31,16 +31,22 @@ describe("main.tsx", () => {
 		document.body.appendChild(root);
 
 		await import("./main");
+		await vi.dynamicImportSettled();
 
-		expect(mockRegisterSW).toHaveBeenCalledWith({ immediate: true });
+		expect(mockRegisterSW).toHaveBeenCalledWith(
+			expect.objectContaining({ immediate: true }),
+		);
 		expect(mockCreateRoot).toHaveBeenCalledWith(root);
 		expect(mockRender).toHaveBeenCalled();
 	});
 
 	it("does not call createRoot when root element is missing", async () => {
 		await import("./main");
+		await vi.dynamicImportSettled();
 
-		expect(mockRegisterSW).toHaveBeenCalledWith({ immediate: true });
+		expect(mockRegisterSW).toHaveBeenCalledWith(
+			expect.objectContaining({ immediate: true }),
+		);
 		expect(mockCreateRoot).not.toHaveBeenCalled();
 	});
 });

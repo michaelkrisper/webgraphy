@@ -7,9 +7,14 @@
  *   decimation, and GL work leave the main thread entirely. Column data is
  *   sent once per Float32Array identity (keyed, cached worker-side) and
  *   pruned symmetrically on both sides when series disappear.
- * - `DirectBackend` runs the same core synchronously on the main thread —
- *   the fallback when `OffscreenCanvas` is unavailable (and the path unit
- *   tests exercise under jsdom, where `getContext("webgl2")` is null).
+ * - `DirectBackend` (directBackend.ts) runs the same core synchronously on
+ *   the main thread — the fallback when `OffscreenCanvas` is unavailable.
+ *   It is loaded on demand through `LazyDirectBackend`, so browsers on the
+ *   worker path never download the renderer twice (it is in the worker).
+ *
+ * Both survive WebGL context loss: drawing pauses while the context is
+ * lost, and on restore the core is rebuilt (`RendererCore.restore`) from
+ * the inputs it already holds and redrawn — see `contextLoss.ts`.
  *
  * `acquireRenderBackend`/`releaseRenderBackend` make backend ownership safe
  * under React StrictMode's mount → cleanup → mount cycle: a canvas can only
@@ -23,14 +28,14 @@ import type {
 } from "../../workers/render.worker";
 import { getAxisById } from "../../utils/axisCalculations";
 import { logger } from "../../utils/logger";
+import { sizeCanvasToViewport } from "./canvasSize";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
-import {
-	type RenderAxis,
-	RendererCore,
-	type RendererSeriesInput,
-	type RendererViewport,
-	type RenderLabel,
+import type {
+	RenderAxis,
+	RendererSeriesInput,
+	RendererViewport,
+	RenderLabel,
 } from "./rendererCore";
 import { VIEWPORT_SAB_BYTES, ViewportWriter } from "./viewportChannel";
 
@@ -58,19 +63,20 @@ export interface RenderBackend {
 	dispose(): void;
 }
 
-function sizeCanvas(
-	canvas: HTMLCanvasElement | OffscreenCanvas,
-	viewport: RendererViewport,
-): void {
-	const pw = Math.max(1, Math.round(viewport.width * viewport.dpr));
-	const ph = Math.max(1, Math.round(viewport.height * viewport.dpr));
-	if (canvas.width !== pw) canvas.width = pw;
-	if (canvas.height !== ph) canvas.height = ph;
-}
-
-class DirectBackend implements RenderBackend {
+/**
+ * Stands in for a `DirectBackend` while its module (the whole renderer) loads,
+ * keeping only the latest inputs and replaying them once it is there.
+ */
+class LazyDirectBackend implements RenderBackend {
+	private backend: RenderBackend | null = null;
+	private disposed = false;
+	private series: RendererSeriesInput[] | null = null;
+	private overlay: OverlayState | null = null;
+	private labels: RenderLabel[] | null = null;
+	private frame: Parameters<RenderBackend["redraw"]> | null = null;
 	private readonly canvas: HTMLCanvasElement;
-	private readonly core: RendererCore | null;
+	private viewport: RendererViewport;
+	private plotBg: number[];
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -78,31 +84,47 @@ class DirectBackend implements RenderBackend {
 		plotBg: number[],
 	) {
 		this.canvas = canvas;
-		this.core = RendererCore.create(canvas);
-		this.core?.setViewport(viewport);
-		this.core?.setPlotBg(plotBg);
+		this.viewport = viewport;
+		this.plotBg = plotBg;
+		import("./directBackend").then(
+			({ DirectBackend }) => {
+				if (this.disposed) return;
+				const b = new DirectBackend(this.canvas, this.viewport, this.plotBg);
+				if (this.series) b.setSeries(this.series);
+				if (this.overlay) b.setOverlay(this.overlay);
+				if (this.labels) b.setLabels(this.labels);
+				if (this.frame) b.redraw(...this.frame);
+				this.series = this.overlay = this.labels = this.frame = null;
+				this.backend = b;
+			},
+			(err) => logger.error("Main-thread renderer failed to load:", err),
+		);
 	}
 
 	setViewport(viewport: RendererViewport): void {
-		sizeCanvas(this.canvas, viewport);
-		this.core?.setViewport(viewport);
+		if (this.backend) return this.backend.setViewport(viewport);
+		sizeCanvasToViewport(this.canvas, viewport);
+		this.viewport = viewport;
 	}
 
 	setPlotBg(rgb: number[]): void {
-		this.core?.setPlotBg(rgb);
+		if (this.backend) return this.backend.setPlotBg(rgb);
+		this.plotBg = rgb;
 	}
 
 	setSeries(list: RendererSeriesInput[]): void {
-		this.core?.setSeries(list);
+		if (this.backend) return this.backend.setSeries(list);
+		this.series = list;
 	}
 
 	setOverlay(ov: OverlayState): void {
-		// Same-thread: the core reads straight from the host-owned scratch.
-		this.core?.setOverlay(ov.packed, ov.packedLen, ov.groups);
+		if (this.backend) return this.backend.setOverlay(ov);
+		this.overlay = ov;
 	}
 
 	setLabels(labels: RenderLabel[]): void {
-		this.core?.setLabels(labels);
+		if (this.backend) return this.backend.setLabels(labels);
+		this.labels = labels;
 	}
 
 	sceneShared(): boolean {
@@ -111,20 +133,14 @@ class DirectBackend implements RenderBackend {
 
 	setSceneContext(): void {}
 
-	redraw(
-		xAxes: RenderAxis[],
-		yAxes: RenderAxis[],
-		interacting: boolean,
-		highlight: string | null,
-	): void {
-		if (!this.core) return;
-		this.core.setInteracting(interacting);
-		this.core.setHighlight(highlight);
-		this.core.drawFrame(xAxes, yAxes);
+	redraw(...args: Parameters<RenderBackend["redraw"]>): void {
+		if (this.backend) return this.backend.redraw(...args);
+		this.frame = args;
 	}
 
 	dispose(): void {
-		this.core?.dispose();
+		this.disposed = true;
+		this.backend?.dispose();
 	}
 }
 
@@ -146,7 +162,10 @@ function slimAxes(axes: RenderAxis[]): RenderAxis[] {
 	const out: RenderAxis[] = new Array(axes.length);
 	for (let i = 0; i < axes.length; i++) {
 		const a = axes[i];
-		out[i] = { id: a.id, min: a.min, max: a.max };
+		out[i] =
+			a.scale === "log"
+				? { id: a.id, min: a.min, max: a.max, scale: "log" }
+				: { id: a.id, min: a.min, max: a.max };
 	}
 	return out;
 }
@@ -172,6 +191,10 @@ class WorkerBackend implements RenderBackend {
 	private yOrder: string[] = [];
 	private lastWriteAt = 0;
 	private lastHighlight: string | null = null;
+	// Last ranges written, for republishing under a new scene version.
+	private lastXAxes: RenderAxis[] | null = null;
+	private lastYAxes: RenderAxis[] = [];
+	private lastInteracting = false;
 	private rangeScratchX: { min: number; max: number }[] = [];
 	private rangeScratchY: { min: number; max: number }[] = [];
 
@@ -225,7 +248,6 @@ class WorkerBackend implements RenderBackend {
 			keep.add(yColId);
 			msgList.push({
 				id: s.id,
-				segKey: s.segKey,
 				xAxisId: s.xAxisId,
 				yAxisId: s.yAxisId,
 				hidden: s.hidden,
@@ -272,6 +294,31 @@ class WorkerBackend implements RenderBackend {
 		this.xOrder = ctx.xAxesMeta.map((m) => m.id);
 		this.yOrder = ctx.yAxesMeta.map((m) => m.id);
 		this.post({ t: "sceneCtx", ctx, version: this.sceneVersion });
+		// The worker only draws snapshots stamped with its current scene
+		// version, and a new context is not always followed by a redraw
+		// (ChartContainer skips a settled pan's echo). Republish the last
+		// ranges under the new version, or the worker has nothing it may draw:
+		// the new scene never shows, and a context restore stays blank.
+		if (this.lastXAxes) {
+			this.writeViewport(this.lastXAxes, this.lastYAxes, this.lastInteracting);
+		}
+	}
+
+	private writeViewport(
+		xAxes: RenderAxis[],
+		yAxes: RenderAxis[],
+		interacting: boolean,
+	): void {
+		if (!this.writer) return;
+		this.lastXAxes = xAxes;
+		this.lastYAxes = yAxes;
+		this.lastInteracting = interacting;
+		this.writer.write(
+			this.sceneVersion,
+			interacting,
+			this.collectRanges(xAxes, this.xOrder, this.rangeScratchX),
+			this.collectRanges(yAxes, this.yOrder, this.rangeScratchY),
+		);
 	}
 
 	/** Collect ranges for the ids in `order`, reusing the scratch entries. */
@@ -305,12 +352,7 @@ class WorkerBackend implements RenderBackend {
 				this.lastHighlight = highlight;
 				this.post({ t: "highlight", id: highlight });
 			}
-			this.writer.write(
-				this.sceneVersion,
-				interacting,
-				this.collectRanges(xAxes, this.xOrder, this.rangeScratchX),
-				this.collectRanges(yAxes, this.yOrder, this.rangeScratchY),
-			);
+			this.writeViewport(xAxes, yAxes, interacting);
 			// The worker's render loop parks itself when idle; nudge it back to
 			// life when writes resume after a pause.
 			const now = Date.now();
@@ -347,7 +389,7 @@ function createBackend(
 	viewport: RendererViewport,
 	plotBg: number[],
 ): RenderBackend {
-	sizeCanvas(canvas, viewport);
+	sizeCanvasToViewport(canvas, viewport);
 	if (
 		typeof canvas.transferControlToOffscreen === "function" &&
 		typeof Worker === "function"
@@ -366,7 +408,7 @@ function createBackend(
 			);
 		}
 	}
-	return new DirectBackend(canvas, viewport, plotBg);
+	return new LazyDirectBackend(canvas, viewport, plotBg);
 }
 
 const backendByCanvas = new WeakMap<HTMLCanvasElement, RenderBackend>();

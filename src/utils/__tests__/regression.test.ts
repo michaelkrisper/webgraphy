@@ -137,6 +137,22 @@ describe("Regression Utilities", () => {
 			expect(result[6]).toBeGreaterThan(result[3]);
 		});
 
+		it("does not depend on row order", () => {
+			const n = 41;
+			const x = Float64Array.from({ length: n }, (_, i) => i * 0.5);
+			const y = x.map((v) => 10 / (1 + Math.exp(-1.5 * (v - 10))));
+			// Deterministic shuffle: 7 is coprime with 41.
+			const perm = Array.from({ length: n }, (_, i) => (i * 7) % n);
+			const sx = Float64Array.from(perm, (p) => x[p]);
+			const sy = Float64Array.from(perm, (p) => y[p]);
+
+			const sorted = logisticRegression(x, y);
+			const shuffled = logisticRegression(sx, sy);
+			for (let i = 0; i < n; i++) {
+				expect(shuffled[i]).toBeCloseTo(sorted[perm[i]], 6);
+			}
+		});
+
 		it("should handle zero range (flat line) gracefully", () => {
 			const x = new Float64Array([0, 1, 2]);
 			const y = new Float64Array([0, 0, 0]); // L will be 0, yRange = 0
@@ -337,6 +353,97 @@ describe("Regression Utilities", () => {
 			// curve far more than a deliberately narrow one.
 			expect(spread(auto)).toBeLessThan(spread(narrow));
 			expect(spread(narrow)).toBeGreaterThan(4);
+		});
+	});
+
+	// Epoch-second timestamps: the uncentred n·Σx² − (Σx)² form lost every
+	// significant digit here and returned an intercept of ~22.6 instead of 5.
+	describe("precision and non-finite rows", () => {
+		const N = 10_000;
+		const T0 = 1.7e9;
+		const epochX = Float64Array.from({ length: N }, (_, i) => T0 + i);
+
+		it("linearRegression stays exact on epoch-scale x", () => {
+			const y = Float64Array.from({ length: N }, (_, i) => 0.5 * i + 5);
+			const result = linearRegression(epochX, y);
+			expect(result[0]).toBeCloseTo(5, 6);
+			expect(result[N - 1]).toBeCloseTo(0.5 * (N - 1) + 5, 6);
+		});
+
+		it("polynomialRegression stays exact on epoch-scale x with a large y offset", () => {
+			const y = Float64Array.from(
+				{ length: N },
+				(_, i) => 1e6 + 0.001 * i * i - 2 * i,
+			);
+			const result = polynomialRegression(epochX, y, 2);
+			for (const i of [0, N / 2, N - 1]) expect(result[i]).toBeCloseTo(y[i], 4);
+		});
+
+		it("exponentialRegression stays exact on epoch-scale x", () => {
+			const y = Float64Array.from({ length: N }, (_, i) => 3 * Math.exp(i / N));
+			const result = exponentialRegression(epochX, y);
+			expect(result[0]).toBeCloseTo(3, 6);
+			expect(result[N - 1]).toBeCloseTo(y[N - 1], 6);
+		});
+
+		it("logisticRegression produces a finite S-curve on epoch-scale x", () => {
+			const x = Float64Array.from({ length: 101 }, (_, i) => T0 + i);
+			const y = x.map((v) => 10 / (1 + Math.exp(-(v - T0 - 50) / 5)));
+			const result = logisticRegression(x, y);
+			expect(result.every(Number.isFinite)).toBe(true);
+			expect(result[0]).toBeLessThan(result[50]);
+			expect(result[50]).toBeLessThan(result[100]);
+			expect(result[50]).toBeCloseTo(5, 0);
+		});
+
+		it("kdeSmoothing auto-bandwidth is translation invariant on epoch-scale x", () => {
+			const local = Float64Array.from({ length: 100 }, (_, i) => i * 0.01);
+			const y = Float64Array.from({ length: 100 }, (_, i) => i % 2);
+			const shifted = kdeSmoothing(
+				local.map((v) => v + T0),
+				y,
+			);
+			const reference = kdeSmoothing(local, y);
+			for (let i = 0; i < 100; i++)
+				expect(shifted[i]).toBeCloseTo(reference[i], 3);
+		});
+
+		it("fits around NaN and Infinity rows instead of returning all NaN", () => {
+			const x = new Float64Array([0, 1, NaN, 3, 4, 5]);
+			const y = new Float64Array([1, 3, 5, NaN, Infinity, 11]);
+			const lin = linearRegression(x, y);
+			expect(lin[0]).toBeCloseTo(1);
+			expect(lin[1]).toBeCloseTo(3);
+			expect(lin[2]).toBeNaN();
+			// Rows with finite x but a missing y still get the fitted value.
+			expect(lin[3]).toBeCloseTo(7);
+			expect(lin[5]).toBeCloseTo(11);
+
+			const poly = polynomialRegression(x, y, 1);
+			expect(poly[3]).toBeCloseTo(7);
+			expect(poly[2]).toBeNaN();
+		});
+
+		it("exponentialRegression and logisticRegression skip non-finite rows", () => {
+			const x = new Float64Array([0, 1, 2, 3, 4]);
+			const expY = new Float64Array([1, Math.E, NaN, Math.E ** 3, Math.E ** 4]);
+			const exp = exponentialRegression(x, expY);
+			expect(exp[2]).toBeCloseTo(Math.E ** 2, 6);
+
+			const lx = Float64Array.from({ length: 11 }, (_, i) => i);
+			const ly = lx.map((v) => 10 / (1 + Math.exp(-(v - 5))));
+			ly[3] = NaN;
+			const log = logisticRegression(lx, ly);
+			expect(log.every(Number.isFinite)).toBe(true);
+			expect(log[5]).toBeCloseTo(5, 0);
+		});
+
+		it("kdeSmoothing leaves non-finite rows NaN and smooths the rest", () => {
+			const x = new Float64Array([0, 1, 2, 3, 4]);
+			const y = new Float64Array([1, 1, NaN, 1, 1]);
+			const result = kdeSmoothing(x, y, 1);
+			expect(result[2]).toBeNaN();
+			for (const i of [0, 1, 3, 4]) expect(result[i]).toBeCloseTo(1, 9);
 		});
 	});
 });

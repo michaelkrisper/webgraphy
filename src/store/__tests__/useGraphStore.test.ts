@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dataset } from "../../services/persistence";
 import { useGraphStore } from "../useGraphStore";
+import { useNotificationStore } from "../useNotificationStore";
 import * as formulaClient from "../../workers/formulaClient";
 
 class MockWorker {
@@ -50,8 +51,13 @@ vi.mock("../../services/persistence", () => ({
 		getAllDatasets: vi.fn().mockResolvedValue([]),
 		deleteDataset: vi.fn(),
 		saveAppState: vi.fn(),
+		// The debounced savers fire on a timer; on a slow run that lands while
+		// this file is still executing and would throw on a missing method.
+		saveViewport: vi.fn(),
+		saveConfig: vi.fn(),
 		loadAppState: vi.fn().mockResolvedValue(null),
 		clearAppState: vi.fn().mockResolvedValue(undefined),
+		disable: vi.fn(),
 	},
 }));
 
@@ -534,6 +540,74 @@ describe("useGraphStore", () => {
 		useGraphStore.setState({ loadDemoData: originalLoadDemoData });
 	});
 
+	it("falls back to demo data without persistence when storage cannot be read", async () => {
+		const { persistence } = await import("../../services/persistence");
+		vi
+			.mocked(persistence.loadAppState)
+			.mockRejectedValueOnce(new Error("IndexedDB unavailable"));
+		useGraphStore.setState({ isLoaded: false });
+		useNotificationStore.setState({ notifications: [] });
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const originalLoadDemoData = useGraphStore.getState().loadDemoData;
+		const loadDemoData = vi.fn().mockRejectedValue(new Error("demo failed"));
+		useGraphStore.setState({ loadDemoData });
+		try {
+			await expect(
+				useGraphStore.getState().loadPersistedState(),
+			).resolves.toBeUndefined();
+
+			expect(persistence.disable).toHaveBeenCalled();
+			expect(loadDemoData).toHaveBeenCalled();
+			// Even a failing fallback must leave the UI usable.
+			expect(useGraphStore.getState().isLoaded).toBe(true);
+			expect(useNotificationStore.getState().notifications).toEqual([
+				expect.objectContaining({
+					kind: "error",
+					message:
+						"Could not open browser storage — showing demo data. Changes in this session won't be saved.",
+				}),
+			]);
+		} finally {
+			errorSpy.mockRestore();
+			useGraphStore.setState({ loadDemoData: originalLoadDemoData });
+		}
+	});
+
+	it("shares one in-flight load between concurrent startup calls", async () => {
+		const { persistence } = await import("../../services/persistence");
+		vi.mocked(persistence.loadAppState).mockClear();
+		vi.mocked(persistence.loadAppState).mockResolvedValue(null);
+		vi.mocked(persistence.getAllDatasets).mockResolvedValue([]);
+		useGraphStore.setState({ isLoaded: false });
+
+		// StrictMode mounts App's effect twice before the first load settles.
+		const first = useGraphStore.getState().loadPersistedState();
+		const second = useGraphStore.getState().loadPersistedState();
+		expect(second).toBe(first);
+		await Promise.all([first, second]);
+
+		expect(persistence.loadAppState).toHaveBeenCalledTimes(1);
+		const ids = useGraphStore.getState().datasets.map((d) => d.id);
+		expect(ids).toEqual(["demo-dataset"]);
+
+		// Once settled, a later call loads afresh.
+		await useGraphStore.getState().loadPersistedState();
+		expect(persistence.loadAppState).toHaveBeenCalledTimes(2);
+	});
+
+	it("gives a repeated demo load its own dataset id", async () => {
+		await useGraphStore.getState().loadDemoData();
+		await useGraphStore.getState().loadDemoData();
+		await useGraphStore.getState().loadDemoData();
+		const { datasets, series } = useGraphStore.getState();
+		expect(datasets.map((d) => d.id)).toEqual([
+			"demo-dataset",
+			"demo-dataset-2",
+			"demo-dataset-3",
+		]);
+		expect(series.filter((s) => s.sourceId === "demo-dataset-2")).toHaveLength(4);
+	});
+
 	it("should load demo data correctly", async () => {
 		const store = useGraphStore.getState();
 		await store.loadDemoData();
@@ -792,6 +866,253 @@ describe("useGraphStore", () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Force failed");
 	});
+
+	describe("non-finite axis bounds", () => {
+		const nanColumn = {
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min: Infinity, max: -Infinity },
+			data: new Float32Array([NaN, NaN]),
+		};
+		const finiteColumn = {
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min: 5, max: 7 },
+			data: new Float32Array([5, 7]),
+		};
+
+		it("keeps a finite x range when the x column is all-NaN", () => {
+			useGraphStore.getState().addDataset({
+				id: "ds-nan",
+				name: "NaN",
+				columns: ["X", "Y"],
+				data: [nanColumn, finiteColumn],
+				rowCount: 2,
+				xAxisColumn: "X",
+				xAxisId: "axis-1",
+			});
+			const axis = useGraphStore.getState().xAxes[0];
+			expect(axis).toMatchObject({ min: 0, max: 100 });
+		});
+
+		it("keeps a finite x range when switching to an all-NaN x column", () => {
+			const store = useGraphStore.getState();
+			store.addDataset({
+				id: "ds-nan",
+				name: "NaN",
+				columns: ["Y", "X"],
+				data: [finiteColumn, nanColumn],
+				rowCount: 2,
+				xAxisColumn: "Y",
+				xAxisId: "axis-1",
+			});
+			expect(useGraphStore.getState().xAxes[0]).toMatchObject({ min: 5, max: 7 });
+			store.updateDataset("ds-nan", { xAxisColumn: "X" });
+			const axis = useGraphStore.getState().xAxes[0];
+			expect(Number.isFinite(axis.min) && Number.isFinite(axis.max)).toBe(true);
+		});
+
+		it("ignores non-finite ranges in batchUpdateAxes", () => {
+			useGraphStore
+				.getState()
+				.batchUpdateAxes(
+					{ "axis-1": { min: -Infinity, max: 3 }, "axis-2": { min: 1, max: 2 } },
+					{ "axis-1": { min: NaN, max: NaN } },
+				);
+			const { xAxes, yAxes } = useGraphStore.getState();
+			expect(xAxes[0]).toMatchObject({ min: 0, max: 100 });
+			expect(xAxes[1]).toMatchObject({ min: 1, max: 2 });
+			expect(yAxes[0]).toMatchObject({ min: 0, max: 100 });
+		});
+
+		it("refills axis slots dropped by persistence on load", async () => {
+			const { persistence } = await import("../../services/persistence");
+			vi.mocked(persistence.loadAppState).mockResolvedValueOnce({
+				xAxes: [
+					{
+						id: "axis-2",
+						name: "Kept",
+						min: 1,
+						max: 2,
+						showGrid: false,
+						xMode: "numeric",
+					},
+				],
+				yAxes: [],
+				series: [],
+				legendVisible: true,
+				crosshairVisible: true,
+			});
+			vi.mocked(persistence.getAllDatasets).mockResolvedValueOnce([]);
+			await useGraphStore.getState().loadPersistedState();
+			const { xAxes, yAxes } = useGraphStore.getState();
+			expect(xAxes).toHaveLength(9);
+			expect(yAxes).toHaveLength(9);
+			expect(xAxes.find((a) => a.id === "axis-2")?.name).toBe("Kept");
+		});
+	});
+
+	describe("addCalculatedColumn races", () => {
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		const makeDataset = (): Dataset => ({
+			id: "ds-1",
+			name: "D1",
+			columns: ["Time", "Val"],
+			data: [
+				{
+					isFloat64: false,
+					refPoint: 0,
+					data: new Float32Array([1, 2]),
+					bounds: { min: 1, max: 2 },
+				},
+				{
+					isFloat64: false,
+					refPoint: 0,
+					data: new Float32Array([3, 4]),
+					bounds: { min: 3, max: 4 },
+				},
+			],
+			rowCount: 2,
+			xAxisColumn: "Time",
+			xAxisId: "axis-1",
+		});
+		const column = () => ({
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min: 0, max: 1 },
+			data: new Float32Array([0, 1]),
+		});
+
+		/** Holds every worker request until the test resolves it. */
+		const deferWorker = () => {
+			const pending: (() => void)[] = [];
+			vi.spyOn(formulaClient, "evaluateFormulaInWorker").mockImplementation(
+				(params) =>
+					new Promise((resolve) => {
+						pending.push(() =>
+							resolve(
+								params.formula.startsWith("avgday")
+									? {
+											type: "success",
+											newColumn: column(),
+											sparseXColumn: column(),
+										}
+									: { type: "success", newColumn: column() },
+							),
+						);
+					}),
+			);
+			return pending;
+		};
+
+		it("does not resurrect a dataset removed during compute", async () => {
+			const { persistence } = await import("../../services/persistence");
+			const pending = deferWorker();
+			const store = useGraphStore.getState();
+			store.addDataset(makeDataset());
+			const p = store.addCalculatedColumn("ds-1", "C", "[Val] * 2");
+			store.removeDataset("ds-1");
+			vi.mocked(persistence.saveDataset).mockClear();
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
+			pending[0]();
+			const result = await p;
+			expect(result.success).toBe(false);
+			expect(useGraphStore.getState().datasets).toHaveLength(0);
+			expect(persistence.saveDataset).not.toHaveBeenCalled();
+		});
+
+		it("does not add an orphan sparse dataset after the parent is removed", async () => {
+			const pending = deferWorker();
+			const store = useGraphStore.getState();
+			store.addDataset(makeDataset());
+			const p = store.addCalculatedColumn("ds-1", "S", "avgday([Val])");
+			store.removeDataset("ds-1");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
+			pending[0]();
+			expect((await p).success).toBe(false);
+			expect(useGraphStore.getState().datasets).toHaveLength(0);
+		});
+
+		it("keeps both columns from overlapping adds and a concurrent rename", async () => {
+			const pending = deferWorker();
+			const store = useGraphStore.getState();
+			store.addDataset(makeDataset());
+			const p1 = store.addCalculatedColumn("ds-1", "A", "[Val] * 2");
+			const p2 = store.addCalculatedColumn("ds-1", "B", "[Val] * 3");
+			store.renameColumn("ds-1", "Val", "Value");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
+			pending[0]();
+			pending[1]();
+			expect((await p1).success).toBe(true);
+			expect((await p2).success).toBe(true);
+			expect(useGraphStore.getState().datasets[0].columns).toEqual([
+				"Time",
+				"Value",
+				"A",
+				"B",
+			]);
+		});
+
+		it("rejects a duplicate name that appeared during compute", async () => {
+			const pending = deferWorker();
+			const store = useGraphStore.getState();
+			store.addDataset(makeDataset());
+			const p1 = store.addCalculatedColumn("ds-1", "A", "[Val] * 2");
+			const p2 = store.addCalculatedColumn("ds-1", "A", "[Val] * 3");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
+			pending[0]();
+			pending[1]();
+			expect((await p1).success).toBe(true);
+			const r2 = await p2;
+			expect(r2.success).toBe(false);
+			expect(r2.error).toBe('Column "A" already exists');
+			expect(
+				useGraphStore.getState().datasets[0].columns.filter((c) => c === "A"),
+			).toHaveLength(1);
+		});
+	});
+
+	it.each(["linreg([Val])*2", "polyreg([Val], 2.5)", "linreg([Val]) + 1"])(
+		"rejects %s before it reaches the worker",
+		async (formula) => {
+			const spy = vi.spyOn(formulaClient, "evaluateFormulaInWorker");
+			spy.mockClear();
+			const store = useGraphStore.getState();
+			store.addDataset({
+				id: "ds-1",
+				name: "D1",
+				columns: ["Time", "Val"],
+				data: [
+					{
+						isFloat64: false,
+						refPoint: 0,
+						data: new Float32Array([1]),
+						bounds: { min: 0, max: 1 },
+					},
+					{
+						isFloat64: false,
+						refPoint: 0,
+						data: new Float32Array([1]),
+						bounds: { min: 0, max: 1 },
+					},
+				],
+				rowCount: 1,
+				xAxisColumn: "Time",
+				xAxisId: "axis-1",
+			});
+			const result = await store.addCalculatedColumn("ds-1", "R", formula);
+			expect(result.success).toBe(false);
+			expect(result.error).toBeTruthy();
+			expect(spy).not.toHaveBeenCalled();
+		},
+	);
 
 	it("should surface stringified errors when evaluateFormulaInWorker throws non-Error", async () => {
 		const store = useGraphStore.getState();

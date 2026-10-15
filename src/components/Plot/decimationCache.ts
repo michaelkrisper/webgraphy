@@ -1,15 +1,30 @@
-import { m4ByXFloat32, m4MergeOctave } from "../../utils/decimation";
+import { findLastLE } from "../../utils/binarySearch";
+import { fromScale, toScale } from "../../utils/axisScale";
+import {
+	m4ByLogXFloat32,
+	m4ByXFloat32,
+	m4ByXSegmentsFloat32,
+	m4MergeOctave,
+} from "../../utils/decimation";
 
 export interface DecimEntry {
 	// Numeric signature fields — compared directly to avoid per-frame string
 	// allocation on cache hits (hot path during pan/zoom).
+	/** In scale space: data units, or decades on a log x axis. */
 	bucketWidth: number;
+	/** Covered window, in data units on either scale. */
 	qMin: number;
 	qMax: number;
 	xRef: number;
 	xArr: Float32Array;
 	yArr: Float32Array;
 	count: number;
+	/**
+	 * Flat (start, count) pairs of the NaN-free runs in xArr/yArr. Lines draw
+	 * each run separately so a gap in the source stays a gap; an unsegmented
+	 * series is the single run (0, count).
+	 */
+	runs: number[];
 	xBuf: WebGLBuffer | null;
 	yBuf: WebGLBuffer | null;
 }
@@ -30,13 +45,23 @@ export interface DecimSlot {
 export const MAX_PYRAMID_LEVELS = 12;
 
 /**
- * Decimation results keyed by yData identity, then xData identity — two
- * series sharing a y column but different x columns must not evict each
- * other's entry every frame.
+ * One slot per x scale: linear and log grids differ in bucket units and
+ * anchoring, so their levels (keyed by log2 of the width) would collide, and
+ * toggling an axis between the scales should not throw either pyramid away.
+ */
+export interface DecimSlots {
+	linear: DecimSlot | null;
+	log: DecimSlot | null;
+}
+
+/**
+ * Decimation results keyed by yData identity, then xData identity, then x
+ * scale — two series sharing a y column but different x columns must not
+ * evict each other's entry every frame.
  */
 export type DecimCache = WeakMap<
 	Float32Array,
-	WeakMap<Float32Array, DecimSlot>
+	WeakMap<Float32Array, DecimSlots>
 >;
 
 /**
@@ -56,6 +81,17 @@ export type DecimCache = WeakMap<
  * mid-gesture costs tens of ms and causes visible hitches, while a ≤4x
  * coarser grid is at most ~1.3px buckets for line decimation (divisor 3) and
  * a finer grid is exact. The settle redraw runs strict and recomputes.
+ *
+ * With `segments` (the series' NaN-free runs, more than one) each segment is
+ * decimated on its own and the entry's `runs` record the boundaries, so a
+ * gapped series is decimated without bridging its gaps. The segments must
+ * belong to this exact (yData, xData) pair — they are not part of the key.
+ *
+ * With `xLog` the buckets are uniform in log10(x) (`m4ByLogXFloat32`): the
+ * window, its padding/quantization, and the bucket width all live in scale
+ * space (decades; `xRange` is the visible span in decades), which keeps the
+ * pyramid and the octave-nesting argument intact. Entries still store their
+ * covered window in data units, so the coverage check is scale-agnostic.
  */
 export function getOrComputeM4(
 	gl: WebGL2RenderingContext,
@@ -70,16 +106,19 @@ export function getOrComputeM4(
 	numBuckets: number,
 	bucketDivisor: number,
 	interacting = false,
+	segments?: readonly { start: number; end: number }[],
+	xLog = false,
 ): DecimEntry {
+	const segmented = segments !== undefined && segments.length > 1;
 	// Pad the computed window so panning within ±½ viewport reuses the result.
 	const pad = xRange * 0.5;
-	const decimMin = xAxisMin - pad;
-	const decimMax = xAxisMax + pad;
+	const decimMin = toScale(xAxisMin, xLog) - pad;
+	const decimMax = toScale(xAxisMax, xLog) + pad;
 	// Quantize the window edges to a power-of-two step; qMin/qMax are then
 	// exact multiples of bucketWidth, so the grid-start snap in m4 is drift-free.
 	const q = 2 ** Math.floor(Math.log2(xRange / 8));
-	const qMin = Math.floor(decimMin / q) * q;
-	const qMax = Math.ceil(decimMax / q) * q;
+	const qMin = fromScale(Math.floor(decimMin / q) * q, xLog);
+	const qMax = fromScale(Math.ceil(decimMax / q) * q, xLog);
 	const bucketWidth =
 		2 ** Math.floor(Math.log2(xRange / (numBuckets * bucketDivisor)));
 
@@ -92,10 +131,16 @@ export function getOrComputeM4(
 		byX = new WeakMap();
 		cache.set(yData, byX);
 	}
-	let slot = byX.get(xData);
+	let slots = byX.get(xData);
+	if (!slots) {
+		slots = { linear: null, log: null };
+		byX.set(xData, slots);
+	}
+	let slot = xLog ? slots.log : slots.linear;
 	if (!slot) {
 		slot = { entry: null, windowed: null, levels: new Map() };
-		byX.set(xData, slot);
+		if (xLog) slots.log = slot;
+		else slots.linear = slot;
 	}
 
 	const prev = slot.entry;
@@ -140,26 +185,41 @@ export function getOrComputeM4(
 			let cur = finer;
 			for (let step = levelKey - k + 1; step <= levelKey; step++) {
 				const w = 2 ** step;
-				const merged = m4MergeOctave(cur.xArr, cur.yArr, xRef, w);
-				cur = storePyramidLevel(gl, slot, step, w, xRef, merged.x, merged.y);
+				const merged = mergeRunsOctave(cur, xRef, w, xLog);
+				cur = storePyramidLevel(
+					gl,
+					slot,
+					step,
+					w,
+					xRef,
+					merged.x,
+					merged.y,
+					merged.runs,
+				);
 			}
 			slot.entry = cur;
 			return cur;
 		}
 
 		// When the requested window already spans most of the data, extend the
-		// scan to the full span and keep the result as a pyramid level.
-		const spanMin = xData[0] + xRef;
+		// scan to the full span and keep the result as a pyramid level. A log
+		// axis can only place x > 0, so its span starts at the first such
+		// sample (x is sorted; with none, the span is empty and NaN skips this).
+		const spanMin = xData[xLog ? findLastLE(xData, 0, xRef, -1) + 1 : 0] + xRef;
 		const spanMax = xData[n - 1] + xRef;
-		if (qMax - qMin >= 0.5 * (spanMax - spanMin)) {
-			const { x: dx, y: dy } = m4ByXFloat32(
+		const spanScale = toScale(spanMax, xLog) - toScale(spanMin, xLog);
+		const qScale = toScale(qMax, xLog) - toScale(qMin, xLog);
+		if (qScale >= 0.5 * spanScale) {
+			const full = scanM4(
 				xData,
 				yData,
+				segmented ? segments : undefined,
 				xRef,
 				spanMin,
 				spanMax,
 				bucketWidth,
 				scratch,
+				xLog,
 			);
 			const level = storePyramidLevel(
 				gl,
@@ -167,22 +227,29 @@ export function getOrComputeM4(
 				levelKey,
 				bucketWidth,
 				xRef,
-				dx,
-				dy,
+				full.x,
+				full.y,
+				full.runs,
 			);
 			slot.entry = level;
 			return level;
 		}
 	}
 
-	const { x: dx, y: dy } = m4ByXFloat32(
+	const {
+		x: dx,
+		y: dy,
+		runs,
+	} = scanM4(
 		xData,
 		yData,
+		segmented ? segments : undefined,
 		xRef,
 		qMin,
 		qMax,
 		bucketWidth,
 		scratch,
+		xLog,
 	);
 	// Copy into entry-owned buffers so the cache retains stable arrays;
 	// `subarray` returned by m4 shares the underlying scratch buffer.
@@ -211,6 +278,7 @@ export function getOrComputeM4(
 		xArr,
 		yArr,
 		count: xArr.length,
+		runs,
 		xBuf,
 		yBuf,
 	};
@@ -231,6 +299,7 @@ export function storePyramidLevel(
 	xRef: number,
 	dx: Float32Array,
 	dy: Float32Array,
+	runs: number[],
 ): DecimEntry {
 	const xArr = new Float32Array(dx.length);
 	const yArr = new Float32Array(dy.length);
@@ -254,6 +323,7 @@ export function storePyramidLevel(
 		xArr,
 		yArr,
 		count: xArr.length,
+		runs,
 		xBuf,
 		yBuf,
 	};
@@ -269,4 +339,105 @@ export function storePyramidLevel(
 		}
 	}
 	return level;
+}
+
+/** M4 scan over the whole series, or per segment when `segments` is set. */
+function scanM4(
+	xData: Float32Array,
+	yData: Float32Array,
+	segments: readonly { start: number; end: number }[] | undefined,
+	xRef: number,
+	xMin: number,
+	xMax: number,
+	bucketWidth: number,
+	scratch: { x: Float32Array; y: Float32Array },
+	log: boolean,
+): { x: Float32Array; y: Float32Array; runs: number[] } {
+	if (segments) {
+		return m4ByXSegmentsFloat32(
+			xData,
+			yData,
+			segments,
+			xRef,
+			xMin,
+			xMax,
+			bucketWidth,
+			scratch,
+			log,
+		);
+	}
+	const r = (log ? m4ByLogXFloat32 : m4ByXFloat32)(
+		xData,
+		yData,
+		xRef,
+		xMin,
+		xMax,
+		bucketWidth,
+		scratch,
+	);
+	return { x: r.x, y: r.y, runs: [0, r.x.length] };
+}
+
+/** `m4MergeOctave` applied run by run, so merged buckets never span a gap. */
+function mergeRunsOctave(
+	level: DecimEntry,
+	xRef: number,
+	coarseWidth: number,
+	log: boolean,
+): { x: Float32Array; y: Float32Array; runs: number[] } {
+	const { runs } = level;
+	if (runs.length <= 2) {
+		const m = m4MergeOctave(level.xArr, level.yArr, xRef, coarseWidth, log);
+		return { x: m.x, y: m.y, runs: [0, m.x.length] };
+	}
+	const x = new Float32Array(level.count);
+	const y = new Float32Array(level.count);
+	const out: number[] = [];
+	let len = 0;
+	for (let r = 0; r < runs.length; r += 2) {
+		const start = runs[r];
+		const end = start + runs[r + 1];
+		const m = m4MergeOctave(
+			level.xArr.subarray(start, end),
+			level.yArr.subarray(start, end),
+			xRef,
+			coarseWidth,
+			log,
+		);
+		x.set(m.x, len);
+		y.set(m.y, len);
+		out.push(len, m.x.length);
+		len += m.x.length;
+	}
+	return { x: x.subarray(0, len), y: y.subarray(0, len), runs: out };
+}
+
+/**
+ * Free every GL buffer cached for the (yData, xData) pair — windowed entries
+ * and all pyramid levels of both scales — and forget the slots. Called when a series' columns
+ * leave the renderer; the WeakMap alone would drop the JS objects but leave
+ * the GPU memory to whenever the GC finalizes the buffer handles.
+ */
+export function releaseDecimSlot(
+	gl: WebGL2RenderingContext,
+	cache: DecimCache,
+	xData: Float32Array,
+	yData: Float32Array,
+): void {
+	const byX = cache.get(yData);
+	const slots = byX?.get(xData);
+	if (!byX || !slots) return;
+	// `entry` always aliases the windowed entry or a level, so these two
+	// cover every buffer the slot owns.
+	const free = (e: DecimEntry | null) => {
+		if (!e) return;
+		gl.deleteBuffer(e.xBuf);
+		gl.deleteBuffer(e.yBuf);
+	};
+	for (const slot of [slots.linear, slots.log]) {
+		if (!slot) continue;
+		free(slot.windowed);
+		for (const level of slot.levels.values()) free(level);
+	}
+	byX.delete(xData);
 }

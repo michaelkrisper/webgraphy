@@ -1,7 +1,22 @@
-import { Circle, EyeOff, GripVertical, Rows3, Trash2, X } from "lucide-react";
+import {
+	Circle,
+	EyeOff,
+	GripVertical,
+	Plus,
+	Rows3,
+	Trash2,
+	X,
+} from "lucide-react";
 import type React from "react";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
-import { useGraphStore } from "../../store/useGraphStore";
+import { deleteWithUndo } from "../../store/undoToast";
+import { useGraphStore, withHistory } from "../../store/useGraphStore";
+import {
+	firstFreeYAxisSlot,
+	ownsYAxisRow,
+	usedYAxes,
+	yAxisSlot,
+} from "../../utils/yAxisSlots";
 import ColorPicker from "./ColorPicker";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 
@@ -118,17 +133,33 @@ const POINT_OPTIONS: PopupPickerOption<PointStyle>[] = (
 	["circle", "square", "cross", "none"] as const
 ).map((v) => ({ value: v, icon: pointIcon(v), label: POINT_STYLE_LABELS[v] }));
 
-const Y_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
-	{ length: 9 },
-	(_, i) => {
-		const n = i + 1;
-		return {
-			value: n,
-			icon: <span style={{ fontWeight: "bold" }}>{n}</span>,
-			label: `Y-Axis ${n}`,
-		};
-	},
-);
+/** The axes in use, titled like the chart draws them, plus "New axis". */
+function yAxisOptions(
+	allSeries: readonly SeriesConfig[],
+): PopupPickerOption<number>[] {
+	const options: PopupPickerOption<number>[] = usedYAxes(allSeries).map((a) => ({
+		value: a.slot,
+		icon: <span style={{ fontWeight: "bold" }}>{a.slot}</span>,
+		label: a.title,
+		title: `Y-Axis ${a.slot}: ${a.title}`,
+		trailing: (
+			<span className="sc-axis-swatches" aria-hidden="true">
+				{a.colors.map((c) => (
+					<span key={c} className="sc-axis-swatch" style={{ background: c }} />
+				))}
+			</span>
+		),
+	}));
+	const free = firstFreeYAxisSlot(allSeries);
+	options.push({
+		value: free ?? 0,
+		icon: <Plus size={14} />,
+		label: "New axis",
+		disabled: free === null,
+		title: free === null ? "All 9 Y-axes are in use" : `Move to Y-Axis ${free}`,
+	});
+	return options;
+}
 
 export const SeriesConfigUI: React.FC<Props> = ({
 	series,
@@ -139,6 +170,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const removeSeries = useGraphStore((s) => s.removeSeries);
 	const yAxes = useGraphStore((s) => s.yAxes);
 	const updateYAxis = useGraphStore((s) => s.updateYAxis);
+	const setAxisScale = useGraphStore((s) => s.setAxisScale);
 	const updateSeriesVisibility = useGraphStore((s) => s.updateSeriesVisibility);
 	const allSeries = useGraphStore((s) => s.series);
 	const setPreviewColor = useGraphStore((s) => s.setPreviewColor);
@@ -153,16 +185,20 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		updateSeriesVisibility(series.id, !series.hidden);
 	};
 
-	const currentYAxisIndex = parseInt(series.yAxisId.split("-")[1], 10) || 1;
-	const currentYAxis = yAxes.find((a) => a.id === series.yAxisId);
+	const currentYAxisIndex = yAxisSlot(series.yAxisId);
+	const currentYAxis = ownsYAxisRow(allSeries, series)
+		? yAxes.find((a) => a.id === series.yAxisId)
+		: undefined;
 	const yAxisCycleDisabled = allSeries.length <= 1;
 
 	const selectYAxis = (n: number) => {
 		const nextAxisId = `axis-${n}`;
-		if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
-			updateYAxis(nextAxisId, { position: "left" });
-		}
-		handleUpdate({ yAxisId: nextAxisId });
+		withHistory(`move '${series.name || series.yColumn}' to Y-axis ${n}`, () => {
+			if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
+				updateYAxis(nextAxisId, { position: "left" });
+			}
+			handleUpdate({ yAxisId: nextAxisId });
+		});
 	};
 
 	return (
@@ -183,12 +219,13 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				{series.hidden ? <EyeOff size={14} /> : <GripVertical size={14} />}
 			</button>
 
-			{/* Y Axis Picker (1-9) */}
+			{/* Y Axis Picker (axes in use + new axis) */}
 			<PopupPicker
-				options={Y_AXIS_OPTIONS}
+				options={yAxisOptions(allSeries)}
 				current={currentYAxisIndex}
 				onChange={selectYAxis}
 				popoverId={`y-axis-popover-${series.id}`}
+				minWidth={180}
 				renderTrigger={({ onClick, ref }) => (
 					<button
 						ref={ref}
@@ -200,7 +237,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 							opacity: yAxisCycleDisabled ? 0.3 : 1,
 							cursor: yAxisCycleDisabled ? "default" : "pointer",
 						}}
-						title="Select Y-Axis (1-9)"
+						title="Select Y-Axis"
 						type="button"
 						aria-label="Select Y-Axis"
 					>
@@ -264,6 +301,32 @@ export const SeriesConfigUI: React.FC<Props> = ({
 					aria-label="Toggle Grid"
 				>
 					<Rows3 size={16} />
+				</button>
+			) : (
+				<div className="sc-cell-placeholder" />
+			)}
+
+			{/* Linear/Log Scale Toggle */}
+			{currentYAxis ? (
+				<button
+					onClick={() =>
+						setAxisScale(
+							"y",
+							currentYAxis.id,
+							currentYAxis.scale === "log" ? "linear" : "log",
+						)
+					}
+					className={`sc-btn sc-btn--plain sc-btn--log${currentYAxis.scale !== "log" ? " sc-btn--off" : ""}`}
+					title={
+						currentYAxis.scale === "log"
+							? "Logarithmic Y Scale (click for linear)"
+							: "Linear Y Scale (click for logarithmic)"
+					}
+					type="button"
+					aria-label="Logarithmic Y Scale"
+					aria-pressed={currentYAxis.scale === "log"}
+				>
+					log
 				</button>
 			) : (
 				<div className="sc-cell-placeholder" />
@@ -354,7 +417,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 
 			{/* Delete Button */}
 			<button
-				onClick={() => removeSeries(series.id)}
+				onClick={() =>
+					deleteWithUndo(series.name || series.yColumn, () =>
+						removeSeries(series.id),
+					)
+				}
 				className="sc-btn sc-btn--plain"
 				style={{ borderRight: "none", color: "var(--danger)" }}
 				title="Delete"

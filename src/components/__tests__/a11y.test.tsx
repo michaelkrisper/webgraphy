@@ -5,9 +5,12 @@ import { axe } from "vitest-axe";
 import type { SeriesConfig } from "../../services/persistence";
 import { ChartLegend } from "../Plot/ChartLegend";
 import { EmptyState } from "../Plot/EmptyState";
+import { ConfirmDialog } from "../Layout/ConfirmDialog";
 import { HelpModal } from "../Layout/HelpModal";
+import { KeyboardShortcutsModal } from "../Layout/KeyboardShortcutsModal";
 import { ImprintModal } from "../Layout/ImprintModal";
 import { LicenseModal } from "../Layout/LicenseModal";
+import { AXE_TIMEOUT_MS } from "../../__tests__/axeTimeout";
 
 /**
  * A broad axe sweep over the components that are cheap to render in
@@ -46,9 +49,24 @@ const cases: Array<[string, () => React.ReactElement]> = [
 				width={600}
 				height={400}
 				padding={{ top: 10, right: 10, bottom: 40, left: 50 }}
+				onImportFiles={vi.fn()}
+				onLoadDemo={vi.fn()}
 			/>
 		),
 	],
+	[
+		"ConfirmDialog",
+		() => (
+			<ConfirmDialog
+				title="Load demo data?"
+				message="Added alongside."
+				confirmLabel="Add alongside"
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+			/>
+		),
+	],
+	["KeyboardShortcutsModal", () => <KeyboardShortcutsModal onClose={vi.fn()} />],
 	[
 		"ChartLegend",
 		() => (
@@ -66,9 +84,13 @@ const cases: Array<[string, () => React.ReactElement]> = [
 
 describe("accessibility sweep", () => {
 	for (const [name, renderCase] of cases) {
-		it(`${name} has no axe violations`, async () => {
-			const { container } = render(renderCase());
-			expect(await axe(container)).toHaveNoViolations();
-		});
+		it(
+			`${name} has no axe violations`,
+			async () => {
+				const { container } = render(renderCase());
+				expect(await axe(container)).toHaveNoViolations();
+			},
+			AXE_TIMEOUT_MS,
+		);
 	}
 });

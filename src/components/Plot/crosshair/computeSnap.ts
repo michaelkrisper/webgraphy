@@ -1,4 +1,5 @@
 import type { XAxisConfig } from "../../../services/persistence";
+import { toScale } from "../../../utils/axisScale";
 import { findClosest } from "../../../utils/binarySearch";
 import { screenToWorld, worldToScreen } from "../../../utils/coords";
 import { formatFullDate } from "../../../utils/time";
@@ -35,6 +36,7 @@ export function computeSnap({
 		if (closestIdxByDataset.has(ds.id)) return;
 		const xData = xCol.data;
 		const refX = xCol.refPoint;
+		const xLog = xAxis.scale === "log";
 		const sVp = {
 			xMin: xAxis.min,
 			xMax: xAxis.max,
@@ -43,20 +45,30 @@ export function computeSnap({
 			width,
 			height,
 			padding,
+			xLog,
 		};
 		const sMouseWorld = screenToWorld(pos.x, pos.y, sVp);
 		const cachedIdx = findClosest(xData, sMouseWorld.x, refX);
-		closestIdxByDataset.set(ds.id, cachedIdx);
+		// Nearest on screen: on a log axis that is nearest in log10 space,
+		// which can be the neighbour of the value-nearest sample.
+		const mouseU = toScale(sMouseWorld.x, xLog);
+		let dsIdx = cachedIdx;
+		let dsDist = Infinity;
 		for (let i = cachedIdx - 1; i <= cachedIdx + 1; i++) {
 			if (i < 0 || i >= xData.length) continue;
 			const wx = xData[i] + refX;
-			const d = Math.abs(wx - sMouseWorld.x);
+			const d = Math.abs(toScale(wx, xLog) - mouseU);
+			if (xLog && d < dsDist) {
+				dsDist = d;
+				dsIdx = i;
+			}
 			if (d < bestDist) {
 				bestDist = d;
 				bestXWorld = wx;
 				bestSeriesXConf = xAxis;
 			}
 		}
+		closestIdxByDataset.set(ds.id, dsIdx);
 	});
 
 	if (bestXWorld === null || !bestSeriesXConf) return null;
@@ -96,6 +108,7 @@ export function computeSnap({
 			width,
 			height,
 			padding,
+			yLog: axis.scale === "log",
 		}).y;
 
 		const xScreen = worldToScreen(xVal, 0, {
@@ -106,6 +119,7 @@ export function computeSnap({
 			width,
 			height,
 			padding,
+			xLog: xAxis.scale === "log",
 		}).x;
 
 		let group = entriesMap.get(groupKey);
@@ -115,13 +129,18 @@ export function computeSnap({
 		}
 		const yCatLabel = yCol.categoryLabels?.[Math.round(yVal)];
 		group.items.push({
+			seriesId: s.id,
 			label,
 			value: yVal,
+			xValue: xVal,
+			xAxisId: xAxis.id,
+			yAxisId: axis.id,
 			valueLabel: yCatLabel,
 			color: s.lineColor || "#333",
 			yScreen,
 			xScreen,
 			pointStyle: s.pointStyle,
+			lineStyle: s.lineStyle,
 		});
 	});
 
@@ -134,6 +153,12 @@ export function computeSnap({
 		width,
 		height,
 		padding,
+		xLog: finalXConf.scale === "log",
 	}).x;
-	return { snapScreenX, entries };
+	return {
+		snapScreenX,
+		snapX: finalBestXWorld,
+		snapXAxisId: finalXConf.id,
+		entries,
+	};
 }
