@@ -12,6 +12,7 @@ import {
 	type PlotDataTableInput,
 	plotTableToTsv,
 } from "./plotDataTable";
+import "./PlotDataTableModal.css";
 
 interface Props extends PlotDataTableInput {
 	onClose: () => void;

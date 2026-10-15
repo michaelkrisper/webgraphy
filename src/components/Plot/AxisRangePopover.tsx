@@ -7,6 +7,7 @@ import {
 	type RangeField,
 	validateAxisRange,
 } from "../../utils/axisRange";
+import "./AxisRangePopover.css";
 
 export interface AxisRangePopoverProps {
 	kind: "x" | "y";

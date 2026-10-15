@@ -1016,6 +1016,8 @@ describe("useGraphStore", () => {
 			const p = store.addCalculatedColumn("ds-1", "C", "[Val] * 2");
 			store.removeDataset("ds-1");
 			vi.mocked(persistence.saveDataset).mockClear();
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
 			pending[0]();
 			const result = await p;
 			expect(result.success).toBe(false);
@@ -1029,6 +1031,8 @@ describe("useGraphStore", () => {
 			store.addDataset(makeDataset());
 			const p = store.addCalculatedColumn("ds-1", "S", "avgday([Val])");
 			store.removeDataset("ds-1");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
 			pending[0]();
 			expect((await p).success).toBe(false);
 			expect(useGraphStore.getState().datasets).toHaveLength(0);
@@ -1041,6 +1045,8 @@ describe("useGraphStore", () => {
 			const p1 = store.addCalculatedColumn("ds-1", "A", "[Val] * 2");
 			const p2 = store.addCalculatedColumn("ds-1", "B", "[Val] * 3");
 			store.renameColumn("ds-1", "Val", "Value");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
 			pending[0]();
 			pending[1]();
 			expect((await p1).success).toBe(true);
@@ -1059,6 +1065,8 @@ describe("useGraphStore", () => {
 			store.addDataset(makeDataset());
 			const p1 = store.addCalculatedColumn("ds-1", "A", "[Val] * 2");
 			const p2 = store.addCalculatedColumn("ds-1", "A", "[Val] * 3");
+			// The formula parser is imported lazily before the worker is called.
+			await vi.dynamicImportSettled();
 			pending[0]();
 			pending[1]();
 			expect((await p1).success).toBe(true);

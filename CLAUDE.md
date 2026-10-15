@@ -43,7 +43,7 @@ Single store holding `datasets`, `series`, `xAxes`, `yAxes`, plus UI flags. Key 
 - On startup `loadPersistedState` restores from IndexedDB, else loads demo data (`services/demoData.ts`). Concurrent calls share one in-flight promise (StrictMode runs the startup effect twice).
 
 ### Persistence — `src/services/persistence.ts`
-IndexedDB (via `idb`), DB `webgraphy-db` v2: a `datasets` store (large typed-array payloads) and an `app_state` store (viewport + config under separate keys). All loaded state is validated with **Zod** schemas before entering the store — keep schemas in sync when changing the `Dataset`/`*Config` interfaces (also exported from this file).
+IndexedDB (via `idb`), DB `webgraphy-db` v2: a `datasets` store (large typed-array payloads) and an `app_state` store (viewport + config under separate keys). All loaded state is validated with **Zod** schemas (`persistenceSchemas.ts`, lazy-loaded so zod stays out of the entry chunk) before entering the store — keep schemas in sync when changing the `Dataset`/`*Config` interfaces (also exported from this file).
 Failures never throw into the UI: save errors (quota included) surface as toasts, and when loading fails `persistence.disable()` stops all writes for the session so the demo-data fallback cannot clobber what is on disk (also on a `blocking` upgrade from a newer tab). The first successful dataset write asks for `navigator.storage.persist()`.
 
 Session files (`.webgraphy`, `services/session.ts`, lazily loaded): the whole workspace as one gzip-compressed file — magic + version + JSON header (validated with the same Zod schemas) + raw Float32 column data. Bump `SESSION_FORMAT_VERSION` on incompatible layout changes.

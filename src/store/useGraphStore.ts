@@ -17,7 +17,6 @@ import {
 	positiveBounds,
 } from "../utils/axisScale";
 import { getColumnIndex } from "../utils/columns";
-import { compileFormula, matchRegressionFormula } from "../utils/formula";
 import { logger } from "../utils/logger";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
 import { notify } from "./useNotificationStore";
@@ -252,6 +251,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			};
 		}
 
+		// The parser is only needed here and in the (lazy) formula editor, so it
+		// stays out of the entry chunk. Everything above validated the snapshot
+		// taken at call time; the result is re-checked against live state below.
+		const { compileFormula, matchRegressionFormula } = await import(
+			"../utils/formula"
+		);
 		// Regressions get the [x, y] columns positionally instead of the
 		// compiler's used-column list; the worker uses the same matcher.
 		const regression = matchRegressionFormula(formula);

@@ -59,10 +59,11 @@ afterEach(() => {
 });
 
 describe("DirectBackend (no OffscreenCanvas support)", () => {
-	it("renders on the main thread through a RendererCore", () => {
+	it("renders on the main thread through a RendererCore", async () => {
 		const gl = makeGl2Mock();
 		const canvas = makeCanvasMock(gl);
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 
 		expect(canvas.getContext).toHaveBeenCalledWith(
 			"webgl2",
@@ -84,18 +85,20 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		releaseRenderBackend(canvas);
 	});
 
-	it("resizes the canvas on setViewport", () => {
+	it("resizes the canvas on setViewport", async () => {
 		const canvas = makeCanvasMock(makeGl2Mock());
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 		backend.setViewport({ ...viewport, width: 300, dpr: 2 });
 		expect(canvas.width).toBe(600);
 		expect(canvas.height).toBe(200);
 		releaseRenderBackend(canvas);
 	});
 
-	it("sizes the canvas from the exact device-pixel size when given", () => {
+	it("sizes the canvas from the exact device-pixel size when given", async () => {
 		const canvas = makeCanvasMock(makeGl2Mock());
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 		backend.setViewport({
 			...viewport,
 			dpr: 1.25,
@@ -106,11 +109,12 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		releaseRenderBackend(canvas);
 	});
 
-	it("pauses on context loss and redraws the last frame on restore", () => {
+	it("pauses on context loss and redraws the last frame on restore", async () => {
 		const gl = makeGl2Mock();
 		const canvas = makeCanvasMock(gl);
 		const ext = makeLoseContextExt(canvas);
 		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 		const xs = [{ id: "axis-1", min: 0, max: 10 }];
 		backend.setSeries([makeSeries()]);
 		backend.redraw(xs, xs, false, null);
@@ -138,13 +142,43 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		releaseRenderBackend(canvas);
 	});
 
-	it("cancels webglcontextlost so the browser will restore the context", () => {
+	it("cancels webglcontextlost so the browser will restore the context", async () => {
 		const canvas = makeCanvasMock(makeGl2Mock());
 		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.dynamicImportSettled();
 		const ev = new Event("webglcontextlost", { cancelable: true });
 		canvas.dispatchEvent(ev);
 		expect(ev.defaultPrevented).toBe(true);
 		releaseRenderBackend(canvas);
+	});
+
+	it("buffers the latest inputs until the renderer module has loaded", async () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		const xs = [{ id: "axis-1", min: 0, max: 10 }];
+		backend.setViewport({ ...viewport, width: 300 });
+		backend.setSeries([makeSeries()]);
+		backend.redraw(xs, xs, false, null);
+		// Sized right away so layout never sees a stale backing store.
+		expect(canvas.width).toBe(300);
+		expect(canvas.getContext).not.toHaveBeenCalled();
+
+		await vi.dynamicImportSettled();
+		expect(gl.clear).toHaveBeenCalledTimes(1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalled();
+		releaseRenderBackend(canvas);
+	});
+
+	it("never builds a renderer for a backend disposed while loading", async () => {
+		vi.useFakeTimers();
+		const canvas = makeCanvasMock(makeGl2Mock());
+		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		releaseRenderBackend(canvas);
+		vi.runAllTimers();
+		vi.useRealTimers();
+		await vi.dynamicImportSettled();
+		expect(canvas.getContext).not.toHaveBeenCalled();
 	});
 });
 

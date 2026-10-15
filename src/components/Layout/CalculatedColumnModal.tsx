@@ -10,6 +10,7 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { compileFormula, matchRegressionFormula } from "../../utils/formula";
 import { FormulaReference } from "./FormulaReference";
 import { Modal } from "./Modal";
+import "./CalculatedColumnModal.css";
 
 interface CalculatedColumnModalProps {
 	dataset: Dataset;
