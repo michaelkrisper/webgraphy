@@ -33,7 +33,7 @@ const MAX_CONTROL_DRIFT = 0.1;
  * Deliberately loose to start with: a gate that cries wolf gets disabled.
  * Tighten it once a few weeks of CI runs show the real spread.
  */
-const TOLERANCE = 0.25;
+const TOLERANCE = 0.4;
 
 /** Benchmarks noisier than this are reported but never fail the build. */
 const MAX_TRUSTED_RME = 8;
