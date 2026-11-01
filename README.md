@@ -57,17 +57,17 @@ never leave the browser. It installs as a PWA and works offline.
 
 ## Mouse
 
-| Action | Effect |
-| --- | --- |
-| Wheel / drag on the plot | Zoom / pan all axes |
-| Shift + wheel / drag | Keep all X axes synchronised |
-| Ctrl + drag | Box zoom |
-| Double-click the plot | Fit all axes |
-| Wheel / drag on an axis | Zoom / pan only that axis |
-| Double-click an X axis | Auto-scale it (on the title: rename) |
-| Double-click a Y axis | Fit it to the data in the visible X range |
-| Right-click an axis | Type an exact range |
-| Click the plot | Set measurement pins A, B |
+| Action                   | Effect                                    |
+| ------------------------ | ----------------------------------------- |
+| Wheel / drag on the plot | Zoom / pan all axes                       |
+| Shift + wheel / drag     | Keep all X axes synchronised              |
+| Ctrl + drag              | Box zoom                                  |
+| Double-click the plot    | Fit all axes                              |
+| Wheel / drag on an axis  | Zoom / pan only that axis                 |
+| Double-click an X axis   | Auto-scale it (on the title: rename)      |
+| Double-click a Y axis    | Fit it to the data in the visible X range |
+| Right-click an axis      | Type an exact range                       |
+| Click the plot           | Set measurement pins A, B                 |
 
 ## Keyboard shortcuts
 
@@ -76,47 +76,47 @@ Press `?` in the app to see this list. It is generated from
 
 **Chart**
 
-| Keys | Action |
-| --- | --- |
-| ← / → | Pan all X axes |
-| ↑ / ↓ | Pan all Y axes |
-| + / = | Zoom in (X and Y) |
-| - / _ | Zoom out (X and Y) |
-| Ctrl + + / - | Zoom the X axes only |
-| Home | Fit all axes to the data |
-| Shift + Home | Stacked fit: each Y axis in its own slice |
-| Alt + ← | Previous view (zoom history) |
-| Alt + → | Next view (zoom history) |
-| Ctrl + C | Copy the crosshair tooltip data |
-| S | Show statistics of the visible range |
-| Esc | Clear the measurement cursors (click the plot to pin A, B) |
-| ? | Show keyboard shortcuts |
+| Keys         | Action                                                     |
+| ------------ | ---------------------------------------------------------- |
+| ← / →        | Pan all X axes                                             |
+| ↑ / ↓        | Pan all Y axes                                             |
+| + / =        | Zoom in (X and Y)                                          |
+| - / _        | Zoom out (X and Y)                                         |
+| Ctrl + + / - | Zoom the X axes only                                       |
+| Home         | Fit all axes to the data                                   |
+| Shift + Home | Stacked fit: each Y axis in its own slice                  |
+| Alt + ←      | Previous view (zoom history)                               |
+| Alt + →      | Next view (zoom history)                                   |
+| Ctrl + C     | Copy the crosshair tooltip data                            |
+| S            | Show statistics of the visible range                       |
+| Esc          | Clear the measurement cursors (click the plot to pin A, B) |
+| ?            | Show keyboard shortcuts                                    |
 
 **Focused axis (Tab to an axis)**
 
-| Keys | Action |
-| --- | --- |
-| ← / → | Pan the focused X axis |
-| ↑ / ↓ | Pan the focused Y axis |
-| + / = | Zoom in on the focused axis |
-| - / _ | Zoom out of the focused axis |
-| A | Auto-scale the focused axis |
-| R | Type an exact range for the focused axis |
-| Enter | Rename the focused X axis |
+| Keys  | Action                                   |
+| ----- | ---------------------------------------- |
+| ← / → | Pan the focused X axis                   |
+| ↑ / ↓ | Pan the focused Y axis                   |
+| + / = | Zoom in on the focused axis              |
+| - / _ | Zoom out of the focused axis             |
+| A     | Auto-scale the focused axis              |
+| R     | Type an exact range for the focused axis |
+| Enter | Rename the focused X axis                |
 
 **Edit**
 
-| Keys | Action |
-| --- | --- |
-| Ctrl + Z | Undo |
-| Ctrl + Y | Redo (also Ctrl+Shift+Z) |
+| Keys     | Action                                 |
+| -------- | -------------------------------------- |
+| Ctrl + Z | Undo                                   |
+| Ctrl + Y | Redo (also Ctrl+Shift+Z)               |
 | Ctrl + V | Import cells copied from a spreadsheet |
 
 **Dialogs**
 
-| Keys | Action |
-| --- | --- |
-| Esc | Close the dialog |
+| Keys | Action           |
+| ---- | ---------------- |
+| Esc  | Close the dialog |
 
 ## Privacy
 
@@ -138,17 +138,17 @@ npm install
 npm run dev
 ```
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` / `npm run preview` | Vite dev server / serve the production build |
-| `npm run build` | Type-check (`tsc -b`) and `vite build` in parallel; either failing fails the build |
-| `npm run typecheck` | `tsc -b` only |
-| `npm run lint` | ESLint (Biome only formats) |
-| `npm run format` / `format:check` | Biome formatter; CI enforces `format:check` |
-| `npm test` | Vitest, one-shot; `npx vitest run --coverage` enforces the coverage thresholds as CI does |
-| `npm run e2e` | Playwright smoke and visual regression against the production build (`npx playwright install chromium` first) |
-| `npm run size:check` | Production build vs. the gzipped budget in `size-budget.json`; `npm run analyze` writes `dist/bundle-report.html` |
-| `npm run bench:check` | Hot-path benchmarks vs. `bench-baseline.json`; advisory locally, binding in CI |
+| Script                            | Purpose                                                                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` / `npm run preview` | Vite dev server / serve the production build                                                                      |
+| `npm run build`                   | Type-check (`tsc -b`) and `vite build` in parallel; either failing fails the build                                |
+| `npm run typecheck`               | `tsc -b` only                                                                                                     |
+| `npm run lint`                    | ESLint (Biome only formats)                                                                                       |
+| `npm run format` / `format:check` | Biome formatter; CI enforces `format:check`                                                                       |
+| `npm test`                        | Vitest, one-shot; `npx vitest run --coverage` enforces the coverage thresholds as CI does                         |
+| `npm run e2e`                     | Playwright smoke and visual regression against the production build (`npx playwright install chromium` first)     |
+| `npm run size:check`              | Production build vs. the gzipped budget in `size-budget.json`; `npm run analyze` writes `dist/bundle-report.html` |
+| `npm run bench:check`             | Hot-path benchmarks vs. `bench-baseline.json`; advisory locally, binding in CI                                    |
 
 When you change `package.json`, commit the updated `package-lock.json` with it.
 Run format, lint and tests before opening a pull request.

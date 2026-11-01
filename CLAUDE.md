@@ -31,9 +31,11 @@ CI (`.github/workflows/ci.yml`) is the only workflow: a `quality` job (format �
 ## Architecture
 
 ### Data flow
+
 File import → **parser web worker** (`src/workers/parser.worker.ts` → `utils/data-parser.ts`) → `ParsedDataset` with columns as **`Float32Array`** → store `addDataset` resolves the x-axis column + axis slot → IndexedDB. XLSX goes through a separate **excel worker** (`workers/excel.worker.ts`, carries the whole SheetJS bundle — lazily constructed and deliberately excluded from the PWA precache). Calculated columns go through the **formula worker** (`workers/formula.worker.ts` → `utils/formula.ts`). `workers/WorkerClient.ts` is the shared request/response wrapper (id-keyed promises, lazy worker construction); the `*Client.ts` files are its instances. Workers transfer `ArrayBuffer`s (zero-copy); never assume a buffer is still usable after posting.
 
 ### State — `src/store/useGraphStore.ts` (Zustand)
+
 Single store holding `datasets`, `series`, `xAxes`, `yAxes`, plus UI flags. Key model facts:
 - There are always **9 fixed x-axis and 9 fixed y-axis slots** (`axis-1`..`axis-9`), created up front. Adding data assigns a dataset to a free x-axis slot; it does not create axes.
 - A **`SeriesConfig`** binds a dataset column (`sourceId` + `yColumn`) to a `yAxisId`. A **`Dataset`** owns one `xAxisColumn`/`xAxisId`.
@@ -43,12 +45,14 @@ Single store holding `datasets`, `series`, `xAxes`, `yAxes`, plus UI flags. Key 
 - On startup `loadPersistedState` restores from IndexedDB, else loads demo data (`services/demoData.ts`). Concurrent calls share one in-flight promise (StrictMode runs the startup effect twice).
 
 ### Persistence — `src/services/persistence.ts`
+
 IndexedDB (via `idb`), DB `webgraphy-db` v2: a `datasets` store (large typed-array payloads) and an `app_state` store (viewport + config under separate keys). All loaded state is validated with **Zod** schemas (`persistenceSchemas.ts`, lazy-loaded so zod stays out of the entry chunk) before entering the store — keep schemas in sync when changing the `Dataset`/`*Config` interfaces (also exported from this file).
 Failures never throw into the UI: save errors (quota included) surface as toasts, and when loading fails `persistence.disable()` stops all writes for the session so the demo-data fallback cannot clobber what is on disk (also on a `blocking` upgrade from a newer tab). The first successful dataset write asks for `navigator.storage.persist()`.
 
 Session files (`.webgraphy`, `services/session.ts`, lazily loaded): the whole workspace as one gzip-compressed file — magic + version + JSON header (validated with the same Zod schemas) + raw Float32 column data. Bump `SESSION_FORMAT_VERSION` on incompatible layout changes.
 
 ### Rendering — `src/components/Plot/`
+
 The hot path. `ChartContainer.tsx` orchestrates; it does **not** re-render per frame. Everything on screen inside the plot — series, grid, spines, ticks, **and all text** — is WebGL; there is no 2D-canvas axis layer any more.
 - `rendererCore.ts` is the framework-free **WebGL2** renderer driving three GLSL ES 3.00 program pairs from `rendererShaders.ts`: `MAIN` (point sprites + screen-space overlay), `LINE` (instanced triangle-capsule series lines), `LABEL` (textured atlas quads). `GLStateCache.ts` caches uniforms/attribs/divisors across programs.
 - It runs inside `workers/render.worker.ts` via `OffscreenCanvas` when supported, else on the main thread — `renderBackend.ts` picks the backend (`WorkerBackend`/`DirectBackend`, StrictMode-safe: a canvas can only be transferred once) and `WebGLRenderer.tsx` is the thin React host that resolves store data into plain renderer inputs.
@@ -63,6 +67,7 @@ The hot path. `ChartContainer.tsx` orchestrates; it does **not** re-render per f
 - Layout math is extracted into pure, individually-tested modules (`computeAxesLayout`, `buildXAxisLayout`, `axisGutters`, `seriesPrep`, `drawSeries`, `buildOverlay`, `overlayGeometry`, etc.). Prefer adding/adjusting these pure functions over inlining logic into components.
 
 ### Formula engine — `src/utils/formula.ts`
+
 A re-export facade over `src/utils/formula/`: `parser.ts` (lexer → shunting-yard RPN), `compile.ts`, `evaluate.ts` (row-wise interpreter over a pre-allocated stack), `stateful.ts` (rolling/time/group state), `wholeColumn.ts` (regression/KDE/group-average paths, which can emit a compact sparse sub-dataset). **No `eval`/`new Function`**; column refs and function names are validated against the dataset and `formulaFunctions.ts` (the single source of truth for functions — add new functions there).
 
 ## Conventions
