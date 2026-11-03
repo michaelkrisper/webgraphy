@@ -148,8 +148,9 @@ jobs:
           retention-days: 7
 
   deploy:
-    # Only deploy a green build of main; reuses the artifact from quality.
-    needs: quality
+    # Only deploy a build of main that passed the quality gates and the
+    # end-to-end tests; reuses the artifact from quality.
+    needs: [quality, e2e]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

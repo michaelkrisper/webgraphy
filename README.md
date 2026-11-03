@@ -11,6 +11,8 @@ never leave the browser. It installs as a PWA and works offline.
 
 **Open it:** <https://michaelkrisper.github.io/webgraphy/>
 
+![WebGraphy with several series on multiple axes](public/screenshot-wide.png)
+
 ## Features
 
 **Import**
@@ -54,6 +56,25 @@ never leave the browser. It installs as a PWA and works offline.
 - Everything is persisted in IndexedDB and restored on the next visit. The app
   asks the browser for persistent storage, and the sidebar footer shows usage,
   quota and whether storage is protected from eviction.
+
+## How it works
+
+- **Import** runs in web workers: CSV is streamed, JSON parsed whole and
+  spreadsheets go through SheetJS in a separate worker. Every column becomes a
+  `Float32Array`; dates and large numbers are stored relative to a reference
+  point so single precision does not lose resolution.
+- **Rendering** is WebGL2 in a worker via `OffscreenCanvas` (main-thread
+  fallback). Series lines are instanced quads shaded with a capsule SDF, so
+  widths, joins and dashes do not depend on the driver's line support; grid,
+  ticks and all text are WebGL too. M4 decimation with a per-series pyramid
+  cache reduces millions of points to what the pixels can show.
+- **Interaction** animates target axis ranges in a `requestAnimationFrame`
+  loop and writes back to the store only when it settles, so panning never
+  re-renders React.
+- **Calculated columns** are compiled by a small parser (shunting-yard to RPN)
+  and evaluated row by row in a worker; there is no `eval`.
+- **State** lives in a Zustand store, persisted to IndexedDB and validated
+  with Zod on load.
 
 ## Mouse
 
@@ -162,7 +183,7 @@ on pull requests and pushes to `main`:
 - `e2e`: Playwright in a pinned container.
 - `bench`: benchmarks against the baseline.
 - `deploy`: publishes `dist` to GitHub Pages, on `main` only, after `quality`
-  passes.
+  and `e2e` pass.
 
 Screenshot baselines are generated only by CI, never locally. To refresh them
 after an intentional UI change, run the workflow manually with
