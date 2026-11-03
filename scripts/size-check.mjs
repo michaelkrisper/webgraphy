@@ -54,21 +54,37 @@ function measure() {
 	const manifest = sw.match(/\[\{[^\]]*\}\]/);
 	let precacheGzip = 0;
 	let precacheCount = 0;
+	let precacheUrls = [];
 	if (manifest) {
 		const entries = JSON.parse(
 			manifest[0].replace(/url:/g, '"url":').replace(/revision:/g, '"revision":'),
 		);
 		precacheCount = entries.length;
+		precacheUrls = entries.map((e) => e.url);
 		for (const e of entries) {
 			const p = join(DIST, e.url);
 			if (existsSync(p) && statSync(p).isFile()) precacheGzip += gzipOf(p);
 		}
 	}
 
-	return { assets, precacheGzip, precacheCount };
+	return { assets, precacheGzip, precacheCount, precacheUrls };
 }
 
-const { assets, precacheGzip, precacheCount } = measure();
+const { assets, precacheGzip, precacheCount, precacheUrls } = measure();
+
+// A precache that misses the app shell passes any size budget, yet leaves the
+// PWA unusable offline (e.g. when the Workbox glob silently matches nothing).
+const shell = ["index.html", /^assets\/index-[^/]+\.js$/];
+const missing = shell.filter((m) =>
+	precacheUrls.every((u) => (typeof m === "string" ? u !== m : !m.test(u))),
+);
+if (missing.length) {
+	console.error(
+		`Service worker precache (${precacheCount} entries) lacks the app shell:` +
+			` ${missing.join(", ")}. Check the Workbox globPatterns in vite.config.ts.`,
+	);
+	process.exit(1);
+}
 const kb = (b) => `${(b / 1024).toFixed(1)} KB`;
 
 if (update) {

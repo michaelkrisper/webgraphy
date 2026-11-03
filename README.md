@@ -3,11 +3,14 @@
 [![Live](https://img.shields.io/badge/Live-app-brightgreen)](https://michaelkrisper.github.io/webgraphy/)
 [![CI](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933.svg)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6.svg)](tsconfig.json)
 
 A desktop-first data plotting app that runs entirely in the browser. It renders
 millions of points with WebGL2 and stays responsive while you pan and zoom.
 There is no backend: your files are parsed, stored and rendered locally and
 never leave the browser. It installs as a PWA and works offline.
+The user interface is in English.
 
 **Open it:** <https://michaelkrisper.github.io/webgraphy/>
 
