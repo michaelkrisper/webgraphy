@@ -30,7 +30,7 @@
 	color: var(--danger);
 }
 .calc-formula-msg--ok {
-	color: #22c55e;
+	color: var(--success);
 }
 .calc-formula-header {
 	display: flex;
@@ -61,10 +61,10 @@
 	color: var(--text-color);
 }
 .calc-formula-input--error {
-	border-color: #ef4444;
+	border-color: var(--danger);
 }
 .calc-formula-input--ok {
-	border-color: #22c55e;
+	border-color: var(--success);
 }
 .calc-sig-hint {
 	margin-top: 4px;

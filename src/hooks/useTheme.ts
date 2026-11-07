@@ -60,6 +60,7 @@ function updateThemeVariables(t: ThemeName) {
 	s.setProperty("--border2", theme.border2);
 	s.setProperty("--accent", theme.accent);
 	s.setProperty("--danger", theme.danger);
+	s.setProperty("--success", theme.success);
 	s.setProperty("--shadow", theme.shadow);
 	s.setProperty("--text-mid", theme.textMid);
 	s.setProperty("--text-light", theme.textLight);
