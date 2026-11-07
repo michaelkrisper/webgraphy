@@ -46,6 +46,7 @@ export function ChartActionButtons({
 				type="button"
 				title={`Stacked Fit — each Y-axis fitted to its own slice (${stackedHint})`}
 				aria-label="Stacked Fit"
+				aria-description={`Fits each Y axis into its own horizontal slice (${stackedHint})`}
 				aria-keyshortcuts={stackedHint}
 				className="chart-action-btn"
 				style={buttonStyle(28, padding, themeColors.textMuted)}
@@ -57,6 +58,7 @@ export function ChartActionButtons({
 				type="button"
 				title={`Fit All (${fitAllHint})`}
 				aria-label="Fit All"
+				aria-description={`Fits every axis to its data (${fitAllHint})`}
 				aria-keyshortcuts={fitAllHint}
 				className="chart-action-btn"
 				style={buttonStyle(0, padding, themeColors.textMuted)}

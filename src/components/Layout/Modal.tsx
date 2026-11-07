@@ -2,7 +2,10 @@ import { X } from "lucide-react";
 import type React from "react";
 import { useRef } from "react";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 import "./Modal.css";
+
+const closeHint = shortcutHint(SHORTCUTS.closeDialog);
 
 interface ModalProps {
 	onClose: () => void;
@@ -81,7 +84,8 @@ export const Modal: React.FC<ModalProps> = ({
 					onClick={onClose}
 					disabled={closeDisabled}
 					aria-label={ariaLabel || "Close dialog"}
-					title="Close (Esc)"
+					aria-description={`Closes this dialog (${closeHint})`}
+					title={`Close (${closeHint})`}
 					className="modal-close"
 					data-dialog-close
 				>

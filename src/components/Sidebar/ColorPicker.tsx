@@ -38,6 +38,7 @@ function ColorPaletteButton({
 			onMouseLeave={onHoverLeave}
 			className="color-picker-palette-btn"
 			aria-label={`Color ${targetColor}`}
+			aria-description="Applies this color and closes the picker"
 			aria-pressed={currentColor.toLowerCase() === targetColor.toLowerCase()}
 			style={{
 				backgroundColor: targetColor,
@@ -208,6 +209,7 @@ function ColorPickerInputs({
 					onChange={handleHexChange}
 					className="color-picker-input"
 					aria-label="Hex color value"
+					aria-description="Six hex digits after #, applied once complete"
 					spellCheck={false}
 				/>
 			</div>
@@ -224,6 +226,7 @@ function ColorPickerInputs({
 							onChange={(e) => handleRgbChange(p, e.target.value)}
 							className="color-picker-input"
 							aria-label={RGB_LABELS[p]}
+							aria-description={`${RGB_LABELS[p]} channel from 0 to 255; the mouse wheel steps it by 1`}
 						/>
 					))}
 				</div>
@@ -239,10 +242,12 @@ function ColorPickerInputs({
  * in, keeps Tab inside, closes on Escape and returns focus to the trigger.
  */
 function ColorPickerPopover({
+	label,
 	style,
 	onClose,
 	children,
 }: {
+	label: string;
 	style: React.CSSProperties;
 	onClose: () => void;
 	children: React.ReactNode;
@@ -254,6 +259,8 @@ function ColorPickerPopover({
 		<div
 			ref={ref}
 			id="color-picker-popover"
+			role="dialog"
+			aria-label={label}
 			className="color-picker-popover"
 			style={style}
 		>
@@ -332,6 +339,8 @@ function ColorPicker({
 		setIsOpen(!isOpen);
 	};
 
+	const label = ariaLabel || "Select Color";
+
 	const handleColorSelect = (selectedColor: string) => {
 		onChange(selectedColor);
 		if (onHoverEnd) onHoverEnd();
@@ -354,13 +363,17 @@ function ColorPicker({
 				type="button"
 				onClick={toggleOpen}
 				title="Select Color"
-				aria-label={ariaLabel || "Select Color"}
+				aria-label={label}
+				aria-description={`Current color ${color}. Opens swatches and hex and RGB fields; hovering a swatch previews it on the chart`}
+				aria-haspopup="dialog"
+				aria-expanded={isOpen}
 				className="color-picker-btn"
 				style={{ backgroundColor: color }}
 			/>
 
 			{isOpen && (
 				<ColorPickerPopover
+					label={label}
 					style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
 					onClose={close}
 				>

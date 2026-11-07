@@ -286,6 +286,11 @@ export const MeasureTools = React.memo(
 									type="button"
 									className="pin-tag-close"
 									aria-label={`Remove cursor ${id.toUpperCase()}`}
+									aria-description={
+										id === "a"
+											? "Removes this measurement cursor; B, if set, becomes A"
+											: "Removes this measurement cursor"
+									}
 									onClick={() => setPins((prev) => removePin(prev, id))}
 								>
 									×

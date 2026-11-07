@@ -118,6 +118,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 						type="button"
 						ref={focusOnMount}
 						disabled={busy}
+						aria-description="Keeps the stored data and goes back"
 						onClick={() => this.setState({ reset: "idle" })}
 						style={{ padding: "10px 20px" }}
 					>
@@ -126,6 +127,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 					<button
 						type="button"
 						disabled={busy}
+						aria-description="Deletes everything WebGraphy stored in this browser, then reloads. Cannot be undone"
 						onClick={this.handleResetWorkspace}
 						style={dangerButton}
 					>
@@ -150,12 +152,14 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 									type="button"
 									onClick={this.handleReset}
 									className="error-page-reset"
+									aria-description="Restarts WebGraphy; your saved data stays"
 								>
 									Reload
 								</button>
 								<button
 									type="button"
 									onClick={() => this.setState({ reset: "confirm" })}
+									aria-description="Asks before deleting everything WebGraphy stored in this browser"
 									style={{ padding: "10px 20px" }}
 								>
 									Reset workspace…
@@ -175,6 +179,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 							type="button"
 							onClick={this.handleReset}
 							className="error-component-reset"
+							aria-description="Tries to show this part again"
 						>
 							Retry
 						</button>

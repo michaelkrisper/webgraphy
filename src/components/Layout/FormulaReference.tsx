@@ -61,6 +61,10 @@ function displayName(meta: FormulaFunctionMeta): string {
 	return FUNCTION_DISPLAY_NAMES[meta.name] ?? meta.name;
 }
 
+/** Accessible description of an insert button: what it is, then what it does. */
+const insertDescription = (description: string, inserted: string) =>
+	`${description.replace(/\.$/, "")}. Inserts ${inserted} into the formula`;
+
 export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 	onInsert,
 }) => {
@@ -115,6 +119,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					aria-label="Search formula functions"
+					aria-description="Filters the list by name, signature and description"
 				/>
 				<select
 					className="formula-ref-filter"
@@ -123,6 +128,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 						setOpenCategory(e.target.value as FormulaCategory | "all")
 					}
 					aria-label="Filter by category"
+					aria-description="Lists only the functions of one category"
 				>
 					<option value="all">All categories</option>
 					{CATEGORY_ORDER.map((cat) => (
@@ -145,6 +151,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 										className="formula-ref-insert"
 										onClick={() => onInsert(c.name, false)}
 										title={`Insert ${c.name}`}
+										aria-description={insertDescription(c.description, c.name)}
 									>
 										<code>{c.name}</code>
 									</button>
@@ -169,6 +176,10 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 											className="formula-ref-insert"
 											onClick={() => onInsert(`${displayName(f)}(`, true)}
 											title={`Insert ${displayName(f)}(…)`}
+											aria-description={insertDescription(
+												f.description,
+												`${displayName(f)}(`,
+											)}
 										>
 											<code>{f.signature}</code>
 										</button>

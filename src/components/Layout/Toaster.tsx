@@ -35,6 +35,7 @@ function Toast({ n }: { n: Notification }) {
 				<button
 					type="button"
 					className="toast-action"
+					aria-description={n.message}
 					onClick={() => {
 						n.action?.onAction();
 						dismiss(n.id);
@@ -47,6 +48,7 @@ function Toast({ n }: { n: Notification }) {
 				type="button"
 				className="toast-close"
 				aria-label="Dismiss notification"
+				aria-description={n.message}
 				onClick={() => dismiss(n.id)}
 			>
 				<X size={14} aria-hidden="true" />

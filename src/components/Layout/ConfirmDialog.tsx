@@ -6,6 +6,8 @@ interface ConfirmDialogProps {
 	title: string;
 	message: string;
 	confirmLabel: string;
+	/** What confirming does, announced with the confirm button. */
+	confirmDescription: string;
 	onConfirm: () => void;
 	onCancel: () => void;
 }
@@ -19,6 +21,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 	title,
 	message,
 	confirmLabel,
+	confirmDescription,
 	onConfirm,
 	onCancel,
 }) => {
@@ -33,13 +36,19 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 			maxWidth="420px"
 			footer={
 				<>
-					<button type="button" className="modal-btn" onClick={onCancel}>
+					<button
+						type="button"
+						className="modal-btn"
+						onClick={onCancel}
+						aria-description="Closes the question and changes nothing"
+					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						className="modal-btn modal-btn--primary"
 						onClick={onConfirm}
+						aria-description={confirmDescription}
 					>
 						{confirmLabel}
 					</button>

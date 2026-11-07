@@ -141,6 +141,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 				onClick={onClose}
 				disabled={isCalculating}
 				className="modal-btn"
+				aria-description="Closes the dialog without saving the column"
 			>
 				Cancel
 			</button>
@@ -149,6 +150,11 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 				form={formId}
 				disabled={isCalculating || !!validation.msg}
 				className="modal-btn modal-btn--primary"
+				aria-description={
+					isEditing
+						? "Recalculates the column with this name and formula"
+						: `Calculates the column and adds it to ${dataset.name}`
+				}
 			>
 				{isCalculating ? (
 					<>
@@ -191,6 +197,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 						id="col-name"
 						type="text"
 						className="calc-input"
+						aria-description="Follows the formula until you type a name of your own"
 						value={currentName}
 						onChange={(e) => {
 							setManualName(e.target.value);
@@ -211,6 +218,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 							onClick={() => setShowReference((v) => !v)}
 							className="calc-ref-toggle"
 							aria-expanded={showReference}
+							aria-description="Searchable list of the functions and constants to insert"
 						>
 							{showReference ? "Hide reference" : "Function reference"}
 						</button>
@@ -218,6 +226,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 					<textarea
 						ref={textareaRef}
 						id="formula"
+						aria-description="Refer to columns as [Column Name]; suggestions appear while typing"
 						value={formula}
 						onChange={handleFormulaChange}
 						onKeyDown={handleFormulaKeyDown}
@@ -255,7 +264,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 					)}
 
 					{suggestions.length > 0 && (
-						<div className="calc-suggestions" role="listbox">
+						<div className="calc-suggestions" role="listbox" aria-label="Suggestions">
 							{suggestions.map((s, i) => (
 								<button
 									key={`${s.kind}-${s.label}`}
@@ -271,6 +280,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 									}`}
 									role="option"
 									aria-selected={i === selectedSuggestion}
+									aria-description="Inserts it into the formula at the cursor"
 									tabIndex={-1}
 								>
 									{renderSuggestionContent(s)}
@@ -292,6 +302,7 @@ export const CalculatedColumnModal: React.FC<CalculatedColumnModalProps> = ({
 								onClick={() => insertColumn(col)}
 								className="calc-col-btn"
 								title={col}
+								aria-description={`Inserts [${col}] into the formula at the cursor`}
 							>
 								{col}
 							</button>

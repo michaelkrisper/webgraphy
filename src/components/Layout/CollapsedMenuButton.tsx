@@ -25,6 +25,7 @@ export const CollapsedMenuButton: React.FC<CollapsedMenuButtonProps> = ({
 			className="collapsed-menu-btn"
 			title="Open Menu"
 			aria-label="Open Menu"
+			aria-description="Shows the sidebar again, with data sources, series and settings"
 		>
 			<img src="./favicon.svg" alt="webgraphy logo" />
 		</button>

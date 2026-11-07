@@ -7,6 +7,7 @@ import {
 	type RangeField,
 	validateAxisRange,
 } from "../../utils/axisRange";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 import "./AxisRangePopover.css";
 
 export interface AxisRangePopoverProps {
@@ -78,6 +79,10 @@ export default function AxisRangePopover({
 		setValue: (v: string) => void,
 	) => {
 		const invalid = error?.field === label.toLowerCase();
+		const end = label === "Min" ? "Lower" : "Upper";
+		const accepts = isDate
+			? "a number or a date like 2024-03-05 12:30"
+			: "a number";
 		return (
 			<label className="axis-range-field">
 				<span>{label}</span>
@@ -88,6 +93,7 @@ export default function AxisRangePopover({
 					spellCheck={false}
 					autoComplete="off"
 					aria-invalid={invalid || undefined}
+					aria-description={`${end} end of the range: ${accepts}${log ? ", above 0 on this log axis" : ""}`}
 					aria-describedby={invalid ? errorId : undefined}
 					onChange={(e) => {
 						setValue(e.target.value);
@@ -132,10 +138,19 @@ export default function AxisRangePopover({
 				</div>
 			)}
 			<div className="axis-range-actions">
-				<button type="button" className="axis-range-btn" onClick={onCancel}>
+				<button
+					type="button"
+					className="axis-range-btn"
+					onClick={onCancel}
+					aria-description={`Keeps the current range (${shortcutHint(SHORTCUTS.closeDialog)})`}
+				>
 					Cancel
 				</button>
-				<button type="submit" className="axis-range-btn axis-range-btn--primary">
+				<button
+					type="submit"
+					className="axis-range-btn axis-range-btn--primary"
+					aria-description={`Sets ${axisName} to this range; ${shortcutHint(SHORTCUTS.viewBack)} returns to the previous view`}
+				>
 					Apply
 				</button>
 			</div>

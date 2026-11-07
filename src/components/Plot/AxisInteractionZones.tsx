@@ -16,7 +16,7 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { type AxisStep, axisStepForKey } from "../../utils/keyboard";
 import { hasKey, SHORTCUTS } from "../../utils/shortcuts";
 import { customYAxisTitle } from "../../utils/yAxisTitle";
-import { axisZoneLabel } from "./axisZoneLabel";
+import { axisZoneDescription, axisZoneLabel } from "./axisZoneLabel";
 
 interface Padding {
 	top: number;
@@ -122,6 +122,7 @@ export function XAxisInteractionZones({
 										role: "group",
 										tabIndex: 0,
 										"aria-label": axisZoneLabel("x", m.id, title),
+										"aria-description": axisZoneDescription("x"),
 									}
 								: { "aria-hidden": true })}
 							onKeyDown={(e) =>
@@ -178,6 +179,7 @@ export function XAxisInteractionZones({
 							<input
 								ref={focusOnMount}
 								aria-label={`Rename X axis ${m.id.replace(/^axis-/, "")}`}
+								aria-description="Title shown under the axis; saved when you leave the field"
 								defaultValue={title}
 								onBlur={(e) => {
 									if (cancelledRef.current) {
@@ -319,6 +321,7 @@ export function YAxisInteractionZones({
 										role: "group",
 										tabIndex: 0,
 										"aria-label": axisZoneLabel("y", a.id, title),
+										"aria-description": axisZoneDescription("y"),
 									}
 								: { "aria-hidden": true })}
 							onKeyDown={(e) =>
@@ -377,6 +380,7 @@ export function YAxisInteractionZones({
 							<input
 								ref={focusOnMount}
 								aria-label={`Rename Y axis ${a.id.replace(/^axis-/, "")}`}
+								aria-description="Title shown beside the axis, saved when you leave the field; leave it empty for the series names"
 								defaultValue={title}
 								onBlur={(e) => {
 									if (cancelledRef.current) {

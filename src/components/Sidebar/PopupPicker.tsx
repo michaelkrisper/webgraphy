@@ -16,11 +16,20 @@ export interface PopupPickerOption<T> {
 	disabled?: boolean;
 	/** Tooltip, e.g. why the option is disabled. */
 	title?: string;
+	/** What choosing it does, for assistive technology; defaults to `title`. */
+	description?: string;
 	/** Rendered after the label. */
 	trailing?: ReactNode;
 }
 
+export interface PopupTriggerProps {
+	"aria-haspopup": "dialog";
+	"aria-expanded": boolean;
+}
+
 interface PopupPickerProps<T> {
+	/** Accessible name of the popover, e.g. "Line style". */
+	label: string;
 	options: PopupPickerOption<T>[];
 	current: T;
 	onChange: (value: T) => void;
@@ -28,6 +37,8 @@ interface PopupPickerProps<T> {
 		onClick: (e: React.MouseEvent) => void;
 		ref: React.RefObject<HTMLButtonElement | null>;
 		isOpen: boolean;
+		/** Spread onto the trigger: announces the popover and whether it is open. */
+		popupProps: PopupTriggerProps;
 	}) => ReactNode;
 	popoverId?: string;
 	minWidth?: number;
@@ -36,6 +47,7 @@ interface PopupPickerProps<T> {
 }
 
 export function PopupPicker<T extends string | number>({
+	label,
 	options,
 	current,
 	onChange,
@@ -92,6 +104,10 @@ export function PopupPicker<T extends string | number>({
 		setIsOpen(!isOpen);
 	};
 
+	// Menus of plain actions (export, "more") have no current value; their
+	// items must not read as toggle buttons.
+	const selectable = options.some((o) => o.value === current);
+
 	const handleSelect = (value: T) => {
 		onChange(value);
 		onHoverOption?.(null);
@@ -105,10 +121,16 @@ export function PopupPicker<T extends string | number>({
 
 	return (
 		<>
-			{renderTrigger({ onClick: toggleOpen, ref: triggerRef, isOpen })}
+			{renderTrigger({
+				onClick: toggleOpen,
+				ref: triggerRef,
+				isOpen,
+				popupProps: { "aria-haspopup": "dialog", "aria-expanded": isOpen },
+			})}
 			{isOpen && (
 				<PopupPickerPopover
 					id={popoverId}
+					label={label}
 					style={{ ...coords, minWidth }}
 					onClose={close}
 				>
@@ -124,6 +146,8 @@ export function PopupPicker<T extends string | number>({
 								onMouseLeave={() => onHoverOption?.(null)}
 								disabled={opt.disabled}
 								title={opt.title}
+								aria-pressed={selectable ? isActive : undefined}
+								aria-description={opt.description ?? opt.title}
 							>
 								<span className="popup-picker-icon">{opt.icon}</span>
 								<span className="popup-picker-label">{opt.label}</span>
@@ -146,11 +170,13 @@ export function PopupPicker<T extends string | number>({
  */
 function PopupPickerPopover({
 	id,
+	label,
 	style,
 	onClose,
 	children,
 }: {
 	id: string;
+	label: string;
 	style: React.CSSProperties;
 	onClose: () => void;
 	children: ReactNode;
@@ -159,7 +185,14 @@ function PopupPickerPopover({
 	useDialogA11y(ref, onClose);
 
 	return createPortal(
-		<div ref={ref} id={id} className="popup-picker-popover" style={style}>
+		<div
+			ref={ref}
+			id={id}
+			role="dialog"
+			aria-label={label}
+			className="popup-picker-popover"
+			style={style}
+		>
 			{children}
 		</div>,
 		document.body,
