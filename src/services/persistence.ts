@@ -1,4 +1,4 @@
-import { type IDBPDatabase, openDB } from "idb";
+import { deleteDB, type IDBPDatabase, openDB } from "idb";
 import { notify } from "../store/useNotificationStore";
 import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
@@ -11,6 +11,10 @@ const VIEWPORT_KEY = "webgraphy-viewport";
 const CONFIG_KEY = "webgraphy-config";
 const LEGACY_KEY = "webgraphy-state";
 const VERSION = 2;
+const LOCAL_STORAGE_PREFIX = "webgraphy-";
+// Keys WebGraphy writes without the prefix. The analytics opt-out ("skipgc")
+// is deliberately not among them: a reset must not re-enable counting.
+const LOCAL_STORAGE_KEYS = ["theme"];
 
 export interface DataColumn {
 	isFloat64: boolean;
@@ -449,7 +453,51 @@ export const persistence = {
 			logger.error("Failed to clear state", { error });
 		}
 	},
+	/**
+	 * Deletes everything WebGraphy keeps in this browser — the IndexedDB
+	 * database and its localStorage keys — as the way out of a crash caused
+	 * by saved state. Writes stay off so nothing recreates the database
+	 * before the caller reloads. `onBlocked` fires while another tab still
+	 * holds the database open; rejects if the database could not be deleted.
+	 */
+	async resetAll(onBlocked?: () => void): Promise<void> {
+		writesEnabled = false;
+		for (const t of datasetTimers.values()) clearTimeout(t);
+		datasetTimers.clear();
+		pendingDatasets.clear();
+		clearLocalStorage();
+		const opening = dbPromise;
+		dbPromise = null;
+		if (opening) {
+			// Our own open connection would block the deletion.
+			try {
+				(await opening).close();
+			} catch {
+				// Never opened: nothing to close.
+			}
+		}
+		await deleteDB(DB_NAME, { blocked: () => onBlocked?.() });
+	},
 };
+
+function clearLocalStorage(): void {
+	try {
+		const storage = globalThis.localStorage;
+		const ours: string[] = [];
+		for (let i = 0; i < storage.length; i++) {
+			const key = storage.key(i);
+			if (
+				key &&
+				(key.startsWith(LOCAL_STORAGE_PREFIX) || LOCAL_STORAGE_KEYS.includes(key))
+			) {
+				ours.push(key);
+			}
+		}
+		for (const key of ours) storage.removeItem(key);
+	} catch {
+		// Storage blocked: then nothing of ours is in it either.
+	}
+}
 
 if (typeof window !== "undefined") {
 	// "hidden" fires before unload and still allows async IndexedDB writes to

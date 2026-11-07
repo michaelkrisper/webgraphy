@@ -3,6 +3,7 @@ import type { AppState, Dataset } from "../persistence";
 
 vi.mock("idb", () => ({
 	openDB: vi.fn(),
+	deleteDB: vi.fn(),
 }));
 
 const SAMPLE_APP_STATE: AppState = {
@@ -925,6 +926,91 @@ describe("persistence", () => {
 			} finally {
 				warnSpy.mockRestore();
 			}
+		});
+	});
+
+	describe("resetAll", () => {
+		const ds = (id: string): Dataset => ({
+			id,
+			name: id,
+			columns: [],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "X",
+			xAxisId: "axis-1",
+		});
+		let deleteDBMock: ReturnType<typeof vi.fn>;
+
+		beforeEach(async () => {
+			deleteDBMock = vi.mocked((await import("idb")).deleteDB);
+			deleteDBMock.mockResolvedValue(undefined);
+		});
+
+		afterEach(() => {
+			localStorage.clear();
+		});
+
+		it("deletes the database and WebGraphy's localStorage keys only", async () => {
+			const mockDb = {
+				getAll: vi.fn().mockResolvedValue([]),
+				put: vi.fn().mockResolvedValue(undefined),
+				close: vi.fn(),
+			};
+			openDBMock.mockResolvedValue(mockDb);
+			await persistence.getAllDatasets();
+			for (const key of [
+				"webgraphy-export-options",
+				"webgraphy-cleared",
+				"theme",
+				"skipgc",
+				"other-app",
+			]) {
+				localStorage.setItem(key, "x");
+			}
+			await persistence.saveDataset(ds("pending"));
+
+			await persistence.resetAll();
+
+			// Its own connection would otherwise block the deletion.
+			expect(mockDb.close).toHaveBeenCalled();
+			expect(deleteDBMock).toHaveBeenCalledWith(
+				"webgraphy-db",
+				expect.objectContaining({ blocked: expect.any(Function) }),
+			);
+			expect(localStorage.getItem("webgraphy-export-options")).toBeNull();
+			expect(localStorage.getItem("webgraphy-cleared")).toBeNull();
+			expect(localStorage.getItem("theme")).toBeNull();
+			// The analytics opt-out and other apps' keys survive.
+			expect(localStorage.getItem("skipgc")).toBe("x");
+			expect(localStorage.getItem("other-app")).toBe("x");
+
+			// Nothing may recreate the database before the reload.
+			expect(persistence.isEnabled()).toBe(false);
+			await vi.advanceTimersByTimeAsync(400);
+			await persistence.saveAppState(SAMPLE_APP_STATE);
+			expect(mockDb.put).not.toHaveBeenCalled();
+		});
+
+		it("tells the caller while another tab blocks the deletion", async () => {
+			deleteDBMock.mockImplementation(
+				async (_name: string, opts?: { blocked?: () => void }) => {
+					opts?.blocked?.();
+				},
+			);
+			const onBlocked = vi.fn();
+			await persistence.resetAll(onBlocked);
+			expect(onBlocked).toHaveBeenCalledTimes(1);
+			// Without a listener a blocked deletion is just waited out.
+			await persistence.resetAll();
+		});
+
+		it("survives a connection that never opened, and rejects a failed deletion", async () => {
+			openDBMock.mockRejectedValue(new Error("denied"));
+			const reading = persistence.getAllDatasets();
+			reading.catch(() => {});
+			deleteDBMock.mockRejectedValue(new Error("delete failed"));
+
+			await expect(persistence.resetAll()).rejects.toThrow("delete failed");
 		});
 	});
 });
