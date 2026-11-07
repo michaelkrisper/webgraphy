@@ -4,6 +4,7 @@ import React, {
 	useImperativeHandle,
 	useMemo,
 	useRef,
+	useState,
 } from "react";
 import type {
 	Dataset,
@@ -29,6 +30,8 @@ import type {
 	RendererViewport,
 	RenderLabel,
 } from "./rendererCore";
+import type { RenderFailure } from "./renderFailure";
+import { RenderFailureNotice } from "./RenderFailureNotice";
 
 export type { OverlayInput } from "./buildOverlay";
 
@@ -111,6 +114,8 @@ export const WebGLRenderer = React.memo(
 		const liveXAxesRef = useRef<XAxisConfig[]>(xAxes);
 		const liveYAxesRef = useRef<YAxisConfig[]>(yAxes);
 		const isInteractingRef = useRef(isInteracting);
+		// Set at most once, when the renderer cannot start — never per frame.
+		const [failure, setFailure] = useState<RenderFailure | null>(null);
 
 		const propsRef = useRef(props);
 		useEffect(() => {
@@ -171,6 +176,7 @@ export const WebGLRenderer = React.memo(
 				canvas,
 				viewportOf(propsRef.current),
 				hexToRgba(propsRef.current.plotBg ?? "#ffffff"),
+				setFailure,
 			);
 			return () => {
 				backendRef.current = null;
@@ -275,13 +281,16 @@ export const WebGLRenderer = React.memo(
 		// straight past the chart — never hearing the description and with no
 		// focus ring to say the arrow keys now move the viewport.
 		return (
-			<canvas
-				ref={canvasRef}
-				role="img"
-				tabIndex={0}
-				aria-label={ariaLabel}
-				style={{ display: "block", width: "100%", height: "100%" }}
-			/>
+			<>
+				<canvas
+					ref={canvasRef}
+					role="img"
+					tabIndex={0}
+					aria-label={ariaLabel}
+					style={{ display: "block", width: "100%", height: "100%" }}
+				/>
+				{failure && <RenderFailureNotice failure={failure} padding={padding} />}
+			</>
 		);
 	}),
 );

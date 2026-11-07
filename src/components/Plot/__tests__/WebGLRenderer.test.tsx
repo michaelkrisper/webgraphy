@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RendererViewport } from "../rendererCore";
 import { WebGLRenderer } from "../WebGLRenderer";
@@ -59,6 +59,7 @@ describe("WebGLRenderer viewport", () => {
 			expect.anything(),
 			expect.objectContaining({ dpr: 1.25, pixelWidth: 251, pixelHeight: 125 }),
 			expect.anything(),
+			expect.any(Function),
 		);
 	});
 
@@ -90,5 +91,47 @@ describe("WebGLRenderer viewport", () => {
 		const vp = lastViewport();
 		expect(vp.pixelWidth).toBeUndefined();
 		expect(vp.pixelHeight).toBe(100);
+	});
+});
+
+describe("WebGLRenderer failure notice", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function reportFailure(failure: "no-webgl2" | "shader") {
+		const calls = acquire.mock.calls as unknown as [
+			unknown,
+			unknown,
+			unknown,
+			(f: string) => void,
+		][];
+		act(() => calls[calls.length - 1][3](failure));
+	}
+
+	it("shows nothing while the renderer works", () => {
+		render(<WebGLRenderer {...props()} />);
+		expect(screen.queryByRole("alert")).toBeNull();
+	});
+
+	it("explains a missing WebGL2 and what to try, keeping the canvas", () => {
+		render(<WebGLRenderer {...props()} />);
+		reportFailure("no-webgl2");
+		const alert = screen.getByRole("alert");
+		expect(alert.textContent).toContain("The chart cannot be displayed");
+		expect(alert.textContent).toContain("WebGL 2");
+		expect(alert.textContent).toContain("Chrome, Edge or Firefox");
+		expect(alert.textContent).toContain("hardware acceleration");
+		expect(alert.textContent).not.toContain("graphics driver may");
+		// The canvas stays mounted: it may already belong to the render worker.
+		expect(screen.getByRole("img")).not.toBeNull();
+	});
+
+	it("suggests a driver update when the shaders were rejected", () => {
+		render(<WebGLRenderer {...props()} />);
+		reportFailure("shader");
+		expect(screen.getByRole("alert").textContent).toContain(
+			"Updating the graphics driver may also help.",
+		);
 	});
 });

@@ -22,6 +22,7 @@ import { cssToRgbaWithAlpha } from "../../utils/colors";
 import { logger } from "../../utils/logger";
 import { type DecimCache, releaseDecimSlot } from "./decimationCache";
 import { drawOverlay, type OverlayState } from "./drawOverlay";
+import type { RenderFailureListener } from "./renderFailure";
 import {
 	drawSeriesLines,
 	drawSeriesPoints,
@@ -320,15 +321,19 @@ export class RendererCore {
 	}
 
 	/** Create a core on any canvas (DOM or Offscreen); null when WebGL2 or
-	 * shader compilation is unavailable. */
+	 * shader compilation is unavailable, with the reason given to `onFailure`. */
 	static create(
 		canvas: HTMLCanvasElement | OffscreenCanvas,
+		onFailure?: RenderFailureListener,
 	): RendererCore | null {
 		const gl = canvas.getContext("webgl2", {
 			antialias: true,
 			alpha: false,
 		}) as WebGL2RenderingContext | null;
-		if (!gl) return null;
+		if (!gl) {
+			onFailure?.("no-webgl2");
+			return null;
+		}
 		const main = compileProgram(
 			gl,
 			MAIN_VERTEX_SHADER,
@@ -347,7 +352,10 @@ export class RendererCore {
 			LABEL_FRAGMENT_SHADER,
 			"label",
 		);
-		if (!main || !line || !label) return null;
+		if (!main || !line || !label) {
+			onFailure?.("shader");
+			return null;
+		}
 		return new RendererCore(gl, main, line, label);
 	}
 
@@ -360,8 +368,9 @@ export class RendererCore {
 	static restore(
 		canvas: HTMLCanvasElement | OffscreenCanvas,
 		prev: RendererCore,
+		onFailure?: RenderFailureListener,
 	): RendererCore | null {
-		const core = RendererCore.create(canvas);
+		const core = RendererCore.create(canvas, onFailure);
 		if (!core) return null;
 		core.viewport = prev.viewport;
 		core.plotBgRgba = prev.plotBgRgba;
