@@ -19,6 +19,7 @@ import type { FormulaCategory } from "../../utils/formulaFunctions";
 import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
 import { runViewportCommand } from "../../utils/viewportCommands";
 import { firstFreeYAxisSlot, yAxisSlot } from "../../utils/yAxisSlots";
+import { customYAxisTitle, yAxisTitleText } from "../../utils/yAxisTitle";
 import type {
 	DataColumn,
 	Dataset,
@@ -207,7 +208,7 @@ function describeYAxis(a: YAxisConfig, series: readonly SeriesConfig[]) {
 	const on = series.filter((s) => s.yAxisId === a.id);
 	return {
 		slot: yAxisSlot(a.id),
-		title: on.map(seriesName).join(" / "),
+		title: yAxisTitleText(a.title, on),
 		...range(a.min, a.max, false),
 		scale: a.scale ?? "linear",
 		side: a.position,
@@ -617,7 +618,7 @@ export function createTools(): ModelContextTool[] {
 			name: "set_axis",
 			title: "Configure an axis",
 			description:
-				"Changes an axis that shows data: its scale (linear or log, numeric axes only), its title (X axes only; a Y axis is titled by its series names, and an empty string restores the default X title), and its visible range (pass min and max together). Scale and title changes are undoable; a range change is a view change, which Alt+Left steps back through instead.",
+				"Changes an axis that shows data: its scale (linear or log, numeric axes only), its title (an empty string restores the default: the X column name, or the joined series names for a Y axis), and its visible range (pass min and max together). Scale and title changes are undoable; a range change is a view change, which Alt+Left steps back through instead.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -627,7 +628,7 @@ export function createTools(): ModelContextTool[] {
 						description: "Axis slot 1-9, as listed by get_workspace.",
 					},
 					scale: { type: "string", enum: ["linear", "log"] },
-					title: { type: "string", maxLength: 200, description: "X axis title." },
+					title: { type: "string", maxLength: 200, description: "Axis title." },
 					min: bound("Lower end of the visible range."),
 					max: bound("Upper end of the visible range."),
 				},
@@ -655,10 +656,6 @@ export function createTools(): ModelContextTool[] {
 				const hasMax = input.max != null;
 				if (input.scale == null && input.title == null && !hasMin && !hasMax)
 					throw new ToolError("Pass at least one of scale, title, or min and max");
-				if (input.title != null && input.axis === "y")
-					throw new ToolError(
-						"A Y axis is titled by the names of its series and has no title of its own",
-					);
 				if (input.scale === "log" && xMode !== "numeric")
 					throw new ToolError(
 						`Log scale needs numeric data; ${label} shows ${xMode} values`,
@@ -676,10 +673,19 @@ export function createTools(): ModelContextTool[] {
 					if (!runViewportCommand(() => {})) throw new ToolError(NOT_MOUNTED);
 					next = { min: r.min, max: r.max };
 				}
-				const { setAxisScale, updateXAxis } = s;
+				const { setAxisScale, updateXAxis, updateYAxis } = s;
+				const setTitle = (title: string) =>
+					input.axis === "x"
+						? updateXAxis(id, { name: title.trim() })
+						: updateYAxis(id, {
+								title: customYAxisTitle(
+									title,
+									s.series.filter((x) => x.yAxisId === id),
+								),
+							});
 				const configure = () => {
 					if (input.scale) setAxisScale(input.axis, id, input.scale);
-					if (input.title != null) updateXAxis(id, { name: input.title.trim() });
+					if (input.title != null) setTitle(input.title);
 				};
 				agentChange(() =>
 					input.scale && input.title != null

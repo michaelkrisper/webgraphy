@@ -749,6 +749,20 @@ describe("set_axis", () => {
 		expect(reset.axis.title).toBe("x");
 	});
 
+	it("sets and resets a custom Y title", async () => {
+		const before = await jsonOf("set_axis", {
+			axis: "y",
+			slot: 1,
+			title: " Level (m) ",
+		});
+		expect(before.axis.title).toBe("Level (m)");
+		expect(store().yAxes[0].title).toBe("Level (m)");
+
+		const reset = await jsonOf("set_axis", { axis: "y", slot: 1, title: "" });
+		expect(store().yAxes[0].title).toBeUndefined();
+		expect(reset.axis.title).not.toBe("Level (m)");
+	});
+
 	it("checks the log range against the scale being set", async () => {
 		mountChart();
 		await expectError(
@@ -780,11 +794,6 @@ describe("set_axis", () => {
 			/X axis 3 shows no data/,
 		);
 		await expectError("set_axis", { axis: "y", slot: 1 }, /at least one of/);
-		await expectError(
-			"set_axis",
-			{ axis: "y", slot: 1, title: "T" },
-			/titled by the names of its series/,
-		);
 		await expectError(
 			"set_axis",
 			{ axis: "x", slot: 1, scale: "log" },

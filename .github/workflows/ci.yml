@@ -65,8 +65,11 @@ jobs:
       - name: Build
         # The release version, so the deployed bundle shows exactly the tag
         # it ships under. Empty off main: appVersion.ts uses git describe.
+        # WEBMCP_OT_TOKEN (repository variable, optional) is the Chrome origin
+        # trial token for WebMCP; Pages cannot send it as a header.
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
+          VITE_WEBMCP_OT_TOKEN: ${{ vars.WEBMCP_OT_TOKEN }}
         run: npm run build
       - name: Size budget
         # Operates on the build produced above; gzipped bytes, per entry plus

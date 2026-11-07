@@ -160,7 +160,7 @@ tools an AI agent running in the browser can call:
 | `plot_column`            | Plot a column on a free or chosen Y axis                                 |
 | `remove_series`          | Remove a series (the column stays in the dataset)                        |
 | `set_series_style`       | Color, line style, point marker, visibility                              |
-| `set_axis`               | Scale, X axis title, visible range                                       |
+| `set_axis`               | Scale, axis title, visible range                                         |
 | `fit_all`                | Fit all axes to their data                                               |
 | `add_calculated_column`  | Add a calculated column from a formula                                   |
 | `undo` / `redo`          | Undo or redo the latest change                                           |
@@ -169,9 +169,11 @@ The tools return metadata and aggregate statistics only, never row values, and
 none of them exports, downloads or deletes data. Edits to series, axes and
 columns are ordinary undoable steps and show a toast with an Undo button;
 ranges and fits are view changes, like zooming (Alt+Left steps back). Without
-WebMCP support nothing is loaded. To enable the origin trial on a deployment, build with the
-token in `VITE_WEBMCP_OT_TOKEN`; it is injected as an `origin-trial` meta tag
-at runtime, since GitHub Pages cannot send the header.
+WebMCP support nothing is loaded. To enable the origin trial on a deployment,
+register the origin for the WebMCP trial and store the token as the repository
+variable `WEBMCP_OT_TOKEN`; CI builds with it as `VITE_WEBMCP_OT_TOKEN`, and it
+is injected as an `origin-trial` meta tag at runtime, since GitHub Pages cannot
+send the header.
 
 ## Privacy
 
