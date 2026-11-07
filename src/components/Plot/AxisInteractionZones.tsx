@@ -33,6 +33,10 @@ interface Theme {
 /** Opens the exact-range popover for an axis, anchored at its zone. */
 export type EditRangeHandler = (id: string, anchor: HTMLElement) => void;
 
+// Instead of `autoFocus`: Preact only sets the attribute, which browsers
+// ignore on elements inserted after page load. Stable, so it runs on mount only.
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
+
 function handleZoneKey(
 	e: React.KeyboardEvent<HTMLElement>,
 	kind: "x" | "y",
@@ -170,7 +174,7 @@ export function XAxisInteractionZones({
 						/>
 						{editingXAxisId === m.id && (
 							<input
-								autoFocus
+								ref={focusOnMount}
 								aria-label={`Rename X axis ${m.id.replace(/^axis-/, "")}`}
 								defaultValue={title}
 								onBlur={(e) => {

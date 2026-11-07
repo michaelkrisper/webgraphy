@@ -243,11 +243,14 @@ export const MeasureTools = React.memo(
 					e.preventDefault();
 				}
 			};
-			el.addEventListener("mousedown", onMouseDown);
+			// Capture: every press must reset `down`, also those the pin tags and
+			// panels stop from reaching the plot (Preact handlers are native, so
+			// their stopPropagation would hide a bubbling listener here).
+			el.addEventListener("mousedown", onMouseDown, true);
 			el.addEventListener("click", onClick);
 			window.addEventListener("keydown", onKeyDown);
 			return () => {
-				el.removeEventListener("mousedown", onMouseDown);
+				el.removeEventListener("mousedown", onMouseDown, true);
 				el.removeEventListener("click", onClick);
 				window.removeEventListener("keydown", onKeyDown);
 			};

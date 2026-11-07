@@ -1,4 +1,4 @@
-import react from "@vitejs/plugin-react";
+import preact from "@preact/preset-vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
@@ -31,7 +31,10 @@ export default defineConfig({
 					.replace(/style-src 'self'/g, "style-src 'self' 'unsafe-inline'");
 			},
 		},
-		react(),
+		// Preact behind React's API: aliases react and react-dom, subpaths
+		// included, to preact/compat, so the sources keep importing "react".
+		// Adds Prefresh HMR and Preact DevTools support in dev.
+		preact(),
 		// Opt-in bundle composition report: ANALYZE=1 npm run build
 		...(process.env.ANALYZE
 			? [

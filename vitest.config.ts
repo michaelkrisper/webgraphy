@@ -1,5 +1,5 @@
 import path from "node:path";
-import react from "@vitejs/plugin-react";
+import preact from "@preact/preset-vite";
 import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolveAppVersion } from "./appVersion.ts";
@@ -9,7 +9,10 @@ export default defineConfig(({ mode }) => ({
 		__APP_VERSION__: JSON.stringify(resolveAppVersion()),
 	},
 	plugins: [
-		react(),
+		// Same react -> preact/compat aliases as the build; dependencies Vitest
+		// leaves to Node get them in src/__tests__/setup.ts. No HMR or
+		// preact/debug here, so tests run what production runs.
+		preact({ devToolsEnabled: false, prefreshEnabled: false }),
 		VitePWA({
 			registerType: "autoUpdate",
 			injectRegister: null,
