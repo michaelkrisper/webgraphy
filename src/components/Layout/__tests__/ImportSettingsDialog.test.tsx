@@ -91,7 +91,7 @@ describe("ImportSettingsDialog", () => {
 		expect(screen.getByText("Comment Line")).toBeInTheDocument();
 
 		// Change startRow to 2
-		const startRowInput = screen.getByLabelText(/Start Row/i);
+		const startRowInput = screen.getByLabelText(/Header Row/i);
 		fireEvent.change(startRowInput, { target: { value: "2" } });
 
 		// New state: startRow=2, headers: lines[1] split by "," -> ["Header1", "Header2"]
@@ -99,6 +99,23 @@ describe("ImportSettingsDialog", () => {
 		expect(screen.getByText("Header2")).toBeInTheDocument();
 		expect(screen.getByText("Data1")).toBeInTheDocument();
 		expect(screen.getByText("Data2")).toBeInTheDocument();
+	});
+
+	it("shows how to pick the X column as visible text", () => {
+		render(
+			<ImportSettingsDialog
+				fileName="test.csv"
+				fileContent={"Time,Value\n1,2"}
+				fileType="csv"
+				onConfirm={vi.fn()}
+				onCancel={vi.fn()}
+				theme={theme}
+			/>,
+		);
+		expect(
+			screen.getByText("Click a column header to use it as the X axis."),
+		).toBeVisible();
+		expect(screen.getByTitle("Click to use Value as the X axis")).toBeVisible();
 	});
 
 	it("auto-detects semicolon delimiter and comma decimal point", () => {

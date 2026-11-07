@@ -255,12 +255,13 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 						{fileType !== "json" && (
 							<div className="isd-field-group-sm">
 								<label htmlFor="import-start-row" className="isd-field-label">
-									Start Row:
+									Header Row:
 								</label>
 								<input
 									id="import-start-row"
 									type="number"
 									min="1"
+									title="Row with the column names; rows above it are skipped"
 									value={startRow}
 									onChange={(e) => setStartRow(parseInt(e.target.value, 10) || 1)}
 									className="isd-input"
@@ -283,6 +284,15 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								/>
 							</div>
 						)}
+						<p
+							style={{
+								margin: "0 0 0 auto",
+								fontSize: "0.8rem",
+								color: "var(--text-muted-color)",
+							}}
+						>
+							Click a column header to use it as the X axis.
+						</p>
 					</div>
 				</div>
 
@@ -318,8 +328,8 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 												onClick={() => setXAxisColumnOverride(config.name)}
 												title={
 													xAxisColumn === config.name
-														? `${config.name} (X-Axis)`
-														: `Click to use ${config.name} as X-Axis`
+														? `${config.name} (X axis)`
+														: `Click to use ${config.name} as the X axis`
 												}
 												className={`isd-col-name-btn${xAxisColumn === config.name ? " isd-col-name-btn--xaxis" : ""}`}
 											>
