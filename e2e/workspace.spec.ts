@@ -65,7 +65,7 @@ test("data and a series colour survive a reload", async ({ page }) => {
 		"aria-label",
 		/2 data series: Sine, Growth\./,
 	);
-	await expect(page.getByText("200 rows")).toBeVisible();
+	await expect(page.getByText("200 rows", { exact: true })).toBeVisible();
 	await expect(page.getByRole("button", { name: "Color for Sine" })).toHaveCSS(
 		"background-color",
 		"rgb(0, 0, 0)",
@@ -198,6 +198,6 @@ test("a saved session file opens back into the workspace", async ({ page }) => {
 		"aria-label",
 		/2 data series: Sine, Growth\./,
 	);
-	await expect(page.getByText("200 rows")).toHaveCount(1);
+	await expect(page.getByText("200 rows", { exact: true })).toHaveCount(1);
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });
