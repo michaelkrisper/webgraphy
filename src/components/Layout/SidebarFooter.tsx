@@ -1,6 +1,7 @@
 import { HardDrive, Info, Keyboard, MoreHorizontal, Scale } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
+import { releaseVersion } from "../../utils/version";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { useShortcutsHelp } from "./shortcutsHelp";
 
@@ -55,7 +56,7 @@ export const SidebarFooter: React.FC = () => {
 			<footer className="sb-footer">
 				<div className="sb-footer-links">
 					<span className="sb-footer-version" title={`v${__APP_VERSION__}`}>
-						v{__APP_VERSION__}
+						{releaseVersion(__APP_VERSION__)}
 					</span>
 					<span className="sb-footer-sep" aria-hidden="true">
 						|
