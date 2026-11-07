@@ -360,11 +360,27 @@
 .sc-drag-handle:active {
 	cursor: grabbing;
 }
-.sc-cell-placeholder {
-	width: var(--ui-size);
+/* Stands in for side/grid/log on rows sharing an axis with an earlier row. */
+.sc-shared-axis {
+	grid-column: span 3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	height: var(--ui-size);
+	color: var(--text-muted-color);
+	opacity: 0.45;
+	cursor: help;
+}
+.sc-column-cell {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+.sc-eye {
+	width: 22px;
 }
 .sc-select {
+	flex: 1;
 	width: 100%;
 	font-size: var(--ui-font-size);
 	padding: 2px;

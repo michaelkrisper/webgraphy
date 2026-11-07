@@ -39,14 +39,19 @@ const datasets = [
 const updateSeries = vi.fn();
 const updateYAxis = vi.fn();
 
-function setStore(series: SeriesConfig[]) {
+function setStore(
+	series: SeriesConfig[],
+	positions: Record<string, "left" | "right"> = {},
+	titles: Record<string, string> = {},
+) {
 	const state = {
 		updateSeries,
 		removeSeries: vi.fn(),
 		yAxes: Array.from({ length: 9 }, (_, i) => ({
 			id: `axis-${i + 1}`,
-			position: "left",
+			position: positions[`axis-${i + 1}`] ?? "left",
 			showGrid: true,
+			title: titles[`axis-${i + 1}`],
 		})),
 		updateYAxis,
 		updateSeriesVisibility: vi.fn(),
@@ -92,8 +97,13 @@ describe("SeriesConfigUI axis controls", () => {
 		expect(
 			screen.queryByRole("button", { name: "Logarithmic Y Scale" }),
 		).toBeNull();
-		// Blank cells keep the columns aligned with the rows above.
-		expect(container.querySelectorAll(".sc-cell-placeholder")).toHaveLength(3);
+		// One muted marker spans the three cells and says where they went.
+		const hints = container.querySelectorAll(".sc-shared-axis");
+		expect(hints).toHaveLength(1);
+		expect(hints[0]).toHaveAttribute(
+			"title",
+			"Side, grid and scale of Y1 are set on its first row",
+		);
 	});
 
 	it("lists used axes with their title and swatches, plus New axis", () => {
@@ -104,8 +114,8 @@ describe("SeriesConfigUI axis controls", () => {
 		if (!popover) throw new Error("popover not open");
 		const items = within(popover).getAllByRole("button");
 		expect(items.map((b) => b.textContent)).toEqual([
-			"1Temp / Dew",
-			"3Wind",
+			"Y1Temp / Dew",
+			"Y3Wind",
 			"New axis",
 		]);
 		expect(items[0].querySelectorAll(".sc-axis-swatch")).toHaveLength(2);
@@ -120,8 +130,47 @@ describe("SeriesConfigUI axis controls", () => {
 		const newAxis = screen.getByRole("button", { name: "New axis" });
 		expect(newAxis).toHaveAttribute("title", "Move to Y-Axis 2");
 		fireEvent.click(newAxis);
-		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { position: "left" });
+		// Temp keeps Y1 on the left, so the new axis opens on the right.
+		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { position: "right" });
 		expect(updateSeries).toHaveBeenCalledWith("s2", { yAxisId: "axis-2" });
+	});
+
+	it("opens a new axis on the left when no other series uses that side", () => {
+		// Wind alone on Y1 (left), Dew on Y3 (right).
+		setStore(
+			[mk("s3", "axis-1", "Wind", "#00ff00"), mk("s2", "axis-3", "Dew", "#00f")],
+			{ "axis-3": "right" },
+		);
+		render(
+			<SeriesConfigUI
+				series={mk("s3", "axis-1", "Wind", "#00ff00")}
+				datasets={datasets}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "New axis" }));
+		// Moving Wind empties the left side, so its new axis takes it.
+		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { position: "left" });
+	});
+
+	it("titles axes by their custom title where set", () => {
+		setStore([temp, dew, wind], {}, { "axis-1": "Air" });
+		render(<SeriesConfigUI series={dew} datasets={datasets} />);
+		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		const popover = document.getElementById("y-axis-popover-s2");
+		if (!popover) throw new Error("popover not open");
+		expect(
+			within(popover)
+				.getAllByRole("button")
+				.map((b) => b.textContent),
+		).toEqual(["Y1Air", "Y3Wind", "New axis"]);
+	});
+
+	it("shows the slot as Y1 on the axis button", () => {
+		render(<SeriesConfigUI series={temp} datasets={datasets} />);
+		expect(
+			screen.getByRole("button", { name: "Select Y-Axis" }),
+		).toHaveTextContent("Y1");
 	});
 
 	it("disables New axis with a reason when all nine are in use", () => {
