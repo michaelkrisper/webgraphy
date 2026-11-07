@@ -77,9 +77,11 @@ The user interface is in English.
   cache reduces millions of points to what the pixels can show.
 - **Interaction** animates target axis ranges in a `requestAnimationFrame`
   loop and writes back to the store only when it settles, so panning never
-  re-renders React.
+  re-renders the UI.
 - **Calculated columns** are compiled by a small parser (shunting-yard to RPN)
   and evaluated row by row in a worker; there is no `eval`.
+- **UI** is Preact (through `preact/compat`, so the code reads like React),
+  about 10 KB instead of React's 60 KB in the entry bundle.
 - **State** lives in a Zustand store, persisted to IndexedDB and validated
   with Zod on load.
 
