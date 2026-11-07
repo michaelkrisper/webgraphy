@@ -1013,4 +1013,192 @@ describe("persistence", () => {
 			await expect(persistence.resetAll()).rejects.toThrow("delete failed");
 		});
 	});
+
+	describe("writer lock across tabs", () => {
+		type LockCallback = (lock: unknown) => unknown;
+		type Mode = "free" | "taken" | "pending" | "error";
+		let request: ReturnType<typeof vi.fn>;
+		let decide: (free: boolean) => void;
+		let grantQueued: () => void;
+		let toasts: () => {
+			kind: string;
+			message: string;
+			durationMs: number;
+			action?: { label: string; onAction: () => void };
+		}[];
+		const ds = (id: string): Dataset => ({
+			id,
+			name: id,
+			columns: [],
+			data: [],
+			rowCount: 0,
+			xAxisColumn: "X",
+			xAxisId: "axis-1",
+		});
+
+		/** Loads the module in a tab whose Web Locks answer as `mode` says. */
+		async function openTab(mode: Mode) {
+			request = vi.fn((name: string, a: unknown, b?: unknown) => {
+				const cb = (typeof a === "function" ? a : b) as LockCallback;
+				const ifAvailable =
+					typeof a === "object" && (a as { ifAvailable?: boolean }).ifAvailable;
+				if (!ifAvailable) {
+					return new Promise((resolve) => {
+						grantQueued = () => resolve(cb({ name, mode: "exclusive" }));
+					});
+				}
+				if (mode === "error") {
+					return Promise.reject(new DOMException("opaque", "SecurityError"));
+				}
+				return new Promise((resolve) => {
+					decide = (free) => resolve(cb(free ? { name, mode: "exclusive" } : null));
+					if (mode !== "pending") decide(mode === "free");
+				});
+			});
+			Object.defineProperty(navigator, "locks", {
+				value: { request },
+				configurable: true,
+			});
+			vi.resetModules();
+			openDBMock = vi.mocked((await import("idb")).openDB);
+			const { useNotificationStore } = await import(
+				"../../store/useNotificationStore"
+			);
+			useNotificationStore.setState({ notifications: [] });
+			toasts = () => useNotificationStore.getState().notifications;
+			persistence = (await import("../persistence")).persistence;
+			const mockDb = {
+				put: vi.fn().mockResolvedValue(undefined),
+				delete: vi.fn().mockResolvedValue(undefined),
+			};
+			openDBMock.mockResolvedValue(mockDb);
+			return mockDb;
+		}
+
+		afterEach(() => {
+			Reflect.deleteProperty(navigator, "locks");
+			Reflect.deleteProperty(document, "visibilityState");
+		});
+
+		it("holds the lock in the first tab, which keeps saving", async () => {
+			const mockDb = await openTab("free");
+			expect(request).toHaveBeenCalledExactlyOnceWith(
+				"webgraphy-writer",
+				{ ifAvailable: true },
+				expect.any(Function),
+			);
+
+			await persistence.saveViewport({ xAxes: [], yAxes: [] });
+			expect(mockDb.put).toHaveBeenCalledTimes(1);
+			expect(persistence.isEnabled()).toBe(true);
+			expect(toasts()).toEqual([]);
+
+			// Hiding the page still flushes a pending dataset at once.
+			await persistence.saveDataset(ds("1"));
+			Object.defineProperty(document, "visibilityState", {
+				value: "hidden",
+				configurable: true,
+			});
+			document.dispatchEvent(new Event("visibilitychange"));
+			await vi.advanceTimersByTimeAsync(1);
+			expect(mockDb.put).toHaveBeenCalledWith("datasets", ds("1"));
+		});
+
+		it("runs read-only beside the writer and offers a reload once it is gone", async () => {
+			const mockDb = await openTab("taken");
+			expect(persistence.isEnabled()).toBe(false);
+			expect(toasts()).toEqual([
+				expect.objectContaining({
+					kind: "info",
+					message:
+						"WebGraphy is open in another tab. Changes in this tab are not saved.",
+					durationMs: Infinity,
+				}),
+			]);
+
+			await persistence.saveAppState(SAMPLE_APP_STATE);
+			await persistence.saveDataset(ds("1"));
+			await persistence.flushAll();
+			await persistence.deleteDataset("1");
+			await persistence.clearAppState();
+			expect(mockDb.put).not.toHaveBeenCalled();
+			expect(mockDb.delete).not.toHaveBeenCalled();
+
+			// Queued for the lock, without ifAvailable.
+			expect(request).toHaveBeenCalledTimes(2);
+			expect(request.mock.calls[1][0]).toBe("webgraphy-writer");
+			expect(request.mock.calls[1][1]).toEqual(expect.any(Function));
+
+			grantQueued();
+			expect(toasts()).toHaveLength(1);
+			const [toast] = toasts();
+			expect(toast.message).toBe("WebGraphy was closed in the other tab.");
+			expect(toast.action?.label).toBe("Reload to edit here");
+			expect(toast.durationMs).toBe(Infinity);
+			// Its state is older than what the other tab saved: still read-only.
+			expect(persistence.isEnabled()).toBe(false);
+
+			const reload = vi.fn();
+			vi.stubGlobal("location", { reload });
+			toast.action?.onAction();
+			expect(reload).toHaveBeenCalled();
+			vi.unstubAllGlobals();
+		});
+
+		it("keeps legacy state on disk when loading it read-only", async () => {
+			const mockDb = await openTab("taken");
+			const legacy = {
+				xAxes: SAMPLE_APP_STATE.xAxes,
+				yAxes: [],
+				series: [],
+				axisTitles: { x: "", y: "" },
+			};
+			Object.assign(mockDb, {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce(undefined)
+					.mockResolvedValueOnce(undefined)
+					.mockResolvedValueOnce(legacy),
+			});
+
+			expect(await persistence.loadAppState()).not.toBeNull();
+			expect(mockDb.put).not.toHaveBeenCalled();
+			expect(mockDb.delete).not.toHaveBeenCalled();
+		});
+
+		it("holds writes back until the lock is decided", async () => {
+			const mockDb = await openTab("pending");
+			const saving = persistence.saveViewport({ xAxes: [], yAxes: [] });
+			await vi.advanceTimersByTimeAsync(0);
+			expect(mockDb.put).not.toHaveBeenCalled();
+
+			decide(false);
+			await saving;
+			expect(mockDb.put).not.toHaveBeenCalled();
+		});
+
+		it("writes once the pending lock is granted", async () => {
+			const mockDb = await openTab("pending");
+			const saving = persistence.saveViewport({ xAxes: [], yAxes: [] });
+			decide(true);
+			await saving;
+			expect(mockDb.put).toHaveBeenCalledTimes(1);
+			// Decided for good: later writes no longer wait.
+			await persistence.saveConfig({
+				series: [],
+				legendVisible: true,
+				crosshairVisible: true,
+			});
+			expect(mockDb.put).toHaveBeenCalledTimes(2);
+		});
+
+		it("writes as before when the lock cannot be requested", async () => {
+			const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const mockDb = await openTab("error");
+			await persistence.saveViewport({ xAxes: [], yAxes: [] });
+			expect(mockDb.put).toHaveBeenCalledTimes(1);
+			expect(toasts()).toEqual([]);
+			errorSpy.mockRestore();
+		});
+	});
 });

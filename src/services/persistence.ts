@@ -1,5 +1,5 @@
 import { deleteDB, type IDBPDatabase, openDB } from "idb";
-import { notify } from "../store/useNotificationStore";
+import { dismissNotification, notify } from "../store/useNotificationStore";
 import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
 import { markErrorReported } from "./globalErrors";
@@ -11,6 +11,7 @@ const VIEWPORT_KEY = "webgraphy-viewport";
 const CONFIG_KEY = "webgraphy-config";
 const LEGACY_KEY = "webgraphy-state";
 const VERSION = 2;
+const WRITER_LOCK = "webgraphy-writer";
 const LOCAL_STORAGE_PREFIX = "webgraphy-";
 // Keys WebGraphy writes without the prefix. The analytics opt-out ("skipgc")
 // is deliberately not among them: a reset must not re-enable counting.
@@ -95,9 +96,12 @@ export interface AppState extends ViewportState, ConfigState {}
 // The promise (not the handle) is cached so concurrent callers share one
 // connection; a failed open is not cached, so the next call retries.
 let dbPromise: Promise<IDBPDatabase> | null = null;
-// Off once loading failed (writing would clobber data we could not read) or
-// another tab upgraded the schema under us.
+// Off once loading failed (writing would clobber data we could not read),
+// another tab upgraded the schema under us, or another tab is the writer.
 let writesEnabled = true;
+// Pending while this tab asks for the writer lock: writes wait for the
+// answer, so the first save after loading cannot slip in before it.
+let writerLockPending: Promise<void> | null = null;
 
 function openConnection(): Promise<IDBPDatabase> {
 	const opening: Promise<IDBPDatabase> = openDB(DB_NAME, VERSION, {
@@ -246,6 +250,7 @@ async function putAppState(
 	state: unknown,
 	label: string,
 ): Promise<void> {
+	if (writerLockPending) await writerLockPending;
 	if (!writesEnabled) return;
 	try {
 		const db = await getDB();
@@ -258,6 +263,7 @@ async function putAppState(
 
 /** Writes one dataset in its own transaction; returns whether it persisted. */
 async function writeDataset(ds: Dataset, label: string): Promise<boolean> {
+	if (writerLockPending) await writerLockPending;
 	if (!writesEnabled) return false;
 	try {
 		const db = await getDB();
@@ -354,6 +360,7 @@ export const persistence = {
 		if (timer) clearTimeout(timer);
 		datasetTimers.delete(id);
 		pendingDatasets.delete(id);
+		if (writerLockPending) await writerLockPending;
 		if (!writesEnabled) return;
 		// Callers fire and forget, so a failure must not escape as an unhandled
 		// rejection.
@@ -430,7 +437,9 @@ export const persistence = {
 				};
 				try {
 					await persistence.saveAppState(migrated);
-					await db.delete(APP_STATE_STORE, LEGACY_KEY);
+					// Only once the migrated copy was written, never from a
+					// read-only tab.
+					if (writesEnabled) await db.delete(APP_STATE_STORE, LEGACY_KEY);
 				} catch (error) {
 					logger.error("Failed to migrate legacy state", { error });
 				}
@@ -441,6 +450,7 @@ export const persistence = {
 		return null;
 	},
 	async clearAppState(): Promise<void> {
+		if (writerLockPending) await writerLockPending;
 		if (!writesEnabled) return;
 		try {
 			const db = await getDB();
@@ -499,7 +509,62 @@ function clearLocalStorage(): void {
 	}
 }
 
+/**
+ * One tab writes at a time, or two tabs overwrite each other's saved state.
+ * The first tab holds the exclusive writer lock for its lifetime (the browser
+ * releases it when the tab goes away). A later tab still loads what was
+ * saved but runs read-only, and queues for the lock: once the writer is gone
+ * it offers a reload, which picks up the state that tab saved last.
+ */
+function claimWriterLock(locks: LockManager): void {
+	const decided = new Promise<void>((resolve) => {
+		locks
+			.request(WRITER_LOCK, { ifAvailable: true }, (lock) => {
+				if (lock) {
+					resolve();
+					return new Promise<never>(() => {});
+				}
+				persistence.disable();
+				resolve();
+				const readOnly = notify({
+					kind: "info",
+					message:
+						"WebGraphy is open in another tab. Changes in this tab are not saved.",
+					durationMs: Infinity,
+				});
+				locks
+					.request(WRITER_LOCK, () => {
+						dismissNotification(readOnly);
+						notify({
+							kind: "info",
+							message: "WebGraphy was closed in the other tab.",
+							action: {
+								label: "Reload to edit here",
+								onAction: () => location.reload(),
+							},
+							durationMs: Infinity,
+						});
+						// Kept until the reload, so this tab is next in line.
+						return new Promise<never>(() => {});
+					})
+					.catch(() => {});
+				return undefined;
+			})
+			.catch((error: unknown) => {
+				// E.g. a SecurityError in an opaque origin: write as before.
+				logger.error("Writer lock unavailable", { error });
+				resolve();
+			});
+	});
+	writerLockPending = decided.then(() => {
+		writerLockPending = null;
+	});
+}
+
 if (typeof window !== "undefined") {
+	const locks = globalThis.navigator?.locks as LockManager | undefined;
+	if (locks) claimWriterLock(locks);
+
 	// "hidden" fires before unload and still allows async IndexedDB writes to
 	// run, which beforeunload does not reliably guarantee.
 	document.addEventListener("visibilitychange", () => {
