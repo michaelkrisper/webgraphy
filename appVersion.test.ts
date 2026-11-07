@@ -25,15 +25,45 @@ describe("resolveAppVersion", () => {
 		expect(
 			resolveAppVersion({
 				env: { APP_VERSION: "" },
+				pkgVersion: "1.2.0",
 				describe: () => "v1.2.0-4-gabc1234",
 			}),
 		).toBe("1.2.0-4-gabc1234");
 	});
 
+	it("shows package.json when it is ahead of the newest tag", () => {
+		expect(
+			resolveAppVersion({
+				env: {},
+				pkgVersion: "1.3.0",
+				describe: () => "v1.2.0-263-g0182d90-dirty",
+			}),
+		).toBe("1.3.0+v1.2.0-263-g0182d90-dirty");
+		// Tags past package.json (CI patch releases) keep the tag.
+		expect(
+			resolveAppVersion({
+				env: {},
+				pkgVersion: "1.3.0",
+				describe: () => "v1.3.2-3-gabc1234",
+			}),
+		).toBe("1.3.2-3-gabc1234");
+		expect(
+			resolveAppVersion({
+				env: {},
+				pkgVersion: "1.3.0",
+				describe: () => "v1.3.0",
+			}),
+		).toBe("1.3.0");
+	});
+
 	it("uses the version tag from git describe", () => {
-		expect(resolveAppVersion({ env: {}, describe: () => "v1.3.0" })).toBe(
-			"1.3.0",
-		);
+		expect(
+			resolveAppVersion({
+				env: {},
+				pkgVersion: "1.3.0",
+				describe: () => "v1.3.0",
+			}),
+		).toBe("1.3.0");
 	});
 
 	it("falls back to package.json plus the SHA when no tag is reachable", () => {
