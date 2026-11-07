@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
-import { useGraphStore } from "../../store/useGraphStore";
+import { useGraphStore, withHistory } from "../../store/useGraphStore";
+import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
@@ -139,6 +140,15 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
 
+	// Every X axis that carries data shows its own grid; with none in use the
+	// button drives X axis 1, where the next dataset lands.
+	const usedXAxes = xAxes.filter((a) =>
+		datasets.some((d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === a.id),
+	);
+	const gridXAxes = usedXAxes.length > 0 ? usedXAxes : xAxes.slice(0, 1);
+	const verticalGrid =
+		gridXAxes.length > 0 && gridXAxes.every((a) => a.showGrid);
+
 	const hdrSep = <span className="sb-hdr-sep" />;
 
 	return (
@@ -177,12 +187,14 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				<span className="sb-spacer" />
 				<HeaderButton
 					onClick={() => {
-						const ax = xAxes[0];
-						if (ax) updateXAxis(ax.id, { showGrid: !ax.showGrid });
+						const showGrid = !verticalGrid;
+						withHistory(`${showGrid ? "show" : "hide"} vertical grid`, () => {
+							for (const ax of gridXAxes) updateXAxis(ax.id, { showGrid });
+						});
 					}}
 					icon={<Columns3 size={24} />}
-					title={xAxes[0]?.showGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
-					off={!xAxes[0]?.showGrid}
+					title={verticalGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
+					off={!verticalGrid}
 				/>
 				<HeaderButton
 					onClick={() => setCrosshairVisible(!crosshairVisible)}
@@ -206,7 +218,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 							ref={ref}
 							type="button"
 							onClick={onClick}
-							title={THEME_LABELS[themeName]}
+							title={`Theme: ${THEME_LABELS[themeName]} (click to change)`}
 							aria-label={`Theme: ${THEME_LABELS[themeName]}`}
 							className="sb-hdr-btn"
 						>

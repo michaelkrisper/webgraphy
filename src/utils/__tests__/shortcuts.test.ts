@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
 	anyKeyPressed,
 	formatShortcutKeys,
 	hasKey,
 	isEditableTarget,
+	overlayOwnsKeyboard,
 	SHORTCUT_GROUPS,
 	SHORTCUTS,
 	type ShortcutId,
@@ -64,5 +65,33 @@ describe("isEditableTarget", () => {
 		expect(isEditableTarget(document.createElement("select"))).toBe(true);
 		expect(isEditableTarget(document.createElement("div"))).toBe(false);
 		expect(isEditableTarget(null)).toBe(false);
+	});
+});
+
+describe("overlayOwnsKeyboard", () => {
+	afterEach(() => {
+		document.body.innerHTML = "";
+	});
+
+	it("is false with nothing open", () => {
+		document.body.innerHTML = '<div role="region"></div>';
+		expect(overlayOwnsKeyboard()).toBe(false);
+	});
+
+	it.each([
+		['<div role="dialog" aria-modal="true"></div>', "a modal dialog"],
+		['<form role="dialog"></form>', "the axis range popover"],
+		['<div class="popup-picker-popover"></div>', "a picker popover"],
+		['<div class="color-picker-popover"></div>', "the colour picker"],
+	])("is true while %s is open (%s)", (html) => {
+		document.body.innerHTML = html;
+		expect(overlayOwnsKeyboard()).toBe(true);
+	});
+
+	it("checks the given document", () => {
+		const doc = document.implementation.createHTMLDocument();
+		doc.body.innerHTML = '<div aria-modal="true"></div>';
+		expect(overlayOwnsKeyboard(doc)).toBe(true);
+		expect(overlayOwnsKeyboard()).toBe(false);
 	});
 });

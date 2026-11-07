@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 
@@ -19,6 +19,18 @@ vi.mock("./components/Plot/ChartContainer", () => ({
 
 vi.mock("./components/Layout/Sidebar", () => ({
 	Sidebar: () => <div data-testid="sidebar">Sidebar</div>,
+}));
+
+const mockImportFiles = vi.fn();
+vi.mock("./hooks/useDataImport", () => ({
+	useDataImport: () => ({
+		importFiles: mockImportFiles,
+		confirmImport: vi.fn(),
+		cancelImport: vi.fn(),
+		changeSheet: vi.fn(),
+		pendingFile: null,
+		isImporting: false,
+	}),
 }));
 
 // Mock the graph store
@@ -58,5 +70,25 @@ describe("App Component", () => {
 		render(<App />);
 
 		expect(mockLoadPersistedState).toHaveBeenCalledTimes(1);
+	});
+
+	it("imports files dropped anywhere in the window, with a highlight while dragging", () => {
+		render(<App />);
+		const files = [new File(["a"], "a.csv")];
+		const fileDrag = (type: string) => {
+			const ev = new Event(type, { bubbles: true, cancelable: true });
+			Object.defineProperty(ev, "dataTransfer", {
+				value: { types: ["Files"], files, dropEffect: "none" },
+			});
+			act(() => {
+				screen.getByTestId("sidebar").dispatchEvent(ev);
+			});
+		};
+
+		fileDrag("dragenter");
+		expect(screen.getByText("Drop to import")).toBeInTheDocument();
+		fileDrag("drop");
+		expect(screen.queryByText("Drop to import")).not.toBeInTheDocument();
+		expect(mockImportFiles).toHaveBeenCalledWith(files);
 	});
 });

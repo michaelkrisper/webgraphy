@@ -34,6 +34,8 @@ export interface Dataset {
 	rowCount: number;
 	xAxisColumn: string;
 	xAxisId: string;
+	/** Generated sample data; the first import replaces it. */
+	demo?: true;
 }
 
 /**

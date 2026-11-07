@@ -54,7 +54,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Legend:</strong> Click an entry to hide or show its series
 				</li>
 				<li>
-					<strong>Drop a file</strong> on the chart to import it
+					<strong>Drop a file</strong> anywhere to import it
 				</li>
 			</Section>
 
@@ -80,7 +80,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 				<li>
 					<strong>Import:</strong> CSV, JSON or Excel, or paste spreadsheet cells (
 					<kbd>Ctrl</kbd> + <kbd>V</kbd>). The import dialog sets the delimiter,
-					decimal point, start row and column types
+					decimal point, header row and column types
 				</li>
 				<li>
 					<strong>Column chips:</strong> Click to plot a column; click a filled

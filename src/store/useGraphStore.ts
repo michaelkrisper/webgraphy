@@ -465,11 +465,21 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	renameColumn: (datasetId, oldName, newName) => {
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === oldName) return;
+		if (
+			get()
+				.datasets.find((d) => d.id === datasetId)
+				?.columns.includes(trimmed)
+		) {
+			notify({
+				kind: "error",
+				message: `Could not rename "${oldName}": a column named "${trimmed}" already exists`,
+			});
+			return;
+		}
 		const before = beginHistory();
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			if (dataset.columns.includes(trimmed) && trimmed !== oldName) return state;
 			const updatedDataset = {
 				...dataset,
 				columns: dataset.columns.map((c) => (c === oldName ? trimmed : c)),

@@ -1,4 +1,9 @@
-import { hasKey, isEditableTarget, SHORTCUTS } from "../../../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../../../utils/shortcuts";
 
 export type MeasureKeyAction = "clearPins" | "toggleStats";
 
@@ -17,7 +22,7 @@ export function measureKeyAction(
 		: hasKey(SHORTCUTS.toggleStats, e.key)
 			? "toggleStats"
 			: null;
-	// A dialog owns the keyboard (and Escape) while it is open.
-	if (!action || doc.querySelector('[aria-modal="true"]')) return null;
+	// A dialog or popover owns the keyboard (and Escape) while it is open.
+	if (!action || overlayOwnsKeyboard(doc)) return null;
 	return action;
 }

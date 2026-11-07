@@ -257,6 +257,14 @@ describe("session format", () => {
 		expect(Array.from(back.datasets[0].data[0].data)).toEqual([1, 2, 3, 4]);
 	});
 
+	it("keeps the demo marker, and adds none to user datasets", async () => {
+		const content = sampleContent();
+		content.datasets[0] = { ...content.datasets[0], demo: true };
+		const back = await decodeSession(bufferOf(await encodeSession(content)));
+		expect(back.datasets[0].demo).toBe(true);
+		expect("demo" in back.datasets[1]).toBe(false);
+	});
+
 	it("names the file with the date and a .webgraphy extension", () => {
 		expect(sessionFileName(new Date(2026, 9, 4, 8, 5))).toBe(
 			"webgraphy-2026-10-04-0805.webgraphy",

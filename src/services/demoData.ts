@@ -83,6 +83,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 		rowCount,
 		xAxisColumn: columns[0],
 		xAxisId: "axis-1",
+		demo: true,
 	};
 }
 

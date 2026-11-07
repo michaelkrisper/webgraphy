@@ -101,7 +101,7 @@ describe("DataSourcesSection", () => {
 		expect(screen.getByText("Data Sources")).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				/Add datasources by importing or drag and drop on the graph surface/,
+				/Add data sources by importing a file or dropping one anywhere/,
 			),
 		).toBeInTheDocument();
 	});
