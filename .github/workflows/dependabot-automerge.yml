@@ -4,7 +4,8 @@ name: Dependabot auto-merge
 # Without GitHub Pro, private repositories have no required status checks, so
 # this workflow waits for the successful CI run itself. Merges made with the
 # GITHUB_TOKEN do not trigger push workflows, so the deploy is dispatched
-# afterwards via workflow_dispatch.
+# afterwards via workflow_dispatch; that run also tags the merge with the next
+# patch version and publishes its release, like a push to main.
 
 on:
   workflow_run:
@@ -42,7 +43,7 @@ jobs:
           fi
           gh pr merge "$pr" --squash --match-head-commit "$SHA"
           echo "merged=true" >> "$GITHUB_OUTPUT"
-      # CI deploys main; this needs its workflow_dispatch trigger.
+      # CI deploys and releases main; this needs its workflow_dispatch trigger.
       - name: Dispatch deploy
         if: steps.merge.outputs.merged == 'true'
         run: gh workflow run ci.yml --ref "$DEFAULT_BRANCH"

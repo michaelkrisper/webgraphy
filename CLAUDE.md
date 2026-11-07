@@ -28,6 +28,8 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 
 CI (`.github/workflows/ci.yml`) is the only workflow: a `quality` job (format → lint → coverage test → build → size budget), a containerised `e2e` job, an advisory-but-binding `bench` job, and a `deploy` job that publishes `dist` to Pages on `main`.
 
+Versioning: every merge to `main` is built as, then tagged and released as, the next patch version (`scripts/next-version.mjs`; `vX.Y.Z` tags are the source of truth, main runs are serialised). For a minor/major release, bump `version` in `package.json` in the PR. `APP_VERSION` overrides the version at build time (`appVersion.ts`).
+
 ## Architecture
 
 ### Data flow

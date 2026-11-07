@@ -190,7 +190,13 @@ on pull requests and pushes to `main`:
 - `e2e`: Playwright in a pinned container.
 - `bench`: benchmarks against the baseline.
 - `deploy`: publishes `dist` to GitHub Pages, on `main` only, after `quality`
-  and `e2e` pass.
+  and `e2e` pass, then tags the commit and creates a GitHub release.
+
+Every merge to `main` is released as the next patch version (`vX.Y.Z` tags are
+the source of truth, computed by `scripts/next-version.mjs`). For a minor or
+major release, raise the `version` in `package.json` in the pull request; the
+merge is then released as exactly that version. The build reads the version
+from `git describe`, or from the `APP_VERSION` environment variable when set.
 
 Screenshot baselines are generated only by CI, never locally. To refresh them
 after an intentional UI change, run the workflow manually with
