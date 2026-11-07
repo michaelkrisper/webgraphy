@@ -41,6 +41,7 @@ import {
 	stepAxisTarget,
 } from "../../utils/keyboard";
 import { prefersReducedMotion } from "../../utils/reducedMotion";
+import { registerViewportCommands } from "../../utils/viewportCommands";
 import { yAxisTitleText } from "../../utils/yAxisTitle";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
@@ -416,6 +417,14 @@ export default function ChartContainer() {
 		enabled: datasets.length > 0,
 	});
 	const recordSettledViewport = zoomHistory.settled;
+	useEffect(
+		() =>
+			registerViewportCommands({
+				applyRange: zoomHistory.applyRange,
+				fitAll: handleFitAll,
+			}),
+		[zoomHistory.applyRange, handleFitAll],
+	);
 
 	const openRangeEditor = useCallback(
 		(kind: "x" | "y"): EditRangeHandler =>
