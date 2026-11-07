@@ -1,18 +1,31 @@
 // Parsing and validation for typed axis ranges (the axis range popover).
 
-import { formatFullDate } from "./time";
+import { formatIsoLocal } from "./time";
 import { parseDate } from "./value-parser";
 
 const NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
-// The axis' own display form (formatFullDate): "05.03.2024, 12:30:15,5".
-const DISPLAY_DATE =
-	/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3})\d*)?)?)?$/;
+const TIME = String.raw`(\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3})\d*)?)?`;
+// German-style day-first dates: "05.03.2024, 12:30:15,5".
+const DOTTED_DATE = new RegExp(
+	String.raw`^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+${TIME})?$`,
+);
+// The prefill form (formatIsoLocal), read as local time: "2024-03-05 12:30:15.5".
+const ISO_LOCAL_DATE = new RegExp(
+	String.raw`^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s]+${TIME})?$`,
+);
 
-/** null when `text` is not in the display form at all. */
+/** null when `text` is in neither local wall-clock form. */
 function parseDisplayDate(text: string): number | null {
-	const m = DISPLAY_DATE.exec(text);
-	if (!m) return null;
-	const [day, month, year] = [+m[1], +m[2], +m[3]];
+	let m = DOTTED_DATE.exec(text);
+	let day: number;
+	let month: number;
+	let year: number;
+	if (m) [day, month, year] = [+m[1], +m[2], +m[3]];
+	else {
+		m = ISO_LOCAL_DATE.exec(text);
+		if (!m) return null;
+		[year, month, day] = [+m[1], +m[2], +m[3]];
+	}
 	const [hour, minute, second] = [+(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0)];
 	if (hour > 23 || minute > 59 || second > 59) return Number.NaN;
 	// Local wall-clock time, like the axis labels and parseDate.
@@ -26,8 +39,9 @@ function parseDisplayDate(text: string): number | null {
 
 /**
  * Reads one typed bound. Numbers accept scientific notation; date axes
- * (values in epoch seconds) also accept the axis' display form and ISO
- * strings, and still take a plain number as epoch seconds.
+ * (values in epoch seconds) also accept local "05.03.2024, 12:30" and
+ * "2024-03-05 12:30" forms and other ISO strings, and still take a plain
+ * number as epoch seconds.
  */
 export function parseAxisValue(text: string, isDate: boolean): number {
 	const t = text.trim();
@@ -41,10 +55,10 @@ export function parseAxisValue(text: string, isDate: boolean): number {
 	return Number.isFinite(iso) ? iso : Number.NaN;
 }
 
-/** Prefill text: what the axis shows for dates, a round-trippable number otherwise. */
+/** Prefill text: locale-independent and round-trippable for dates and numbers. */
 export function formatAxisValue(value: number, isDate: boolean): string {
 	if (!Number.isFinite(value)) return "";
-	if (isDate) return formatFullDate(value);
+	if (isDate) return formatIsoLocal(value);
 	// 12 significant digits hide float noise (0.30000000000000004) but keep
 	// what a zoom can resolve.
 	return String(Number(value.toPrecision(12)));

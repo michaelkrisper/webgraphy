@@ -27,6 +27,7 @@ import type {
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
 import { getAxisById } from "../../utils/axisCalculations";
+import { displayLocale } from "../../utils/displayFormat";
 import { logger } from "../../utils/logger";
 import { sizeCanvasToViewport } from "./canvasSize";
 import type { OverlayState } from "./drawOverlay";
@@ -218,9 +219,17 @@ class WorkerBackend implements RenderBackend {
 			viewportSab = new SharedArrayBuffer(VIEWPORT_SAB_BYTES);
 			this.writer = new ViewportWriter(viewportSab);
 		}
-		this.post({ t: "init", canvas: offscreen, viewport, plotBg, viewportSab }, [
-			offscreen,
-		]);
+		this.post(
+			{
+				t: "init",
+				canvas: offscreen,
+				viewport,
+				plotBg,
+				viewportSab,
+				locale: displayLocale(),
+			},
+			[offscreen],
+		);
 	}
 
 	private post(msg: RenderWorkerRequest, transfer?: Transferable[]): void {

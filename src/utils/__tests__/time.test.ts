@@ -1,10 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { setDisplayLocale } from "../displayFormat";
 import {
 	formatFullDate,
+	formatIsoLocal,
+	formatPrimaryLabelFromDate,
 	generateSecondaryLabels,
 	generateTimeTicks,
 	getTimeStep,
 } from "../time";
+
+// Most assertions are the German forms the axis showed while it hard-coded
+// de-DE: a German browser must see exactly those. The "in en-US" block checks
+// that another locale gets its own forms.
+beforeAll(() => setDisplayLocale("de-DE"));
+afterAll(() => setDisplayLocale("en-US"));
 
 describe("formatFullDate", () => {
 	let originalTz: string | undefined;
@@ -482,5 +491,71 @@ describe("generateSecondaryLabels", () => {
 		);
 
 		expect(labels.length).toBe(101);
+	});
+});
+
+describe("labels in en-US", () => {
+	let originalTz: string | undefined;
+	// ICU puts a narrow no-break space before AM/PM in newer versions.
+	const plain = (s: string) => s.replace(/\s/g, " ");
+
+	beforeAll(() => {
+		originalTz = process.env.TZ;
+		process.env.TZ = "UTC";
+		setDisplayLocale("en-US");
+	});
+
+	afterAll(() => {
+		process.env.TZ = originalTz;
+		setDisplayLocale("de-DE");
+	});
+
+	it("formats the full date with US order, 12 h clock and a decimal point", () => {
+		expect(plain(formatFullDate(1673784000))).toBe("01/15/2023, 12:00:00 PM");
+		// The fraction is trimmed although it is not at the end of the string.
+		expect(plain(formatFullDate(1673784000.12))).toBe(
+			"01/15/2023, 12:00:00.12 PM",
+		);
+		expect(plain(formatFullDate(-1.5))).toBe("12/31/1969, 11:59:58.5 PM");
+	});
+
+	it("formats primary tick labels per unit", () => {
+		const d = new Date(Date.UTC(2023, 0, 5, 14, 30, 15));
+		expect(plain(formatPrimaryLabelFromDate(d, "second"))).toBe("2:30:15 PM");
+		expect(plain(formatPrimaryLabelFromDate(d, "minute"))).toBe("2:30 PM");
+		expect(plain(formatPrimaryLabelFromDate(d, "hour"))).toBe("2:30 PM");
+		expect(formatPrimaryLabelFromDate(d, "day")).toBe("01/05");
+		expect(formatPrimaryLabelFromDate(d, "week")).toBe("1/5");
+		expect(formatPrimaryLabelFromDate(d, "month")).toBe("Jan");
+		expect(formatPrimaryLabelFromDate(d, "year")).toBe("2023");
+	});
+
+	it("formats secondary day labels", () => {
+		const labels = generateSecondaryLabels(1673784000, 1673956800, {
+			unit: "hour",
+			value: 1,
+		});
+		expect(labels[1].label).toBe("01/15/2023");
+	});
+});
+
+describe("formatIsoLocal", () => {
+	let originalTz: string | undefined;
+
+	beforeAll(() => {
+		originalTz = process.env.TZ;
+		process.env.TZ = "UTC";
+	});
+
+	afterAll(() => {
+		process.env.TZ = originalTz;
+	});
+
+	it("is the same in every display locale", () => {
+		expect(formatIsoLocal(1673784000)).toBe("2023-01-15 12:00:00");
+		setDisplayLocale("ar-EG");
+		expect(formatIsoLocal(1673784000.5)).toBe("2023-01-15 12:00:00.5");
+		setDisplayLocale("de-DE");
+		expect(formatIsoLocal(1673784000.125)).toBe("2023-01-15 12:00:00.125");
 	});
 });

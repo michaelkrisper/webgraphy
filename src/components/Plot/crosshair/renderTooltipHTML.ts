@@ -1,3 +1,4 @@
+import { decimalSeparator, formatReading } from "../../../utils/displayFormat";
 import { swatchStyle } from "./swatch";
 import type { SnapItem, SnapResult } from "./types";
 
@@ -87,9 +88,12 @@ export function renderTooltipHTML({
 		let itemNode = itemsDiv.firstElementChild as HTMLElement | null;
 		for (let iIdx = 0; iIdx < group.items.length; iIdx++) {
 			const item = group.items[iIdx];
-			const formatted =
-				item.valueLabel ?? parseFloat(item.value.toPrecision(7)).toLocaleString();
-			const sepIdx = formatted.search(/[.,]/);
+			const formatted = item.valueLabel ?? formatReading(item.value);
+			// Split at the decimal separator so values align on it; not at the
+			// first "." or ",", which is a group separator in "1,234.5", and
+			// category labels stay whole.
+			const sepIdx =
+				item.valueLabel === undefined ? formatted.indexOf(decimalSeparator()) : -1;
 			const intPart = sepIdx === -1 ? formatted : formatted.slice(0, sepIdx);
 			const decPart = sepIdx === -1 ? "" : formatted.slice(sepIdx);
 

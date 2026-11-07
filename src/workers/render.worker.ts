@@ -45,6 +45,7 @@ import {
 	type ViewportSnapshot,
 } from "../components/Plot/viewportChannel";
 import { getAxisById } from "../utils/axisCalculations";
+import { setDisplayLocale } from "../utils/displayFormat";
 
 export interface WorkerSeriesMsg {
 	id: string;
@@ -72,6 +73,8 @@ export type RenderWorkerRequest =
 			plotBg: number[];
 			/** Present when crossOriginIsolated: per-frame viewport handoff. */
 			viewportSab?: SharedArrayBuffer;
+			/** The host's display locale, so worker-drawn labels match the DOM. */
+			locale?: string;
 	  }
 	| { t: "viewport"; viewport: RendererViewport }
 	| { t: "plotBg"; rgb: number[] }
@@ -321,6 +324,7 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 	const msg = ev.data;
 	switch (msg.t) {
 		case "init": {
+			if (msg.locale) setDisplayLocale(msg.locale);
 			canvas = msg.canvas;
 			applyViewport(msg.viewport);
 			unwatchContext?.();

@@ -1,5 +1,10 @@
 import { expect } from "vitest";
 import * as axeMatchers from "vitest-axe/matchers";
+import { setDisplayLocale } from "../utils/displayFormat";
+
+// Display formatting follows the machine's locale; pin it so formatted-label
+// assertions hold on any machine. Locale-specific tests set their own.
+setDisplayLocale("en-US");
 
 // Register `toHaveNoViolations` globally so any component test can assert
 // accessibility without repeating the wiring.

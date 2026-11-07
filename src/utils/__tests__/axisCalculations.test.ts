@@ -8,10 +8,12 @@ import {
 	calcNumericTicks,
 	calcYAxisTicks,
 	formatAxisLabel,
+	formatLogTickLabel,
 	getAxisById,
 	syncAxesWithTargets,
 	DEFAULT_X_AXIS_ID,
 } from "../axisCalculations";
+import { setDisplayLocale } from "../displayFormat";
 
 describe("Constants", () => {
 	it("exports AXIS_EPSILON correctly", () => {
@@ -127,6 +129,21 @@ describe("formatAxisLabel", () => {
 	it("caps exponential precision at 4 decimal places or given precision", () => {
 		expect(formatAxisLabel(1234567890123, 2)).toBe("1.23e+12");
 		expect(formatAxisLabel(1234567890123, 5)).toBe("1.2346e+12");
+	});
+
+	it("uses the display locale's decimal separator, ungrouped", () => {
+		// The axis must read like the tooltip: 1,5 for a German user.
+		setDisplayLocale("de-DE");
+		try {
+			expect(formatAxisLabel(1.5, 1)).toBe("1,5");
+			expect(formatAxisLabel(12345.25, 2)).toBe("12345,25");
+			expect(formatAxisLabel(-0.25, 2)).toBe("-0,25");
+			expect(formatAxisLabel(1234567890123, 2)).toBe("1,23e+12");
+			expect(formatLogTickLabel(0.002)).toBe("0,002");
+			expect(formatLogTickLabel(2.5e-5)).toBe("2,5×10⁻⁵");
+		} finally {
+			setDisplayLocale("en-US");
+		}
 	});
 });
 

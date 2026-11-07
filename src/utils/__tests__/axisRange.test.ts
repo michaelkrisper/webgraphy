@@ -52,6 +52,11 @@ describe("parseAxisValue", () => {
 			Date.UTC(2024, 2, 5) / 1000,
 		);
 		expect(parseAxisValue("1700000000", true)).toBe(1700000000);
+		expect(parseAxisValue("2024-03-05 12:30:15.5", true)).toBe(
+			local(2024, 2, 5, 12, 30, 15, 500),
+		);
+		expect(parseAxisValue("2024-3-5T08:00", true)).toBe(local(2024, 2, 5, 8, 0));
+		expect(parseAxisValue("2024-02-31 12:00", true)).toBeNaN();
 	});
 
 	it("rejects impossible dates instead of rolling them over", () => {
@@ -70,7 +75,9 @@ describe("formatAxisValue", () => {
 		}
 		expect(formatAxisValue(0.1 + 0.2, false)).toBe("0.3");
 		const t = local(2024, 2, 5, 12, 30, 15, 500);
-		expect(formatAxisValue(t, true)).toBe("05.03.2024, 12:30:15,5");
+		// Not the localised axis form: "03/05/2024" would read back as 3 May
+		// in half the world.
+		expect(formatAxisValue(t, true)).toBe("2024-03-05 12:30:15.5");
 		expect(parseAxisValue(formatAxisValue(t, true), true)).toBe(t);
 	});
 });

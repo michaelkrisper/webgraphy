@@ -15,6 +15,8 @@ import {
 	VIEWPORT_SAB_BYTES,
 	ViewportWriter,
 } from "../../components/Plot/viewportChannel";
+import { formatAxisLabel } from "../../utils/axisCalculations";
+import { displayLocale, setDisplayLocale } from "../../utils/displayFormat";
 import type { RenderWorkerRequest } from "../render.worker";
 import "../render.worker";
 
@@ -85,6 +87,23 @@ function seriesMsg(
 describe("render.worker", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+	});
+
+	it("formats labels in the locale the host sends with init", () => {
+		const gl = makeGl2Mock();
+		try {
+			send({
+				t: "init",
+				canvas: makeCanvasMock(gl) as unknown as OffscreenCanvas,
+				viewport,
+				plotBg: [1, 1, 1],
+				locale: "de-DE",
+			});
+			expect(displayLocale()).toBe("de-DE");
+			expect(formatAxisLabel(1.5, 1)).toBe("1,5");
+		} finally {
+			setDisplayLocale("en-US");
+		}
 	});
 
 	it("initializes, sizes the canvas, and draws a coalesced frame", async () => {

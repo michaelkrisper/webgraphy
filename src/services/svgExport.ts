@@ -11,7 +11,11 @@ import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
-import { MS_PER_SECOND, UNIT_SECONDS } from "../utils/time";
+import {
+	formatPrimaryLabelFromDate,
+	MS_PER_SECOND,
+	UNIT_SECONDS,
+} from "../utils/time";
 import {
 	type DecorationLayout,
 	estimateTextWidth,
@@ -624,21 +628,17 @@ const drawAxes = (
 
 /**
  * Formats Unix timestamp as a human-readable date/time string based on tick step.
- * Adapts precision to grid granularity: days, hours, or minutes.
+ * Adapts precision to grid granularity: day and month, or time of day; in the
+ * display locale, like the on-screen axis.
  * @param {number} val - Unix timestamp (in seconds, not milliseconds)
  * @param {number} step - Grid step size in seconds (determines format granularity)
- * @returns {string} Formatted date/time label (e.g., "14.3." or "15:30")
+ * @returns {string} Formatted date/time label (e.g. "14.3." or "15:30" in German)
  */
-export const formatDate = (val: number, step: number) => {
-	const d = new Date(val * MS_PER_SECOND);
-	if (step >= UNIT_SECONDS.day) return `${d.getDate()}.${d.getMonth() + 1}.`;
-	if (step >= UNIT_SECONDS.hour) return `${d.getHours()}:00`;
-	return (
-		String(d.getHours()).padStart(2, "0") +
-		":" +
-		String(d.getMinutes()).padStart(2, "0")
+export const formatDate = (val: number, step: number) =>
+	formatPrimaryLabelFromDate(
+		new Date(val * MS_PER_SECOND),
+		step >= UNIT_SECONDS.day ? "week" : "minute",
 	);
-};
 
 const LEGEND_DASH: Record<string, string> = { dashed: "6,4", dotted: "2,3" };
 
