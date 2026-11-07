@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Clock, EyeOff, Hash, Tag } from "lucide-react";
-import React, { useDeferredValue, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type {
 	ColumnConfig,
 	ColumnType,
@@ -94,26 +95,28 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	// null = no split; otherwise the column name to split by
 	const [splitByColumns, setSplitByColumns] = useState<string[]>([]);
 
-	const deferredDelimiter = useDeferredValue(delimiter);
-	const deferredStartRow = useDeferredValue(startRow);
-	const deferredCommentChar = useDeferredValue(commentChar);
+	// The typed fields re-parse the preview once typing pauses (200 ms), not
+	// per keystroke. The delimiter is a select: it applies at once, together
+	// with the decimal point detected for it.
+	const debouncedStartRow = useDebouncedValue(startRow, 200);
+	const debouncedCommentChar = useDebouncedValue(commentChar, 200);
 
 	const previewData = useMemo(
 		() =>
 			generatePreviewData(
 				fileContent,
 				fileType,
-				deferredDelimiter,
-				deferredStartRow,
-				deferredCommentChar,
+				delimiter,
+				debouncedStartRow,
+				debouncedCommentChar,
 				previewTruncated,
 			),
 		[
 			fileContent,
 			fileType,
-			deferredDelimiter,
-			deferredStartRow,
-			deferredCommentChar,
+			delimiter,
+			debouncedStartRow,
+			debouncedCommentChar,
 			previewTruncated,
 		],
 	);
@@ -156,8 +159,9 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 					onConfirm({
 						delimiter,
 						decimalPoint,
-						startRow,
-						commentChar,
+						// What the preview (and so columnConfigs) was parsed with.
+						startRow: debouncedStartRow,
+						commentChar: debouncedCommentChar,
 						columnConfigs,
 						xAxisColumn,
 						splitByColumns: splitByColumns.filter((name) =>

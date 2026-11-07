@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGraphStore } from "../../store/useGraphStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
@@ -456,7 +456,8 @@ describe("useDataImport", () => {
 			await act(() => result.current.importFiles([b]));
 			expect(result.current.pendingFile?.file).toBe(a);
 			await act(async () => result.current.cancelImport());
-			expect(result.current.pendingFile?.file).toBe(b);
+			// cancelImport does not return the promise of opening the next file.
+			await waitFor(() => expect(result.current.pendingFile?.file).toBe(b));
 		});
 
 		it("gives each opened file a new id so the dialog remounts", async () => {
