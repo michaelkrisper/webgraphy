@@ -99,6 +99,43 @@ describe("usePanZoomKeyboard", () => {
 		expect(pressedKeys.has("ArrowLeft")).toBe(false);
 	});
 
+	const openOverlay = (attrs: Record<string, string>) => {
+		const el = document.createElement("div");
+		for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+		document.body.appendChild(el);
+		return el;
+	};
+
+	it.each([
+		["dialog", { role: "dialog", "aria-modal": "true" }],
+		["popover", { class: "popup-picker-popover" }],
+	])("leaves arrows and +/- to an open %s", (_label, attrs) => {
+		const { syncViewport, pressedKeys } = setupHook();
+		const overlay = openOverlay(attrs);
+		try {
+			act(() => {
+				dispatchKey("keydown", "ArrowLeft");
+				dispatchKey("keydown", "+");
+			});
+			expect(syncViewport).not.toHaveBeenCalled();
+			expect(pressedKeys.size).toBe(0);
+		} finally {
+			overlay.remove();
+		}
+	});
+
+	it("still releases a key held while a dialog opened", () => {
+		const { pressedKeys } = setupHook();
+		act(() => dispatchKey("keydown", "ArrowRight"));
+		const overlay = openOverlay({ "aria-modal": "true" });
+		try {
+			act(() => dispatchKey("keyup", "ArrowRight"));
+			expect(pressedKeys.has("ArrowRight")).toBe(false);
+		} finally {
+			overlay.remove();
+		}
+	});
+
 	it("removes keys from pressedKeys on keyup", () => {
 		const { pressedKeys } = setupHook();
 		act(() => dispatchKey("keydown", "ArrowRight"));

@@ -1,7 +1,12 @@
 // Home = Fit All, Shift+Home = Stacked Fit (SHORTCUTS.fitAll/stackedFit).
 
 import { useEffect, useRef } from "react";
-import { hasKey, isEditableTarget, SHORTCUTS } from "../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../utils/shortcuts";
 
 export function fitActionFor(
 	e: Pick<
@@ -36,8 +41,7 @@ export function useFitShortcuts(
 		const onKeyDown = (e: KeyboardEvent) => {
 			const action = fitActionFor(e);
 			if (!action) return;
-			// A dialog owns the keyboard while it is open.
-			if (document.querySelector('[aria-modal="true"]')) return;
+			if (overlayOwnsKeyboard()) return;
 			e.preventDefault();
 			handlers.current[action]();
 		};
