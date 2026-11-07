@@ -2,6 +2,7 @@ import { type IDBPDatabase, openDB } from "idb";
 import { notify } from "../store/useNotificationStore";
 import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
+import { markErrorReported } from "./globalErrors";
 
 const DB_NAME = "webgraphy-db";
 const DATASET_STORE = "datasets";
@@ -152,6 +153,7 @@ function isQuotaError(error: unknown): boolean {
 // Messages are stable per target so the toast store collapses repeats of a
 // failing save into one toast.
 function reportDatasetSaveError(name: string, error: unknown): void {
+	markErrorReported(error);
 	notify({
 		kind: "error",
 		message: isQuotaError(error)
@@ -161,6 +163,7 @@ function reportDatasetSaveError(name: string, error: unknown): void {
 }
 
 function reportStateSaveError(error: unknown): void {
+	markErrorReported(error);
 	notify({
 		kind: "error",
 		message: isQuotaError(error)
@@ -355,6 +358,7 @@ export const persistence = {
 			await db.delete(DATASET_STORE, id);
 		} catch (error) {
 			logger.error("deleteDataset failed", { id, error });
+			markErrorReported(error);
 			notify({
 				kind: "error",
 				message:

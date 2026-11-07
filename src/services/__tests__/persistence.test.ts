@@ -647,6 +647,16 @@ describe("persistence", () => {
 			]);
 		});
 
+		it("marks the errors it toasted so the global handler stays quiet", async () => {
+			const error = quotaError();
+			openDBMock.mockResolvedValue({ put: vi.fn().mockRejectedValue(error) });
+
+			await persistence.saveViewport({ xAxes: [], yAxes: [] });
+
+			const { describeUncaught } = await import("../globalErrors");
+			expect(describeUncaught(error)).toBeNull();
+		});
+
 		it("collapses repeated settings-save failures into one toast", async () => {
 			openDBMock.mockResolvedValue({
 				put: vi.fn().mockRejectedValue(quotaError()),
