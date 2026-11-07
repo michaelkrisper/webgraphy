@@ -37,6 +37,7 @@ File import → **parser web worker** (`src/workers/parser.worker.ts` → `utils
 ### State — `src/store/useGraphStore.ts` (Zustand)
 
 Single store holding `datasets`, `series`, `xAxes`, `yAxes`, plus UI flags. Key model facts:
+
 - There are always **9 fixed x-axis and 9 fixed y-axis slots** (`axis-1`..`axis-9`), created up front. Adding data assigns a dataset to a free x-axis slot; it does not create axes.
 - A **`SeriesConfig`** binds a dataset column (`sourceId` + `yColumn`) to a `yAxisId`. A **`Dataset`** owns one `xAxisColumn`/`xAxisId`.
 - Each axis has `scale: "linear" | "log"`. `utils/axisScale.ts` holds the math: a log axis keeps `min`/`max` in data units (> 0) and does everything positional (pixel mapping, pan, zoom, padding) in "scale space" (log10). Use its helpers rather than hand-rolling `Math.log10`; the series shaders get it as the `u_log_ref` uniform.
@@ -54,6 +55,7 @@ Session files (`.webgraphy`, `services/session.ts`, lazily loaded): the whole wo
 ### Rendering — `src/components/Plot/`
 
 The hot path. `ChartContainer.tsx` orchestrates; it does **not** re-render per frame. Everything on screen inside the plot — series, grid, spines, ticks, **and all text** — is WebGL; there is no 2D-canvas axis layer any more.
+
 - `rendererCore.ts` is the framework-free **WebGL2** renderer driving three GLSL ES 3.00 program pairs from `rendererShaders.ts`: `MAIN` (point sprites + screen-space overlay), `LINE` (instanced triangle-capsule series lines), `LABEL` (textured atlas quads). `GLStateCache.ts` caches uniforms/attribs/divisors across programs.
 - It runs inside `workers/render.worker.ts` via `OffscreenCanvas` when supported, else on the main thread — `renderBackend.ts` picks the backend (`WorkerBackend`/`DirectBackend`, StrictMode-safe: a canvas can only be transferred once) and `WebGLRenderer.tsx` is the thin React host that resolves store data into plain renderer inputs.
 - Series lines are never drawn with native `gl.LINES`/`LINE_STRIP` (driver line width caps at 1px on ANGLE/D3D and core profiles). Each segment is an instanced quad expanded in the vertex shader from `gl_VertexID` + per-instance endpoints read straight from the column buffers (4-byte stride/offset trick), shaded with a capsule SDF for AA, real widths, round joins, and dashes. Only 1px overlay primitives (grid/spines/ticks) still use native LINES.

@@ -19,6 +19,7 @@ The user interface is in English.
 ## Features
 
 **Import**
+
 - CSV, TSV, TXT/DAT, JSON, XLSX, XLS and ODS, via file picker or drag and drop;
   several files at once.
 - Paste cells copied from a spreadsheet with Ctrl+V.
@@ -30,6 +31,7 @@ The user interface is in English.
   limited to 100 MB.
 
 **Plotting**
+
 - WebGL2 rendering in a worker (`OffscreenCanvas`, main-thread fallback); M4
   decimation keeps millions of points interactive.
 - Up to 9 X axes and 9 Y axes, linear or logarithmic; numeric, date/time or
@@ -39,6 +41,7 @@ The user interface is in English.
   the in-app **Function reference** of the Calculated Column dialog.
 
 **Exploring**
+
 - Pan and zoom with mouse or keyboard, Ctrl+drag box zoom, per-axis zoom and
   pan, Fit All and Stacked Fit.
 - Zoom history (Alt+Left / Alt+Right) and exact axis ranges (right-click an
@@ -49,6 +52,7 @@ The user interface is in English.
 - Undo/redo for edits; data table of the plotted series.
 
 **Output and state**
+
 - CSV export of a whole dataset or of the visible range.
 - Image export as SVG or PNG: size presets (current view, fixed pixel sizes,
   journal column widths in mm) or a custom size in px or mm, DPI, legend
