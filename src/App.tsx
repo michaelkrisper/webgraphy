@@ -38,7 +38,12 @@ export default function App() {
 			</div>
 			{draggingFile && (
 				<div
-					style={{ position: "fixed", inset: 0, zIndex: 9000, pointerEvents: "none" }}
+					style={{
+						position: "fixed",
+						inset: 0,
+						zIndex: 9000,
+						pointerEvents: "none",
+					}}
 				>
 					<PlotDragOverlay visible />
 				</div>

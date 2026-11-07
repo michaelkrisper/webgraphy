@@ -83,9 +83,9 @@ describe("useWindowFileDrop", () => {
 		expect(over.ev.defaultPrevented).toBe(true);
 		expect(over.dataTransfer.dropEffect).toBe("none");
 		expect(hook.result.current).toBe(false);
-		expect(drag("drop", { files: [csv()], target: input }).ev.defaultPrevented).toBe(
-			true,
-		);
+		expect(
+			drag("drop", { files: [csv()], target: input }).ev.defaultPrevented,
+		).toBe(true);
 		expect(onFiles).not.toHaveBeenCalled();
 	});
 
