@@ -1,6 +1,7 @@
 import { watchContextLoss } from "./contextLoss";
 import type { OverlayState } from "./drawOverlay";
 import type { RenderBackend } from "./renderBackend";
+import { FailureSignal, type RenderFailureListener } from "./renderFailure";
 import {
 	type RenderAxis,
 	RendererCore,
@@ -24,6 +25,9 @@ export class DirectBackend implements RenderBackend {
 	private contextLost = false;
 	private lastAxes: { x: RenderAxis[]; y: RenderAxis[] } | null = null;
 	private readonly unwatchContext: () => void;
+	private readonly failure = new FailureSignal();
+	private readonly reportFailure: RenderFailureListener = (f) =>
+		this.failure.report(f);
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -31,7 +35,7 @@ export class DirectBackend implements RenderBackend {
 		plotBg: number[],
 	) {
 		this.canvas = canvas;
-		this.core = RendererCore.create(canvas);
+		this.core = RendererCore.create(canvas, this.reportFailure);
 		this.core?.setViewport(viewport);
 		this.core?.setPlotBg(plotBg);
 		this.unwatchContext = watchContextLoss(canvas, {
@@ -45,7 +49,7 @@ export class DirectBackend implements RenderBackend {
 	private restoreContext(): void {
 		this.contextLost = false;
 		if (!this.core) return;
-		this.core = RendererCore.restore(this.canvas, this.core);
+		this.core = RendererCore.restore(this.canvas, this.core, this.reportFailure);
 		if (this.core && this.lastAxes) {
 			this.core.drawFrame(this.lastAxes.x, this.lastAxes.y);
 		}
@@ -78,6 +82,10 @@ export class DirectBackend implements RenderBackend {
 	}
 
 	setSceneContext(): void {}
+
+	onFailure(listener: RenderFailureListener): void {
+		this.failure.listen(listener);
+	}
 
 	redraw(
 		xAxes: RenderAxis[],

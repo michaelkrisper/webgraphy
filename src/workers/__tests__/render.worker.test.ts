@@ -234,6 +234,47 @@ describe("render.worker", () => {
 		expect(closeSpy).toHaveBeenCalled();
 	});
 
+	it("tells the host when there is no WebGL2 context", () => {
+		const post = vi
+			.spyOn(window, "postMessage")
+			.mockImplementation(() => undefined);
+		send({
+			t: "init",
+			canvas: makeCanvasMock(null) as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+		});
+		expect(post).toHaveBeenCalledExactlyOnceWith({
+			t: "failure",
+			reason: "no-webgl2",
+		});
+		// Later messages are harmless without a core.
+		send({ t: "series", list: [seriesMsg(1, 2, true)] });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
+	});
+
+	it("tells the host when the shaders do not compile", () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const post = vi
+			.spyOn(window, "postMessage")
+			.mockImplementation(() => undefined);
+		const gl = makeGl2Mock();
+		gl.getShaderParameter.mockReturnValue(false);
+		send({
+			t: "init",
+			canvas: makeCanvasMock(gl) as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+		});
+		expect(post).toHaveBeenCalledWith({ t: "failure", reason: "shader" });
+	});
+
 	it("redraws on plotBg and highlight messages", async () => {
 		const { gl } = initWorker();
 		send({

@@ -48,6 +48,27 @@ describe("RendererCore", () => {
 		expect(RendererCore.create(makeCanvasMock(null))).toBeNull();
 	});
 
+	it("tells why it could not start", () => {
+		const onFailure = vi.fn();
+		RendererCore.create(makeCanvasMock(null), onFailure);
+		expect(onFailure).toHaveBeenCalledWith("no-webgl2");
+
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const gl = makeGl2Mock();
+		gl.getShaderParameter.mockReturnValue(false);
+		onFailure.mockClear();
+		expect(RendererCore.create(makeCanvasMock(gl), onFailure)).toBeNull();
+		expect(onFailure).toHaveBeenCalledExactlyOnceWith("shader");
+	});
+
+	it("reports a failure only when it fails", () => {
+		const onFailure = vi.fn();
+		expect(
+			RendererCore.create(makeCanvasMock(makeGl2Mock()), onFailure),
+		).not.toBeNull();
+		expect(onFailure).not.toHaveBeenCalled();
+	});
+
 	it("compiles both programs on creation", () => {
 		const { gl } = makeCore();
 		// main + line + label program: 3 programs, 6 shaders.
@@ -297,7 +318,11 @@ describe("RendererCore", () => {
 
 	it("returns null from restore when the context cannot be re-acquired", () => {
 		const { core } = makeCore();
-		expect(RendererCore.restore(makeCanvasMock(null), core)).toBeNull();
+		const onFailure = vi.fn();
+		expect(
+			RendererCore.restore(makeCanvasMock(null), core, onFailure),
+		).toBeNull();
+		expect(onFailure).toHaveBeenCalledWith("no-webgl2");
 	});
 
 	it("uses the exact device-pixel size for the GL viewport when given", () => {

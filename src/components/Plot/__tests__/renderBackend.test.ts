@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 import { displayLocale } from "../../../utils/displayFormat";
 import type { OverlayState } from "../drawOverlay";
 import type { SceneContext } from "../frameScene";
@@ -38,7 +39,9 @@ class FakeWorker {
 	static instances: FakeWorker[] = [];
 	postMessage = vi.fn();
 	terminate = vi.fn();
-	onerror: unknown = null;
+	onerror: ((ev: { message?: string; preventDefault(): void }) => void) | null =
+		null;
+	onmessage: ((ev: { data: unknown }) => void) | null = null;
 	constructor(
 		public url: URL,
 		public opts: unknown,
@@ -57,7 +60,9 @@ function withOffscreen(canvas: HTMLCanvasElement): HTMLCanvasElement {
 afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
+	vi.restoreAllMocks();
 	FakeWorker.instances.length = 0;
+	useNotificationStore.setState({ notifications: [] });
 });
 
 describe("DirectBackend (no OffscreenCanvas support)", () => {
@@ -169,6 +174,60 @@ describe("DirectBackend (no OffscreenCanvas support)", () => {
 		await vi.dynamicImportSettled();
 		expect(gl.clear).toHaveBeenCalledTimes(1);
 		expect(gl.drawArraysInstanced).toHaveBeenCalled();
+		releaseRenderBackend(canvas);
+	});
+
+	it("reports a missing WebGL2 context to the host", async () => {
+		const canvas = makeCanvasMock(null);
+		const onFailure = vi.fn();
+		const backend = acquireRenderBackend(canvas, viewport, [1, 1, 1], onFailure);
+		await vi.dynamicImportSettled();
+		expect(onFailure).toHaveBeenCalledExactlyOnceWith("no-webgl2");
+		// Still a working no-op for the host's calls.
+		backend.setSeries([makeSeries()]);
+		backend.redraw([], [], false, null);
+
+		// A StrictMode remount re-attaches and hears about it again.
+		releaseRenderBackend(canvas);
+		const again = vi.fn();
+		expect(acquireRenderBackend(canvas, viewport, [1, 1, 1], again)).toBe(
+			backend,
+		);
+		expect(again).toHaveBeenCalledWith("no-webgl2");
+		releaseRenderBackend(canvas);
+	});
+
+	it("reports a context that cannot be rebuilt after a loss", async () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const ext = makeLoseContextExt(canvas);
+		const onFailure = vi.fn();
+		acquireRenderBackend(canvas, viewport, [1, 1, 1], onFailure);
+		await vi.dynamicImportSettled();
+		expect(onFailure).not.toHaveBeenCalled();
+
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		ext.loseContext();
+		gl.getShaderParameter.mockReturnValue(false);
+		ext.restoreContext();
+		expect(onFailure).toHaveBeenCalledExactlyOnceWith("shader");
+		releaseRenderBackend(canvas);
+	});
+
+	it("offers a reload when the renderer module fails to load", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.doMock("../directBackend", () => {
+			throw new Error("chunk gone");
+		});
+		const canvas = makeCanvasMock(makeGl2Mock());
+		acquireRenderBackend(canvas, viewport, [1, 1, 1]);
+		await vi.waitFor(() =>
+			expect(useNotificationStore.getState().notifications).toHaveLength(1),
+		);
+		vi.doUnmock("../directBackend");
+		const [toast] = useNotificationStore.getState().notifications;
+		expect(toast.kind).toBe("error");
+		expect(toast.action?.label).toBe("Reload");
 		releaseRenderBackend(canvas);
 	});
 
@@ -309,6 +368,42 @@ describe("WorkerBackend protocol", () => {
 		expect(frame.t).toBe("frame");
 		expect(frame.overlay).toBeUndefined();
 		expect(frame.labels).toBeUndefined();
+		releaseRenderBackend(canvas);
+	});
+
+	it("relays a renderer failure reported by the worker", () => {
+		const onFailure = vi.fn();
+		vi.stubGlobal("Worker", FakeWorker);
+		const canvas = withOffscreen(makeCanvasMock(null));
+		acquireRenderBackend(canvas, viewport, [0, 0, 0], onFailure);
+		const worker = FakeWorker.instances[0];
+
+		worker.onmessage?.({ data: { t: "failure", reason: "no-webgl2" } });
+		worker.onmessage?.({ data: { t: "failure", reason: "shader" } });
+		// The first failure is the one that counts.
+		expect(onFailure).toHaveBeenCalledExactlyOnceWith("no-webgl2");
+		releaseRenderBackend(canvas);
+	});
+
+	it("toasts a worker crash once, with a reload action", () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const { worker, canvas } = makeWorkerBackend();
+		// Stubbed only now: the worker URL is resolved against location.
+		const reload = vi.fn();
+		vi.stubGlobal("location", { reload });
+		const crash = { message: "boom", preventDefault: vi.fn() };
+
+		worker.onerror?.(crash);
+		worker.onerror?.(crash);
+
+		// Cancelled, so the window's global error handler does not toast too.
+		expect(crash.preventDefault).toHaveBeenCalledTimes(2);
+		const { notifications } = useNotificationStore.getState();
+		expect(notifications).toHaveLength(1);
+		expect(notifications[0].kind).toBe("error");
+		expect(notifications[0].message).toContain("renderer crashed");
+		notifications[0].action?.onAction();
+		expect(reload).toHaveBeenCalled();
 		releaseRenderBackend(canvas);
 	});
 

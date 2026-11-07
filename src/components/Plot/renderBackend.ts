@@ -16,6 +16,10 @@
  * lost, and on restore the core is rebuilt (`RendererCore.restore`) from
  * the inputs it already holds and redrawn — see `contextLoss.ts`.
  *
+ * When the renderer cannot start at all (no WebGL2, shaders rejected) the
+ * backend reports a `RenderFailure` so the host can explain the blank plot;
+ * a crashed render worker is surfaced as an error toast.
+ *
  * `acquireRenderBackend`/`releaseRenderBackend` make backend ownership safe
  * under React StrictMode's mount → cleanup → mount cycle: a canvas can only
  * be transferred to an OffscreenCanvas once, so release defers disposal by a
@@ -24,14 +28,17 @@
 
 import type {
 	RenderWorkerRequest,
+	RenderWorkerResponse,
 	WorkerSeriesMsg,
 } from "../../workers/render.worker";
+import { notify } from "../../store/useNotificationStore";
 import { getAxisById } from "../../utils/axisCalculations";
 import { displayLocale } from "../../utils/displayFormat";
 import { logger } from "../../utils/logger";
 import { sizeCanvasToViewport } from "./canvasSize";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
+import { FailureSignal, type RenderFailureListener } from "./renderFailure";
 import type {
 	RenderAxis,
 	RendererSeriesInput,
@@ -55,6 +62,11 @@ export interface RenderBackend {
 	 */
 	sceneShared(): boolean;
 	setSceneContext(ctx: SceneContext): void;
+	/**
+	 * Sets the listener for a renderer that could not start; a failure that
+	 * already happened is replayed to it.
+	 */
+	onFailure(listener: RenderFailureListener): void;
 	redraw(
 		xAxes: RenderAxis[],
 		yAxes: RenderAxis[],
@@ -78,6 +90,7 @@ class LazyDirectBackend implements RenderBackend {
 	private readonly canvas: HTMLCanvasElement;
 	private viewport: RendererViewport;
 	private plotBg: number[];
+	private readonly failure = new FailureSignal();
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -91,6 +104,7 @@ class LazyDirectBackend implements RenderBackend {
 			({ DirectBackend }) => {
 				if (this.disposed) return;
 				const b = new DirectBackend(this.canvas, this.viewport, this.plotBg);
+				b.onFailure((f) => this.failure.report(f));
 				if (this.series) b.setSeries(this.series);
 				if (this.overlay) b.setOverlay(this.overlay);
 				if (this.labels) b.setLabels(this.labels);
@@ -98,7 +112,14 @@ class LazyDirectBackend implements RenderBackend {
 				this.series = this.overlay = this.labels = this.frame = null;
 				this.backend = b;
 			},
-			(err) => logger.error("Main-thread renderer failed to load:", err),
+			(err) => {
+				logger.error("Main-thread renderer failed to load:", err);
+				notify({
+					kind: "error",
+					message: "The chart renderer failed to load. Reload to try again.",
+					action: { label: "Reload", onAction: () => location.reload() },
+				});
+			},
 		);
 	}
 
@@ -133,6 +154,10 @@ class LazyDirectBackend implements RenderBackend {
 	}
 
 	setSceneContext(): void {}
+
+	onFailure(listener: RenderFailureListener): void {
+		this.failure.listen(listener);
+	}
 
 	redraw(...args: Parameters<RenderBackend["redraw"]>): void {
 		if (this.backend) return this.backend.redraw(...args);
@@ -198,6 +223,8 @@ class WorkerBackend implements RenderBackend {
 	private lastInteracting = false;
 	private rangeScratchX: { min: number; max: number }[] = [];
 	private rangeScratchY: { min: number; max: number }[] = [];
+	private readonly failure = new FailureSignal();
+	private crashReported = false;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -207,8 +234,22 @@ class WorkerBackend implements RenderBackend {
 	) {
 		const offscreen = canvas.transferControlToOffscreen();
 		this.worker = createWorker();
+		this.worker.onmessage = (ev: MessageEvent<RenderWorkerResponse>) => {
+			if (ev.data.t === "failure") this.failure.report(ev.data.reason);
+		};
 		this.worker.onerror = (ev) => {
 			logger.error("Render worker error:", ev.message ?? ev);
+			// Handled here: uncancelled, the error would also reach the window's
+			// error handler and be toasted a second time.
+			ev.preventDefault();
+			if (this.crashReported) return;
+			this.crashReported = true;
+			notify({
+				kind: "error",
+				message:
+					"The chart renderer crashed, so the plot no longer updates. Reload to restart it.",
+				action: { label: "Reload", onAction: () => location.reload() },
+			});
 		};
 		let viewportSab: SharedArrayBuffer | undefined;
 		if (
@@ -296,6 +337,10 @@ class WorkerBackend implements RenderBackend {
 		// has a scene context — until then the host has to supply overlay and
 		// labels itself, or the first frames would draw bare series.
 		return this.writer !== null || this.sceneVersion > 0;
+	}
+
+	onFailure(listener: RenderFailureListener): void {
+		this.failure.listen(listener);
 	}
 
 	setSceneContext(ctx: SceneContext): void {
@@ -429,11 +474,14 @@ const disposeTimers = new WeakMap<
 /**
  * Get (or create) the backend bound to this canvas element. Cancels any
  * disposal scheduled by a StrictMode cleanup for the same canvas.
+ * `onFailure` hears when the renderer cannot start, also when it already
+ * failed before this call.
  */
 export function acquireRenderBackend(
 	canvas: HTMLCanvasElement,
 	viewport: RendererViewport,
 	plotBg: number[],
+	onFailure?: RenderFailureListener,
 ): RenderBackend {
 	const pending = disposeTimers.get(canvas);
 	if (pending !== undefined) {
@@ -445,6 +493,7 @@ export function acquireRenderBackend(
 		backend = createBackend(canvas, viewport, plotBg);
 		backendByCanvas.set(canvas, backend);
 	}
+	if (onFailure) backend.onFailure(onFailure);
 	return backend;
 }
 

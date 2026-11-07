@@ -21,6 +21,9 @@
  * On WebGL context loss drawing stops (the shared-viewport loop parks); on
  * restore the core is rebuilt from its last inputs — including the columns
  * still mirrored here, which re-upload lazily — and the last frame redrawn.
+ *
+ * The only message back to the host is a `failure` when the core cannot be
+ * built (no WebGL2, shaders rejected), so the host can explain the blank plot.
  */
 
 import { watchContextLoss } from "../components/Plot/contextLoss";
@@ -30,6 +33,7 @@ import {
 	createFrameSceneCaches,
 	type SceneContext,
 } from "../components/Plot/frameScene";
+import type { RenderFailure } from "../components/Plot/renderFailure";
 import {
 	type RenderAxis,
 	RendererCore,
@@ -101,6 +105,13 @@ export type RenderWorkerRequest =
 	 */
 	| { t: "simulateContextLoss"; restore: boolean }
 	| { t: "dispose" };
+
+export type RenderWorkerResponse = { t: "failure"; reason: RenderFailure };
+
+function reportFailure(reason: RenderFailure): void {
+	const msg: RenderWorkerResponse = { t: "failure", reason };
+	self.postMessage(msg);
+}
 
 let canvas: OffscreenCanvas | null = null;
 let core: RendererCore | null = null;
@@ -281,7 +292,7 @@ function onContextLost(): void {
 
 function onContextRestored(): void {
 	contextLost = false;
-	if (canvas && core) core = RendererCore.restore(canvas, core);
+	if (canvas && core) core = RendererCore.restore(canvas, core, reportFailure);
 	if (latestFrame) scheduleDraw();
 	sceneDirty = true;
 	wakeSharedLoop();
@@ -334,7 +345,7 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 				lost: onContextLost,
 				restored: onContextRestored,
 			});
-			core = RendererCore.create(msg.canvas);
+			core = RendererCore.create(msg.canvas, reportFailure);
 			core?.setViewport(msg.viewport);
 			core?.setPlotBg(msg.plotBg);
 			// A fresh canvas means a fresh host: nothing from a previous one
