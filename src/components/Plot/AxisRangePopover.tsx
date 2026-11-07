@@ -7,6 +7,7 @@ import {
 	type RangeField,
 	validateAxisRange,
 } from "../../utils/axisRange";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 import "./AxisRangePopover.css";
 
 export interface AxisRangePopoverProps {
@@ -38,7 +39,7 @@ export default function AxisRangePopover({
 	const [error, setError] = useState<{ field: RangeField; text: string } | null>(
 		null,
 	);
-	const rootRef = useRef<HTMLFormElement>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
 	const minRef = useRef<HTMLInputElement>(null);
 	const maxRef = useRef<HTMLInputElement>(null);
 	const errorId = useId();
@@ -78,6 +79,10 @@ export default function AxisRangePopover({
 		setValue: (v: string) => void,
 	) => {
 		const invalid = error?.field === label.toLowerCase();
+		const end = label === "Min" ? "Lower" : "Upper";
+		const accepts = isDate
+			? "a number or a date like 2024-03-05 12:30"
+			: "a number";
 		return (
 			<label className="axis-range-field">
 				<span>{label}</span>
@@ -88,6 +93,7 @@ export default function AxisRangePopover({
 					spellCheck={false}
 					autoComplete="off"
 					aria-invalid={invalid || undefined}
+					aria-description={`${end} end of the range: ${accepts}${log ? ", above 0 on this log axis" : ""}`}
 					aria-describedby={invalid ? errorId : undefined}
 					onChange={(e) => {
 						setValue(e.target.value);
@@ -98,18 +104,14 @@ export default function AxisRangePopover({
 		);
 	};
 
+	// The dialog role sits on a wrapper: ARIA in HTML does not allow it on <form>.
 	return (
-		<form
+		<div
 			ref={rootRef}
 			role="dialog"
 			aria-label={`Range of ${axisName}`}
 			className="axis-range-popover"
 			style={style}
-			noValidate
-			onSubmit={(e) => {
-				e.preventDefault();
-				submit();
-			}}
 			onKeyDown={(e) => {
 				// Keys typed here belong to the form, not to the chart shortcuts.
 				e.stopPropagation();
@@ -124,21 +126,39 @@ export default function AxisRangePopover({
 			onWheel={(e) => e.stopPropagation()}
 			onContextMenu={(e) => e.stopPropagation()}
 		>
-			{field("Min", minRef, minText, setMinText)}
-			{field("Max", maxRef, maxText, setMaxText)}
-			{error && (
-				<div id={errorId} className="axis-range-error" role="alert">
-					{error.text}
+			<form
+				className="axis-range-form"
+				noValidate
+				onSubmit={(e) => {
+					e.preventDefault();
+					submit();
+				}}
+			>
+				{field("Min", minRef, minText, setMinText)}
+				{field("Max", maxRef, maxText, setMaxText)}
+				{error && (
+					<div id={errorId} className="axis-range-error" role="alert">
+						{error.text}
+					</div>
+				)}
+				<div className="axis-range-actions">
+					<button
+						type="button"
+						className="axis-range-btn"
+						onClick={onCancel}
+						aria-description={`Keeps the current range (${shortcutHint(SHORTCUTS.closeDialog)})`}
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						className="axis-range-btn axis-range-btn--primary"
+						aria-description={`Sets ${axisName} to this range; ${shortcutHint(SHORTCUTS.viewBack)} returns to the previous view`}
+					>
+						Apply
+					</button>
 				</div>
-			)}
-			<div className="axis-range-actions">
-				<button type="button" className="axis-range-btn" onClick={onCancel}>
-					Cancel
-				</button>
-				<button type="submit" className="axis-range-btn axis-range-btn--primary">
-					Apply
-				</button>
-			</div>
-		</form>
+			</form>
+		</div>
 	);
 }

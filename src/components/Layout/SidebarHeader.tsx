@@ -17,6 +17,7 @@ import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { useTheme } from "../../hooks/useTheme";
 import { THEME_CYCLE, type ThemeName } from "../../themes";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { ExportMenu } from "./ExportMenu";
 
@@ -80,19 +81,26 @@ const THEME_PICKER_OPTIONS: PopupPickerOption<ThemeName>[] = THEME_CYCLE.map(
 		value: t,
 		icon: THEME_POPUP_ICONS[t],
 		label: THEME_LABELS[t],
+		description: "Applies this color theme to the app and the chart",
 	}),
 );
+
+const COLLAPSE_DESCRIPTION =
+	"Hides the sidebar so the chart fills the window; the logo button brings it back";
 
 const HeaderButton = ({
 	onClick,
 	icon,
 	title,
+	description,
 	color,
 	off,
 }: {
 	onClick: () => void;
 	icon: React.ReactNode;
 	title: string;
+	/** What the button does beyond its name, for assistive technology. */
+	description: string;
 	color?: string;
 	off?: boolean;
 }) => (
@@ -101,6 +109,7 @@ const HeaderButton = ({
 		onClick={onClick}
 		title={title}
 		aria-label={title}
+		aria-description={description}
 		className={off ? "sb-hdr-btn sb-hdr-btn--off" : "sb-hdr-btn"}
 		style={color ? { color } : undefined}
 	>
@@ -158,6 +167,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				className="sb-logo-btn"
 				onClick={onCollapse}
 				aria-label="Collapse Sidebar"
+				aria-description={COLLAPSE_DESCRIPTION}
 			>
 				<img src="./favicon.svg" className="sb-logo" alt="webgraphy logo" />
 			</button>
@@ -165,6 +175,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				onClick={onImport}
 				icon={<FilePlus size={24} />}
 				title="Import Data Source"
+				description={`Opens a CSV, JSON or Excel file, or a saved session. You can also drop a file anywhere or paste spreadsheet cells (${shortcutHint(SHORTCUTS.pasteData)})`}
 			/>
 			<div className="sb-hdr-btns">
 				{hdrSep}
@@ -182,6 +193,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					onClick={() => setDataTableOpen(true)}
 					icon={<Table size={24} />}
 					title="View Data"
+					description="Shows the plotted values as a table to copy or export as CSV"
 				/>
 				{hdrSep}
 				<span className="sb-spacer" />
@@ -194,18 +206,21 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					}}
 					icon={<Columns3 size={24} />}
 					title={verticalGrid ? "Hide Vertical Grid" : "Show Vertical Grid"}
+					description="Grid lines at the X axis ticks, for every X axis in use"
 					off={!verticalGrid}
 				/>
 				<HeaderButton
 					onClick={() => setCrosshairVisible(!crosshairVisible)}
 					icon={<Crosshair size={24} />}
 					title={crosshairVisible ? "Hide Crosshair" : "Show Crosshair"}
+					description={`Pointer lines with a tooltip of the nearest values; ${shortcutHint(SHORTCUTS.copyTooltip)} copies the tooltip`}
 					off={!crosshairVisible}
 				/>
 				<HeaderButton
 					onClick={() => setLegendVisible(!legendVisible)}
 					icon={<List size={24} />}
 					title={legendVisible ? "Hide Legend" : "Show Legend"}
+					description="List of series on the chart; its entries hide or show their series"
 					off={!legendVisible}
 				/>
 				<PopupPicker
@@ -213,13 +228,16 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					current={themeName}
 					onChange={setTheme}
 					popoverId="theme-popover"
-					renderTrigger={({ onClick, ref }) => (
+					label="Theme"
+					renderTrigger={({ onClick, ref, popupProps }) => (
 						<button
 							ref={ref}
 							type="button"
 							onClick={onClick}
 							title={`Theme: ${THEME_LABELS[themeName]} (click to change)`}
 							aria-label={`Theme: ${THEME_LABELS[themeName]}`}
+							aria-description="Opens the list of color themes"
+							{...popupProps}
 							className="sb-hdr-btn"
 						>
 							{THEME_ICONS[themeName]}
@@ -231,6 +249,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					onClick={onCollapse}
 					icon={<PanelRightClose size={24} />}
 					title="Collapse Sidebar"
+					description={COLLAPSE_DESCRIPTION}
 				/>
 			</div>
 			<Suspense fallback={null}>

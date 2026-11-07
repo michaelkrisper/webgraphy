@@ -121,6 +121,11 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 					className="legend-item"
 					style={{ opacity: s.hidden ? 0.35 : 1, transition: "opacity 0.15s" }}
 					aria-label={`Toggle visibility for ${s.name}`}
+					aria-description={
+						s.hidden
+							? "Hidden; draws the series on the chart again"
+							: "Shown; takes the series off the chart until toggled back"
+					}
 				>
 					<svg width="20" height="10" className="legend-line-icon">
 						<title>{s.name} line icon</title>

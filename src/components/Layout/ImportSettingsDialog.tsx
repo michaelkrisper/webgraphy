@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Clock, EyeOff, Hash, Tag } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type {
 	ColumnConfig,
@@ -20,10 +20,30 @@ import {
 import "./ImportSettingsDialog.css";
 
 const TYPE_OPTIONS_META = [
-	{ type: "numeric" as const, icon: Hash, label: "Numeric" },
-	{ type: "date" as const, icon: Clock, label: "Date/Time" },
-	{ type: "categorical" as const, icon: Tag, label: "Categorical" },
-	{ type: "ignore" as const, icon: EyeOff, label: "Ignore" },
+	{
+		type: "numeric" as const,
+		icon: Hash,
+		label: "Numeric",
+		description: "Imports the values as numbers",
+	},
+	{
+		type: "date" as const,
+		icon: Clock,
+		label: "Date/Time",
+		description: "Reads the values as dates and times",
+	},
+	{
+		type: "categorical" as const,
+		icon: Tag,
+		label: "Categorical",
+		description: "Imports text values as categories",
+	},
+	{
+		type: "ignore" as const,
+		icon: EyeOff,
+		label: "Ignore",
+		description: "Leaves the column out of the import",
+	},
 ];
 
 const TYPE_PICKER_OPTIONS: PopupPickerOption<ColumnType>[] =
@@ -31,6 +51,7 @@ const TYPE_PICKER_OPTIONS: PopupPickerOption<ColumnType>[] =
 		value: o.type,
 		icon: <o.icon size={14} />,
 		label: o.label,
+		description: o.description,
 	}));
 
 interface ImportSettingsDialogProps {
@@ -84,6 +105,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 	}
 	const [startRow, setStartRow] = useState<number>(1);
 	const [commentChar, setCommentChar] = useState<string>("#");
+	const hintId = useId();
 	// Stores per-column user overrides, keyed by column index
 	const [columnOverrides, setColumnOverrides] = useState<
 		Record<number, Partial<ColumnConfig>>
@@ -148,6 +170,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 				disabled={isImporting}
 				onClick={onCancel}
 				className="modal-btn"
+				aria-description="Closes the dialog without importing the file"
 			>
 				Cancel
 			</button>
@@ -155,6 +178,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 				type="button"
 				disabled={isImporting}
 				aria-busy={isImporting}
+				aria-description="Imports the file with these settings as a new data source"
 				onClick={() =>
 					onConfirm({
 						delimiter,
@@ -195,6 +219,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 			padding="0"
 			footer={footer}
 			closeDisabled={isImporting}
+			describedBy={hintId}
 		>
 			<div className="isd-body">
 				<div className="isd-general-fields">
@@ -206,6 +231,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								</label>
 								<select
 									id="import-sheet"
+									aria-description="Workbook sheet to import; the preview follows it"
 									value={selectedSheet}
 									onChange={(e) => onSheetChange?.(e.target.value)}
 									className="isd-select"
@@ -225,6 +251,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								</label>
 								<select
 									id="import-delimiter"
+									aria-description="Character between the values of a row; changing it re-detects the decimal point"
 									value={delimiter}
 									onChange={(e) => {
 										const newDelim = e.target.value;
@@ -247,6 +274,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								</label>
 								<select
 									id="import-decimal"
+									aria-description="Character before the fractional digits of numbers"
 									value={decimalPoint}
 									onChange={(e) => setDecimalPoint(e.target.value)}
 									className="isd-select"
@@ -279,6 +307,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 								</label>
 								<input
 									id="import-comment-char"
+									aria-description="Lines starting with this character are skipped"
 									type="text"
 									maxLength={1}
 									value={commentChar}
@@ -289,6 +318,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 							</div>
 						)}
 						<p
+							id={hintId}
 							style={{
 								margin: "0 0 0 auto",
 								fontSize: "0.8rem",
@@ -336,6 +366,12 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 														: `Click to use ${config.name} as the X axis`
 												}
 												className={`isd-col-name-btn${xAxisColumn === config.name ? " isd-col-name-btn--xaxis" : ""}`}
+												aria-pressed={xAxisColumn === config.name}
+												aria-description={
+													xAxisColumn === config.name
+														? "Used as the X axis of the imported data"
+														: "Uses this column as the X axis"
+												}
 											>
 												{config.name}
 											</button>
@@ -350,13 +386,16 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 														current={config.type}
 														onChange={(v) => handleUpdateColumn(i, { type: v })}
 														popoverId={`col-type-popover-${i}`}
-														renderTrigger={({ onClick, ref }) => (
+														label={`Type of ${config.name}`}
+														renderTrigger={({ onClick, ref, popupProps }) => (
 															<button
 																ref={ref}
 																type="button"
 																onClick={onClick}
 																title={`Type: ${meta.label}`}
 																className="isd-type-btn-trigger"
+																aria-description={`Type of column ${config.name}. Opens the column types`}
+																{...popupProps}
 															>
 																<Icon size={12} />
 																<span className="isd-type-btn-label">{meta.label}</span>
@@ -372,6 +411,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 													placeholder="YYYY-MM-DD"
 													maxLength={50}
 													aria-label={`Column ${i + 1} date format`}
+													aria-description="Pattern of the date values, e.g. YYYY-MM-DD; detected from the data"
 													value={config.dateFormat || ""}
 													onChange={(e) =>
 														handleUpdateColumn(i, {
@@ -388,6 +428,7 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 												>
 													<input
 														type="checkbox"
+														aria-description="Imports one dataset per distinct value of this column"
 														checked={splitByColumns.includes(config.name)}
 														onChange={(e) =>
 															setSplitByColumns((prev) =>

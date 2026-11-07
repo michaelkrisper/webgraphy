@@ -52,7 +52,13 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 		<ErrorBoundary level="component">
 			<section className="sb-section">
 				<div className="sb-section-header">
-					<button type="button" onClick={onToggle} className="sb-section-toggle">
+					<button
+						type="button"
+						onClick={onToggle}
+						className="sb-section-toggle"
+						aria-expanded={open}
+						aria-description="Shows or hides the imported datasets and their columns"
+					>
 						<h2 className="sb-section-title">Data Sources</h2>
 						{open ? (
 							<ChevronDown size={16} color="var(--text-muted-color)" />

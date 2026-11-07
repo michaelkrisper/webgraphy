@@ -61,6 +61,7 @@ const cases: Array<[string, () => React.ReactElement]> = [
 				title="Load demo data?"
 				message="Added alongside."
 				confirmLabel="Add alongside"
+				confirmDescription="Adds the demo dataset next to your data"
 				onConfirm={vi.fn()}
 				onCancel={vi.fn()}
 			/>

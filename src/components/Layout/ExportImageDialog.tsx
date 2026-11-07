@@ -76,11 +76,16 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 		onExport(options);
 	};
 
-	const formatRadio = (value: ImageExportOptions["format"], label: string) => (
+	const formatRadio = (
+		value: ImageExportOptions["format"],
+		label: string,
+		description: string,
+	) => (
 		<label className="xid-radio">
 			<input
 				type="radio"
 				name={`${id}-format`}
+				aria-description={description}
 				value={value}
 				checked={options.format === value}
 				onChange={() => set("format", value)}
@@ -90,11 +95,16 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 		</label>
 	);
 
-	const themeRadio = (value: ExportTheme, label: string) => (
+	const themeRadio = (
+		value: ExportTheme,
+		label: string,
+		description: string,
+	) => (
 		<label className="xid-radio">
 			<input
 				type="radio"
 				name={`${id}-theme`}
+				aria-description={description}
 				value={value}
 				checked={options.theme === value}
 				onChange={() => set("theme", value)}
@@ -110,7 +120,12 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 			maxWidth="460px"
 			footer={
 				<>
-					<button type="button" className="modal-btn" onClick={onClose}>
+					<button
+						type="button"
+						className="modal-btn"
+						onClick={onClose}
+						aria-description="Closes the dialog without exporting"
+					>
 						Cancel
 					</button>
 					<button
@@ -118,6 +133,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 						form={formId}
 						className="modal-btn modal-btn--primary"
 						disabled={!!error}
+						aria-description="Downloads the image; these options are kept for next time"
 					>
 						Export
 					</button>
@@ -133,8 +149,12 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 					role="radiogroup"
 					aria-labelledby={`${id}-format-label`}
 				>
-					{formatRadio("svg", "SVG (vector)")}
-					{formatRadio("png", "PNG (pixel)")}
+					{formatRadio("svg", "SVG (vector)", "Scalable image, sharp at any size")}
+					{formatRadio(
+						"png",
+						"PNG (pixel)",
+						"Pixel image at a chosen scale or print resolution",
+					)}
 				</div>
 
 				<label className="xid-label" htmlFor={`${id}-size`}>
@@ -142,6 +162,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 				</label>
 				<select
 					id={`${id}-size`}
+					aria-description="Preset output size, or Custom for your own width and height"
 					className="calc-input"
 					value={options.preset}
 					onChange={(e) => set("preset", e.target.value as SizePresetId)}
@@ -165,7 +186,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 								type="number"
 								className="calc-input xid-number"
 								aria-label="Width"
-								aria-describedby={`${id}-custom-label`}
+								aria-description="Custom width of the image, in the unit beside it"
 								min={1}
 								value={Number.isFinite(options.customWidth) ? options.customWidth : ""}
 								onChange={(e) => set("customWidth", e.target.valueAsNumber)}
@@ -175,7 +196,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 								type="number"
 								className="calc-input xid-number"
 								aria-label="Height"
-								aria-describedby={`${id}-custom-label`}
+								aria-description="Custom height of the image, in the unit beside it"
 								min={1}
 								value={
 									Number.isFinite(options.customHeight) ? options.customHeight : ""
@@ -185,6 +206,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 							<select
 								className="calc-input xid-unit"
 								aria-label="Unit"
+								aria-description="Pixels, or millimetres for print sizes"
 								value={options.customUnit}
 								onChange={(e) => set("customUnit", e.target.value as SizeUnit)}
 							>
@@ -203,6 +225,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 						<div className="xid-row">
 							<input
 								id={`${id}-dpi`}
+								aria-description={`Dots per inch for the millimetre size, ${MIN_DPI} to ${MAX_DPI}`}
 								type="number"
 								className="calc-input xid-number"
 								min={MIN_DPI}
@@ -222,6 +245,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 						</label>
 						<select
 							id={`${id}-scale`}
+							aria-description="Pixel multiplier of the export size, e.g. 2× for high-density screens"
 							className="calc-input"
 							value={options.scale}
 							onChange={(e) => set("scale", Number(e.target.value) as PngScale)}
@@ -252,6 +276,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 						<input
 							type="checkbox"
 							aria-label="Include legend"
+							aria-description="Draws the series legend into the image"
 							checked={options.legend}
 							onChange={(e) => set("legend", e.target.checked)}
 						/>
@@ -260,6 +285,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 					<select
 						className="calc-input"
 						aria-label="Legend position"
+						aria-description="Where the legend is placed in the image"
 						value={options.legendPosition}
 						disabled={!options.legend}
 						onChange={(e) => set("legendPosition", e.target.value as LegendPosition)}
@@ -277,6 +303,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 				</label>
 				<input
 					id={`${id}-title`}
+					aria-description="Heading drawn above the chart; leave empty for none"
 					type="text"
 					className="calc-input"
 					placeholder="None"
@@ -293,8 +320,12 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 					role="radiogroup"
 					aria-labelledby={`${id}-theme-label`}
 				>
-					{themeRadio("light", "Light")}
-					{themeRadio("current", "Current theme")}
+					{themeRadio(
+						"light",
+						"Light",
+						"Light colors, whatever theme the app shows",
+					)}
+					{themeRadio("current", "Current theme", "The colors the app shows now")}
 				</div>
 
 				<span className="xid-label">Background</span>
@@ -302,6 +333,7 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 					<input
 						type="checkbox"
 						aria-label="Transparent background"
+						aria-description="Leaves the background empty instead of filling it with the theme color"
 						checked={options.transparent}
 						onChange={(e) => set("transparent", e.target.checked)}
 					/>

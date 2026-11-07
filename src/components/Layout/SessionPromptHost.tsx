@@ -17,6 +17,7 @@ export function SessionPromptHost() {
 				title="Open session?"
 				message={`Opening "${prompt.fileName}" (${prompt.summary}) replaces all current datasets, series and axes. You can undo this with Ctrl+Z.`}
 				confirmLabel="Replace workspace"
+				confirmDescription="Replaces all datasets, series and axes with the session's"
 				onConfirm={confirm}
 				onCancel={cancel}
 			/>

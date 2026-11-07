@@ -7,7 +7,7 @@ import {
 	XAxisInteractionZones,
 	YAxisInteractionZones,
 } from "../AxisInteractionZones";
-import { axisZoneLabel } from "../axisZoneLabel";
+import { axisZoneDescription, axisZoneLabel } from "../axisZoneLabel";
 import type { XAxisLayout } from "../chartTypes";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -90,13 +90,13 @@ function mockYStore(title?: string) {
 describe("axis zone keyboard access", () => {
 	beforeEach(() => vi.clearAllMocks());
 
-	it("names each zone after its axis and the keys it takes", () => {
-		expect(axisZoneLabel("x", "axis-1", "Time")).toBe(
-			"X axis 1: Time — arrows pan, +/- zoom, A autoscale, R range, Enter rename",
+	it("names each zone after its axis and describes the keys it takes", () => {
+		expect(axisZoneLabel("x", "axis-1", "Time")).toBe("X axis 1: Time");
+		expect(axisZoneLabel("y", "axis-3", "")).toBe("Y axis 3");
+		expect(axisZoneDescription("x")).toBe(
+			"←/→ pan, +/- zoom, A auto-scales, R or right-click sets an exact range, Enter renames. Drag or scroll to pan and zoom only this axis",
 		);
-		expect(axisZoneLabel("y", "axis-3", "")).toBe(
-			"Y axis 3 — arrows pan, +/- zoom, A autoscale, R range, Enter rename",
-		);
+		expect(axisZoneDescription("y")).toMatch(/^↑\/↓ pan, /);
 	});
 
 	it("makes visible zones focusable groups, not landmarks", () => {

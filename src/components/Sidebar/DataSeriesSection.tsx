@@ -110,7 +110,13 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 	return (
 		<section className="sb-section">
 			<div className="sb-section-header">
-				<button type="button" onClick={onToggle} className="sb-section-toggle">
+				<button
+					type="button"
+					onClick={onToggle}
+					className="sb-section-toggle"
+					aria-expanded={open}
+					aria-description="Shows or hides the list of plotted series and their settings"
+				>
 					<h2 className="sb-section-title">Data Series</h2>
 					{open ? (
 						<ChevronDown size={16} color="var(--text-muted-color)" />

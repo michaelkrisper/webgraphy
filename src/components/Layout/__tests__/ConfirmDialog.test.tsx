@@ -11,6 +11,7 @@ function setup() {
 			title="Load demo data?"
 			message="It is added alongside."
 			confirmLabel="Add alongside"
+			confirmDescription="Adds the demo dataset next to your data"
 			onConfirm={onConfirm}
 			onCancel={onCancel}
 		/>,

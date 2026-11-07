@@ -1,5 +1,5 @@
 import { ClipboardCopy, Download } from "lucide-react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import {
 	type ExportFeedback,
 	exportVisibleCsv,
@@ -37,6 +37,7 @@ export function PlotDataTableModal({
 	onClose,
 	feedback,
 }: Props) {
+	const noteId = useId();
 	const tables = useMemo(
 		() => buildPlotDataTable({ series, datasets, xAxes }),
 		[series, datasets, xAxes],
@@ -67,6 +68,7 @@ export function PlotDataTableModal({
 				className="modal-btn"
 				onClick={copyTable}
 				disabled={tables.length === 0}
+				aria-description="Copies the tables as tab-separated text to paste into a spreadsheet"
 			>
 				<ClipboardCopy size={14} aria-hidden="true" />
 				Copy table
@@ -92,8 +94,9 @@ export function PlotDataTableModal({
 			title="Plotted data"
 			ariaLabel="Close plotted data"
 			maxWidth="720px"
+			describedBy={noteId}
 		>
-			<p className="plot-data-note">
+			<p id={noteId} className="plot-data-note">
 				The visible section of each series, sampled exactly as the chart draws it —
 				at most {MAX_TABLE_ROWS} rows per series.
 			</p>

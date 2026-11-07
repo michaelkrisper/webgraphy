@@ -27,18 +27,45 @@ interface ExportMenuProps {
 type MenuAction = "open" | "save" | "image" | "svg" | "png" | "csv";
 
 const SESSION_OPTIONS: PopupPickerOption<MenuAction>[] = [
-	{ value: "open", icon: <FolderOpen size={16} />, label: "Open session…" },
-	{ value: "save", icon: <Save size={16} />, label: "Save session…" },
+	{
+		value: "open",
+		icon: <FolderOpen size={16} />,
+		label: "Open session…",
+		description: "Replaces the workspace with a saved .webgraphy session file",
+	},
+	{
+		value: "save",
+		icon: <Save size={16} />,
+		label: "Save session…",
+		description:
+			"Downloads all datasets, series and axes as one .webgraphy session file",
+	},
 ];
 
 const EXPORT_OPTIONS: PopupPickerOption<MenuAction>[] = [
-	{ value: "image", icon: <ImageDown size={16} />, label: "Export image…" },
-	{ value: "svg", icon: <Spline size={16} />, label: "Export as SVG (vector)" },
-	{ value: "png", icon: <Grid3x3 size={16} />, label: "Export as PNG (pixel)" },
+	{
+		value: "image",
+		icon: <ImageDown size={16} />,
+		label: "Export image…",
+		description: "Opens the export options: format, size, legend, title, theme",
+	},
+	{
+		value: "svg",
+		icon: <Spline size={16} />,
+		label: "Export as SVG (vector)",
+		description: "Downloads the chart at its on-screen size as a vector image",
+	},
+	{
+		value: "png",
+		icon: <Grid3x3 size={16} />,
+		label: "Export as PNG (pixel)",
+		description: "Downloads the chart at its on-screen size as a pixel image",
+	},
 	{
 		value: "csv",
 		icon: <FileSpreadsheet size={16} />,
 		label: "Export visible data as CSV",
+		description: "Downloads every row in the visible range as a CSV file",
 	},
 ];
 
@@ -70,14 +97,21 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
 				else if (v === "csv") onExportCSV();
 			}}
 			popoverId="export-popover"
+			label={title}
 			minWidth={withSessions ? 200 : undefined}
-			renderTrigger={({ onClick, ref }) => (
+			renderTrigger={({ onClick, ref, popupProps }) => (
 				<button
 					ref={ref}
 					type="button"
 					onClick={onClick}
 					title={title}
 					aria-label={title}
+					aria-description={
+						withSessions
+							? "Opens a menu to open or save a session and to export the chart or the visible data"
+							: "Opens a menu to export the chart as an image or the visible data as CSV"
+					}
+					{...popupProps}
 					className={className}
 				>
 					{withSessions ? <Save size={iconSize} /> : <Image size={iconSize} />}

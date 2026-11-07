@@ -11,6 +11,7 @@ import type {
 	YAxisConfig,
 } from "../../../services/persistence";
 import { formatCount } from "../../../utils/displayFormat";
+import { SHORTCUTS, shortcutHint } from "../../../utils/shortcuts";
 import { swatchStyle } from "../crosshair/swatch";
 import { buildReadout, DASH, formatNumber } from "./measureFormat";
 import type { Pin } from "./pins";
@@ -37,14 +38,16 @@ const Swatch: React.FC<{ color: string; lineStyle: string }> = ({
 const PanelHeader: React.FC<{
 	title: string;
 	closeLabel: string;
+	closeDescription: string;
 	onClose: () => void;
-}> = ({ title, closeLabel, onClose }) => (
+}> = ({ title, closeLabel, closeDescription, onClose }) => (
 	<div className="measure-panel-header">
 		<span className="measure-panel-title">{title}</span>
 		<button
 			type="button"
 			className="measure-panel-close"
 			aria-label={closeLabel}
+			aria-description={closeDescription}
 			onClick={onClose}
 		>
 			<X size={12} />
@@ -78,6 +81,7 @@ export const MeasureReadout: React.FC<ReadoutProps> = ({
 			<PanelHeader
 				title={r.hasB ? "Cursors A → B" : "Cursor A — click to set B"}
 				closeLabel="Clear cursors"
+				closeDescription={`Removes cursors A and B and this readout (${shortcutHint(SHORTCUTS.clearPins)})`}
 				onClose={onClose}
 			/>
 			<table className="measure-table">
@@ -172,6 +176,7 @@ export const StatsPanel: React.FC<StatsProps> = ({
 			<PanelHeader
 				title="Visible range"
 				closeLabel="Close statistics"
+				closeDescription={`Hides the visible range statistics (${shortcutHint(SHORTCUTS.toggleStats)} shows them again)`}
 				onClose={onClose}
 			/>
 			<table className="measure-table">

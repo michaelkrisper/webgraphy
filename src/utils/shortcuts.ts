@@ -215,8 +215,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 	);
 }
 
-// Modal dialogs, the axis range popover (role="dialog") and the portalled
-// picker popovers, which carry no ARIA marker of their own.
+// Modal dialogs, the axis range popover and the portalled picker popovers
+// (all role="dialog"; the popovers are matched by class as well).
 const KEYBOARD_OWNERS =
 	'[aria-modal="true"], [role="dialog"], .popup-picker-popover, .color-picker-popover';
 

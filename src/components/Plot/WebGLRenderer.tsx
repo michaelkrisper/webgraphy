@@ -17,7 +17,7 @@ import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
 import { exactPixelSize } from "../../hooks/useDevicePixelSize";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
-import { describeChart } from "./chartDescription";
+import { CHART_KEYS_DESCRIPTION, describeChart } from "./chartDescription";
 import type { OverlayState } from "./drawOverlay";
 import type { SceneContext } from "./frameScene";
 import {
@@ -287,6 +287,7 @@ export const WebGLRenderer = React.memo(
 					role="img"
 					tabIndex={0}
 					aria-label={ariaLabel}
+					aria-description={CHART_KEYS_DESCRIPTION}
 					style={{ display: "block", width: "100%", height: "100%" }}
 				/>
 				{failure && <RenderFailureNotice failure={failure} padding={padding} />}
