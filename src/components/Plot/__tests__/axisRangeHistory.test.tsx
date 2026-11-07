@@ -97,7 +97,8 @@ async function enterRange(min: string, max: string) {
 	fireEvent.change(screen.getByRole("textbox", { name: "Max" }), {
 		target: { value: max },
 	});
-	fireEvent.submit(dialog);
+	// The dialog wraps the form (ARIA in HTML does not allow role=dialog on it).
+	fireEvent.submit(dialog.querySelector("form") as HTMLFormElement);
 	return dialog;
 }
 

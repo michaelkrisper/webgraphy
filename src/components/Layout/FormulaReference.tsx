@@ -142,7 +142,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 			<div className="formula-ref-body">
 				{matchedConstants.length > 0 && (
 					<section className="formula-ref-section">
-						<h4 className="formula-ref-section-title">Constants</h4>
+						<h3 className="formula-ref-section-title">Constants</h3>
 						<ul className="formula-ref-list">
 							{matchedConstants.map((c) => (
 								<li key={c.name} className="formula-ref-item">
@@ -167,7 +167,7 @@ export const FormulaReference: React.FC<FormulaReferenceProps> = ({
 					if (!items.length) return null;
 					return (
 						<section key={cat} className="formula-ref-section">
-							<h4 className="formula-ref-section-title">{CATEGORY_LABELS[cat]}</h4>
+							<h3 className="formula-ref-section-title">{CATEGORY_LABELS[cat]}</h3>
 							<ul className="formula-ref-list">
 								{items.map((f) => (
 									<li key={f.name} className="formula-ref-item">
