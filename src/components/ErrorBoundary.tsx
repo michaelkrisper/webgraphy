@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 import React from "react";
 import { persistence } from "../services/persistence";
 
+// Instead of `autoFocus`: Preact only sets the attribute, which browsers
+// ignore on elements inserted after page load.
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
+
 interface Props {
 	children: ReactNode;
 	level?: "top" | "component";
@@ -112,7 +116,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 				>
 					<button
 						type="button"
-						autoFocus
+						ref={focusOnMount}
 						disabled={busy}
 						onClick={() => this.setState({ reset: "idle" })}
 						style={{ padding: "10px 20px" }}

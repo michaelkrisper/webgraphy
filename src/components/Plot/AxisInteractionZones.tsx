@@ -375,7 +375,7 @@ export function YAxisInteractionZones({
 						/>
 						{editingId === a.id && (
 							<input
-								autoFocus
+								ref={focusOnMount}
 								aria-label={`Rename Y axis ${a.id.replace(/^axis-/, "")}`}
 								defaultValue={title}
 								onBlur={(e) => {

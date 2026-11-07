@@ -19,5 +19,15 @@ export default defineConfig([
 			ecmaVersion: 2020,
 			globals: globals.browser,
 		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "JSXAttribute[name.name='autoFocus']",
+					message:
+						"Preact ignores autoFocus on elements mounted after page load; focus via a ref callback instead.",
+				},
+			],
+		},
 	},
 ]);
