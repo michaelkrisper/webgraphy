@@ -1,4 +1,10 @@
-import { Calculator, Download, Pencil, Trash2 } from "lucide-react";
+import {
+	Calculator,
+	Download,
+	Pencil,
+	SquareFunction,
+	Trash2,
+} from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
@@ -8,7 +14,7 @@ import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
-import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
+import { buildSeriesConfig, pickYAxisIdForColumn } from "../../utils/series";
 import { getColumnIndex } from "../../utils/columns";
 
 const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
@@ -17,7 +23,7 @@ const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 		const n = i + 1;
 		return {
 			value: n,
-			icon: <span style={{ fontWeight: "bold" }}>{n}</span>,
+			icon: <span style={{ fontWeight: "bold" }}>X{n}</span>,
 			label: `X-Axis ${n}`,
 		};
 	},
@@ -84,7 +90,10 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 		const { yAxes } = useGraphStore.getState();
 		addSeries(
 			buildSeriesConfig(columnName, ds.id, series.length, isCategorical, {
-				yAxisId: pickYAxisId(series, yAxes, col?.bounds),
+				yAxisId: pickYAxisIdForColumn(datasets, series, yAxes, {
+					bounds: col?.bounds,
+					categorical: isCategorical,
+				}),
 				pointCount: ds.rowCount,
 			}),
 		);
@@ -126,9 +135,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 				>
 					{ds.name}
 				</span>
-				<span className="sb-dataset-meta">
-					{ds.rowCount.toLocaleString()} lines
-				</span>
+				<span className="sb-dataset-meta">{ds.rowCount.toLocaleString()} rows</span>
 				<div
 					style={{
 						display: "flex",
@@ -176,7 +183,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 											fontWeight: "bold",
 										}}
 									>
-										{(ds.xAxisId || "axis-1").split("-")[1]}
+										X{(ds.xAxisId || "axis-1").split("-")[1]}
 									</button>
 								)}
 							/>
@@ -334,6 +341,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										color: t.accent,
 										fontWeight: "600",
 										width: "100%",
+										minWidth: "120px",
 										outline: "none",
 										boxSizing: "border-box",
 									}}
@@ -372,7 +380,9 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 												}}
 											/>
 										)}
-										{isCalc ? `ƒ ${label}` : label}
+										<span className="col-chip-label">
+											{isCalc ? `ƒ ${label}` : label}
+										</span>
 									</button>
 									<div className="col-chip-actions">
 										<button
@@ -409,7 +419,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														})
 													}
 													style={{
-														fontSize: "0.65rem",
+														display: "flex",
+														alignItems: "center",
 														padding: "2px 4px",
 														border: "none",
 														background: "none",
@@ -417,10 +428,10 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														cursor: "pointer",
 													}}
 													type="button"
-													title="Edit formula"
+													title={`Edit formula: ${colData.formula}`}
 													aria-label="Edit formula"
 												>
-													✎
+													<SquareFunction size={10} />
 												</button>
 												<button
 													onClick={() =>

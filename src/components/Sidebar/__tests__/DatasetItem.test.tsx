@@ -156,7 +156,33 @@ describe("DatasetItem", () => {
 		setup([makeDataset("ds1", "axis-2"), makeDataset("ds2")], []);
 		expect(
 			screen.getByRole("button", { name: "Select X-Axis" }),
-		).toHaveTextContent("2");
+		).toHaveTextContent(/^X2$/);
+	});
+
+	it("counts the dataset in rows", () => {
+		setup([makeDataset("ds1")], []);
+		expect(screen.getByText("5,000 rows")).toBeInTheDocument();
+	});
+
+	it("adds a column whose range resembles a plotted one to that series' axis", () => {
+		const ds: Dataset = {
+			...makeDataset("ds1"),
+			columns: ["t", "temp", "pressure", "dew"],
+			data: [column(0, 1), column(10, 30), column(990, 1030), column(5, 25)],
+		};
+		setup([ds], [{ ...plottedTemp, yAxisId: "axis-4" }]);
+		fireEvent.click(screen.getByRole("button", { name: "dew" }));
+		expect(addSeries.mock.calls[0][0]).toMatchObject({
+			yColumn: "dew",
+			yAxisId: "axis-4",
+		});
+
+		// Nothing alike in use: a new axis.
+		fireEvent.click(screen.getByRole("button", { name: "pressure" }));
+		expect(addSeries.mock.calls[1][0]).toMatchObject({
+			yColumn: "pressure",
+			yAxisId: "axis-1",
+		});
 	});
 
 	it("adds an unplotted column on the first free axis without markers when dense", () => {
@@ -267,6 +293,11 @@ describe("DatasetItem", () => {
 		expect(screen.getAllByRole("button", { name: "Edit formula" })).toHaveLength(
 			1,
 		);
+		// Told apart from the rename pencil by icon and tooltip.
+		const edit = screen.getByRole("button", { name: "Edit formula" });
+		expect(edit).toHaveAttribute("title", "Edit formula: [temp] * 2");
+		expect(edit.querySelector(".lucide-square-function")).not.toBeNull();
+		expect(edit.querySelector(".lucide-pencil")).toBeNull();
 
 		fireEvent.click(screen.getByRole("button", { name: "Edit formula" }));
 		expect(setEditingColumn).toHaveBeenCalledWith({
