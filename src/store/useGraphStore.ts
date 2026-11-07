@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { generateDemoDataset, getDemoAppState } from "../services/demoData";
+import {
+	DEMO_DATASET_ID,
+	generateDemoDataset,
+	getDemoAppState,
+} from "../services/demoData";
 import {
 	type AppState,
 	type DataColumn,
@@ -748,7 +752,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			let allDatasets: Dataset[];
 			try {
 				savedState = await persistence.loadAppState();
-				allDatasets = await persistence.getAllDatasets();
+				// Builds before the `demo` flag saved the demo under its fixed id.
+				allDatasets = (await persistence.getAllDatasets()).map((d) =>
+					d.id === DEMO_DATASET_ID && !d.demo ? { ...d, demo: true } : d,
+				);
 			} catch (error) {
 				// Storage disabled, private mode or a failed open: run on demo data
 				// without persistence, which also keeps whatever is on disk intact.

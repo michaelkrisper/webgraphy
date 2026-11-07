@@ -505,6 +505,24 @@ describe("useGraphStore", () => {
 		expect(state.datasets[0].id).toBe("ds2");
 	});
 
+	it("flags demo data saved before the demo flag existed", async () => {
+		const store = useGraphStore.getState();
+		const { persistence } = await import("../../services/persistence");
+
+		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
+		vi
+			.mocked(persistence.getAllDatasets)
+			.mockResolvedValueOnce([
+				{ id: "demo-dataset" } as unknown as Dataset,
+				{ id: "ds3" } as unknown as Dataset,
+			]);
+
+		await store.loadPersistedState();
+		const [demo, user] = useGraphStore.getState().datasets;
+		expect(demo.demo).toBe(true);
+		expect(user.demo).toBeUndefined();
+	});
+
 	it("should handle webgraphy-cleared flag", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
