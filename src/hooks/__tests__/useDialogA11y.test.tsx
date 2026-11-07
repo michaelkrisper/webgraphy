@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactNode, useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { Modal } from "../../components/Layout/Modal";
+import ColorPicker from "../../components/Sidebar/ColorPicker";
+import { PopupPicker } from "../../components/Sidebar/PopupPicker";
 import { useDialogA11y } from "../useDialogA11y";
 
 function Dialog({
@@ -203,5 +206,156 @@ describe("useDialogA11y", () => {
 		fireEvent.keyDown(document, { key: "Escape" });
 		fireEvent.keyDown(document, { key: "Escape" });
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps focus inside when the parent re-renders with a new onClose", () => {
+		function Rerendering({ tick }: { tick: number }) {
+			// A fresh inline arrow per render, like Sidebar and SidebarFooter.
+			return (
+				<Dialog onClose={() => void tick}>
+					<button type="button">one</button>
+					<button type="button">two</button>
+				</Dialog>
+			);
+		}
+		const { rerender } = render(<Rerendering tick={0} />);
+		const two = screen.getByText("two");
+		two.focus();
+
+		rerender(<Rerendering tick={1} />);
+
+		expect(document.activeElement).toBe(two);
+	});
+
+	it("calls the latest onClose on Escape", () => {
+		const first = vi.fn();
+		const latest = vi.fn();
+		const { rerender } = render(
+			<Dialog onClose={first}>
+				<button type="button">ok</button>
+			</Dialog>,
+		);
+		rerender(
+			<Dialog onClose={latest}>
+				<button type="button">ok</button>
+			</Dialog>,
+		);
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(first).not.toHaveBeenCalled();
+		expect(latest).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("useDialogA11y with nested layers", () => {
+	function Nested({
+		onOuterClose,
+		onInnerClose,
+	}: {
+		onOuterClose: () => void;
+		onInnerClose: () => void;
+	}) {
+		const [outerOpen, setOuterOpen] = useState(true);
+		const [innerOpen, setInnerOpen] = useState(false);
+		if (!outerOpen) return null;
+		return (
+			<Dialog
+				onClose={() => {
+					onOuterClose();
+					setOuterOpen(false);
+				}}
+			>
+				<button type="button" onClick={() => setInnerOpen(true)}>
+					open inner
+				</button>
+				<button type="button">outer last</button>
+				{innerOpen && (
+					<Dialog
+						onClose={() => {
+							onInnerClose();
+							setInnerOpen(false);
+						}}
+					>
+						<button type="button">inner one</button>
+						<button type="button">inner two</button>
+					</Dialog>
+				)}
+			</Dialog>
+		);
+	}
+
+	it("closes only the innermost layer on Escape", () => {
+		const onOuterClose = vi.fn();
+		const onInnerClose = vi.fn();
+		render(<Nested onOuterClose={onOuterClose} onInnerClose={onInnerClose} />);
+		const opener = screen.getByText("open inner");
+		fireEvent.click(opener);
+		expect(screen.getAllByRole("dialog")).toHaveLength(2);
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(onInnerClose).toHaveBeenCalledTimes(1);
+		expect(onOuterClose).not.toHaveBeenCalled();
+		expect(screen.getAllByRole("dialog")).toHaveLength(1);
+		expect(document.activeElement).toBe(opener);
+
+		// With the inner layer gone, the outer one owns Escape again.
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(onOuterClose).toHaveBeenCalledTimes(1);
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+
+	it("lets only the innermost layer trap Tab", () => {
+		render(<Nested onOuterClose={() => {}} onInnerClose={() => {}} />);
+		fireEvent.click(screen.getByText("open inner"));
+		const innerOne = screen.getByText("inner one");
+		expect(document.activeElement).toBe(innerOne);
+
+		tab(true);
+		expect(document.activeElement).toBe(screen.getByText("inner two"));
+	});
+
+	it("closes a PopupPicker opened inside a Modal without closing the Modal", () => {
+		const onModalClose = vi.fn();
+		render(
+			<Modal title="Import" onClose={onModalClose}>
+				<PopupPicker
+					options={[
+						{ value: "a", icon: null, label: "Alpha" },
+						{ value: "b", icon: null, label: "Beta" },
+					]}
+					current="a"
+					onChange={() => {}}
+					renderTrigger={({ onClick, ref }) => (
+						<button ref={ref} type="button" onClick={onClick}>
+							Type
+						</button>
+					)}
+				/>
+			</Modal>,
+		);
+		const trigger = screen.getByRole("button", { name: "Type" });
+		fireEvent.click(trigger);
+		expect(screen.getByText("Alpha")).not.toBeNull();
+
+		fireEvent.keyDown(document, { key: "Escape" });
+
+		expect(screen.queryByText("Alpha")).toBeNull();
+		expect(onModalClose).not.toHaveBeenCalled();
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it("closes a ColorPicker opened inside a Modal without closing the Modal", () => {
+		const onModalClose = vi.fn();
+		render(
+			<Modal title="Series" onClose={onModalClose}>
+				<ColorPicker color="#ff0000" onChange={() => {}} ariaLabel="Color" />
+			</Modal>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Color" }));
+		expect(document.getElementById("color-picker-popover")).not.toBeNull();
+
+		fireEvent.keyDown(document, { key: "Escape" });
+
+		expect(document.getElementById("color-picker-popover")).toBeNull();
+		expect(onModalClose).not.toHaveBeenCalled();
 	});
 });

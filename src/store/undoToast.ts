@@ -14,11 +14,23 @@ import { notify } from "./useNotificationStore";
 export function deleteWithUndo(name: string, remove: () => void): void {
 	const before = latestHistoryId();
 	remove();
+	notifyUndoable(`Deleted '${name}'`, before);
+}
+
+/**
+ * Shows `message` with an Undo button bound to the history entry recorded
+ * since `before` (a {@link latestHistoryId} taken earlier); no toast when
+ * nothing was recorded.
+ */
+export function notifyUndoable(
+	message: string,
+	before: number | undefined,
+): void {
 	const id = latestHistoryId();
 	if (id === undefined || id === before) return;
 	notify({
 		kind: "info",
-		message: `Deleted '${name}'`,
+		message,
 		action: { label: "Undo", onAction: () => undoIfLatest(id) },
 	});
 }

@@ -1,7 +1,8 @@
-import { type IDBPDatabase, openDB } from "idb";
-import { notify } from "../store/useNotificationStore";
+import { deleteDB, type IDBPDatabase, openDB } from "idb";
+import { dismissNotification, notify } from "../store/useNotificationStore";
 import type { AxisScale } from "../utils/axisScale";
 import { logger } from "../utils/logger";
+import { markErrorReported } from "./globalErrors";
 
 const DB_NAME = "webgraphy-db";
 const DATASET_STORE = "datasets";
@@ -10,6 +11,11 @@ const VIEWPORT_KEY = "webgraphy-viewport";
 const CONFIG_KEY = "webgraphy-config";
 const LEGACY_KEY = "webgraphy-state";
 const VERSION = 2;
+const WRITER_LOCK = "webgraphy-writer";
+const LOCAL_STORAGE_PREFIX = "webgraphy-";
+// Keys WebGraphy writes without the prefix. The analytics opt-out ("skipgc")
+// is deliberately not among them: a reset must not re-enable counting.
+const LOCAL_STORAGE_KEYS = ["theme"];
 
 export interface DataColumn {
 	isFloat64: boolean;
@@ -28,6 +34,8 @@ export interface Dataset {
 	rowCount: number;
 	xAxisColumn: string;
 	xAxisId: string;
+	/** Generated sample data; the first import replaces it. */
+	demo?: true;
 }
 
 /**
@@ -59,6 +67,8 @@ export interface YAxisConfig {
 	showGrid: boolean;
 	/** Absent means linear (configs created before log axes existed). */
 	scale?: AxisScale;
+	/** Custom title; absent means the joined names of the axis' series. */
+	title?: string;
 }
 
 export interface SeriesConfig {
@@ -90,9 +100,12 @@ export interface AppState extends ViewportState, ConfigState {}
 // The promise (not the handle) is cached so concurrent callers share one
 // connection; a failed open is not cached, so the next call retries.
 let dbPromise: Promise<IDBPDatabase> | null = null;
-// Off once loading failed (writing would clobber data we could not read) or
-// another tab upgraded the schema under us.
+// Off once loading failed (writing would clobber data we could not read),
+// another tab upgraded the schema under us, or another tab is the writer.
 let writesEnabled = true;
+// Pending while this tab asks for the writer lock: writes wait for the
+// answer, so the first save after loading cannot slip in before it.
+let writerLockPending: Promise<void> | null = null;
 
 function openConnection(): Promise<IDBPDatabase> {
 	const opening: Promise<IDBPDatabase> = openDB(DB_NAME, VERSION, {
@@ -152,6 +165,7 @@ function isQuotaError(error: unknown): boolean {
 // Messages are stable per target so the toast store collapses repeats of a
 // failing save into one toast.
 function reportDatasetSaveError(name: string, error: unknown): void {
+	markErrorReported(error);
 	notify({
 		kind: "error",
 		message: isQuotaError(error)
@@ -161,6 +175,7 @@ function reportDatasetSaveError(name: string, error: unknown): void {
 }
 
 function reportStateSaveError(error: unknown): void {
+	markErrorReported(error);
 	notify({
 		kind: "error",
 		message: isQuotaError(error)
@@ -239,6 +254,7 @@ async function putAppState(
 	state: unknown,
 	label: string,
 ): Promise<void> {
+	if (writerLockPending) await writerLockPending;
 	if (!writesEnabled) return;
 	try {
 		const db = await getDB();
@@ -251,6 +267,7 @@ async function putAppState(
 
 /** Writes one dataset in its own transaction; returns whether it persisted. */
 async function writeDataset(ds: Dataset, label: string): Promise<boolean> {
+	if (writerLockPending) await writerLockPending;
 	if (!writesEnabled) return false;
 	try {
 		const db = await getDB();
@@ -347,6 +364,7 @@ export const persistence = {
 		if (timer) clearTimeout(timer);
 		datasetTimers.delete(id);
 		pendingDatasets.delete(id);
+		if (writerLockPending) await writerLockPending;
 		if (!writesEnabled) return;
 		// Callers fire and forget, so a failure must not escape as an unhandled
 		// rejection.
@@ -355,6 +373,7 @@ export const persistence = {
 			await db.delete(DATASET_STORE, id);
 		} catch (error) {
 			logger.error("deleteDataset failed", { id, error });
+			markErrorReported(error);
 			notify({
 				kind: "error",
 				message:
@@ -422,7 +441,9 @@ export const persistence = {
 				};
 				try {
 					await persistence.saveAppState(migrated);
-					await db.delete(APP_STATE_STORE, LEGACY_KEY);
+					// Only once the migrated copy was written, never from a
+					// read-only tab.
+					if (writesEnabled) await db.delete(APP_STATE_STORE, LEGACY_KEY);
 				} catch (error) {
 					logger.error("Failed to migrate legacy state", { error });
 				}
@@ -433,6 +454,7 @@ export const persistence = {
 		return null;
 	},
 	async clearAppState(): Promise<void> {
+		if (writerLockPending) await writerLockPending;
 		if (!writesEnabled) return;
 		try {
 			const db = await getDB();
@@ -445,9 +467,108 @@ export const persistence = {
 			logger.error("Failed to clear state", { error });
 		}
 	},
+	/**
+	 * Deletes everything WebGraphy keeps in this browser — the IndexedDB
+	 * database and its localStorage keys — as the way out of a crash caused
+	 * by saved state. Writes stay off so nothing recreates the database
+	 * before the caller reloads. `onBlocked` fires while another tab still
+	 * holds the database open; rejects if the database could not be deleted.
+	 */
+	async resetAll(onBlocked?: () => void): Promise<void> {
+		writesEnabled = false;
+		for (const t of datasetTimers.values()) clearTimeout(t);
+		datasetTimers.clear();
+		pendingDatasets.clear();
+		clearLocalStorage();
+		const opening = dbPromise;
+		dbPromise = null;
+		if (opening) {
+			// Our own open connection would block the deletion.
+			try {
+				(await opening).close();
+			} catch {
+				// Never opened: nothing to close.
+			}
+		}
+		await deleteDB(DB_NAME, { blocked: () => onBlocked?.() });
+	},
 };
 
+function clearLocalStorage(): void {
+	try {
+		const storage = globalThis.localStorage;
+		const ours: string[] = [];
+		for (let i = 0; i < storage.length; i++) {
+			const key = storage.key(i);
+			if (
+				key &&
+				(key.startsWith(LOCAL_STORAGE_PREFIX) || LOCAL_STORAGE_KEYS.includes(key))
+			) {
+				ours.push(key);
+			}
+		}
+		for (const key of ours) storage.removeItem(key);
+	} catch {
+		// Storage blocked: then nothing of ours is in it either.
+	}
+}
+
+/**
+ * One tab writes at a time, or two tabs overwrite each other's saved state.
+ * The first tab holds the exclusive writer lock for its lifetime (the browser
+ * releases it when the tab goes away). A later tab still loads what was
+ * saved but runs read-only, and queues for the lock: once the writer is gone
+ * it offers a reload, which picks up the state that tab saved last.
+ */
+function claimWriterLock(locks: LockManager): void {
+	const decided = new Promise<void>((resolve) => {
+		locks
+			.request(WRITER_LOCK, { ifAvailable: true }, (lock) => {
+				if (lock) {
+					resolve();
+					return new Promise<never>(() => {});
+				}
+				persistence.disable();
+				resolve();
+				const readOnly = notify({
+					kind: "info",
+					message:
+						"WebGraphy is open in another tab. Changes in this tab are not saved.",
+					durationMs: Infinity,
+				});
+				locks
+					.request(WRITER_LOCK, () => {
+						dismissNotification(readOnly);
+						notify({
+							kind: "info",
+							message: "WebGraphy was closed in the other tab.",
+							action: {
+								label: "Reload to edit here",
+								onAction: () => location.reload(),
+							},
+							durationMs: Infinity,
+						});
+						// Kept until the reload, so this tab is next in line.
+						return new Promise<never>(() => {});
+					})
+					.catch(() => {});
+				return undefined;
+			})
+			.catch((error: unknown) => {
+				// E.g. a SecurityError in an opaque origin: write as before.
+				logger.error("Writer lock unavailable", { error });
+				resolve();
+			});
+	});
+	writerLockPending = decided.then(() => {
+		writerLockPending = null;
+	});
+}
+
 if (typeof window !== "undefined") {
+	const locks = globalThis.navigator?.locks as LockManager | undefined;
+	if (locks) claimWriterLock(locks);
+
 	// "hidden" fires before unload and still allows async IndexedDB writes to
 	// run, which beforeunload does not reliably guarantee.
 	document.addEventListener("visibilitychange", () => {

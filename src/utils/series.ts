@@ -1,5 +1,6 @@
 import type { Dataset, SeriesConfig } from "../services/persistence";
 import { COLOR_PALETTE } from "../themes";
+import { getColumnIndex } from "./columns";
 
 /**
  * Line and point styles cycle alongside the colour so series identity does
@@ -134,6 +135,57 @@ const similarRanges = (a: Range, b: Range): boolean => {
 	const lo = Math.min(sa, sb);
 	return lo === 0 || Math.max(sa, sb) <= SHARED_AXIS_MAX_SPAN_RATIO * lo;
 };
+
+/**
+ * Y axis for a single column plotted on its own (a column chip click): the
+ * in-use axis whose series' data range is `similarRanges` to the column's,
+ * as import groups them, else `pickYAxisId`. An axis carrying a categorical
+ * series is never shared.
+ */
+export function pickYAxisIdForColumn(
+	datasets: readonly Dataset[],
+	existing: readonly SeriesConfig[],
+	yAxes: readonly ({ id: string } & Range)[],
+	column: { bounds?: Range; categorical?: boolean },
+): string {
+	const bounds = isFiniteRange(column.bounds) ? column.bounds : undefined;
+	if (bounds && !column.categorical) {
+		// null: the axis carries a categorical series.
+		const ranges = new Map<string, Range | null>();
+		for (const s of existing) {
+			if (ranges.get(s.yAxisId) === null) continue;
+			const ds = datasets.find((d) => d.id === s.sourceId);
+			const col = ds?.data[getColumnIndex(ds, s.yColumn)];
+			if (col?.categoryLabels) {
+				ranges.set(s.yAxisId, null);
+				continue;
+			}
+			if (!isFiniteRange(col?.bounds)) continue;
+			const r = ranges.get(s.yAxisId);
+			ranges.set(
+				s.yAxisId,
+				r
+					? {
+							min: Math.min(r.min, col.bounds.min),
+							max: Math.max(r.max, col.bounds.max),
+						}
+					: { ...col.bounds },
+			);
+		}
+		let best: string | undefined;
+		let bestScore = -1;
+		for (const [id, r] of ranges) {
+			if (!r || !similarRanges(r, bounds)) continue;
+			const score = overlapRatio(r, bounds);
+			if (score > bestScore) {
+				bestScore = score;
+				best = id;
+			}
+		}
+		if (best) return best;
+	}
+	return pickYAxisId(existing, yAxes, bounds);
+}
 
 /**
  * Series configs for `columns` of one dataset added in one go, placed with

@@ -101,7 +101,7 @@ describe("DataSourcesSection", () => {
 		expect(screen.getByText("Data Sources")).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				/Add datasources by importing or drag and drop on the graph surface/,
+				/Add data sources by importing a file or dropping one anywhere/,
 			),
 		).toBeInTheDocument();
 	});
@@ -155,7 +155,7 @@ describe("DataSourcesSection", () => {
 		renderComponent();
 
 		expect(screen.getByText("Dataset 1")).toBeInTheDocument();
-		expect(screen.getByText("100 lines")).toBeInTheDocument();
+		expect(screen.getByText("100 rows")).toBeInTheDocument();
 
 		const deleteBtn = screen.getByTitle("Delete Dataset");
 		fireEvent.click(deleteBtn);

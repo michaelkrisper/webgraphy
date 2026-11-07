@@ -49,6 +49,8 @@ export interface SceneYAxisMeta {
 	showGrid: boolean;
 	scale?: AxisScale;
 	categoryLabels?: string[];
+	/** Custom title, overriding the joined series names. */
+	title?: string;
 }
 
 type SlimSeries = Pick<SeriesConfig, "name" | "yColumn" | "lineColor">;
@@ -215,6 +217,7 @@ export function buildFrameScene(
 			actualStep,
 			minorTicks,
 			categoryLabels: meta.categoryLabels,
+			title: meta.title,
 		};
 		caches.yLayout.set(meta.id, { key, layout });
 		yLayouts[i] = layout;

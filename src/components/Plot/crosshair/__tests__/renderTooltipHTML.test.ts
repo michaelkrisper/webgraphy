@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { setDisplayLocale } from "../../../../utils/displayFormat";
 import { renderTooltipHTML } from "../renderTooltipHTML";
 import type { SnapGroup, SnapResult } from "../types";
 
@@ -133,19 +134,32 @@ describe("renderTooltipHTML", () => {
 		expect(row.children[2].textContent).toBe(".5");
 	});
 
-	it("splits at the thousands separator for large values", () => {
+	it("splits at the decimal separator, not a group separator", () => {
 		render(snapWith(group("1", "Time", [item("Temp", 1234.5)])));
 
 		const row = visibleRows()[0];
-		// Documents current behaviour: the split searches for the first "." or
-		// "," and a grouped number hits the thousands separator first, so the
-		// grouping digits end up in the dimmed decimal span. The rendered text
-		// is still correct — only the styling boundary is off.
-		expect(row.children[1].textContent).toBe("1");
-		expect(row.children[2].textContent).toBe(",234.5");
-		expect(`${row.children[1].textContent}${row.children[2].textContent}`).toBe(
-			"1,234.5",
-		);
+		expect(row.children[1].textContent).toBe("1,234");
+		expect(row.children[2].textContent).toBe(".5");
+	});
+
+	it("follows the display locale's separators", () => {
+		setDisplayLocale("de-DE");
+		try {
+			render(snapWith(group("1", "Time", [item("Temp", 1234.5)])));
+			const row = visibleRows()[0];
+			expect(row.children[1].textContent).toBe("1.234");
+			expect(row.children[2].textContent).toBe(",5");
+		} finally {
+			setDisplayLocale("en-US");
+		}
+	});
+
+	it("keeps small values instead of rounding them to 0", () => {
+		render(snapWith(group("1", "Time", [item("Temp", 0.000123)])));
+
+		const row = visibleRows()[0];
+		expect(row.children[1].textContent).toBe("0");
+		expect(row.children[2].textContent).toBe(".000123");
 	});
 
 	it("leaves the decimal span empty for a whole number", () => {

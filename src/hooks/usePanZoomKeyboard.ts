@@ -5,7 +5,12 @@
 // to apply continuous keyboard pan/zoom).
 
 import { useEffect } from "react";
-import { hasKey, isEditableTarget, SHORTCUTS } from "../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../utils/shortcuts";
 
 const NAV_SHORTCUTS = [
 	SHORTCUTS.panX,
@@ -36,7 +41,7 @@ export function usePanZoomKeyboard({
 				return;
 			}
 			// Alt+arrows step through the zoom history (SHORTCUTS.viewBack).
-			if (isEditableTarget(e.target) || e.altKey) return;
+			if (isEditableTarget(e.target) || e.altKey || overlayOwnsKeyboard()) return;
 			const isZoomKey =
 				hasKey(SHORTCUTS.zoomIn, e.key) || hasKey(SHORTCUTS.zoomOut, e.key);
 			// Ctrl +/- would otherwise zoom the whole page (SHORTCUTS.zoomXOnly).

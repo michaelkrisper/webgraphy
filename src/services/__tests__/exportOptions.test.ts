@@ -4,6 +4,7 @@ import {
 	canvasLimitError,
 	DEFAULT_EXPORT_OPTIONS,
 	effectiveUnit,
+	exportThemeName,
 	type ImageExportOptions,
 	loadExportOptions,
 	MAX_CANVAS_SIDE,
@@ -47,6 +48,7 @@ describe("export option persistence", () => {
 			legendPosition: "outside-right",
 			title: "Run 7",
 			transparent: true,
+			theme: "current",
 		});
 		saveExportOptions(chosen, storage);
 		expect(loadExportOptions(storage)).toEqual(chosen);
@@ -65,6 +67,7 @@ describe("export option persistence", () => {
 				legendPosition: "center",
 				title: 42,
 				transparent: true,
+				theme: "matrix",
 			}),
 		);
 		expect(loadExportOptions(storage)).toEqual(
@@ -88,6 +91,10 @@ describe("export option persistence", () => {
 		expect(() =>
 			saveExportOptions(DEFAULT_EXPORT_OPTIONS, throwing),
 		).not.toThrow();
+	});
+
+	it("defaults the export theme to Light, the publication case", () => {
+		expect(DEFAULT_EXPORT_OPTIONS.theme).toBe("light");
 	});
 
 	it("uses localStorage by default", () => {
@@ -261,5 +268,13 @@ describe("buildExportRequest", () => {
 
 	it("leaves the legend out when it is switched off", () => {
 		expect(buildExportRequest(opts({ legend: false }), view).legend).toBeNull();
+	});
+});
+
+describe("exportThemeName", () => {
+	it("draws in Light unless the current theme is chosen", () => {
+		expect(exportThemeName("light", "matrix")).toBe("light");
+		expect(exportThemeName("current", "matrix")).toBe("matrix");
+		expect(exportThemeName("current", "light")).toBe("light");
 	});
 });

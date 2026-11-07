@@ -41,6 +41,8 @@ import {
 	stepAxisTarget,
 } from "../../utils/keyboard";
 import { prefersReducedMotion } from "../../utils/reducedMotion";
+import { registerViewportCommands } from "../../utils/viewportCommands";
+import { yAxisTitleText } from "../../utils/yAxisTitle";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
@@ -61,7 +63,7 @@ import {
 	resetAxisTargets,
 } from "./buildLiveAxes";
 import { ChartLegend } from "./ChartLegend";
-import { PlotDragOverlay, ZoomBoxOverlay } from "./PlotOverlays";
+import { ZoomBoxOverlay } from "./PlotOverlays";
 import {
 	type AxesLayoutCache,
 	buildXAxisLayoutFor,
@@ -108,7 +110,6 @@ interface RangeEdit {
 export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [isDragOver, setIsDragOver] = useState(false);
 	const {
 		importFiles,
 		confirmImport,
@@ -398,10 +399,13 @@ export default function ChartContainer() {
 	const yAxisTitles = useMemo(() => {
 		const titles: Record<string, string> = {};
 		for (const id in seriesByYAxisId) {
-			titles[id] = seriesByYAxisId[id].map((s) => s.name || s.yColumn).join(" / ");
+			titles[id] = yAxisTitleText(
+				yAxes.find((a) => a.id === id)?.title,
+				seriesByYAxisId[id],
+			);
 		}
 		return titles;
-	}, [seriesByYAxisId]);
+	}, [seriesByYAxisId, yAxes]);
 
 	const zoomHistory = useZoomHistory({
 		targetXAxes,
@@ -413,6 +417,14 @@ export default function ChartContainer() {
 		enabled: datasets.length > 0,
 	});
 	const recordSettledViewport = zoomHistory.settled;
+	useEffect(
+		() =>
+			registerViewportCommands({
+				applyRange: zoomHistory.applyRange,
+				fitAll: handleFitAll,
+			}),
+		[zoomHistory.applyRange, handleFitAll],
+	);
 
 	const openRangeEditor = useCallback(
 		(kind: "x" | "y"): EditRangeHandler =>
@@ -690,6 +702,7 @@ export default function ChartContainer() {
 				showGrid: a.showGrid,
 				scale: a.scale,
 				categoryLabels: yAxisCategoryLabels.get(a.id),
+				title: a.title,
 			})),
 		});
 	}, [
@@ -807,16 +820,6 @@ export default function ChartContainer() {
 						}
 					}
 				}}
-				onDragOver={(e) => {
-					e.preventDefault();
-					setIsDragOver(true);
-				}}
-				onDragLeave={() => setIsDragOver(false)}
-				onDrop={(e) => {
-					e.preventDefault();
-					setIsDragOver(false);
-					void importFiles(e.dataTransfer.files);
-				}}
 				style={{
 					position: "relative",
 					cursor: panTarget
@@ -832,7 +835,6 @@ export default function ChartContainer() {
 					userSelect: "none",
 				}}
 			>
-				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
 					<EmptyState
 						width={width}
@@ -885,6 +887,8 @@ export default function ChartContainer() {
 					rightOffsets={rightOffsets}
 					padding={padding}
 					width={width}
+					height={height}
+					themeColors={themeColors}
 					containerRef={containerRef}
 					onWheel={handleWheel}
 					onMouseDown={handleMouseDown}

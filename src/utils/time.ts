@@ -1,4 +1,6 @@
-type TimeUnit =
+import { lazyDateFormat, lazyTimeFormat } from "./displayFormat";
+
+export type TimeUnit =
 	| "second"
 	| "minute"
 	| "hour"
@@ -21,16 +23,17 @@ export interface TimeTick {
 const MAX_TIME_TICKS = 500;
 const MAX_SECONDARY_LABELS = 100;
 
-// Tick labels are regenerated every rAF frame while panning/zooming;
-// `toLocaleDateString` builds a new Intl.DateTimeFormat per call (~50x the
-// cost of formatting), so keep one formatter per label shape. Created lazily
-// because a formatter captures the timezone at construction and tests set TZ
-// after module load.
-const lazyFmt = (options: Intl.DateTimeFormatOptions) => {
-	let fmt: Intl.DateTimeFormat | undefined;
-	return (d: Date) =>
-		(fmt ??= new Intl.DateTimeFormat("de-DE", options)).format(d);
+// Tick labels are regenerated every rAF frame while panning/zooming, so each
+// label shape keeps one cached formatter (displayFormat.ts) in the display
+// locale: field order, separators and 12/24 h follow the browser.
+const lazyFmt = (options: Intl.DateTimeFormatOptions, withHour = false) => {
+	const fmt = (withHour ? lazyTimeFormat : lazyDateFormat)(options);
+	return (d: Date) => fmt().format(d);
 };
+const formatSeconds = lazyFmt({ minute: "2-digit", second: "2-digit" }, true);
+const formatMinutes = lazyFmt({ minute: "2-digit" }, true);
+const formatDayMonth = lazyFmt({ day: "2-digit", month: "2-digit" });
+const formatDayMonthShort = lazyFmt({ day: "numeric", month: "numeric" });
 const formatMonthShort = lazyFmt({ month: "short" });
 const formatDay = lazyFmt({
 	day: "2-digit",
@@ -38,11 +41,10 @@ const formatDay = lazyFmt({
 	year: "numeric",
 });
 const formatMonthYear = lazyFmt({ month: "2-digit", year: "numeric" });
-const formatFullDateTime = lazyFmt({
+const fullDateTime = lazyTimeFormat({
 	day: "2-digit",
 	month: "2-digit",
 	year: "numeric",
-	hour: "2-digit",
 	minute: "2-digit",
 	second: "2-digit",
 	fractionalSecondDigits: 3,
@@ -186,20 +188,18 @@ export function generateTimeTicks(
 	return ticks;
 }
 
-function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
-	const pad = (n: number) => String(n).padStart(2, "0");
-
+/** A date-axis tick label at the granularity of `unit`. */
+export function formatPrimaryLabelFromDate(d: Date, unit: TimeUnit): string {
 	switch (unit) {
 		case "second":
-			return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+			return formatSeconds(d);
 		case "minute":
-			return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 		case "hour":
-			return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+			return formatMinutes(d);
 		case "day":
-			return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
+			return formatDayMonth(d);
 		case "week":
-			return `${d.getDate()}.${d.getMonth() + 1}.`;
+			return formatDayMonthShort(d);
 		case "month":
 			return formatMonthShort(d);
 		case "year":
@@ -289,8 +289,36 @@ export function generateSecondaryLabels(
 	return labels;
 }
 
+/**
+ * Date and time to the millisecond, as the tooltip and data table show it.
+ * Trailing zeros of the fraction are dropped, with its separator when none
+ * remain; parts rather than a regex since the fraction need not end the
+ * string ("2:30:15.5 PM").
+ */
 export function formatFullDate(ts: number): string {
-	const s = formatFullDateTime(new Date(ts * 1000));
-	// Remove trailing zeros from fractional seconds, and the comma if all zeros
-	return s.replace(/,(\d*?[1-9])0+$/, ",$1").replace(/,0+$/, "");
+	const parts = fullDateTime().formatToParts(new Date(ts * 1000));
+	let out = "";
+	for (let i = 0; i < parts.length; i++) {
+		const next = parts[i + 1];
+		if (next?.type === "fractionalSecond") {
+			const digits = next.value.replace(/0+$/, "");
+			if (digits) out += parts[i].value + digits;
+			i++;
+			continue;
+		}
+		out += parts[i].value;
+	}
+	return out;
+}
+
+/**
+ * Local date and time as "2024-03-05 12:30:15.5": unambiguous in every
+ * locale, so a typed range round-trips (axisRange.ts parses it back).
+ */
+export function formatIsoLocal(ts: number): string {
+	const d = new Date(Math.round(ts * 1000));
+	const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+	const ms = d.getMilliseconds();
+	const frac = ms ? `.${pad(ms, 3).replace(/0+$/, "")}` : "";
+	return `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${frac}`;
 }

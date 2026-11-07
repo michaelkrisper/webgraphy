@@ -29,6 +29,11 @@ export const LoadDemoDataButton: React.FC = () => {
 				type="button"
 				className="sb-footer-btn"
 				title="Load Demo Data"
+				aria-description={
+					hasData
+						? "Adds a sample dataset with its series alongside your data, after asking"
+						: "Loads a sample dataset with series to explore"
+				}
 				onClick={() => {
 					if (hasData) setConfirmOpen(true);
 					else useGraphStore.getState().loadDemoData();
@@ -44,6 +49,7 @@ export const LoadDemoDataButton: React.FC = () => {
 						title="Load demo data?"
 						message="Your current data stays loaded. The demo dataset and its series are added alongside it."
 						confirmLabel="Add alongside"
+						confirmDescription="Adds the demo dataset and its series next to your data"
 						onConfirm={addAlongside}
 						onCancel={() => setConfirmOpen(false)}
 					/>

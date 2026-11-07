@@ -38,6 +38,7 @@ describe("demoData", () => {
 			expect(dataset.columns).toContain("Wind Speed (m/s)");
 			expect(dataset.xAxisColumn).toBe("Timestamp");
 			expect(dataset.xAxisId).toBe("axis-1");
+			expect(dataset.demo).toBe(true);
 		});
 
 		it("should have correct data column structures", () => {

@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { COLOR_PALETTE } from "../../themes";
-import type { DataColumn, SeriesConfig } from "../../services/persistence";
+import type {
+	DataColumn,
+	Dataset,
+	SeriesConfig,
+} from "../../services/persistence";
 import {
 	buildSeriesConfig,
 	buildSeriesForColumns,
 	isDenseSeries,
 	pickYAxisId,
+	pickYAxisIdForColumn,
 } from "../series";
 
 describe("buildSeriesConfig", () => {
@@ -179,5 +184,99 @@ describe("buildSeriesForColumns", () => {
 		expect(s.yAxisId).toBe("axis-2");
 		expect(s.lineColor).toBe(COLOR_PALETTE[2]);
 		expect(s.pointStyle).toBe("none");
+	});
+});
+
+describe("pickYAxisIdForColumn", () => {
+	const col = (min: number, max: number, extra: Partial<DataColumn> = {}) =>
+		({
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min, max },
+			data: new Float32Array(0),
+			...extra,
+		}) as DataColumn;
+	const dataset = (id: string, cols: Record<string, DataColumn>) =>
+		({
+			id,
+			name: id,
+			columns: Object.keys(cols),
+			data: Object.values(cols),
+			rowCount: 10,
+			xAxisColumn: "",
+		}) as unknown as Dataset;
+	const series = (yColumn: string, yAxisId: string, sourceId = "ds-1") =>
+		({ ...buildSeriesConfig(yColumn, sourceId, 0), yAxisId }) as SeriesConfig;
+
+	const ds = dataset("ds-1", {
+		TempMin: col(10, 20),
+		Pressure: col(990, 1030),
+		Mode: col(0, 2, { categoryLabels: ["a", "b", "c"] }),
+		Low: col(0, 1),
+		High: col(100, 101),
+	});
+
+	it("puts a column on the in-use axis whose data range is similar", () => {
+		// TempMax next to TempMin: overlapping, spans within 10x.
+		const existing = [series("Pressure", "axis-1"), series("TempMin", "axis-2")];
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], { bounds: { min: 15, max: 30 } }),
+		).toBe("axis-2");
+	});
+
+	it("unites the ranges of every series on an axis", () => {
+		// 40..60 overlaps neither Low nor High alone, only their union.
+		const existing = [series("Low", "axis-3"), series("High", "axis-3")];
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], { bounds: { min: 40, max: 60 } }),
+		).toBe("axis-3");
+	});
+
+	it("prefers the axis that overlaps the column most", () => {
+		const other = dataset("ds-2", { A: col(0, 16), B: col(12, 30) });
+		const existing = [
+			series("A", "axis-1", "ds-2"),
+			series("B", "axis-2", "ds-2"),
+		];
+		expect(
+			pickYAxisIdForColumn([ds, other], existing, [], {
+				bounds: { min: 14, max: 24 },
+			}),
+		).toBe("axis-2");
+	});
+
+	it("opens a new axis when no in-use range is similar", () => {
+		const existing = [series("Pressure", "axis-1")];
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], { bounds: { min: 10, max: 20 } }),
+		).toBe("axis-2");
+	});
+
+	it("never shares an axis with or for categorical data", () => {
+		const existing = [series("Mode", "axis-1"), series("TempMin", "axis-2")];
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], { bounds: { min: 0, max: 2 } }),
+		).toBe("axis-3");
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], {
+				bounds: { min: 10, max: 20 },
+				categorical: true,
+			}),
+		).toBe("axis-3");
+	});
+
+	it("skips series whose column or dataset is gone, and boundless columns", () => {
+		const existing = [
+			series("Missing", "axis-1"),
+			series("TempMin", "axis-2", "ds-gone"),
+		];
+		expect(
+			pickYAxisIdForColumn([ds], existing, [], { bounds: { min: 10, max: 20 } }),
+		).toBe("axis-3");
+		expect(
+			pickYAxisIdForColumn([ds], [series("TempMin", "axis-1")], [], {
+				bounds: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
+			}),
+		).toBe("axis-2");
 	});
 });

@@ -7,7 +7,7 @@ import {
 	XAxisInteractionZones,
 	YAxisInteractionZones,
 } from "../AxisInteractionZones";
-import { axisZoneLabel } from "../axisZoneLabel";
+import { axisZoneDescription, axisZoneLabel } from "../axisZoneLabel";
 import type { XAxisLayout } from "../chartTypes";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -54,6 +54,8 @@ const yProps = {
 	rightOffsets: {},
 	padding: { top: 10, right: 20, bottom: 30, left: 40 },
 	width: 800,
+	height: 400,
+	themeColors: xProps.themeColors,
 	containerRef: { current: null },
 	onWheel: vi.fn(),
 	onMouseDown: vi.fn(),
@@ -70,16 +72,31 @@ function mockUpdateXAxis() {
 	return updateXAxis;
 }
 
+/** Store with Voltage and Current on axis-2, whose title is `title`. */
+function mockYStore(title?: string) {
+	const updateYAxis = vi.fn();
+	vi.mocked(useGraphStore.getState).mockReturnValue({
+		series: [
+			{ yAxisId: "axis-2", name: "Voltage", yColumn: "V" },
+			{ yAxisId: "axis-1", name: "Other", yColumn: "O" },
+			{ yAxisId: "axis-2", name: "", yColumn: "Current" },
+		],
+		yAxes: [{ id: "axis-2", title }],
+		updateYAxis,
+	} as unknown as ReturnType<typeof useGraphStore.getState>);
+	return updateYAxis;
+}
+
 describe("axis zone keyboard access", () => {
 	beforeEach(() => vi.clearAllMocks());
 
-	it("names each zone after its axis and the keys it takes", () => {
-		expect(axisZoneLabel("x", "axis-1", "Time")).toBe(
-			"X axis 1: Time — arrows pan, +/- zoom, A autoscale, R range, Enter rename",
+	it("names each zone after its axis and describes the keys it takes", () => {
+		expect(axisZoneLabel("x", "axis-1", "Time")).toBe("X axis 1: Time");
+		expect(axisZoneLabel("y", "axis-3", "")).toBe("Y axis 3");
+		expect(axisZoneDescription("x")).toBe(
+			"←/→ pan, +/- zoom, A auto-scales, R or right-click sets an exact range, Enter renames. Drag or scroll to pan and zoom only this axis",
 		);
-		expect(axisZoneLabel("y", "axis-3", "")).toBe(
-			"Y axis 3 — arrows pan, +/- zoom, A autoscale, R range",
-		);
+		expect(axisZoneDescription("y")).toMatch(/^↑\/↓ pan, /);
 	});
 
 	it("makes visible zones focusable groups, not landmarks", () => {
@@ -149,20 +166,81 @@ describe("axis zone keyboard access", () => {
 		expect(xProps.onAxisStep).not.toHaveBeenCalled();
 	});
 
-	it("pans, zooms and auto-scales the focused Y axis, with no rename", () => {
+	it("pans, zooms, auto-scales and renames the focused Y axis", () => {
 		render(<YAxisInteractionZones {...yProps} />);
 		const zone = screen.getByRole("group", { name: /^Y axis 2/ });
 		fireEvent.keyDown(zone, { key: "ArrowUp" });
 		fireEvent.keyDown(zone, { key: "ArrowDown" });
 		fireEvent.keyDown(zone, { key: "=" });
 		fireEvent.keyDown(zone, { key: "A" });
-		fireEvent.keyDown(zone, { key: "Enter" });
 		expect(yProps.onAxisStep.mock.calls).toEqual([
 			["axis-2", "pan+"],
 			["axis-2", "pan-"],
 			["axis-2", "zoom-in"],
 		]);
 		expect(yProps.onAutoScaleY).toHaveBeenCalledWith("axis-2");
+
+		expect(screen.queryByRole("textbox")).toBeNull();
+		fireEvent.keyDown(zone, { key: "Enter" });
+		const input = screen.getByRole("textbox", { name: "Rename Y axis 2" });
+		expect(input).toHaveFocus();
+		expect(input).toHaveValue("Voltage / Current");
+	});
+
+	it("stores a typed Y title and returns focus to the zone on Enter", () => {
+		const updateYAxis = mockYStore();
+		render(<YAxisInteractionZones {...yProps} />);
+		const zone = screen.getByRole("group", { name: /^Y axis 2/ });
+		fireEvent.keyDown(zone, { key: "Enter" });
+		const input = screen.getByRole("textbox", { name: "Rename Y axis 2" });
+		fireEvent.change(input, { target: { value: "  Power  " } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { title: "Power" });
+		expect(screen.queryByRole("textbox")).toBeNull();
+		expect(zone).toHaveFocus();
+	});
+
+	it("returns a Y title to automatic when cleared or set to the joined names", () => {
+		const updateYAxis = mockYStore("Power");
+		render(<YAxisInteractionZones {...yProps} />);
+		const zone = screen.getByRole("group", { name: /^Y axis 2/ });
+
+		fireEvent.keyDown(zone, { key: "Enter" });
+		let input = screen.getByRole("textbox", { name: "Rename Y axis 2" });
+		fireEvent.change(input, { target: { value: "   " } });
+		fireEvent.blur(input);
+		expect(updateYAxis).toHaveBeenLastCalledWith("axis-2", { title: undefined });
+
+		fireEvent.keyDown(zone, { key: "Enter" });
+		input = screen.getByRole("textbox", { name: "Rename Y axis 2" });
+		fireEvent.change(input, { target: { value: "Voltage / Current" } });
+		fireEvent.blur(input);
+		expect(updateYAxis).toHaveBeenCalledTimes(2);
+		expect(updateYAxis).toHaveBeenLastCalledWith("axis-2", { title: undefined });
+	});
+
+	it("leaves the store alone when a Y rename changes nothing", () => {
+		const updateYAxis = mockYStore();
+		render(<YAxisInteractionZones {...yProps} />);
+		fireEvent.keyDown(screen.getByRole("group", { name: /^Y axis 2/ }), {
+			key: "Enter",
+		});
+		// Committing the automatic title as shown keeps it automatic.
+		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+		expect(updateYAxis).not.toHaveBeenCalled();
+	});
+
+	it("does not commit a Y title when Escape cancels the rename", () => {
+		const updateYAxis = mockYStore();
+		render(<YAxisInteractionZones {...yProps} />);
+		const zone = screen.getByRole("group", { name: /^Y axis 2/ });
+		fireEvent.keyDown(zone, { key: "Enter" });
+		const input = screen.getByRole("textbox", { name: "Rename Y axis 2" });
+		fireEvent.change(input, { target: { value: "Discard me" } });
+		fireEvent.keyDown(input, { key: "Escape" });
+		expect(updateYAxis).not.toHaveBeenCalled();
+		expect(screen.queryByRole("textbox")).toBeNull();
+		expect(zone).toHaveFocus();
 	});
 
 	it("opens the range editor on R and on right-click, anchored at the zone", () => {

@@ -1,9 +1,12 @@
 import type React from "react";
 import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
-import { useTheme } from "../../hooks/useTheme";
+import { loadThemeFonts, useTheme } from "../../hooks/useTheme";
 import type { ImageExportRequest } from "../../services/export";
-import type { ImageExportOptions } from "../../services/exportOptions";
+import type {
+	ExportTheme,
+	ImageExportOptions,
+} from "../../services/exportOptions";
 import { useGraphStore } from "../../store/useGraphStore";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
@@ -69,11 +72,26 @@ export const Sidebar: React.FC = () => {
 	};
 
 	// `services/export` carries the whole standalone SVG renderer; loading it on
-	// demand keeps it out of the entry chunk (see size-budget.json).
-	const runImageExport = async (request: ImageExportRequest) => {
+	// demand keeps it out of the entry chunk (see size-budget.json). Without a
+	// theme choice the saved export preference applies (Light by default).
+	const runImageExport = async (
+		request: ImageExportRequest,
+		themeChoice?: ExportTheme,
+	) => {
 		try {
-			const { exportImage } = await import("../../services/export");
-			await exportImage({ datasets, series, xAxes, yAxes }, request, t);
+			const [{ exportImage }, { exportThemeName, loadExportOptions }] =
+				await Promise.all([
+					import("../../services/export"),
+					import("../../services/exportOptions"),
+				]);
+			const name = exportThemeName(
+				themeChoice ?? loadExportOptions().theme,
+				themeName,
+			);
+			// Measuring and embedding need the export theme's faces, which are
+			// not loaded yet when it is not the one on screen.
+			await loadThemeFonts(name);
+			await exportImage({ datasets, series, xAxes, yAxes }, request, THEMES[name]);
 		} catch (e) {
 			const tooLarge = e instanceof Error && e.name === "CanvasSizeError";
 			notify({
@@ -85,7 +103,8 @@ export const Sidebar: React.FC = () => {
 		}
 	};
 
-	// One-click exports: the plot as on screen, legend included when shown.
+	// One-click exports: the plot at its on-screen size, legend included when
+	// shown.
 	const quickExport = (format: "svg" | "png") => {
 		const view = plotViewSize();
 		if (!view) return;
@@ -105,7 +124,10 @@ export const Sidebar: React.FC = () => {
 	const handleDialogExport = async (options: ImageExportOptions) => {
 		if (!imageDialogView) return;
 		const { buildExportRequest } = await import("../../services/exportOptions");
-		await runImageExport(buildExportRequest(options, imageDialogView));
+		await runImageExport(
+			buildExportRequest(options, imageDialogView),
+			options.theme,
+		);
 	};
 
 	const imageDialog = imageDialogView && (

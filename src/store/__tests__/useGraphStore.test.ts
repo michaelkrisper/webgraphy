@@ -505,6 +505,24 @@ describe("useGraphStore", () => {
 		expect(state.datasets[0].id).toBe("ds2");
 	});
 
+	it("flags demo data saved before the demo flag existed", async () => {
+		const store = useGraphStore.getState();
+		const { persistence } = await import("../../services/persistence");
+
+		vi.mocked(persistence.loadAppState).mockResolvedValueOnce(null);
+		vi
+			.mocked(persistence.getAllDatasets)
+			.mockResolvedValueOnce([
+				{ id: "demo-dataset" } as unknown as Dataset,
+				{ id: "ds3" } as unknown as Dataset,
+			]);
+
+		await store.loadPersistedState();
+		const [demo, user] = useGraphStore.getState().datasets;
+		expect(demo.demo).toBe(true);
+		expect(user.demo).toBeUndefined();
+	});
+
 	it("should handle webgraphy-cleared flag", async () => {
 		const store = useGraphStore.getState();
 		const { persistence } = await import("../../services/persistence");
@@ -865,6 +883,35 @@ describe("useGraphStore", () => {
 		const result = await store.addCalculatedColumn("ds-1", "ErrCol", "[Val] * 5");
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Force failed");
+	});
+
+	it("refuses a column rename onto an existing name with an error toast", () => {
+		useNotificationStore.setState({ notifications: [] });
+		const col = {
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min: 0, max: 1 },
+			data: new Float32Array([0, 1]),
+		};
+		useGraphStore.getState().addDataset({
+			id: "ds-r",
+			name: "R",
+			columns: ["Time", "A", "B"],
+			data: [col, col, col],
+			rowCount: 2,
+			xAxisColumn: "Time",
+		});
+		const before = useGraphStore.getState().datasets;
+
+		useGraphStore.getState().renameColumn("ds-r", "A", " B ");
+
+		expect(useGraphStore.getState().datasets).toBe(before);
+		expect(useNotificationStore.getState().notifications).toEqual([
+			expect.objectContaining({
+				kind: "error",
+				message: 'Could not rename "A": a column named "B" already exists',
+			}),
+		]);
 	});
 
 	describe("non-finite axis bounds", () => {

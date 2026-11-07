@@ -1,16 +1,31 @@
 import type { ReactNode } from "react";
 import React from "react";
+import { persistence } from "../services/persistence";
+
+// Instead of `autoFocus`: Preact only sets the attribute, which browsers
+// ignore on elements inserted after page load.
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
 
 interface Props {
 	children: ReactNode;
 	level?: "top" | "component";
 }
 
+/** Steps of the top-level "Reset workspace" escape hatch. */
+type ResetStep = "idle" | "confirm" | "working" | "blocked" | "failed";
+
 interface State {
 	hasError: boolean;
 	error: Error | null;
 	errorInfo: React.ErrorInfo | null;
+	reset: ResetStep;
 }
+
+const dangerButton: React.CSSProperties = {
+	padding: "10px 20px",
+	background: "var(--danger)",
+	color: "#fff",
+};
 
 export default class ErrorBoundary extends React.Component<Props, State> {
 	constructor(props: Props) {
@@ -19,6 +34,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 			hasError: false,
 			error: null,
 			errorInfo: null,
+			reset: "idle",
 		};
 	}
 
@@ -45,6 +61,83 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 		}
 	};
 
+	/**
+	 * A crash caused by saved state comes back on every reload, so Reload
+	 * alone can loop; wiping what is stored in the browser breaks the loop.
+	 */
+	handleResetWorkspace = async () => {
+		this.setState({ reset: "working" });
+		try {
+			await persistence.resetAll(() => this.setState({ reset: "blocked" }));
+		} catch {
+			this.setState({ reset: "failed" });
+			return;
+		}
+		window.location.reload();
+	};
+
+	renderResetConfirm() {
+		const { reset } = this.state;
+		const busy = reset === "working" || reset === "blocked";
+		return (
+			<section
+				role="alertdialog"
+				aria-labelledby="reset-workspace-title"
+				aria-describedby="reset-workspace-warning"
+				style={{ maxWidth: 520, marginTop: 8 }}
+			>
+				<h2 id="reset-workspace-title">Reset workspace?</h2>
+				<p id="reset-workspace-warning">
+					This deletes all datasets, series and settings WebGraphy has stored in this
+					browser. It cannot be undone.
+				</p>
+				<p>
+					If the app still works after a plain Reload, save a session first (Save
+					session… in the export menu) so you can restore your data afterwards.
+				</p>
+				{reset === "blocked" && (
+					<p role="status">
+						Waiting for WebGraphy in other tabs — close them to finish the reset.
+					</p>
+				)}
+				{reset === "failed" && (
+					<p role="alert">
+						The browser data could not be deleted. Try clearing this site's data in
+						the browser settings.
+					</p>
+				)}
+				<div
+					style={{
+						display: "flex",
+						gap: 12,
+						justifyContent: "center",
+						marginTop: 16,
+					}}
+				>
+					<button
+						type="button"
+						ref={focusOnMount}
+						disabled={busy}
+						aria-description="Keeps the stored data and goes back"
+						onClick={() => this.setState({ reset: "idle" })}
+						style={{ padding: "10px 20px" }}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={busy}
+						aria-description="Deletes everything WebGraphy stored in this browser, then reloads. Cannot be undone"
+						onClick={this.handleResetWorkspace}
+						style={dangerButton}
+					>
+						Delete all data and reload
+					</button>
+				</div>
+			</section>
+		);
+	}
+
 	render() {
 		if (this.state.hasError) {
 			if (this.props.level === "top") {
@@ -53,13 +146,28 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 						<h1>Application Error</h1>
 						<p>{this.state.error?.message || "An unexpected error occurred"}</p>
 						<pre>{this.state.errorInfo?.componentStack}</pre>
-						<button
-							type="button"
-							onClick={this.handleReset}
-							className="error-page-reset"
-						>
-							Reset App
-						</button>
+						{this.state.reset === "idle" ? (
+							<div style={{ display: "flex", gap: 12 }}>
+								<button
+									type="button"
+									onClick={this.handleReset}
+									className="error-page-reset"
+									aria-description="Restarts WebGraphy; your saved data stays"
+								>
+									Reload
+								</button>
+								<button
+									type="button"
+									onClick={() => this.setState({ reset: "confirm" })}
+									aria-description="Asks before deleting everything WebGraphy stored in this browser"
+									style={{ padding: "10px 20px" }}
+								>
+									Reset workspace…
+								</button>
+							</div>
+						) : (
+							this.renderResetConfirm()
+						)}
 					</div>
 				);
 			} else {
@@ -71,6 +179,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 							type="button"
 							onClick={this.handleReset}
 							className="error-component-reset"
+							aria-description="Tries to show this part again"
 						>
 							Retry
 						</button>

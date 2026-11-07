@@ -152,6 +152,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 									<button
 										type="button"
 										onClick={() => fileInputRef.current?.click()}
+										aria-description="Opens a CSV, JSON or Excel file, or a saved session"
 										style={{ ...buttonStyle, background: t.accent, color: t.bg }}
 									>
 										Import file…
@@ -175,6 +176,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 								<button
 									type="button"
 									onClick={onLoadDemo}
+									aria-description="Loads a sample dataset with series to explore"
 									style={{ ...buttonStyle, background: t.bg, color: t.text }}
 								>
 									Load demo data

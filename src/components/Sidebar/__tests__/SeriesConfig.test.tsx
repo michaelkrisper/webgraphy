@@ -163,16 +163,116 @@ describe("SeriesConfigUI", () => {
 		expect(mockRemoveSeries).toHaveBeenCalledWith("s1");
 	});
 
-	it("updates y column", () => {
-		render(<SeriesConfigUI {...defaultProps} />);
+	it("updates y column, and an automatic name with it", () => {
+		const { rerender } = render(<SeriesConfigUI {...defaultProps} />);
 
 		const select = screen.getByRole("combobox", { name: "Y Column for col1" });
 		fireEvent.change(select, { target: { value: "ds1::col2" } });
+		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", {
+			sourceId: "ds1",
+			yColumn: "col2",
+			name: "col2",
+		});
 
+		// A name equal to the old column is automatic too.
+		rerender(
+			<SeriesConfigUI
+				{...defaultProps}
+				series={{ ...defaultProps.series, name: "col1" }}
+			/>,
+		);
+		fireEvent.change(select, { target: { value: "ds1::col2" } });
+		expect(mockUpdateSeries).toHaveBeenLastCalledWith("s1", {
+			sourceId: "ds1",
+			yColumn: "col2",
+			name: "col2",
+		});
+	});
+
+	it("keeps a custom series name when the column changes", () => {
+		render(
+			<SeriesConfigUI
+				{...defaultProps}
+				series={{ ...defaultProps.series, name: "Outdoor" }}
+			/>,
+		);
+		fireEvent.change(
+			screen.getByRole("combobox", { name: "Y Column for Outdoor" }),
+			{
+				target: { value: "ds1::col2" },
+			},
+		);
 		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", {
 			sourceId: "ds1",
 			yColumn: "col2",
 		});
+	});
+
+	it("groups the columns by dataset and leaves out each X column", () => {
+		const datasets = [
+			{
+				id: "ds1",
+				name: "Weather",
+				columns: ["time", "col1", "col2"],
+				xAxisColumn: "time",
+			},
+			{ id: "ds2", name: "Power", columns: ["t", "kW"], xAxisColumn: "t" },
+		] as unknown as Dataset[];
+		render(<SeriesConfigUI {...defaultProps} datasets={datasets} />);
+		const select = screen.getByRole("combobox", { name: "Y Column for col1" });
+		const groups = Array.from(select.querySelectorAll("optgroup"));
+		expect(groups.map((g) => g.label)).toEqual(["Weather", "Power"]);
+		expect(
+			groups.map((g) =>
+				Array.from(g.querySelectorAll("option")).map((o) => o.textContent),
+			),
+		).toEqual([["col1", "col2"], ["kW"]]);
+		expect(select).toHaveValue("ds1::col1");
+	});
+
+	it("still lists the series' own column after it became the X column", () => {
+		const datasets = [
+			{
+				id: "ds1",
+				name: "Weather",
+				columns: ["time", "col1"],
+				xAxisColumn: "col1",
+			},
+		] as unknown as Dataset[];
+		render(<SeriesConfigUI {...defaultProps} datasets={datasets} />);
+		const select = screen.getByRole("combobox", { name: "Y Column for col1" });
+		expect(
+			Array.from(select.querySelectorAll("option")).map((o) => o.textContent),
+		).toEqual(["time", "col1"]);
+		expect(select).toHaveValue("ds1::col1");
+	});
+
+	it("only drags from the grip: a click leaves visibility alone", () => {
+		const onHandleMouseDown = vi.fn();
+		const { container } = render(
+			<SeriesConfigUI {...defaultProps} onHandleMouseDown={onHandleMouseDown} />,
+		);
+		const grip = container.querySelector(".sc-drag-handle") as HTMLElement;
+		expect(grip).toHaveAttribute("title", "Drag to reorder");
+		fireEvent.mouseDown(grip);
+		fireEvent.click(grip);
+		expect(onHandleMouseDown).toHaveBeenCalledTimes(1);
+		expect(mockUpdateSeriesVisibility).not.toHaveBeenCalled();
+	});
+
+	it("names the line and point style in their tooltips", () => {
+		render(
+			<SeriesConfigUI
+				{...defaultProps}
+				series={{ ...defaultProps.series, lineStyle: "none", pointStyle: "square" }}
+			/>,
+		);
+		expect(
+			screen.getByRole("button", { name: "Select Line Style" }),
+		).toHaveAttribute("title", "Line Style: No Line");
+		expect(
+			screen.getByRole("button", { name: "Select Point Style" }),
+		).toHaveAttribute("title", "Point Style: Square");
 	});
 
 	it("handles color changes via ColorPicker", () => {

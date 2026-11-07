@@ -2,6 +2,7 @@ import type { XAxisConfig } from "../../../services/persistence";
 import { toScale } from "../../../utils/axisScale";
 import { findClosest } from "../../../utils/binarySearch";
 import { screenToWorld, worldToScreen } from "../../../utils/coords";
+import { formatReading } from "../../../utils/displayFormat";
 import { formatFullDate } from "../../../utils/time";
 import type { SeriesMetadata, SnapGroup, SnapResult } from "./types";
 
@@ -92,10 +93,7 @@ export function computeSnap({
 				? xCatLabel
 				: xAxis.xMode === "date"
 					? formatFullDate(xVal)
-					: parseFloat(xVal.toPrecision(7)).toLocaleString(undefined, {
-							minimumFractionDigits: 0,
-							maximumFractionDigits: 10,
-						});
+					: formatReading(xVal);
 
 		const xAxisName = xAxisNameById[xAxis.id] || "Unknown Axis";
 		const groupKey = `${xLab}|${xAxisName}`;

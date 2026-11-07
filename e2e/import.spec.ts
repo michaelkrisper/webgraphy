@@ -25,7 +25,7 @@ test("a CSV picked in the file input becomes plotted series", async ({
 
 	// The dataset shows up in the sidebar with its row count, and one series
 	// row per plotted column.
-	await expect(page.getByText("200 lines")).toBeVisible();
+	await expect(page.getByText("200 rows", { exact: true })).toBeVisible();
 	await expect(
 		page.getByRole("combobox", { name: "Y Column for Sine" }),
 	).toBeVisible();
@@ -50,9 +50,11 @@ test("a malformed file raises an error toast and imports nothing", async ({
 		buffer: Buffer.from('{"rows": [1, 2,', "utf8"),
 	});
 
-	await expect(page.getByRole("alert")).toContainText(
-		'Could not open "broken.json"',
-	);
+	// Scoped to the toasts: without WebGL2 (Firefox in the CI container) the
+	// plot shows its own alert too.
+	await expect(
+		page.getByRole("region", { name: "Notifications" }).getByRole("alert"),
+	).toContainText('Could not open "broken.json"');
 	// No import dialog, and the chart stays empty.
 	await expect(page.getByRole("dialog")).toHaveCount(0);
 	await expect(plotCanvas(page)).toHaveAttribute("aria-label", /Empty chart/);
@@ -96,7 +98,7 @@ test("imports the chosen sheet of an XLSX workbook", async ({ page }) => {
 		"aria-label",
 		/1 data series: Beta\./,
 	);
-	await expect(page.getByText("20 lines")).toBeVisible();
+	await expect(page.getByText("20 rows", { exact: true })).toBeVisible();
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });
 

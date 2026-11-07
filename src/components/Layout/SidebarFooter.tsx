@@ -1,6 +1,8 @@
 import { HardDrive, Info, Keyboard, MoreHorizontal, Scale } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useState } from "react";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
+import { releaseVersion } from "../../utils/version";
 import { PopupPicker, type PopupPickerOption } from "../Sidebar/PopupPicker";
 import { useShortcutsHelp } from "./shortcutsHelp";
 
@@ -32,15 +34,28 @@ export const SidebarFooter: React.FC = () => {
 		{
 			value: "shortcuts",
 			icon: <Keyboard size={14} />,
-			label: "Keyboard shortcuts (?)",
+			label: `Keyboard shortcuts (${shortcutHint(SHORTCUTS.showShortcuts)})`,
+			description: "Lists every keyboard binding",
 		},
 		{
 			value: "storage",
 			icon: <HardDrive size={14} />,
 			label: showStorage ? "Hide storage usage" : "Storage usage",
+			description:
+				"Browser storage used by your data and whether it is protected from eviction",
 		},
-		{ value: "license", icon: <Scale size={14} />, label: "License" },
-		{ value: "imprint", icon: <Info size={14} />, label: "Imprint" },
+		{
+			value: "license",
+			icon: <Scale size={14} />,
+			label: "License",
+			description: "Shows the MIT license text",
+		},
+		{
+			value: "imprint",
+			icon: <Info size={14} />,
+			label: "Imprint",
+			description: "Shows the author and the source code repository",
+		},
 	];
 
 	const onMore = (item: MoreItem) => {
@@ -55,7 +70,7 @@ export const SidebarFooter: React.FC = () => {
 			<footer className="sb-footer">
 				<div className="sb-footer-links">
 					<span className="sb-footer-version" title={`v${__APP_VERSION__}`}>
-						v{__APP_VERSION__}
+						{releaseVersion(__APP_VERSION__)}
 					</span>
 					<span className="sb-footer-sep" aria-hidden="true">
 						|
@@ -64,6 +79,7 @@ export const SidebarFooter: React.FC = () => {
 						onClick={() => setShowHelp(true)}
 						className="sb-footer-btn"
 						type="button"
+						aria-description="Explains the mouse and keyboard interactions, data import and export"
 					>
 						Help
 					</button>
@@ -72,8 +88,9 @@ export const SidebarFooter: React.FC = () => {
 						current={"" as MoreItem}
 						onChange={onMore}
 						popoverId="footer-more-popover"
+						label="More"
 						minWidth={180}
-						renderTrigger={({ onClick, ref, isOpen }) => (
+						renderTrigger={({ onClick, ref, popupProps }) => (
 							<button
 								ref={ref}
 								onClick={onClick}
@@ -81,8 +98,8 @@ export const SidebarFooter: React.FC = () => {
 								type="button"
 								title="Keyboard shortcuts, storage, license, imprint"
 								aria-label="More"
-								aria-haspopup="true"
-								aria-expanded={isOpen}
+								aria-description="Opens a menu with keyboard shortcuts, storage usage, license and imprint"
+								{...popupProps}
 							>
 								<MoreHorizontal size={14} aria-hidden="true" />
 							</button>

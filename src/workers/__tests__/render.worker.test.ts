@@ -15,6 +15,8 @@ import {
 	VIEWPORT_SAB_BYTES,
 	ViewportWriter,
 } from "../../components/Plot/viewportChannel";
+import { formatAxisLabel } from "../../utils/axisCalculations";
+import { displayLocale, setDisplayLocale } from "../../utils/displayFormat";
 import type { RenderWorkerRequest } from "../render.worker";
 import "../render.worker";
 
@@ -85,6 +87,23 @@ function seriesMsg(
 describe("render.worker", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+	});
+
+	it("formats labels in the locale the host sends with init", () => {
+		const gl = makeGl2Mock();
+		try {
+			send({
+				t: "init",
+				canvas: makeCanvasMock(gl) as unknown as OffscreenCanvas,
+				viewport,
+				plotBg: [1, 1, 1],
+				locale: "de-DE",
+			});
+			expect(displayLocale()).toBe("de-DE");
+			expect(formatAxisLabel(1.5, 1)).toBe("1,5");
+		} finally {
+			setDisplayLocale("en-US");
+		}
 	});
 
 	it("initializes, sizes the canvas, and draws a coalesced frame", async () => {
@@ -213,6 +232,47 @@ describe("render.worker", () => {
 		send({ t: "dispose" });
 		expect(gl.deleteProgram).toHaveBeenCalledTimes(3);
 		expect(closeSpy).toHaveBeenCalled();
+	});
+
+	it("tells the host when there is no WebGL2 context", () => {
+		const post = vi
+			.spyOn(window, "postMessage")
+			.mockImplementation(() => undefined);
+		send({
+			t: "init",
+			canvas: makeCanvasMock(null) as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+		});
+		expect(post).toHaveBeenCalledExactlyOnceWith({
+			t: "failure",
+			reason: "no-webgl2",
+		});
+		// Later messages are harmless without a core.
+		send({ t: "series", list: [seriesMsg(1, 2, true)] });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
+	});
+
+	it("tells the host when the shaders do not compile", () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const post = vi
+			.spyOn(window, "postMessage")
+			.mockImplementation(() => undefined);
+		const gl = makeGl2Mock();
+		gl.getShaderParameter.mockReturnValue(false);
+		send({
+			t: "init",
+			canvas: makeCanvasMock(gl) as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+		});
+		expect(post).toHaveBeenCalledWith({ t: "failure", reason: "shader" });
 	});
 
 	it("redraws on plotBg and highlight messages", async () => {

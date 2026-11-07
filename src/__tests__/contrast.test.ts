@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { COLOR_PALETTE, THEMES, type ThemeName } from "../themes";
-import { hexToRgb } from "../utils/colors";
+import { cssToRgbaWithAlpha, hexToRgb, rgbToHex } from "../utils/colors";
 
 /**
  * WCAG contrast is arithmetic, so it can simply be checked rather than
@@ -26,6 +26,17 @@ function contrastRatio(a: string, b: string): number {
 	return (hi + 0.05) / (lo + 0.05);
 }
 
+/** A translucent `rgba()` theme colour composited over an opaque hex. */
+function over(css: string, under: string): string {
+	const [r, g, b, a] = cssToRgbaWithAlpha(css);
+	const u = hexToRgb(under);
+	return rgbToHex(
+		r * 255 * a + u.r * (1 - a),
+		g * 255 * a + u.g * (1 - a),
+		b * 255 * a + u.b * (1 - a),
+	);
+}
+
 const themeNames = Object.keys(THEMES) as ThemeName[];
 
 /** WCAG AA for normal-size body text. */
@@ -39,13 +50,62 @@ describe("theme contrast", () => {
 		expect(contrastRatio(t.text, t.bg)).toBeGreaterThanOrEqual(AA_NORMAL);
 	});
 
+	it.each(themeNames)(
+		"%s: every UI text colour meets WCAG AA on every panel surface",
+		(name) => {
+			const t = THEMES[name];
+			// bg: dialogs and headers, bg2: the sidebar, bg3: hover, selected
+			// and table-header rows — any of these colours can land on each.
+			// accent/danger also fill primary buttons with `bg` text on top,
+			// which is the same pair.
+			const text = {
+				text: t.text,
+				textMid: t.textMid,
+				textMuted: t.textMuted,
+				textLight: t.textLight,
+				accent: t.accent,
+				danger: t.danger,
+				success: t.success,
+				btnColor: t.btnColor,
+			};
+			for (const [token, color] of Object.entries(text)) {
+				for (const [surface, bg] of Object.entries({
+					bg: t.bg,
+					bg2: t.bg2,
+					bg3: t.bg3,
+				})) {
+					expect(
+						contrastRatio(color, bg),
+						`${token} ${color} on ${surface} ${bg}`,
+					).toBeGreaterThanOrEqual(AA_NORMAL);
+				}
+			}
+			expect(contrastRatio(t.selectColor, t.selectBg)).toBeGreaterThanOrEqual(
+				AA_NORMAL,
+			);
+		},
+	);
+
+	it.each(themeNames)("%s: tooltip text meets WCAG AA", (name) => {
+		const t = THEMES[name];
+		const bg = over(t.tooltipBg, t.plotBg);
+		expect(contrastRatio(t.tooltipColor, bg)).toBeGreaterThanOrEqual(AA_NORMAL);
+		expect(contrastRatio(t.tooltipSubColor, bg)).toBeGreaterThanOrEqual(
+			AA_NORMAL,
+		);
+	});
+
 	it.each(themeNames)("%s: axis labels are legible", (name) => {
 		const t = THEMES[name];
-		// Tick labels are small but not body copy; AA large is the pragmatic
-		// floor for them, and they sit on the plot background.
-		expect(contrastRatio(t.labelColor, t.plotBg ?? t.bg)).toBeGreaterThanOrEqual(
-			AA_LARGE,
+		// Tick labels alone would need only AA large (3:1), but the same colour
+		// sets the axis titles, which are normal-size text: AA applies. Both
+		// sit on the plot, the secondary row on its translucent chip.
+		expect(contrastRatio(t.labelColor, t.plotBg)).toBeGreaterThanOrEqual(
+			AA_NORMAL,
 		);
+		expect(
+			contrastRatio(t.labelColor, over(t.secLabelBg, t.plotBg)),
+		).toBeGreaterThanOrEqual(AA_NORMAL);
 	});
 
 	it.each(themeNames)(

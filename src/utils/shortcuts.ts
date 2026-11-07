@@ -115,7 +115,7 @@ export const SHORTCUTS = {
 	},
 	axisRename: {
 		keys: ["Enter"],
-		description: "Rename the focused X axis",
+		description: "Rename the focused axis",
 	},
 	closeDialog: {
 		keys: ["Escape"],
@@ -213,4 +213,18 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 		target instanceof HTMLSelectElement ||
 		target instanceof HTMLTextAreaElement
 	);
+}
+
+// Modal dialogs, the axis range popover and the portalled picker popovers
+// (all role="dialog"; the popovers are matched by class as well).
+const KEYBOARD_OWNERS =
+	'[aria-modal="true"], [role="dialog"], .popup-picker-popover, .color-picker-popover';
+
+/**
+ * An open dialog or popover owns the keyboard: window-level chart shortcuts
+ * stand down while one is on screen, so arrows and +/- reach it instead of
+ * panning the chart behind it.
+ */
+export function overlayOwnsKeyboard(doc: Document = document): boolean {
+	return doc.querySelector(KEYBOARD_OWNERS) !== null;
 }

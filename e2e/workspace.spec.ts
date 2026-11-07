@@ -65,7 +65,7 @@ test("data and a series colour survive a reload", async ({ page }) => {
 		"aria-label",
 		/2 data series: Sine, Growth\./,
 	);
-	await expect(page.getByText("200 lines")).toBeVisible();
+	await expect(page.getByText("200 rows", { exact: true })).toBeVisible();
 	await expect(page.getByRole("button", { name: "Color for Sine" })).toHaveCSS(
 		"background-color",
 		"rgb(0, 0, 0)",
@@ -96,7 +96,9 @@ test("creates a calculated column through the formula worker", async ({
 	const yColumn = page.getByRole("combobox", { name: "Y Column for Sine" });
 	await expect(yColumn.locator("option", { hasText: "Double" })).toHaveCount(1);
 	await yColumn.selectOption({ label: "Double" });
-	await expect(yColumn.locator("option:checked")).toHaveText("Double");
+	// The automatic series name follows the column, and the label with it.
+	const renamed = page.getByRole("combobox", { name: "Y Column for Double" });
+	await expect(renamed.locator("option:checked")).toHaveText("Double");
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });
 
@@ -196,6 +198,6 @@ test("a saved session file opens back into the workspace", async ({ page }) => {
 		"aria-label",
 		/2 data series: Sine, Growth\./,
 	);
-	await expect(page.getByText("200 lines")).toHaveCount(1);
+	await expect(page.getByText("200 rows", { exact: true })).toHaveCount(1);
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });

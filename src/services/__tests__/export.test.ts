@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { THEMES } from "../../themes";
 import { downloadFile, exportToPNG, exportToSVG, formatDate } from "../export";
+import { setDisplayLocale } from "../../utils/displayFormat";
 import { UNIT_SECONDS } from "../../utils/time";
 import type {
 	Dataset,
@@ -112,6 +113,20 @@ describe("exportToSVG", () => {
 		expect(svg).toContain('<svg width="800" height="600"');
 		expect(svg).toContain("Time");
 		expect(svg).toContain("Series 1");
+	});
+
+	it("titles a y axis by its custom title instead of its series", () => {
+		const svg = exportToSVG(
+			mockDatasets,
+			mockSeries,
+			mockXAxes,
+			mockYAxes.map((a) => (a.id === "y1" ? { ...a, title: "Flow <l/s>" } : a)),
+			800,
+			600,
+			THEMES.light,
+		);
+		expect(svg).toContain('<tspan fill="#ff0000">Flow &lt;l/s&gt;</tspan>');
+		expect(svg).not.toContain(">Series 1</tspan>");
 	});
 
 	it("should escape HTML in theme properties to prevent XSS", () => {
@@ -761,27 +776,36 @@ describe("downloadFile", () => {
 });
 
 describe("formatDate", () => {
+	// Like the on-screen axis: the display locale's forms ("15.1." in German).
+	afterEach(() => setDisplayLocale("en-US"));
+	const plain = (s: string) => s.replace(/\s/g, " ");
+
 	it(`formats correctly for daily steps (>= ${UNIT_SECONDS.day})`, () => {
 		const date = new Date(2023, 0, 15, 12, 0, 0);
 		const val = Math.floor(date.getTime() / 1000);
+		expect(formatDate(val, UNIT_SECONDS.day)).toBe("1/15");
+		setDisplayLocale("de-DE");
 		expect(formatDate(val, UNIT_SECONDS.day)).toBe("15.1.");
 		expect(formatDate(val, 25 * UNIT_SECONDS.hour)).toBe("15.1.");
 	});
 
 	it(`formats correctly for hourly steps (>= ${UNIT_SECONDS.hour} but < ${UNIT_SECONDS.day})`, () => {
-		const date = new Date(2023, 0, 15, 9, 30, 0);
+		const date = new Date(2023, 0, 15, 9, 0, 0);
 		const val = Math.floor(date.getTime() / 1000);
-		expect(formatDate(val, UNIT_SECONDS.hour)).toBe("9:00");
-		expect(formatDate(val, 2 * UNIT_SECONDS.hour)).toBe("9:00");
+		expect(plain(formatDate(val, UNIT_SECONDS.hour))).toBe("9:00 AM");
+		setDisplayLocale("de-DE");
+		expect(formatDate(val, UNIT_SECONDS.hour)).toBe("09:00");
+		expect(formatDate(val, 2 * UNIT_SECONDS.hour)).toBe("09:00");
 	});
 
 	it(`formats correctly for minute steps (< ${UNIT_SECONDS.hour})`, () => {
 		const date1 = new Date(2023, 0, 15, 9, 5, 0);
 		const val1 = Math.floor(date1.getTime() / 1000);
-		expect(formatDate(val1, UNIT_SECONDS.minute)).toBe("09:05");
-
 		const date2 = new Date(2023, 0, 15, 14, 30, 0);
 		const val2 = Math.floor(date2.getTime() / 1000);
+		expect(plain(formatDate(val2, UNIT_SECONDS.second))).toBe("2:30 PM");
+		setDisplayLocale("de-DE");
+		expect(formatDate(val1, UNIT_SECONDS.minute)).toBe("09:05");
 		expect(formatDate(val2, UNIT_SECONDS.second)).toBe("14:30");
 	});
 });

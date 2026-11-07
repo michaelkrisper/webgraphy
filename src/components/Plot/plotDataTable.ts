@@ -9,6 +9,7 @@ import { isLogAxis } from "../../utils/axisScale";
 import { getColumnIndex } from "../../utils/columns";
 import { escapeTextCell, makeCellFormatter } from "../../utils/csv-export";
 import { m4ByLogXFloat32, m4ByXFloat32 } from "../../utils/decimation";
+import { formatReading } from "../../utils/displayFormat";
 import { formatFullDate } from "../../utils/time";
 
 /**
@@ -131,9 +132,7 @@ export function formatTableValue(
 ): string {
 	if (!Number.isFinite(value)) return "—";
 	if (xMode === "date") return formatFullDate(value);
-	return parseFloat(value.toPrecision(7)).toLocaleString(undefined, {
-		maximumFractionDigits: 10,
-	});
+	return formatReading(value);
 }
 
 /**

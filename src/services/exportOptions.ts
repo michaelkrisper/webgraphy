@@ -1,6 +1,9 @@
+import type { ThemeName } from "../themes";
 import type { ImageExportRequest } from "./export";
 
 export type ImageFormat = "svg" | "png";
+/** "light" is the publication case; "current" draws in the on-screen theme. */
+export type ExportTheme = "light" | "current";
 export type SizeUnit = "px" | "mm";
 export type LegendPosition =
 	| "auto"
@@ -67,6 +70,7 @@ export interface ImageExportOptions {
 	legendPosition: LegendPosition;
 	title: string;
 	transparent: boolean;
+	theme: ExportTheme;
 }
 
 export const DEFAULT_EXPORT_OPTIONS: ImageExportOptions = {
@@ -81,6 +85,7 @@ export const DEFAULT_EXPORT_OPTIONS: ImageExportOptions = {
 	legendPosition: "auto",
 	title: "",
 	transparent: false,
+	theme: "light",
 };
 
 export const MIN_DPI = 72;
@@ -131,7 +136,14 @@ const parseOptions = (o: Record<string, unknown>): ImageExportOptions => ({
 	legendPosition: oneOf(o.legendPosition, LEGEND_POSITIONS, d.legendPosition),
 	title: typeof o.title === "string" ? o.title.slice(0, 500) : d.title,
 	transparent: bool(o.transparent, d.transparent),
+	theme: oneOf(o.theme, ["light", "current"] as const, d.theme),
 });
+
+/** The theme an export is drawn in, given the one on screen. */
+export const exportThemeName = (
+	choice: ExportTheme,
+	current: ThemeName,
+): ThemeName => (choice === "current" ? current : "light");
 
 /** Last used options; unknown or corrupt entries fall back field by field. */
 export function loadExportOptions(

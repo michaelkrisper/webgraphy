@@ -142,7 +142,14 @@ function sampleContent(): SessionContent {
 	const x = xAxes();
 	x[0] = { ...x[0], min: 12.5, max: 99.25, xMode: "date", name: "When" };
 	const y = yAxes();
-	y[1] = { ...y[1], min: -3, max: 7, color: "#ff0000", position: "right" };
+	y[1] = {
+		...y[1],
+		min: -3,
+		max: 7,
+		color: "#ff0000",
+		position: "right",
+		title: "Flow",
+	};
 	y[2] = { ...y[2], min: 0.1, max: 1000, scale: "log" };
 	return {
 		datasets: [main, sparse],
@@ -248,6 +255,14 @@ describe("session format", () => {
 		content.datasets[0].data[0].data = big.subarray(2, 6);
 		const back = await decodeSession(bufferOf(await encodeSession(content)));
 		expect(Array.from(back.datasets[0].data[0].data)).toEqual([1, 2, 3, 4]);
+	});
+
+	it("keeps the demo marker, and adds none to user datasets", async () => {
+		const content = sampleContent();
+		content.datasets[0] = { ...content.datasets[0], demo: true };
+		const back = await decodeSession(bufferOf(await encodeSession(content)));
+		expect(back.datasets[0].demo).toBe(true);
+		expect("demo" in back.datasets[1]).toBe(false);
 	});
 
 	it("names the file with the date and a .webgraphy extension", () => {

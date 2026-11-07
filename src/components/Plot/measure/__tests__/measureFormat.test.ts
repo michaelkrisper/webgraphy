@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setDisplayLocale } from "../../../../utils/displayFormat";
 import {
 	buildReadout,
 	DASH,
@@ -40,6 +41,21 @@ describe("formatDuration", () => {
 	it("keeps the sign of a backwards span", () => {
 		expect(formatDuration(-90)).toBe("-1m 30s");
 		expect(formatDuration(0)).toBe("0 ms");
+	});
+});
+
+describe("in the display locale", () => {
+	it("uses German separators for a German browser", () => {
+		setDisplayLocale("de-DE");
+		try {
+			expect(formatNumber(1234.56789)).toBe("1.234,57");
+			expect(formatNumber(2.5, true)).toBe("+2,5");
+			expect(formatNumber(0.0000123)).toBe("1,23e-5");
+			expect(formatDuration(42.5)).toBe("+42,5 s");
+			expect(formatDuration(0.0125)).toBe("+12,5 ms");
+		} finally {
+			setDisplayLocale("en-US");
+		}
 	});
 });
 

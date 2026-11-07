@@ -22,6 +22,7 @@ export const ImprintModal: React.FC<ImprintModalProps> = ({ onClose }) => {
 					target="_blank"
 					rel="noopener noreferrer"
 					className="imprint-link"
+					aria-description="Source code on GitHub; opens in a new tab"
 				>
 					https://github.com/michaelkrisper/webgraphy
 				</a>

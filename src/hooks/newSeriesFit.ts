@@ -30,9 +30,10 @@ function columnBounds(ds: Dataset, column: string): Range | undefined {
  *
  * - A y axis no series used before is fitted to everything now on it, as is
  *   the axis of a series whose column changed.
- * - A y axis that already carried series keeps its (possibly user-zoomed)
- *   range unless the new data would be entirely off-screen; then it widens
- *   just enough to include it.
+ * - A y axis that already carried series widens just enough to include the
+ *   new data when it still shows all of its previous data (not zoomed in) and
+ *   the new data sticks out. A user-zoomed axis keeps its range unless the
+ *   new data would be entirely off-screen.
  * - An x axis no previous series' dataset sat on is fitted to its datasets.
  */
 export function fitForNewSeries(
@@ -93,7 +94,13 @@ export function fitForNewSeries(
 		const r = seriesBounds(list);
 		const axis = yAxes.find((a) => a.id === axisId);
 		if (!r || !isFiniteRange(axis)) continue;
-		if (r.max < axis.min || r.min > axis.max) {
+		const shown = seriesBounds(prev.filter((s) => s.yAxisId === axisId));
+		// An axis still showing all of its data is not user-zoomed, so the
+		// new series should fit completely, not just poke into view.
+		const unzoomed = !!shown && axis.min <= shown.min && axis.max >= shown.max;
+		const clipped = r.min < axis.min || r.max > axis.max;
+		const offScreen = r.max < axis.min || r.min > axis.max;
+		if (offScreen || (unzoomed && clipped)) {
 			y[axisId] = unite(axis, padRange(r));
 		}
 	}

@@ -55,7 +55,12 @@ describe("SidebarFooter", () => {
 	it("renders version, author, Help and the overflow button", () => {
 		render(<SidebarFooter />);
 
-		expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
+		// The release number only; the full git-describe string is the tooltip.
+		const version = screen.getByTitle(`v${__APP_VERSION__}`);
+		expect(version.textContent).toMatch(/^v\d+\.\d+\.\d+$/);
+		expect(__APP_VERSION__.startsWith(version.textContent?.slice(1) ?? "-")).toBe(
+			true,
+		);
 		expect(screen.getByText("© Michael Krisper")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
 		// Secondary links stay out of the row until the overflow is opened.

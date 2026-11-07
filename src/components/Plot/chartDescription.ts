@@ -4,6 +4,12 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../../services/persistence";
+import { formatReading } from "../../utils/displayFormat";
+import {
+	formatShortcutKeys,
+	SHORTCUTS,
+	shortcutHint,
+} from "../../utils/shortcuts";
 import { formatFullDate } from "../../utils/time";
 
 /**
@@ -17,18 +23,23 @@ import { formatFullDate } from "../../utils/time";
  * a table, not in a label.
  */
 
+const keys = (id: "panX" | "panY") =>
+	formatShortcutKeys(SHORTCUTS[id]).join("/");
+
+/**
+ * `aria-description` of the plot canvas: the label says what is plotted, this
+ * says how to move around in it once it has focus.
+ */
+export const CHART_KEYS_DESCRIPTION = `${keys("panX")} and ${keys("panY")} pan, ${shortcutHint(SHORTCUTS.zoomIn)}/${shortcutHint(SHORTCUTS.zoomOut)} zoom, ${shortcutHint(SHORTCUTS.fitAll)} fits all axes, ${shortcutHint(SHORTCUTS.showShortcuts)} lists every shortcut. Click to pin measurement cursors`;
+
 /** Series listed by name before the label switches to a count. */
 const MAX_NAMED_SERIES = 5;
 
 function formatBound(value: number, xMode: XAxisConfig["xMode"]): string {
 	if (!Number.isFinite(value)) return "unknown";
 	if (xMode === "date") return formatFullDate(value);
-	// toPrecision keeps long floats from flooding the announcement. The
-	// explicit fraction-digit ceiling matters: toLocaleString defaults to three
-	// decimals, which would announce a 0.000123-wide axis as "0 to 0".
-	return parseFloat(value.toPrecision(6)).toLocaleString(undefined, {
-		maximumFractionDigits: 10,
-	});
+	// Six significant digits keep long floats from flooding the announcement.
+	return formatReading(value, 6);
 }
 
 export interface DescribeChartInput {

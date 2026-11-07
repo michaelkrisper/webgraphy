@@ -2,8 +2,6 @@
 .axis-range-popover {
 	position: absolute;
 	z-index: 40;
-	display: grid;
-	gap: 6px;
 	width: 200px;
 	padding: 8px;
 	border: 1px solid var(--border-color);
@@ -13,6 +11,10 @@
 	box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
 	cursor: default;
 	user-select: text;
+}
+.axis-range-form {
+	display: grid;
+	gap: 6px;
 }
 .axis-range-field {
 	display: grid;

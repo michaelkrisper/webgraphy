@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { generateDemoDataset, getDemoAppState } from "../services/demoData";
+import {
+	DEMO_DATASET_ID,
+	generateDemoDataset,
+	getDemoAppState,
+} from "../services/demoData";
 import {
 	type AppState,
 	type DataColumn,
@@ -465,11 +469,21 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 	renameColumn: (datasetId, oldName, newName) => {
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === oldName) return;
+		if (
+			get()
+				.datasets.find((d) => d.id === datasetId)
+				?.columns.includes(trimmed)
+		) {
+			notify({
+				kind: "error",
+				message: `Could not rename "${oldName}": a column named "${trimmed}" already exists`,
+			});
+			return;
+		}
 		const before = beginHistory();
 		set((state) => {
 			const dataset = state.datasets.find((d) => d.id === datasetId);
 			if (!dataset) return state;
-			if (dataset.columns.includes(trimmed) && trimmed !== oldName) return state;
 			const updatedDataset = {
 				...dataset,
 				columns: dataset.columns.map((c) => (c === oldName ? trimmed : c)),
@@ -738,7 +752,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			let allDatasets: Dataset[];
 			try {
 				savedState = await persistence.loadAppState();
-				allDatasets = await persistence.getAllDatasets();
+				// Builds before the `demo` flag saved the demo under its fixed id.
+				allDatasets = (await persistence.getAllDatasets()).map((d) =>
+					d.id === DEMO_DATASET_ID && !d.demo ? { ...d, demo: true } : d,
+				);
 			} catch (error) {
 				// Storage disabled, private mode or a failed open: run on demo data
 				// without persistence, which also keeps whatever is on disk intact.
@@ -1026,7 +1043,7 @@ function axisUpdateLabel(
 	updates: Partial<XAxisConfig & YAxisConfig>,
 ): string {
 	const axis = `${kind}-axis ${id.split("-")[1]}`;
-	if ("name" in updates) return `rename ${axis}`;
+	if ("name" in updates || "title" in updates) return `rename ${axis}`;
 	if ("showGrid" in updates)
 		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;
 	if ("position" in updates) return `move ${axis} to the ${updates.position}`;

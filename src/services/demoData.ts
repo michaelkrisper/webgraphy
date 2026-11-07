@@ -7,6 +7,8 @@ import type {
 } from "./persistence";
 
 export const RESOLUTION_SECONDS = 60;
+/** Fixed id, so saved demo data from builds before the `demo` flag is recognised. */
+export const DEMO_DATASET_ID = "demo-dataset";
 
 export function generateDemoDataset(rowCount = 10000): Dataset {
 	const columns = [
@@ -16,7 +18,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 		"Solar Irradiance (W/m²)",
 		"Wind Speed (m/s)",
 	];
-	const datasetId = "demo-dataset";
+	const datasetId = DEMO_DATASET_ID;
 
 	const currentYear = new Date().getFullYear();
 	const startTime = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
@@ -83,6 +85,7 @@ export function generateDemoDataset(rowCount = 10000): Dataset {
 		rowCount,
 		xAxisColumn: columns[0],
 		xAxisId: "axis-1",
+		demo: true,
 	};
 }
 

@@ -77,9 +77,11 @@ The user interface is in English.
   cache reduces millions of points to what the pixels can show.
 - **Interaction** animates target axis ranges in a `requestAnimationFrame`
   loop and writes back to the store only when it settles, so panning never
-  re-renders React.
+  re-renders the UI.
 - **Calculated columns** are compiled by a small parser (shunting-yard to RPN)
   and evaluated row by row in a worker; there is no `eval`.
+- **UI** is Preact (through `preact/compat`, so the code reads like React),
+  about 10 KB instead of React's 60 KB in the entry bundle.
 - **State** lives in a Zustand store, persisted to IndexedDB and validated
   with Zod on load.
 
@@ -146,11 +148,44 @@ Press `?` in the app to see this list. It is generated from
 | ---- | ---------------- |
 | Esc  | Close the dialog |
 
+## AI agents (WebMCP)
+
+In browsers that implement [WebMCP](https://webmachinelearning.github.io/webmcp/)
+(`document.modelContext`, currently a Chrome origin trial), WebGraphy registers
+tools an AI agent running in the browser can call:
+
+| Tool                     | Effect                                                                   |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `get_workspace`          | Datasets, columns (kind, min/max), series, axes in use, undo/redo labels |
+| `get_column_statistics`  | n, missing, min, max, mean, std of a column, optionally over an X range  |
+| `list_formula_functions` | Formula syntax, functions and constants for calculated columns           |
+| `plot_column`            | Plot a column on a free or chosen Y axis                                 |
+| `remove_series`          | Remove a series (the column stays in the dataset)                        |
+| `set_series_style`       | Color, line style, point marker, visibility                              |
+| `set_axis`               | Scale, axis title, visible range                                         |
+| `fit_all`                | Fit all axes to their data                                               |
+| `add_calculated_column`  | Add a calculated column from a formula                                   |
+| `undo` / `redo`          | Undo or redo the latest change                                           |
+
+The tools return metadata and aggregate statistics only, never row values, and
+none of them exports, downloads or deletes data. Edits to series, axes and
+columns are ordinary undoable steps and show a toast with an Undo button;
+ranges and fits are view changes, like zooming (Alt+Left steps back). Without
+WebMCP support nothing is loaded. To enable the origin trial on a deployment,
+register the origin for the WebMCP trial and store the token as the repository
+variable `WEBMCP_OT_TOKEN`; CI builds with it as `VITE_WEBMCP_OT_TOKEN`, and it
+is injected as an `origin-trial` meta tag at runtime, since GitHub Pages cannot
+send the header.
+
 ## Privacy
 
 - Your data stays in the browser: datasets, series configuration and view
   state live in IndexedDB; only the theme and a few small preferences (such as
   image-export settings) use localStorage. Nothing is uploaded.
+- AI agents: when an AI agent in your browser uses the WebMCP tools above, the
+  metadata and statistics it requests (dataset, column and series names, row
+  counts, ranges, aggregates) go to that agent's model provider. Row values are
+  never returned to it, and nothing is sent when no agent calls the tools.
 - Page views are counted with [GoatCounter](https://www.goatcounter.com/): one
   first-party beacon request per page load (path, title, referrer, screen
   width), no cookies and no third-party script. It is not sent on localhost or
@@ -190,7 +225,13 @@ on pull requests and pushes to `main`:
 - `e2e`: Playwright in a pinned container.
 - `bench`: benchmarks against the baseline.
 - `deploy`: publishes `dist` to GitHub Pages, on `main` only, after `quality`
-  and `e2e` pass.
+  and `e2e` pass, then tags the commit and creates a GitHub release.
+
+Every merge to `main` is released as the next patch version (`vX.Y.Z` tags are
+the source of truth, computed by `scripts/next-version.mjs`). For a minor or
+major release, raise the `version` in `package.json` in the pull request; the
+merge is then released as exactly that version. The build reads the version
+from `git describe`, or from the `APP_VERSION` environment variable when set.
 
 Screenshot baselines are generated only by CI, never locally. To refresh them
 after an intentional UI change, run the workflow manually with

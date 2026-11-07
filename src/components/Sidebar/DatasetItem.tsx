@@ -1,4 +1,10 @@
-import { Calculator, Download, Pencil, Trash2 } from "lucide-react";
+import {
+	Calculator,
+	Download,
+	Pencil,
+	SquareFunction,
+	Trash2,
+} from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
@@ -7,8 +13,9 @@ import { useGraphStore } from "../../store/useGraphStore";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
+import { UNDO_HINT } from "./undoHint";
 import type { Dataset, SeriesConfig } from "../../services/persistence";
-import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
+import { buildSeriesConfig, pickYAxisIdForColumn } from "../../utils/series";
 import { getColumnIndex } from "../../utils/columns";
 
 const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
@@ -17,8 +24,9 @@ const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 		const n = i + 1;
 		return {
 			value: n,
-			icon: <span style={{ fontWeight: "bold" }}>{n}</span>,
+			icon: <span style={{ fontWeight: "bold" }}>X{n}</span>,
 			label: `X-Axis ${n}`,
+			description: `Plots the dataset against X-Axis ${n}`,
 		};
 	},
 );
@@ -84,7 +92,10 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 		const { yAxes } = useGraphStore.getState();
 		addSeries(
 			buildSeriesConfig(columnName, ds.id, series.length, isCategorical, {
-				yAxisId: pickYAxisId(series, yAxes, col?.bounds),
+				yAxisId: pickYAxisIdForColumn(datasets, series, yAxes, {
+					bounds: col?.bounds,
+					categorical: isCategorical,
+				}),
 				pointCount: ds.rowCount,
 			}),
 		);
@@ -126,9 +137,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 				>
 					{ds.name}
 				</span>
-				<span className="sb-dataset-meta">
-					{ds.rowCount.toLocaleString()} lines
-				</span>
+				<span className="sb-dataset-meta">{ds.rowCount.toLocaleString()} rows</span>
 				<div
 					style={{
 						display: "flex",
@@ -150,7 +159,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								current={parseInt((ds.xAxisId || "axis-1").split("-")[1], 10) || 1}
 								onChange={(n) => updateDataset(ds.id, { xAxisId: `axis-${n}` })}
 								popoverId={`x-axis-popover-${ds.id}`}
-								renderTrigger={({ onClick, ref }) => (
+								label="X-Axis"
+								renderTrigger={({ onClick, ref, popupProps }) => (
 									<button
 										ref={ref}
 										className="sb-xaxis-btn-mono"
@@ -158,6 +168,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										type="button"
 										title="Select X-Axis (1-9)"
 										aria-label="Select X-Axis"
+										aria-description={`${ds.name} uses X-Axis ${(ds.xAxisId || "axis-1").split("-")[1]}. Opens X-axes 1 to 9; datasets on one X axis share its range`}
+										{...popupProps}
 										style={{
 											padding: "0 5px",
 											height: "22px",
@@ -176,7 +188,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 											fontWeight: "bold",
 										}}
 									>
-										{(ds.xAxisId || "axis-1").split("-")[1]}
+										X{(ds.xAxisId || "axis-1").split("-")[1]}
 									</button>
 								)}
 							/>
@@ -190,6 +202,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							}
 							title="X-Axis"
 							aria-label={`X-axis column for ${ds.name}`}
+							aria-description="Column that gives the X values for all of this dataset's series"
 							style={{
 								fontSize: "0.75rem",
 								height: "22px",
@@ -223,6 +236,11 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							}
 							aria-label="Logarithmic X Scale"
 							aria-pressed={xLog}
+							aria-description={
+								xLogDisabled
+									? "Needs a numeric X column"
+									: "Switches this dataset's X axis between a linear and a logarithmic scale"
+							}
 							style={{
 								padding: "0 5px",
 								height: "22px",
@@ -250,6 +268,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						type="button"
 						title="Add Calculated Column"
 						aria-label="Add Calculated Column"
+						aria-description={`Opens the formula editor for a new column computed from ${ds.name}`}
 					>
 						<Calculator size={16} />
 					</button>
@@ -269,6 +288,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						}}
 						title="Export Dataset as CSV"
 						aria-label={`Export ${ds.name} as CSV`}
+						aria-description="Downloads all rows, calculated columns included"
 					>
 						<Download size={16} />
 					</button>
@@ -284,6 +304,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						}}
 						title="Delete Dataset"
 						aria-label="Delete Dataset"
+						aria-description={`Removes ${ds.name} and its series. ${UNDO_HINT}`}
 					>
 						<Trash2 size={16} />
 					</button>
@@ -308,6 +329,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 						>
 							{isRenaming ? (
 								<input
+									aria-label={`New name for ${col}`}
+									aria-description="Saved when you leave the field"
 									value={renamingColumn.value}
 									onChange={(e) =>
 										setRenamingColumn((prev) =>
@@ -334,6 +357,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										color: t.accent,
 										fontWeight: "600",
 										width: "100%",
+										minWidth: "120px",
 										outline: "none",
 										boxSizing: "border-box",
 									}}
@@ -344,6 +368,14 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 										type="button"
 										className="col-chip-btn"
 										aria-pressed={!!plotted}
+										aria-description={[
+											isCalc && `Calculated Column: ${colData.formula}.`,
+											plotted
+												? "Plotted; removes its series from the chart"
+												: "Adds the column to the chart as a series",
+										]
+											.filter(Boolean)
+											.join(" ")}
 										onClick={() =>
 											plottedSeries
 												? removeSeriesWithUndo(
@@ -372,7 +404,9 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 												}}
 											/>
 										)}
-										{isCalc ? `ƒ ${label}` : label}
+										<span className="col-chip-label">
+											{isCalc ? `ƒ ${label}` : label}
+										</span>
 									</button>
 									<div className="col-chip-actions">
 										<button
@@ -395,6 +429,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 											type="button"
 											title="Rename column"
 											aria-label="Rename column"
+											aria-description={`Edits the name of ${col} in place`}
 										>
 											<Pencil size={10} />
 										</button>
@@ -409,7 +444,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														})
 													}
 													style={{
-														fontSize: "0.65rem",
+														display: "flex",
+														alignItems: "center",
 														padding: "2px 4px",
 														border: "none",
 														background: "none",
@@ -417,10 +453,11 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 														cursor: "pointer",
 													}}
 													type="button"
-													title="Edit formula"
+													title={`Edit formula: ${colData.formula}`}
 													aria-label="Edit formula"
+													aria-description={`Opens ${col} in the Calculated Column editor: ${colData.formula}`}
 												>
-													✎
+													<SquareFunction size={10} />
 												</button>
 												<button
 													onClick={() =>
@@ -438,6 +475,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 													type="button"
 													title="Delete calculated column"
 													aria-label="Delete calculated column"
+													aria-description={`Removes ${col}. ${UNDO_HINT}`}
 												>
 													<Trash2 size={10} />
 												</button>

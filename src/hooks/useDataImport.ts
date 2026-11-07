@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import type { ParsedDataset, SeriesConfig } from "../services/persistence";
-import { useGraphStore, withHistory } from "../store/useGraphStore";
+import { notifyUndoable } from "../store/undoToast";
+import {
+	latestHistoryId,
+	useGraphStore,
+	withHistory,
+} from "../store/useGraphStore";
 import { notify } from "../store/useNotificationStore";
 import type { ImportSettings } from "../types/import";
 import {
@@ -22,7 +27,8 @@ import {
 	sheetCsvInWorker,
 } from "../workers/excelClient";
 
-const AUTO_ADD_COLUMN_THRESHOLD = 5;
+/** Columns plotted straight away; the rest of a wide file waits for a click. */
+const AUTO_PLOT_COLUMNS = 4;
 /** Matches the head + tail rows the import dialog's preview table shows. */
 const JSON_PREVIEW_ROWS = 50;
 
@@ -95,35 +101,67 @@ async function openFile(
 	};
 }
 
-function importSummary(fileName: string, datasets: ParsedDataset[]): string {
+interface ImportOutcome {
+	replacedDemo: boolean;
+	plotted: number;
+	/** Non-X columns of a single-dataset import. */
+	plottable: number;
+}
+
+function importSummary(
+	fileName: string,
+	datasets: ParsedDataset[],
+	{ plotted, plottable }: ImportOutcome,
+): string {
 	if (datasets.length === 1) {
 		const { rowCount, columns } = datasets[0];
-		return `Imported "${fileName}": ${rowCount.toLocaleString()} rows, ${columns.length} columns`;
+		const summary = `Imported "${fileName}": ${rowCount.toLocaleString()} rows, ${columns.length} columns`;
+		return plotted < plottable
+			? `${summary}. Plotted ${plotted} of ${plottable} columns. Click a column to add more.`
+			: summary;
 	}
 	const rows = datasets.reduce((n, ds) => n + ds.rowCount, 0);
 	return `Imported "${fileName}" as ${datasets.length} datasets (${rows.toLocaleString()} rows)`;
 }
 
+/**
+ * A workspace holding nothing but demo data makes way for the first import,
+ * so the user's data starts on X axis 1 with fresh axes instead of beside it.
+ */
+const removeDemoData = (): boolean => {
+	const { datasets, removeDataset } = useGraphStore.getState();
+	if (datasets.length === 0 || !datasets.every((d) => d.demo)) return false;
+	for (const d of datasets) removeDataset(d.id);
+	return true;
+};
+
 const processImportedDatasets = (
 	incoming: ParsedDataset[],
 	addDataset: (ds: ParsedDataset) => void,
 	addSeries: (series: SeriesConfig) => void,
-) => {
-	const isSplitImport = incoming.length > 1;
-
-	for (const ds of incoming) {
-		addDataset(ds);
-
-		if (!isSplitImport && ds.columns.length <= AUTO_ADD_COLUMN_THRESHOLD) {
-			const { series, yAxes } = useGraphStore.getState();
-			const nonXColumns = ds.columns
-				.filter((c) => c !== ds.xAxisColumn)
-				.slice(0, 4);
-			for (const s of buildSeriesForColumns(ds, nonXColumns, series, yAxes)) {
-				addSeries(s);
-			}
-		}
+): ImportOutcome => {
+	const replacedDemo = removeDemoData();
+	if (incoming.length > 1) {
+		for (const ds of incoming) addDataset(ds);
+		return { replacedDemo, plotted: 0, plottable: 0 };
 	}
+
+	const [ds] = incoming;
+	addDataset(ds);
+	const { series, yAxes } = useGraphStore.getState();
+	const nonXColumns = ds.columns.filter((c) => c !== ds.xAxisColumn);
+	const added = buildSeriesForColumns(
+		ds,
+		nonXColumns.slice(0, AUTO_PLOT_COLUMNS),
+		series,
+		yAxes,
+	);
+	for (const s of added) addSeries(s);
+	return {
+		replacedDemo,
+		plotted: added.length,
+		plottable: nonXColumns.length,
+	};
 };
 
 /**
@@ -247,13 +285,17 @@ export const useDataImport = () => {
 
 				const datasets = await parseDataInWorker(workerFile, workerType, settings);
 				if (datasets.length === 0) throw new Error("no data found");
-				withHistory(`import '${current.file.name}'`, () =>
+				const historyBefore = latestHistoryId();
+				const outcome = withHistory(`import '${current.file.name}'`, () =>
 					processImportedDatasets(datasets, addDataset, addSeries),
 				);
 				notify({
 					kind: "success",
-					message: importSummary(current.file.name, datasets),
+					message: importSummary(current.file.name, datasets, outcome),
 				});
+				if (outcome.replacedDemo) {
+					notifyUndoable("Replaced the demo data", historyBefore);
+				}
 			} catch (err) {
 				// The dialog stays open so the settings can be adjusted and retried.
 				notify({

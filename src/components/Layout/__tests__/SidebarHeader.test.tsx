@@ -14,7 +14,10 @@ vi.mock("../../../store/useGraphStore", () => {
 	};
 	store.getState = vi.fn();
 	store.setState = vi.fn();
-	return { useGraphStore: store };
+	return {
+		useGraphStore: store,
+		withHistory: (_label: string, fn: () => unknown) => fn(),
+	};
 });
 
 vi.mock("../../../hooks/useTheme", () => ({
@@ -102,6 +105,7 @@ describe("SidebarHeader", () => {
 			loadDemoData: mockLoadDemoData,
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: true }],
+			datasets: [],
 			legendVisible: true,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: true,
@@ -209,6 +213,56 @@ describe("SidebarHeader", () => {
 
 		fireEvent.click(screen.getByTitle("Hide Vertical Grid"));
 		expect(mockUpdateXAxis).toHaveBeenCalledWith("axis-1", { showGrid: false });
+	});
+
+	it("toggles the grid of every X axis in use and reflects all of them", () => {
+		const state = {
+			updateXAxis: mockUpdateXAxis,
+			xAxes: [
+				{ id: "axis-1", showGrid: true },
+				{ id: "axis-2", showGrid: false },
+				{ id: "axis-3", showGrid: false },
+			],
+			datasets: [{ xAxisId: "axis-1" }, { xAxisId: "axis-2" }],
+		};
+		(useGraphStore as unknown as Mock).mockImplementation(
+			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
+		);
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+
+		// X axis 2 carries data without a grid, so the button shows "off".
+		fireEvent.click(screen.getByTitle("Show Vertical Grid"));
+		expect(mockUpdateXAxis.mock.calls).toEqual([
+			["axis-1", { showGrid: true }],
+			["axis-2", { showGrid: true }],
+		]);
+	});
+
+	it("says what the theme button does", () => {
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+		expect(
+			screen.getByTitle("Theme: Light (click to change)"),
+		).toBeInTheDocument();
 	});
 
 	it("toggles crosshair visibility", () => {
@@ -328,6 +382,7 @@ describe("SidebarHeader", () => {
 			loadDemoData: mockLoadDemoData,
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: false }],
+			datasets: [],
 			legendVisible: false,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: false,

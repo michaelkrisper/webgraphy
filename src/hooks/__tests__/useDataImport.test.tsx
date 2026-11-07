@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGraphStore } from "../../store/useGraphStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
@@ -17,9 +17,16 @@ import {
 } from "../../workers/excelClient";
 import { useDataImport } from "../useDataImport";
 
+let historyId = 0;
 vi.mock("../../store/useGraphStore", () => ({
 	useGraphStore: Object.assign(vi.fn(), { getState: vi.fn() }),
-	withHistory: (_label: string, fn: () => unknown) => fn(),
+	withHistory: (_label: string, fn: () => unknown) => {
+		const result = fn();
+		historyId++;
+		return result;
+	},
+	latestHistoryId: () => historyId,
+	undoIfLatest: vi.fn(),
 }));
 
 vi.mock("../../services/session", () => ({
@@ -62,9 +69,11 @@ const lastToast = () => toasts()[toasts().length - 1];
 describe("useDataImport", () => {
 	const addDataset = vi.fn();
 	const addSeries = vi.fn();
+	const removeDataset = vi.fn();
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		removeDataset.mockReset();
 		useNotificationStore.setState({ notifications: [] });
 		const state = { addDataset, addSeries };
 		vi
@@ -73,8 +82,10 @@ describe("useDataImport", () => {
 				(selector as (s: typeof state) => unknown)(state),
 			);
 		vi.mocked(useGraphStore.getState).mockReturnValue({
+			datasets: [],
 			series: [],
 			yAxes: [],
+			removeDataset,
 		} as unknown as ReturnType<typeof useGraphStore.getState>);
 		vi.mocked(closeWorkbookInWorker).mockResolvedValue(undefined);
 	});
@@ -243,6 +254,7 @@ describe("useDataImport", () => {
 
 		it("places auto-added series on free axes, sharing one for similar ranges", async () => {
 			vi.mocked(useGraphStore.getState).mockReturnValue({
+				datasets: [],
 				series: [{ yAxisId: "axis-1" }, { yAxisId: "axis-3" }],
 				yAxes: [],
 			} as unknown as ReturnType<typeof useGraphStore.getState>);
@@ -267,15 +279,78 @@ describe("useDataImport", () => {
 			expect(added.every((s) => s.pointStyle === "none")).toBe(true);
 		});
 
-		it("does not auto-add series for wide datasets", async () => {
+		it("plots the first four columns of a wide dataset and says so", async () => {
 			const { result } = await open([new File(["A"], "a.csv")]);
-			vi
-				.mocked(parseDataInWorker)
-				.mockResolvedValueOnce([
-					dataset({ columns: ["T", "C1", "C2", "C3", "C4", "C5"] }),
-				]);
+			vi.mocked(parseDataInWorker).mockResolvedValueOnce([
+				dataset({
+					columns: ["C1", "T", "C2", "C3", "C4", "C5", "C6"],
+					xAxisColumn: "T",
+				}),
+			]);
 			await act(() => result.current.confirmImport(settings));
-			expect(addSeries).not.toHaveBeenCalled();
+			expect(addSeries.mock.calls.map((c) => c[0].yColumn)).toEqual([
+				"C1",
+				"C2",
+				"C3",
+				"C4",
+			]);
+			expect(lastToast()).toMatchObject({
+				kind: "success",
+				message: `Imported "a.csv": ${(1234).toLocaleString()} rows, 7 columns. Plotted 4 of 6 columns. Click a column to add more.`,
+			});
+		});
+
+		describe("over demo data", () => {
+			const withDatasets = (datasets: object[]) =>
+				vi.mocked(useGraphStore.getState).mockReturnValue({
+					datasets,
+					series: [],
+					yAxes: [],
+					removeDataset,
+				} as unknown as ReturnType<typeof useGraphStore.getState>);
+
+			const importOne = async () => {
+				const { result } = await open([new File(["A"], "a.csv")]);
+				vi.mocked(parseDataInWorker).mockResolvedValueOnce([dataset()]);
+				await act(() => result.current.confirmImport(settings));
+			};
+
+			it("replaces it in the import step and offers Undo", async () => {
+				withDatasets([
+					{ id: "demo-dataset", demo: true },
+					{ id: "demo-dataset-2", demo: true },
+				]);
+				removeDataset.mockImplementation(() => {
+					// The import must land after the demo is gone.
+					expect(addDataset).not.toHaveBeenCalled();
+				});
+				await importOne();
+
+				expect(removeDataset.mock.calls.map((c) => c[0])).toEqual([
+					"demo-dataset",
+					"demo-dataset-2",
+				]);
+				expect(addDataset).toHaveBeenCalledTimes(1);
+				const toast = lastToast();
+				expect(toast).toMatchObject({
+					kind: "info",
+					message: "Replaced the demo data",
+					action: { label: "Undo" },
+				});
+				toast.action?.onAction();
+				const { undoIfLatest } = await import("../../store/useGraphStore");
+				expect(undoIfLatest).toHaveBeenCalledWith(historyId);
+				expect(toasts()[0].message).toMatch(/^Imported "a\.csv"/);
+			});
+
+			it("keeps demo data the user already mixed with their own", async () => {
+				withDatasets([{ id: "demo-dataset", demo: true }, { id: "mine" }]);
+				await importOne();
+				expect(removeDataset).not.toHaveBeenCalled();
+				expect(toasts().map((t) => t.message)).not.toContain(
+					"Replaced the demo data",
+				);
+			});
 		});
 
 		it("summarises split imports", async () => {
@@ -381,7 +456,8 @@ describe("useDataImport", () => {
 			await act(() => result.current.importFiles([b]));
 			expect(result.current.pendingFile?.file).toBe(a);
 			await act(async () => result.current.cancelImport());
-			expect(result.current.pendingFile?.file).toBe(b);
+			// cancelImport does not return the promise of opening the next file.
+			await waitFor(() => expect(result.current.pendingFile?.file).toBe(b));
 		});
 
 		it("gives each opened file a new id so the dialog remounts", async () => {

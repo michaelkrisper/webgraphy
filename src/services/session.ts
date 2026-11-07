@@ -59,6 +59,7 @@ const DatasetSchema = z.object({
 	rowCount: z.number(),
 	xAxisColumn: z.string(),
 	xAxisId: z.string(),
+	demo: z.optional(z.boolean()),
 	columns: z.array(ColumnSchema),
 });
 
@@ -105,6 +106,7 @@ export async function encodeSession(
 		rowCount: ds.rowCount,
 		xAxisColumn: ds.xAxisColumn,
 		xAxisId: ds.xAxisId,
+		...(ds.demo && { demo: true as const }),
 		columns: ds.data.map((col, i) => {
 			const bytes = new Uint8Array(
 				col.data.buffer,
@@ -223,6 +225,7 @@ export async function decodeSession(
 			rowCount: ds.rowCount,
 			xAxisColumn: ds.xAxisColumn,
 			xAxisId: ds.xAxisId,
+			...(ds.demo && { demo: true as const }),
 			columns: ds.columns.map((c) => c.name),
 			data: ds.columns.map((c): DataColumn => {
 				const end = c.offset + c.length * 4;

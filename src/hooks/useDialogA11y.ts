@@ -1,4 +1,4 @@
-import { useEffect, useId, type RefObject } from "react";
+import { useEffect, useId, useRef, type RefObject } from "react";
 
 const FOCUSABLE = [
 	"a[href]",
@@ -20,6 +20,14 @@ function isVisible(el: HTMLElement): boolean {
 	return style.display !== "none" && style.visibility !== "hidden";
 }
 
+/**
+ * Open dialogs, innermost last. Every layer listens on `document`, and
+ * listeners on one target run in registration order, so `stopPropagation`
+ * cannot keep the outer modal from also seeing an Escape meant for a picker
+ * opened inside it: only the top layer may act on a key.
+ */
+const layers: object[] = [];
+
 function focusableWithin(root: HTMLElement): HTMLElement[] {
 	return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
 		isVisible,
@@ -35,7 +43,8 @@ function focusableWithin(root: HTMLElement): HTMLElement[] {
  *   itself — landing on Close would make Enter dismiss what was just opened;
  * - keeps Tab and Shift+Tab cycling within it, so focus cannot wander into the
  *   inert page behind the backdrop;
- * - closes on Escape;
+ * - closes on Escape — only the innermost of nested layers (a picker inside a
+ *   modal) reacts to Escape and Tab;
  * - returns focus to whatever was focused before, so the keyboard user is not
  *   dropped back at the top of the document.
  *
@@ -46,10 +55,18 @@ export function useDialogA11y(
 	onClose: () => void,
 ): string {
 	const titleId = useId();
+	// Callers pass inline arrows; re-running the effect for each new identity
+	// would bounce focus out of the dialog and back on every parent render.
+	const onCloseRef = useRef(onClose);
+	useEffect(() => {
+		onCloseRef.current = onClose;
+	}, [onClose]);
 
 	useEffect(() => {
 		const dialog = dialogRef.current;
 		if (!dialog) return;
+		const layer = {};
+		layers.push(layer);
 
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 
@@ -67,9 +84,10 @@ export function useDialogA11y(
 		}
 
 		const onKeyDown = (e: KeyboardEvent) => {
+			if (layers[layers.length - 1] !== layer) return;
 			if (e.key === "Escape") {
 				e.stopPropagation();
-				onClose();
+				onCloseRef.current();
 				return;
 			}
 			if (e.key !== "Tab") return;
@@ -95,9 +113,10 @@ export function useDialogA11y(
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
 			document.removeEventListener("keydown", onKeyDown);
+			layers.splice(layers.indexOf(layer), 1);
 			previouslyFocused?.focus?.();
 		};
-	}, [dialogRef, onClose]);
+	}, [dialogRef]);
 
 	return titleId;
 }
