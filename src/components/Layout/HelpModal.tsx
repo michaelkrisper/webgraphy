@@ -54,7 +54,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Legend:</strong> Click an entry to hide or show its series
 				</li>
 				<li>
-					<strong>Drop a file</strong> on the chart to import it
+					<strong>Drop a file</strong> anywhere to import it
 				</li>
 			</Section>
 

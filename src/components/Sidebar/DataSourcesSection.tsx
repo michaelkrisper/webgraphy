@@ -93,7 +93,7 @@ export const DataSourcesSection: React.FC<DataSourcesSectionProps> = ({
 									fontStyle: "italic",
 								}}
 							>
-								Add datasources by importing or drag and drop on the graph surface
+								Add data sources by importing a file or dropping one anywhere
 							</div>
 						)}
 

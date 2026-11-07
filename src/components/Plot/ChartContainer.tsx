@@ -61,7 +61,7 @@ import {
 	resetAxisTargets,
 } from "./buildLiveAxes";
 import { ChartLegend } from "./ChartLegend";
-import { PlotDragOverlay, ZoomBoxOverlay } from "./PlotOverlays";
+import { ZoomBoxOverlay } from "./PlotOverlays";
 import {
 	type AxesLayoutCache,
 	buildXAxisLayoutFor,
@@ -108,7 +108,6 @@ interface RangeEdit {
 export default function ChartContainer() {
 	// 1. Core Refs and State
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [isDragOver, setIsDragOver] = useState(false);
 	const {
 		importFiles,
 		confirmImport,
@@ -807,16 +806,6 @@ export default function ChartContainer() {
 						}
 					}
 				}}
-				onDragOver={(e) => {
-					e.preventDefault();
-					setIsDragOver(true);
-				}}
-				onDragLeave={() => setIsDragOver(false)}
-				onDrop={(e) => {
-					e.preventDefault();
-					setIsDragOver(false);
-					void importFiles(e.dataTransfer.files);
-				}}
 				style={{
 					position: "relative",
 					cursor: panTarget
@@ -832,7 +821,6 @@ export default function ChartContainer() {
 					userSelect: "none",
 				}}
 			>
-				<PlotDragOverlay visible={isDragOver} />
 				{datasets.length === 0 && (
 					<EmptyState
 						width={width}
