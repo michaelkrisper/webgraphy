@@ -59,6 +59,8 @@ export interface YAxisConfig {
 	showGrid: boolean;
 	/** Absent means linear (configs created before log axes existed). */
 	scale?: AxisScale;
+	/** Custom title; absent means the joined names of the axis' series. */
+	title?: string;
 }
 
 export interface SeriesConfig {

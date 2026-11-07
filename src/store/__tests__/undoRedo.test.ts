@@ -231,6 +231,36 @@ describe("undo/redo", () => {
 		expect(store().crosshairVisible).toBe(true);
 	});
 
+	it("undoes setting and clearing a custom y title", () => {
+		vi.useFakeTimers();
+		store().addSeries(makeSeries("s1"));
+		store().updateYAxis("axis-1", { title: "Air" });
+		vi.advanceTimersByTime(5000);
+		store().updateYAxis("axis-1", { title: undefined });
+		// Clearing a title that is already clear records nothing.
+		store().updateYAxis("axis-1", { title: undefined });
+		expect(
+			past()
+				.map((e) => e.label)
+				.slice(-2),
+		).toEqual(["rename Y-axis 1", "rename Y-axis 1"]);
+
+		store().undo();
+		expect(store().yAxes[0].title).toBe("Air");
+		store().undo();
+		expect(store().yAxes[0].title).toBeUndefined();
+		store().redo();
+		expect(store().yAxes[0].title).toBe("Air");
+	});
+
+	it("records changing a series' column and its automatic name as one step", () => {
+		store().addSeries(makeSeries("s1"));
+		store().updateSeries("s1", { yColumn: "Time", name: "Time" });
+		expect(past().at(-1)?.label).toBe("change column of 's1'");
+		store().undo();
+		expect(store().series[0]).toMatchObject({ yColumn: "Value", name: "s1" });
+	});
+
 	it("undoes dataset edits and column renames, re-saving the old dataset", () => {
 		store().addDataset(makeDataset("ds-1"));
 		store().addSeries(makeSeries("s1"));

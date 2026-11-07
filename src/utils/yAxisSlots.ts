@@ -1,4 +1,5 @@
-import type { SeriesConfig } from "../services/persistence";
+import type { SeriesConfig, YAxisConfig } from "../services/persistence";
+import { yAxisTitleText } from "./yAxisTitle";
 
 const Y_AXIS_SLOTS = 9;
 
@@ -20,23 +21,26 @@ export const yAxisSlot = (id: string): number =>
 	Number.parseInt(id.split("-")[1], 10) || 1;
 
 /** The y axes that carry at least one series, by slot number. */
-export function usedYAxes(series: readonly AxisSeries[]): UsedYAxis[] {
-	const byId = new Map<string, { names: string[]; colors: string[] }>();
+export function usedYAxes(
+	series: readonly AxisSeries[],
+	yAxes: readonly Pick<YAxisConfig, "id" | "title">[] = [],
+): UsedYAxis[] {
+	const byId = new Map<string, { series: AxisSeries[]; colors: string[] }>();
 	for (const s of series) {
 		let entry = byId.get(s.yAxisId);
 		if (!entry) {
-			entry = { names: [], colors: [] };
+			entry = { series: [], colors: [] };
 			byId.set(s.yAxisId, entry);
 		}
-		entry.names.push(s.name || s.yColumn);
+		entry.series.push(s);
 		if (s.lineColor && !entry.colors.includes(s.lineColor)) {
 			entry.colors.push(s.lineColor);
 		}
 	}
-	return Array.from(byId, ([id, { names, colors }]) => ({
+	return Array.from(byId, ([id, { series: onAxis, colors }]) => ({
 		slot: yAxisSlot(id),
 		id,
-		title: names.join(" / "),
+		title: yAxisTitleText(yAxes.find((a) => a.id === id)?.title, onAxis),
 		colors,
 	})).sort((a, b) => a.slot - b.slot);
 }

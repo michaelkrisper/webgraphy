@@ -1026,7 +1026,7 @@ function axisUpdateLabel(
 	updates: Partial<XAxisConfig & YAxisConfig>,
 ): string {
 	const axis = `${kind}-axis ${id.split("-")[1]}`;
-	if ("name" in updates) return `rename ${axis}`;
+	if ("name" in updates || "title" in updates) return `rename ${axis}`;
 	if ("showGrid" in updates)
 		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;
 	if ("position" in updates) return `move ${axis} to the ${updates.position}`;

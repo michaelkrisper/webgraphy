@@ -38,6 +38,19 @@ describe("yAxisSlots", () => {
 		]);
 	});
 
+	it("titles an axis by its custom title where it has one", () => {
+		const series = [
+			s("a", "axis-1", "Temp", "#f00"),
+			s("b", "axis-2", "Wind", "#0f0"),
+		];
+		expect(
+			usedYAxes(series, [
+				{ id: "axis-1", title: "Air" },
+				{ id: "axis-2", title: undefined },
+			]).map((a) => a.title),
+		).toEqual(["Air", "Wind"]);
+	});
+
 	it("finds the first free slot, or null when all nine are used", () => {
 		expect(firstFreeYAxisSlot([])).toBe(1);
 		expect(

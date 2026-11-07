@@ -41,6 +41,7 @@ import {
 	stepAxisTarget,
 } from "../../utils/keyboard";
 import { prefersReducedMotion } from "../../utils/reducedMotion";
+import { yAxisTitleText } from "../../utils/yAxisTitle";
 import ErrorBoundary from "../ErrorBoundary";
 import { ImportSettingsDialogLazy } from "../Layout/importSettingsDialogLazy";
 import {
@@ -398,10 +399,13 @@ export default function ChartContainer() {
 	const yAxisTitles = useMemo(() => {
 		const titles: Record<string, string> = {};
 		for (const id in seriesByYAxisId) {
-			titles[id] = seriesByYAxisId[id].map((s) => s.name || s.yColumn).join(" / ");
+			titles[id] = yAxisTitleText(
+				yAxes.find((a) => a.id === id)?.title,
+				seriesByYAxisId[id],
+			);
 		}
 		return titles;
-	}, [seriesByYAxisId]);
+	}, [seriesByYAxisId, yAxes]);
 
 	const zoomHistory = useZoomHistory({
 		targetXAxes,
@@ -690,6 +694,7 @@ export default function ChartContainer() {
 				showGrid: a.showGrid,
 				scale: a.scale,
 				categoryLabels: yAxisCategoryLabels.get(a.id),
+				title: a.title,
 			})),
 		});
 	}, [
@@ -885,6 +890,8 @@ export default function ChartContainer() {
 					rightOffsets={rightOffsets}
 					padding={padding}
 					width={width}
+					height={height}
+					themeColors={themeColors}
 					containerRef={containerRef}
 					onWheel={handleWheel}
 					onMouseDown={handleMouseDown}

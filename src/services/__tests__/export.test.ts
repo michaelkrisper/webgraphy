@@ -114,6 +114,20 @@ describe("exportToSVG", () => {
 		expect(svg).toContain("Series 1");
 	});
 
+	it("titles a y axis by its custom title instead of its series", () => {
+		const svg = exportToSVG(
+			mockDatasets,
+			mockSeries,
+			mockXAxes,
+			mockYAxes.map((a) => (a.id === "y1" ? { ...a, title: "Flow <l/s>" } : a)),
+			800,
+			600,
+			THEMES.light,
+		);
+		expect(svg).toContain('<tspan fill="#ff0000">Flow &lt;l/s&gt;</tspan>');
+		expect(svg).not.toContain(">Series 1</tspan>");
+	});
+
 	it("should escape HTML in theme properties to prevent XSS", () => {
 		const maliciousTheme = {
 			...THEMES.light,

@@ -171,7 +171,7 @@ export function computeYAxesLayoutCached({
 	for (let i = 0; i < liveYAxes.length; i++) {
 		const axis = liveYAxes[i];
 		if (!usedYAxisIdsSet.has(axis.id)) continue;
-		const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.scale}|${axis.name ?? ""}`;
+		const cacheKey = `${axis.min}|${axis.max}|${axis.position}|${axis.showGrid}|${axis.scale}|${axis.name ?? ""}|${axis.title ?? ""}`;
 		const cached = cache.entries.get(axis.id);
 		if (cached && cached.key === cacheKey) {
 			out.push(cached.layout);
