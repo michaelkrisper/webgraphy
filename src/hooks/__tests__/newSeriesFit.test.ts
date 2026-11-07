@@ -92,6 +92,24 @@ describe("fitForNewSeries", () => {
 		expect(x).toEqual({});
 	});
 
+	it("widens an unzoomed in-use axis so partly clipped new data fits", () => {
+		const fitted = yAxes.map((a) =>
+			a.id === "axis-1" ? { ...a, min: -10, max: 40 } : a,
+		);
+		const hum = series("s2", "weather", "hum", "axis-1");
+		const { y } = fitForNewSeries([temp], [temp, hum], byId, fitted);
+		expect(y).toEqual({ "axis-1": { min: -10, max: 104 } });
+	});
+
+	it("keeps a zoomed in-use axis when new data is only partly clipped", () => {
+		const zoomed = yAxes.map((a) =>
+			a.id === "axis-1" ? { ...a, min: 0, max: 25 } : a,
+		);
+		const hum = series("s2", "weather", "hum", "axis-1");
+		const { y } = fitForNewSeries([temp], [temp, hum], byId, zoomed);
+		expect(y).toEqual({});
+	});
+
 	it("widens an in-use axis only as far as needed when the new data is off-screen", () => {
 		const p = series("s2", "pressure", "p", "axis-1");
 		const { y } = fitForNewSeries([temp], [temp, p], byId, yAxes);
