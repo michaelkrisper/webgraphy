@@ -5,7 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="author" content="Michael Krisper">
-    <meta name="theme-color" content="#007bff">
+    <!-- First-paint chrome colours; useTheme.ts takes over once the app loads
+         (values pinned to src/themes.ts by themeChrome.test.ts). -->
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0c10">
     <link rel="apple-touch-icon" href="pwa-192x192.png">
     <!-- Security Enhancement: Content Security Policy. Fonts are self-hosted
          (see src/fonts.ts), so no external font/style origins are needed. -->

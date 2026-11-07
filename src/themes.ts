@@ -256,3 +256,20 @@ export const THEME_CYCLE: ThemeName[] = [
 	"winnie",
 	"unicorn",
 ];
+
+/** Which native palette (scrollbars, selects, checkboxes) suits each theme. */
+export const THEME_COLOR_SCHEME: Record<ThemeName, "light" | "dark"> = {
+	light: "light",
+	dark: "dark",
+	matrix: "dark",
+	winnie: "light",
+	unicorn: "light",
+};
+
+/**
+ * Browser chrome / installed-window title bar colour: the plot surface, which
+ * spans most of the window top, so the frame blends in instead of framing the
+ * app in a loud accent band. index.html and the PWA manifest repeat the light
+ * and dark values for the first paint (pinned in themeChrome.test.ts).
+ */
+export const themeChromeColor = (t: ThemeName): string => THEMES[t].plotBg;
