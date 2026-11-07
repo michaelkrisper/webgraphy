@@ -15,6 +15,7 @@ export interface Theme {
 	textLight: string;
 	accent: string;
 	danger: string;
+	success: string;
 	shadow: string;
 	selectBg: string;
 	selectColor: string;
@@ -52,9 +53,10 @@ export const THEMES: Record<ThemeName, Theme> = {
 		text: "#1a1a17",
 		textMid: "#3a3a35",
 		textMuted: "#6b6760",
-		textLight: "#a09c93",
+		textLight: "#6f6b62",
 		accent: "#1f4ed8",
-		danger: "#c93636",
+		danger: "#be3333",
+		success: "#157839",
 		shadow: "rgba(26,26,23,0.06)",
 		selectBg: "#ffffff",
 		selectColor: "#1a1a17",
@@ -89,15 +91,16 @@ export const THEMES: Record<ThemeName, Theme> = {
 		border2: "#2e333d",
 		text: "#e8e6e1",
 		textMid: "#b8b6b1",
-		textMuted: "#807c75",
-		textLight: "#54514c",
+		textMuted: "#95918b",
+		textLight: "#8c8880",
 		accent: "#5b8dff",
 		danger: "#f06262",
+		success: "#22c55e",
 		shadow: "rgba(0,0,0,0.5)",
 		selectBg: "#1c2028",
 		selectColor: "#b8b6b1",
 		btnBorder: "#23272f",
-		btnColor: "#807c75",
+		btnColor: "#95918b",
 		cardBorder: "#23272f",
 		sectionHeaderBg: "#0f1115",
 		plotBg: "#0a0c10",
@@ -111,7 +114,7 @@ export const THEMES: Record<ThemeName, Theme> = {
 		tooltipBorder: "#2e333d",
 		snapLineColor: "#2e333d",
 		tooltipDividerColor: "rgba(255,255,255,0.05)",
-		tooltipSubColor: "#807c75",
+		tooltipSubColor: "#95918b",
 		noDataColor: "#23272f",
 	},
 
@@ -128,9 +131,10 @@ export const THEMES: Record<ThemeName, Theme> = {
 		text: "#7dffa3",
 		textMid: "#4fcc73",
 		textMuted: "#2f9c4a",
-		textLight: "#1f6230",
+		textLight: "#2e9348",
 		accent: "#7dffa3",
 		danger: "#ff5c5c",
+		success: "#4fcc73",
 		shadow: "rgba(125,255,163,0.1)",
 		selectBg: "#040806",
 		selectColor: "#7dffa3",
@@ -164,10 +168,11 @@ export const THEMES: Record<ThemeName, Theme> = {
 		border2: "#b8975c",
 		text: "#3a2410",
 		textMid: "#5b3a1a",
-		textMuted: "#8a6634",
-		textLight: "#b08c5b",
-		accent: "#a0521b",
+		textMuted: "#72542b",
+		textLight: "#785d3a",
+		accent: "#984e1a",
 		danger: "#a23a1d",
+		success: "#4d671a",
 		shadow: "rgba(58,36,16,0.12)",
 		selectBg: "#faf3df",
 		selectColor: "#3a2410",
@@ -201,10 +206,11 @@ export const THEMES: Record<ThemeName, Theme> = {
 		border2: "#f191c1",
 		text: "#4a1066",
 		textMid: "#7b2da1",
-		textMuted: "#b04dc4",
-		textLight: "#dba5e0",
-		accent: "#d422a4",
-		danger: "#e23a7a",
+		textMuted: "#9538a8",
+		textLight: "#a53caf",
+		accent: "#c01f94",
+		danger: "#ca1e5f",
+		success: "#167457",
 		shadow: "rgba(212,34,164,0.18)",
 		selectBg: "#fff4fb",
 		selectColor: "#4a1066",
@@ -216,14 +222,14 @@ export const THEMES: Record<ThemeName, Theme> = {
 		axisColor: "#7b2da1",
 		zeroLineColor: "#f191c1",
 		gridColor: "#fcdcef",
-		labelColor: "#b04dc4",
+		labelColor: "#ab41c0",
 		secLabelBg: "rgba(255,244,251,0.9)",
 		tooltipBg: "rgba(255,244,251,0.97)",
 		tooltipColor: "#4a1066",
 		tooltipBorder: "#f9c8e0",
 		snapLineColor: "#f9c8e0",
 		tooltipDividerColor: "rgba(212,34,164,0.12)",
-		tooltipSubColor: "#b04dc4",
+		tooltipSubColor: "#ab41c0",
 		noDataColor: "#f9c8e0",
 	},
 };
@@ -250,3 +256,20 @@ export const THEME_CYCLE: ThemeName[] = [
 	"winnie",
 	"unicorn",
 ];
+
+/** Which native palette (scrollbars, selects, checkboxes) suits each theme. */
+export const THEME_COLOR_SCHEME: Record<ThemeName, "light" | "dark"> = {
+	light: "light",
+	dark: "dark",
+	matrix: "dark",
+	winnie: "light",
+	unicorn: "light",
+};
+
+/**
+ * Browser chrome / installed-window title bar colour: the plot surface, which
+ * spans most of the window top, so the frame blends in instead of framing the
+ * app in a loud accent band. index.html and the PWA manifest repeat the light
+ * and dark values for the first paint (pinned in themeChrome.test.ts).
+ */
+export const themeChromeColor = (t: ThemeName): string => THEMES[t].plotBg;

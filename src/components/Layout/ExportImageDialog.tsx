@@ -1,6 +1,7 @@
 import type React from "react";
 import { useId, useState } from "react";
 import {
+	type ExportTheme,
 	effectiveUnit,
 	type ImageExportOptions,
 	type LegendPosition,
@@ -49,7 +50,7 @@ const outputSummary = (
 	return size.physical ? `${px} at ${options.dpi} dpi` : px;
 };
 
-/** Size, legend, title and background choices for an SVG or PNG export. */
+/** Size, legend, title, theme and background choices for an SVG or PNG export. */
 export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 	viewSize,
 	onExport,
@@ -84,6 +85,19 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 				checked={options.format === value}
 				onChange={() => set("format", value)}
 				data-autofocus={options.format === value ? "" : undefined}
+			/>
+			{label}
+		</label>
+	);
+
+	const themeRadio = (value: ExportTheme, label: string) => (
+		<label className="xid-radio">
+			<input
+				type="radio"
+				name={`${id}-theme`}
+				value={value}
+				checked={options.theme === value}
+				onChange={() => set("theme", value)}
 			/>
 			{label}
 		</label>
@@ -270,6 +284,18 @@ export const ExportImageDialog: React.FC<ExportImageDialogProps> = ({
 					value={options.title}
 					onChange={(e) => set("title", e.target.value)}
 				/>
+
+				<span className="xid-label" id={`${id}-theme-label`}>
+					Theme
+				</span>
+				<div
+					className="xid-row"
+					role="radiogroup"
+					aria-labelledby={`${id}-theme-label`}
+				>
+					{themeRadio("light", "Light")}
+					{themeRadio("current", "Current theme")}
+				</div>
 
 				<span className="xid-label">Background</span>
 				<label className="xid-check">

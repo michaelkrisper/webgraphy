@@ -201,12 +201,12 @@
 }
 .isd-col-name-btn--xaxis {
 	background: var(--accent);
-	color: #fff;
+	color: var(--bg);
 	border-color: var(--accent);
 }
 .isd-col-name-btn--xaxis:hover {
 	background: var(--accent);
-	color: #fff;
+	color: var(--bg);
 }
 .isd-type-btn {
 	display: flex;

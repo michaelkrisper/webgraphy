@@ -119,6 +119,112 @@ describe("useTheme", () => {
 		vi.unstubAllGlobals();
 	});
 
+	describe("OS colour-scheme preference", () => {
+		/** A prefers-color-scheme: dark list whose answer the test controls. */
+		function stubDarkPreference(matches: boolean) {
+			const listeners: (() => void)[] = [];
+			const mql = {
+				matches,
+				addEventListener: (_: string, cb: () => void) => listeners.push(cb),
+			};
+			vi.stubGlobal(
+				"matchMedia",
+				vi.fn((query: string) => {
+					expect(query).toBe("(prefers-color-scheme: dark)");
+					return mql;
+				}),
+			);
+			return {
+				set(next: boolean) {
+					mql.matches = next;
+					for (const cb of listeners) cb();
+				},
+			};
+		}
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		it("defaults to dark on a dark OS without persisting the default", async () => {
+			stubDarkPreference(true);
+			const { useTheme } = await import("../useTheme");
+			const { result } = renderHook(() => useTheme());
+			expect(result.current[0]).toBe("dark");
+			expect(document.documentElement.dataset.theme).toBe("dark");
+			expect(localStorage.getItem("theme")).toBeNull();
+		});
+
+		it("lets an explicit choice win over a dark OS", async () => {
+			stubDarkPreference(true);
+			localStorage.setItem("theme", "light");
+			const { useTheme } = await import("../useTheme");
+			const { result } = renderHook(() => useTheme());
+			expect(result.current[0]).toBe("light");
+		});
+
+		it("follows an OS switch until the user picks a theme", async () => {
+			const os = stubDarkPreference(false);
+			const { useTheme } = await import("../useTheme");
+			const { result } = renderHook(() => useTheme());
+			expect(result.current[0]).toBe("light");
+
+			act(() => os.set(true));
+			expect(result.current[0]).toBe("dark");
+			expect(document.documentElement.dataset.theme).toBe("dark");
+
+			act(() => result.current[2]("winnie"));
+			act(() => os.set(false));
+			expect(result.current[0]).toBe("winnie");
+			expect(document.documentElement.dataset.theme).toBe("winnie");
+		});
+	});
+
+	it("sets color-scheme and the theme-color metas for the browser chrome", async () => {
+		document.head.innerHTML = `
+			<meta name="color-scheme" content="light dark">
+			<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+			<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0c10">`;
+		const { useTheme } = await import("../useTheme");
+		const { result } = renderHook(() => useTheme());
+		const metas = () =>
+			[
+				...document.head.querySelectorAll<HTMLMetaElement>(
+					'meta[name="theme-color"]',
+				),
+			].map((m) => m.content);
+		const scheme = () =>
+			document.head.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')
+				?.content;
+
+		expect(scheme()).toBe("light");
+		expect(document.documentElement.style.colorScheme).toBe("light");
+
+		act(() => result.current[2]("matrix"));
+		// Both media variants: the chosen theme wins whatever the OS prefers.
+		expect(metas()).toEqual([THEMES.matrix.plotBg, THEMES.matrix.plotBg]);
+		expect(scheme()).toBe("dark");
+		expect(document.documentElement.style.colorScheme).toBe("dark");
+
+		act(() => result.current[2]("unicorn"));
+		expect(metas()).toEqual([THEMES.unicorn.plotBg, THEMES.unicorn.plotBg]);
+		expect(scheme()).toBe("light");
+	});
+
+	it("creates the chrome metas when the document has none", async () => {
+		const { useTheme } = await import("../useTheme");
+		renderHook(() => useTheme());
+		expect(
+			document.head.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+				?.content,
+		).toBe(THEMES.light.plotBg);
+	});
+
+	it("loads another theme's fonts on demand", async () => {
+		const { loadThemeFonts } = await import("../useTheme");
+		await expect(loadThemeFonts("unicorn")).resolves.toBeUndefined();
+	});
+
 	it("should allow setting a specific theme and handle existing fonts", async () => {
 		const { useTheme } = await import("../useTheme");
 		const { result } = renderHook(() => useTheme());

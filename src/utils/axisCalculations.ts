@@ -1,6 +1,11 @@
 // src/utils/axisCalculations.ts
 
 import { type AxisScale, fromScale, toScale } from "./axisScale";
+import {
+	formatFixed,
+	formatSignificant,
+	localizeExponential,
+} from "./displayFormat";
 
 /** Tolerance for floating-point axis bounds comparisons. */
 export const AXIS_EPSILON = 1e-10;
@@ -54,16 +59,19 @@ export function formatLogTickLabel(val: number): string {
 		e++;
 		m = Number((m / 10).toPrecision(6));
 	}
-	if (e >= -3 && e <= 3) return String(Number(val.toPrecision(6)));
-	return m === 1 ? `10${superscript(e)}` : `${m}\u00D710${superscript(e)}`;
+	if (e >= -3 && e <= 3) return formatSignificant(val, 6, { grouping: false });
+	return m === 1
+		? `10${superscript(e)}`
+		: `${formatSignificant(m, 6, { grouping: false })}\u00D710${superscript(e)}`;
 }
 
+/** Tick label with `precision` decimals, in the display locale. */
 export function formatAxisLabel(val: number, precision: number): string {
 	if (precision === LOG_TICK_PRECISION) return formatLogTickLabel(val);
 	if (Math.abs(val) < 1e-12) return "0";
-	const str = val.toFixed(precision);
+	const str = formatFixed(val, precision);
 	if (str.length > 12) {
-		return val.toExponential(Math.min(precision, 4));
+		return localizeExponential(val.toExponential(Math.min(precision, 4)));
 	}
 	return str;
 }

@@ -1,6 +1,10 @@
 // Pure formatting and row models for the measurement readout (pins A/B).
 
 import type { XAxisConfig, YAxisConfig } from "../../../services/persistence";
+import {
+	formatSignificant,
+	localizeExponential,
+} from "../../../utils/displayFormat";
 import { UNIT_SECONDS } from "../../../utils/time";
 import type { Pin, PinPoint } from "./pins";
 
@@ -11,14 +15,14 @@ export function formatNumber(v: number, signed = false): string {
 	if (!Number.isFinite(v)) return DASH;
 	const abs = Math.abs(v);
 	if (abs !== 0 && (abs < 1e-4 || abs >= 1e12)) {
-		const s = v.toExponential(4).replace(/\.?0+e/, "e");
+		const s = localizeExponential(v.toExponential(4).replace(/\.?0+e/, "e"));
 		return signed && v > 0 ? `+${s}` : s;
 	}
-	return v.toLocaleString(undefined, {
-		maximumSignificantDigits: 6,
-		signDisplay: signed ? "exceptZero" : "auto",
-	});
+	return formatSignificant(v, 6, { signed });
 }
+
+/** Up to four significant digits, for the sub-minute durations. */
+const short = (v: number) => formatSignificant(v, 4, { grouping: false });
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -30,10 +34,8 @@ export function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds)) return DASH;
 	const sign = seconds < 0 ? "-" : seconds > 0 ? "+" : "";
 	const abs = Math.abs(seconds);
-	if (abs < 1) {
-		return `${sign}${parseFloat((abs * 1000).toPrecision(4))} ms`;
-	}
-	if (abs < 60) return `${sign}${parseFloat(abs.toPrecision(4))} s`;
+	if (abs < 1) return `${sign}${short(abs * 1000)} ms`;
+	if (abs < 60) return `${sign}${short(abs)} s`;
 	const total = Math.round(abs);
 	const d = Math.floor(total / 86400);
 	const h = Math.floor((total % 86400) / 3600);

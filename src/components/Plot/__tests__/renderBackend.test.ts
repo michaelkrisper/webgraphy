@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { displayLocale } from "../../../utils/displayFormat";
 import type { OverlayState } from "../drawOverlay";
 import type { SceneContext } from "../frameScene";
 import { acquireRenderBackend, releaseRenderBackend } from "../renderBackend";
@@ -202,6 +203,8 @@ describe("WorkerBackend protocol", () => {
 		expect(init.t).toBe("init");
 		expect(init.viewport).toEqual(viewport);
 		expect(init.plotBg).toEqual([0, 0, 0]);
+		// The worker formats tick labels; it must use the host's locale.
+		expect(init.locale).toBe(displayLocale());
 		expect(
 			(
 				canvas as unknown as {

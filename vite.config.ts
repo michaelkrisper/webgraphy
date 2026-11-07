@@ -84,8 +84,9 @@ export default defineConfig({
 				short_name: "WebGraphy",
 				description:
 					"Professional high-performance data visualization tool using WebGL.",
-				theme_color: "#007bff",
-				background_color: "#f8fafc",
+				// Light theme plot surface, as index.html (pinned in themeChrome.test.ts).
+				theme_color: "#ffffff",
+				background_color: "#ffffff",
 				display: "standalone",
 				icons: [
 					{

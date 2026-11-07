@@ -33,7 +33,7 @@
 .error-page-reset {
 	padding: 10px 20px;
 	background: var(--accent);
-	color: #fff;
+	color: var(--bg);
 }
 .error-component {
 	padding: 20px;
@@ -44,7 +44,7 @@
 .error-component-reset {
 	padding: 8px 16px;
 	background: var(--danger);
-	color: #fff;
+	color: var(--bg);
 
 	margin-top: 8px;
 }

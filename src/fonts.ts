@@ -45,11 +45,18 @@ const loaders: Record<FontSet, () => Promise<unknown>> = {
 		]),
 };
 
-const loaded = new Set<FontSet>();
+const loaded = new Map<FontSet, Promise<void>>();
 
-export function loadFontSet(set: FontSet): void {
-	if (loaded.has(set)) return;
-	loaded.add(set);
-	// Fire-and-forget; a failed font fetch must never break theming.
-	void loaders[set]().catch(() => {});
+/** Resolves once the set's @font-face rules are in; never rejects. */
+export function loadFontSet(set: FontSet): Promise<void> {
+	let pending = loaded.get(set);
+	if (!pending) {
+		// A failed font fetch must never break theming.
+		pending = loaders[set]().then(
+			() => {},
+			() => {},
+		);
+		loaded.set(set, pending);
+	}
+	return pending;
 }

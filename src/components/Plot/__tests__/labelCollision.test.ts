@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { XAxisConfig } from "../../../services/persistence";
+import { setDisplayLocale } from "../../../utils/displayFormat";
 import {
 	buildLabels,
 	createLabelStringCache,
@@ -161,6 +162,10 @@ describe("LabelCuller", () => {
 });
 
 describe("x-axis period labels never overlap", () => {
+	// The reported cases were German labels; widths depend on the locale.
+	beforeAll(() => setDisplayLocale("de-DE"));
+	afterAll(() => setDisplayLocale("en-US"));
+
 	it("hides the pinned leading month when the next boundary is too close (12/2025|01/2026)", () => {
 		// Auto-scale padding puts the axis start a few hours before the first
 		// month boundary, so "12/2025" would be pinned right next to "01/2026".

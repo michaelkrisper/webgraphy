@@ -94,6 +94,20 @@ describe("ExportImageDialog", () => {
 		expect(loadExportOptions()).toEqual(expected);
 	});
 
+	it("exports in Light by default and remembers a switch to the current theme", () => {
+		const { onExport } = renderDialog();
+		const group = screen.getByRole("radiogroup", { name: "Theme" });
+		expect(group).toBeInTheDocument();
+		expect(screen.getByRole("radio", { name: "Light" })).toBeChecked();
+
+		fireEvent.click(screen.getByRole("radio", { name: "Current theme" }));
+		fireEvent.click(screen.getByRole("button", { name: "Export" }));
+		expect(onExport).toHaveBeenCalledWith(
+			expect.objectContaining({ theme: "current" }),
+		);
+		expect(loadExportOptions().theme).toBe("current");
+	});
+
 	it("starts from the last used options", () => {
 		saveExportOptions({
 			...DEFAULT_EXPORT_OPTIONS,

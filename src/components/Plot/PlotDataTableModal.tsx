@@ -4,6 +4,7 @@ import {
 	type ExportFeedback,
 	exportVisibleCsv,
 } from "../../services/csvExport";
+import { formatCount } from "../../utils/displayFormat";
 import { Modal } from "../Layout/Modal";
 import {
 	buildPlotDataTable,
@@ -49,7 +50,7 @@ export function PlotDataTableModal({
 			await navigator.clipboard.writeText(plotTableToTsv(tables));
 			feedback.notify({
 				kind: "success",
-				message: `Copied ${rows.toLocaleString()} rows to the clipboard`,
+				message: `Copied ${formatCount(rows)} rows to the clipboard`,
 			});
 		} catch (err) {
 			feedback.notify({

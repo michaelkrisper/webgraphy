@@ -10,6 +10,7 @@ import type {
 	XAxisConfig,
 	YAxisConfig,
 } from "../../../services/persistence";
+import { formatCount } from "../../../utils/displayFormat";
 import { swatchStyle } from "../crosshair/swatch";
 import { buildReadout, DASH, formatNumber } from "./measureFormat";
 import type { Pin } from "./pins";
@@ -197,7 +198,7 @@ export const StatsPanel: React.FC<StatsProps> = ({
 									<Swatch color={row.color} lineStyle={row.lineStyle} />
 									{row.label}
 								</th>
-								<td>{st ? st.n.toLocaleString() : 0}</td>
+								<td>{st ? formatCount(st.n) : 0}</td>
 								<td>{num(st?.min)}</td>
 								<td>{num(st?.max)}</td>
 								<td>{num(st?.mean)}</td>

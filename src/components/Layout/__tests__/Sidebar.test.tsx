@@ -8,6 +8,7 @@ import { removeSeriesWithUndo } from "../../../store/undoToast";
 import { exportImage } from "../../../services/export";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { useNotificationStore } from "../../../store/useNotificationStore";
+import { THEMES } from "../../../themes";
 import { Sidebar } from "../Sidebar";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -297,6 +298,56 @@ describe("Sidebar Component", () => {
 				title: "Run 7",
 			});
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
+
+		it.each([
+			[undefined, THEMES.light],
+			[{ theme: "light" }, THEMES.light],
+			[{ theme: "current" }, THEMES.dark],
+		])(
+			"draws in the export theme preference (%o) whatever is on screen",
+			async (pref, expected) => {
+				mockGetItem.mockImplementation((key: string) =>
+					key === "theme"
+						? "dark"
+						: key === "webgraphy-export-options" && pref
+							? JSON.stringify(pref)
+							: null,
+				);
+				const plot = document.createElement("div");
+				plot.className = "plot-area";
+				document.body.appendChild(plot);
+				try {
+					render(<Sidebar />);
+					openMenu();
+					fireEvent.click(
+						screen.getByRole("button", { name: "Export as PNG (pixel)" }),
+					);
+					await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+					expect((exportImage as Mock).mock.calls[0][2]).toBe(expected);
+				} finally {
+					plot.remove();
+					mockGetItem.mockReset();
+				}
+			},
+		);
+
+		it("applies the dialog's theme choice", async () => {
+			mockGetItem.mockImplementation((key: string) =>
+				key === "theme" ? "unicorn" : null,
+			);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(screen.getByRole("button", { name: "Export image…" }));
+				await screen.findByRole("dialog", { name: "Export Image" });
+				fireEvent.click(screen.getByRole("radio", { name: "Current theme" }));
+				fireEvent.click(screen.getByRole("button", { name: "Export" }));
+				await vi.waitFor(() => expect(exportImage).toHaveBeenCalledTimes(1));
+				expect((exportImage as Mock).mock.calls[0][2]).toBe(THEMES.unicorn);
+			} finally {
+				mockGetItem.mockReset();
+			}
 		});
 
 		it("reports a too-large image in an error toast", async () => {
