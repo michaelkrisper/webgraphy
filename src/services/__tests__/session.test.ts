@@ -142,7 +142,14 @@ function sampleContent(): SessionContent {
 	const x = xAxes();
 	x[0] = { ...x[0], min: 12.5, max: 99.25, xMode: "date", name: "When" };
 	const y = yAxes();
-	y[1] = { ...y[1], min: -3, max: 7, color: "#ff0000", position: "right" };
+	y[1] = {
+		...y[1],
+		min: -3,
+		max: 7,
+		color: "#ff0000",
+		position: "right",
+		title: "Flow",
+	};
 	y[2] = { ...y[2], min: 0.1, max: 1000, scale: "log" };
 	return {
 		datasets: [main, sparse],

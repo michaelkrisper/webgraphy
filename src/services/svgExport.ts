@@ -12,6 +12,7 @@ import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
 import { MS_PER_SECOND, UNIT_SECONDS } from "../utils/time";
+import { yAxisTitleParts } from "../utils/yAxisTitle";
 import {
 	type DecorationLayout,
 	estimateTextWidth,
@@ -596,7 +597,7 @@ const drawAxes = (
 
 		const axisSeries = seriesByYAxisId[axis.id] || [];
 		const segments = fitAxisTitle(
-			axisSeries.map((s) => ({ text: s.name || s.yColumn, color: s.lineColor })),
+			yAxisTitleParts(axis.title, axisSeries, theme.labelColor),
 			chartHeight - 8,
 			measure,
 		);

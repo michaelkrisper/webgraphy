@@ -11,6 +11,7 @@ import { formatAxisLabel } from "../../utils/axisCalculations";
 import { axisFraction } from "../../utils/axisScale";
 import { findExact } from "../../utils/binarySearch";
 import type { SecondaryLabel } from "../../utils/time";
+import { Y_TITLE_SEPARATOR, yAxisTitleParts } from "../../utils/yAxisTitle";
 import type { XAxisLayout, XAxisMetrics, YAxisLayout } from "./chartTypes";
 import type { RenderLabel } from "./rendererCore";
 
@@ -221,14 +222,9 @@ function buildYAxisLabels(
 	const axisSeries = ctx.seriesByYAxisId[axis.id] || [];
 	if (axisSeries.length > 0) {
 		const segments: { text: string; color: string }[] = [];
-		axisSeries.forEach((s, i) => {
-			if (i > 0 && axisSeries.length > 1) {
-				segments.push({ text: " / ", color: labelColor });
-			}
-			segments.push({
-				text: s.name || s.yColumn,
-				color: s.lineColor ?? labelColor,
-			});
+		yAxisTitleParts(axis.title, axisSeries, labelColor).forEach((part, i) => {
+			if (i > 0) segments.push({ text: Y_TITLE_SEPARATOR, color: labelColor });
+			segments.push(part);
 		});
 		out.push({
 			text: "",

@@ -87,6 +87,24 @@ describe("buildFrameScene", () => {
 		expect(scene.yLayouts[0].max).toBe(50);
 	});
 
+	it("draws a custom y title from the axis meta", () => {
+		const titled: SceneContext = {
+			...ctx,
+			yAxesMeta: [{ ...ctx.yAxesMeta[0], title: "Air" }],
+		};
+		const scene = buildFrameScene(
+			titled,
+			1,
+			snap([0, 100], [0, 50]),
+			1,
+			createFrameSceneCaches(),
+		);
+		expect(scene.yLayouts[0].title).toBe("Air");
+		expect(scene.labels.find((l) => l.segments)?.segments).toEqual([
+			{ text: "Air", color: "#4589ff" },
+		]);
+	});
+
 	it("caches per-axis layouts across frames with unchanged ranges", () => {
 		const caches = createFrameSceneCaches();
 		const a = buildFrameScene(ctx, 1, snap([0, 100], [0, 50]), 1, caches);

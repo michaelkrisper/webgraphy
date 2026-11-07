@@ -14,7 +14,6 @@ export function axisZoneLabel(
 ): string {
 	const num = id.replace(/^axis-/, "");
 	const name = title ? `: ${title}` : "";
-	let keys = `arrows pan, +/- zoom, ${keyName(SHORTCUTS.axisAutoScale)} autoscale, ${keyName(SHORTCUTS.axisRange)} range`;
-	if (kind === "x") keys += `, ${keyName(SHORTCUTS.axisRename)} rename`;
+	const keys = `arrows pan, +/- zoom, ${keyName(SHORTCUTS.axisAutoScale)} autoscale, ${keyName(SHORTCUTS.axisRange)} range, ${keyName(SHORTCUTS.axisRename)} rename`;
 	return `${kind.toUpperCase()} axis ${num}${name} — ${keys}`;
 }

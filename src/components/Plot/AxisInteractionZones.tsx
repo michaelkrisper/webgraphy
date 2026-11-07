@@ -1,19 +1,21 @@
 // Absolute-positioned interaction overlays for each x-axis row and y-axis
 // gutter. Each overlay forwards wheel/mouseDown/touchStart to the chart's
 // pan-zoom handlers scoped to its own axis, and reacts to double-click with
-// auto-scale (x and y) or inline title rename (x only). Extracted from
-// ChartContainer so the per-axis JSX stops drowning the render block.
+// auto-scale, or with an inline title rename when it lands on the title.
+// Extracted from ChartContainer so the per-axis JSX stops drowning the render
+// block.
 //
 // Each zone is also a keyboard stop: arrows pan, +/- zoom, A auto-scales, R
-// opens the exact-range popover (as does right-click) and (x only) Enter
-// renames that one axis. Handled keys stop propagating so the window-level
-// chart shortcuts do not also move every other axis.
+// opens the exact-range popover (as does right-click) and Enter renames that
+// one axis. Handled keys stop propagating so the window-level chart shortcuts
+// do not also move every other axis.
 
-import { Fragment, useMemo, useRef } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import type { XAxisMetrics, XAxisLayout } from "./chartTypes";
 import { useGraphStore } from "../../store/useGraphStore";
 import { type AxisStep, axisStepForKey } from "../../utils/keyboard";
 import { hasKey, SHORTCUTS } from "../../utils/shortcuts";
+import { customYAxisTitle } from "../../utils/yAxisTitle";
 import { axisZoneLabel } from "./axisZoneLabel";
 
 interface Padding {
@@ -229,15 +231,23 @@ interface YAxis {
 	position: "left" | "right";
 }
 
+// The rotated title is drawn centred 7.5px in from the gutter's outer edge
+// (buildLabels); a double-click this close to that edge renames instead of
+// auto-scaling.
+const Y_TITLE_BAND_PX = 16;
+const Y_RENAME_INPUT_WIDTH = 220;
+
 interface YInteractionProps {
 	axes: YAxis[];
-	/** Displayed axis titles by id, for the zones' accessible names. */
+	/** Displayed axis titles by id: accessible names and the rename's start. */
 	titles?: Record<string, string>;
 	axisLayout: Record<string, { total: number; label: number }>;
 	leftOffsets: Record<string, number>;
 	rightOffsets: Record<string, number>;
 	padding: Padding;
 	width: number;
+	height: number;
+	themeColors: Theme;
 	containerRef: React.RefObject<HTMLDivElement | null>;
 	onWheel: (e: React.WheelEvent, target: { yAxisId: string }) => void;
 	onMouseDown: (e: React.MouseEvent, target: { yAxisId: string }) => void;
@@ -255,6 +265,8 @@ export function YAxisInteractionZones({
 	rightOffsets,
 	padding,
 	width,
+	height,
+	themeColors,
 	containerRef,
 	onWheel,
 	onMouseDown,
@@ -263,6 +275,23 @@ export function YAxisInteractionZones({
 	onAxisStep,
 	onEditRange,
 }: YInteractionProps) {
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const zoneRefs = useRef(new Map<string, HTMLDivElement>());
+	// As for x: the blur that follows an Escape must not commit.
+	const cancelledRef = useRef(false);
+	const plotMidY = padding.top + (height - padding.top - padding.bottom) / 2;
+
+	const commitTitle = (id: string, typed: string) => {
+		const st = useGraphStore.getState();
+		const title = customYAxisTitle(
+			typed,
+			st.series.filter((s) => s.yAxisId === id),
+		);
+		if (title !== st.yAxes.find((y) => y.id === id)?.title) {
+			st.updateYAxis(id, { title });
+		}
+	};
+
 	return (
 		<>
 			{axes.map((a) => {
@@ -272,60 +301,119 @@ export function YAxisInteractionZones({
 					? padding.left - (leftOffsets[a.id] ?? 0) - am.total
 					: width - padding.right + (rightOffsets[a.id] ?? 0);
 				const visible = am.total > 0;
+				const title = titles?.[a.id] ?? "";
 				return (
-					<div
-						className="axis-zone"
-						{...(visible
-							? {
-									role: "group",
-									tabIndex: 0,
-									"aria-label": axisZoneLabel("y", a.id, titles?.[a.id] ?? ""),
+					<Fragment key={`wheel-${a.id}`}>
+						<div
+							ref={(el) => {
+								if (el) zoneRefs.current.set(a.id, el);
+								else zoneRefs.current.delete(a.id);
+							}}
+							className="axis-zone"
+							{...(visible
+								? {
+										role: "group",
+										tabIndex: 0,
+										"aria-label": axisZoneLabel("y", a.id, title),
+									}
+								: { "aria-hidden": true })}
+							onKeyDown={(e) =>
+								handleZoneKey(
+									e,
+									"y",
+									a.id,
+									onAxisStep,
+									(id) => onAutoScaleY(id),
+									onEditRange,
+									setEditingId,
+								)
+							}
+							onContextMenu={(e) => {
+								if (!onEditRange) return;
+								e.preventDefault();
+								e.stopPropagation();
+								onEditRange(a.id, e.currentTarget);
+							}}
+							onWheel={(e) => {
+								e.stopPropagation();
+								onWheel(e, { yAxisId: a.id });
+							}}
+							onMouseDown={(e) => {
+								e.stopPropagation();
+								onMouseDown(e, { yAxisId: a.id });
+							}}
+							onTouchStart={(e) => {
+								e.stopPropagation();
+								onTouchStart(e, { yAxisId: a.id });
+							}}
+							onDoubleClick={(e) => {
+								e.stopPropagation();
+								const zone = e.currentTarget.getBoundingClientRect();
+								const fromOuterEdge = isL
+									? e.clientX - zone.left
+									: zone.right - e.clientX;
+								if (fromOuterEdge <= Y_TITLE_BAND_PX) {
+									setEditingId(a.id);
+									return;
 								}
-							: { "aria-hidden": true })}
-						key={`wheel-${a.id}`}
-						onKeyDown={(e) =>
-							handleZoneKey(
-								e,
-								"y",
-								a.id,
-								onAxisStep,
-								(id) => onAutoScaleY(id),
-								onEditRange,
-							)
-						}
-						onContextMenu={(e) => {
-							if (!onEditRange) return;
-							e.preventDefault();
-							e.stopPropagation();
-							onEditRange(a.id, e.currentTarget);
-						}}
-						onWheel={(e) => {
-							e.stopPropagation();
-							onWheel(e, { yAxisId: a.id });
-						}}
-						onMouseDown={(e) => {
-							e.stopPropagation();
-							onMouseDown(e, { yAxisId: a.id });
-						}}
-						onTouchStart={(e) => {
-							e.stopPropagation();
-							onTouchStart(e, { yAxisId: a.id });
-						}}
-						onDoubleClick={(e) => {
-							e.stopPropagation();
-							const rect = containerRef.current?.getBoundingClientRect();
-							onAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined);
-						}}
-						style={{
-							position: "absolute",
-							left: xP,
-							top: padding.top,
-							width: am.total,
-							bottom: padding.bottom,
-							cursor: "ns-resize",
-							zIndex: 20,
-						}}
-					/>
+								const rect = containerRef.current?.getBoundingClientRect();
+								onAutoScaleY(a.id, rect ? e.clientY - rect.top : undefined);
+							}}
+							style={{
+								position: "absolute",
+								left: xP,
+								top: padding.top,
+								width: am.total,
+								bottom: padding.bottom,
+								cursor: "ns-resize",
+								zIndex: 20,
+							}}
+						/>
+						{editingId === a.id && (
+							<input
+								autoFocus
+								aria-label={`Rename Y axis ${a.id.replace(/^axis-/, "")}`}
+								defaultValue={title}
+								onBlur={(e) => {
+									if (cancelledRef.current) {
+										cancelledRef.current = false;
+										return;
+									}
+									commitTitle(a.id, e.target.value);
+									setEditingId(null);
+								}}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										e.currentTarget.blur();
+										zoneRefs.current.get(a.id)?.focus();
+									} else if (e.key === "Escape") {
+										cancelledRef.current = true;
+										setEditingId(null);
+										zoneRefs.current.get(a.id)?.focus();
+										cancelledRef.current = false;
+									}
+								}}
+								style={{
+									position: "absolute",
+									// Horizontal for easy typing, level with the middle of
+									// the rotated title and growing into the plot.
+									top: plotMidY - 10,
+									...(isL ? { left: xP } : { right: width - (xP + am.total) }),
+									height: 20,
+									width: Y_RENAME_INPUT_WIDTH,
+									boxSizing: "border-box",
+									zIndex: 30,
+									font: `bold 12px ${themeColors.fontFamily}`,
+									color: themeColors.labelColor,
+									background: themeColors.plotBg,
+									border: `1px solid ${themeColors.gridColor}`,
+									borderRadius: "4px",
+									padding: "0 4px",
+									outline: "none",
+								}}
+							/>
+						)}
+					</Fragment>
 				);
 			})}
 		</>

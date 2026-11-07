@@ -142,7 +142,7 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 						>
 							<div className="sb-series-header">
 								<div
-									title="Drag to reorder or click to toggle visibility"
+									title="Drag to reorder"
 									className="sb-series-header-cell"
 									style={{ width: "24px" }}
 								>

@@ -155,7 +155,7 @@ describe("DataSourcesSection", () => {
 		renderComponent();
 
 		expect(screen.getByText("Dataset 1")).toBeInTheDocument();
-		expect(screen.getByText("100 lines")).toBeInTheDocument();
+		expect(screen.getByText("100 rows")).toBeInTheDocument();
 
 		const deleteBtn = screen.getByTitle("Delete Dataset");
 		fireEvent.click(deleteBtn);

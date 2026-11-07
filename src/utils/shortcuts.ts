@@ -115,7 +115,7 @@ export const SHORTCUTS = {
 	},
 	axisRename: {
 		keys: ["Enter"],
-		description: "Rename the focused X axis",
+		description: "Rename the focused axis",
 	},
 	closeDialog: {
 		keys: ["Escape"],

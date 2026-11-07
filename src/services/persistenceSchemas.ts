@@ -36,6 +36,7 @@ const YAxisConfigSchema = z
 		color: z.string(),
 		showGrid: z.boolean(),
 		scale: AxisScaleSchema,
+		title: z.optional(z.string()),
 	})
 	.check(z.refine(logRangeValid));
 const SeriesConfigSchema = z.object({

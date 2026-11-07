@@ -205,6 +205,32 @@ describe("buildLabels", () => {
 		expect(right?.rot).toBe(1);
 	});
 
+	it("draws a custom y title in place of the series names", () => {
+		const cache = createLabelStringCache();
+		const series = (lineColor: string) =>
+			({
+				name: "S",
+				lineColor,
+				yColumn: "c",
+			}) as LabelBuildContext["seriesByYAxisId"]["y1"][number];
+		const titleOf = (onAxis: ReturnType<typeof series>[]) =>
+			buildLabels(
+				[],
+				[yAxis({ title: "Power" })],
+				{ ...baseCtx, seriesByYAxisId: { y1: onAxis } },
+				cache,
+			).find((l) => l.segments)?.segments;
+		// One run, in the series colour while they all share one.
+		expect(titleOf([series("red"), series("red")])).toEqual([
+			{ text: "Power", color: "red" },
+		]);
+		expect(titleOf([series("red"), series("blue")])).toEqual([
+			{ text: "Power", color: "#444" },
+		]);
+		// No series, no title, custom or not.
+		expect(titleOf([])).toBeUndefined();
+	});
+
 	it("colors the x title by the single series color on that axis", () => {
 		const cache = createLabelStringCache();
 		const ctx: LabelBuildContext = {

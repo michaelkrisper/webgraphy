@@ -193,6 +193,13 @@ describe("YAxisInteractionZones", () => {
 		rightOffsets: { y2: 0 },
 		padding: { top: 10, right: 20, bottom: 30, left: 40 },
 		width: 800,
+		height: 400,
+		themeColors: {
+			fontFamily: "sans-serif",
+			labelColor: "#000",
+			plotBg: "#fff",
+			gridColor: "#ccc",
+		},
 		containerRef: {
 			current: { getBoundingClientRect: () => ({ top: 100 }) },
 		} as unknown as React.RefObject<HTMLDivElement | null>,
@@ -253,15 +260,46 @@ describe("YAxisInteractionZones", () => {
 		});
 	});
 
+	// jsdom lays nothing out: place a zone where ChartContainer would.
+	const placeZone = (zone: HTMLElement, left: number, w: number) =>
+		vi
+			.spyOn(zone, "getBoundingClientRect")
+			.mockReturnValue({ left, right: left + w, top: 0 } as DOMRect);
+
 	it("calls onAutoScaleY when double clicking", () => {
 		render(<YAxisInteractionZones {...defaultProps} />);
 		const zone = screen.getByRole("group", {
 			name: /^Y axis y1\b/,
 		});
+		placeZone(zone, 0, 40);
 
 		// clientY = 150, container top = 100 -> mouseY = 50
-		fireEvent.doubleClick(zone, { clientY: 150 });
+		fireEvent.doubleClick(zone, { clientX: 30, clientY: 150 });
 		expect(defaultProps.onAutoScaleY).toHaveBeenCalledWith("y1", 50);
+		expect(screen.queryByRole("textbox")).toBeNull();
+	});
+
+	it("opens the title rename on a double-click at the gutter's outer edge", () => {
+		render(<YAxisInteractionZones {...defaultProps} titles={{ y2: "Flow" }} />);
+		const left = screen.getByRole("group", { name: /^Y axis y1\b/ });
+		const right = screen.getByRole("group", { name: /^Y axis y2\b/ });
+		placeZone(left, 0, 40);
+		placeZone(right, 780, 50);
+
+		fireEvent.doubleClick(right, { clientX: 825, clientY: 150 });
+		const input = screen.getByRole("textbox", { name: "Rename Y axis y2" });
+		expect(input).toHaveValue("Flow");
+		// Right axis: the input ends at the gutter's outer edge, level with
+		// the middle of the plot (10 + (400 - 10 - 30) / 2 - 10).
+		expect(input).toHaveStyle({ right: "-30px", top: "180px" });
+		expect(defaultProps.onAutoScaleY).not.toHaveBeenCalled();
+
+		fireEvent.keyDown(input, { key: "Escape" });
+		fireEvent.doubleClick(left, { clientX: 5, clientY: 150 });
+		expect(screen.getByRole("textbox", { name: "Rename Y axis y1" })).toHaveStyle(
+			{ left: "0px" },
+		);
+		expect(defaultProps.onAutoScaleY).not.toHaveBeenCalled();
 	});
 
 	it("falls back to default total width when axisLayout[a.id] is missing", () => {
@@ -318,7 +356,8 @@ describe("YAxisInteractionZones", () => {
 		const zone = screen.getByRole("group", {
 			name: /^Y axis y1\b/,
 		});
-		fireEvent.doubleClick(zone, { clientY: 150 });
+		placeZone(zone, 0, 40);
+		fireEvent.doubleClick(zone, { clientX: 30, clientY: 150 });
 		expect(customProps.onAutoScaleY).toHaveBeenCalledWith("y1", undefined);
 	});
 });

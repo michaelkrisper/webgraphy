@@ -360,11 +360,27 @@
 .sc-drag-handle:active {
 	cursor: grabbing;
 }
-.sc-cell-placeholder {
-	width: var(--ui-size);
+/* Stands in for side/grid/log on rows sharing an axis with an earlier row. */
+.sc-shared-axis {
+	grid-column: span 3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	height: var(--ui-size);
+	color: var(--text-muted-color);
+	opacity: 0.45;
+	cursor: help;
+}
+.sc-column-cell {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+.sc-eye {
+	width: 22px;
 }
 .sc-select {
+	flex: 1;
 	width: 100%;
 	font-size: var(--ui-font-size);
 	padding: 2px;
@@ -723,15 +739,15 @@
 }
 
 .col-chip-grid {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	display: flex;
+	flex-wrap: wrap;
 	gap: 2px;
 	padding: 4px 6px;
 }
 .col-chip {
 	display: flex;
 	position: relative;
-	width: 100%;
+	max-width: 100%;
 	margin: 0;
 	box-sizing: border-box;
 	border-radius: 3px;
@@ -747,16 +763,20 @@
 .col-chip > button:first-child {
 	flex: 1;
 	min-width: 0;
+	white-space: nowrap;
+}
+/* Only a name wider than the whole sidebar is cut; the tooltip has it all. */
+.col-chip-label {
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 .col-chip-btn {
 	display: flex;
 	align-items: center;
 	gap: 5px;
 	font-size: 0.7rem;
-	padding: 3px 8px;
+	padding: 3px 2px 3px 8px;
 	border: none;
 	border-radius: 3px;
 	background: none;
@@ -773,16 +793,14 @@
 	height: 7px;
 	border-radius: 50%;
 }
+/* In flow and only faded in: the actions own their space, so showing them
+ * neither covers the name nor reflows the wrapped chips under the pointer. */
 .col-chip-actions {
 	display: flex;
-	position: absolute;
-	right: 0;
-	top: 0;
-	bottom: 0;
+	flex-shrink: 0;
 	opacity: 0;
 	transition: opacity 0.15s;
 	pointer-events: none;
-	background: inherit;
 }
 .col-chip-actions button {
 	border-left: none;

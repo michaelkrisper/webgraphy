@@ -904,6 +904,31 @@ describe("persistence", () => {
 			}
 		});
 
+		it("keeps a custom y title and loads axes saved without one", async () => {
+			const loaded = await loadViewport({
+				xAxes: SAMPLE_APP_STATE.xAxes,
+				yAxes: [
+					{ ...yAxis, title: "Flow" },
+					{ ...yAxis, id: "axis-2" },
+				],
+			});
+			expect(loaded?.yAxes[0].title).toBe("Flow");
+			expect(loaded?.yAxes[1]).not.toHaveProperty("title");
+		});
+
+		it("rejects a y title that is not a string", async () => {
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const loaded = await loadViewport({
+					xAxes: SAMPLE_APP_STATE.xAxes,
+					yAxes: [{ ...yAxis, title: 42 }],
+				});
+				expect(loaded?.yAxes).toEqual([]);
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
 		it("rejects unknown scale values", async () => {
 			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 			try {

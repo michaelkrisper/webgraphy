@@ -25,7 +25,7 @@ test("a CSV picked in the file input becomes plotted series", async ({
 
 	// The dataset shows up in the sidebar with its row count, and one series
 	// row per plotted column.
-	await expect(page.getByText("200 lines")).toBeVisible();
+	await expect(page.getByText("200 rows")).toBeVisible();
 	await expect(
 		page.getByRole("combobox", { name: "Y Column for Sine" }),
 	).toBeVisible();
@@ -96,7 +96,7 @@ test("imports the chosen sheet of an XLSX workbook", async ({ page }) => {
 		"aria-label",
 		/1 data series: Beta\./,
 	);
-	await expect(page.getByText("20 lines")).toBeVisible();
+	await expect(page.getByText("20 rows")).toBeVisible();
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });
 

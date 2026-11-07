@@ -176,6 +176,15 @@ describe("computeYAxesLayoutCached", () => {
 		expect(second[0].position).toBe("right");
 	});
 
+	it("rebuilds a layout when the custom title changes", () => {
+		const params = baseParams();
+		const first = computeYAxesLayoutCached(params);
+		params.liveYAxes = [makeYAxis("Y", { title: "Air" })];
+		const second = computeYAxesLayoutCached(params);
+		expect(second[0]).not.toBe(first[0]);
+		expect(second[0].title).toBe("Air");
+	});
+
 	it("invalidates the entire cache when chartHeight changes", () => {
 		const params = baseParams();
 		const first = computeYAxesLayoutCached(params);
