@@ -23,7 +23,6 @@ import {
 	usedYAxes,
 	yAxisSlot,
 } from "../../utils/yAxisSlots";
-import ColorPicker from "./ColorPicker";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
 import { SeriesStylePicker, type StylePreview } from "./SeriesStylePicker";
 import { UNDO_HINT } from "./undoHint";
@@ -100,9 +99,17 @@ export const SeriesConfigUI: React.FC<Props> = ({
 	const yAxisCycleDisabled = allSeries.length <= 1;
 	const seriesName = series.name || series.yColumn;
 	const previewStyle = useCallback(
-		(preview: StylePreview | null) =>
-			setPreviewStyle(preview && { seriesId: series.id, ...preview }),
-		[setPreviewStyle, series.id],
+		(preview: StylePreview | null) => {
+			if (!preview) {
+				setPreviewStyle(null);
+				setPreviewColor(null);
+			} else if (preview.color) {
+				setPreviewColor({ seriesId: series.id, color: preview.color });
+			} else {
+				setPreviewStyle({ seriesId: series.id, ...preview });
+			}
+		},
+		[setPreviewStyle, setPreviewColor, series.id],
 	);
 
 	const selectYAxis = (n: number) => {
@@ -280,23 +287,16 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				lineStyle={series.lineStyle}
 				pointStyle={series.pointStyle}
 				lineWidth={lineWidthOf(series)}
-				onChange={({ lineWidth, ...styles }) =>
-					handleUpdate(lineWidth === undefined ? styles : lineWidthUpdate(lineWidth))
+				onChange={({ lineWidth, color, ...styles }) =>
+					handleUpdate(
+						color !== undefined
+							? { lineColor: color, pointColor: color }
+							: lineWidth !== undefined
+								? lineWidthUpdate(lineWidth)
+								: styles,
+					)
 				}
 				onPreview={previewStyle}
-			/>
-
-			{/* Color Picker */}
-			<ColorPicker
-				color={series.lineColor}
-				onChange={(newColor) =>
-					handleUpdate({ lineColor: newColor, pointColor: newColor })
-				}
-				onHover={(previewColor) =>
-					setPreviewColor({ seriesId: series.id, color: previewColor })
-				}
-				onHoverEnd={() => setPreviewColor(null)}
-				ariaLabel={`Color for ${seriesName}`}
 			/>
 
 			{/* Visibility and Y column share the flexible cell. */}

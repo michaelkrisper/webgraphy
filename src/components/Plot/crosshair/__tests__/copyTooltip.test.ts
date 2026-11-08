@@ -81,7 +81,7 @@ describe("shouldCopyTooltip", () => {
 
 	it.each([
 		["an axis range popover", { role: "dialog", "aria-label": "X axis 1 range" }],
-		["a color picker", { class: "color-picker-popover" }],
+		["a picker popover", { class: "popup-picker-popover" }],
 	])("keeps the browser's copy while %s is open", (_label, attrs) => {
 		const overlay = document.createElement("div");
 		for (const [k, v] of Object.entries(attrs)) overlay.setAttribute(k, v);

@@ -223,7 +223,7 @@ describe("accessible names and descriptions", () => {
 				const popover = screen.getByRole("dialog", { name: "Series style" });
 				expect(
 					within(popover).getAllByRole("button", { pressed: true }),
-				).toHaveLength(2);
+				).toHaveLength(3);
 				expect(
 					within(popover).getByRole("button", {
 						name: "Dashed line, circles",
@@ -254,25 +254,6 @@ describe("accessible names and descriptions", () => {
 			).toHaveAccessibleDescription(/Ctrl\+S/);
 			expectNamedAndDescribed();
 		});
-
-		it(
-			"the open color picker",
-			async () => {
-				render(<Sidebar />);
-				const trigger = screen.getByRole("button", { name: "Color for Temp" });
-				expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
-				fireEvent.click(trigger);
-				expect(trigger).toHaveAttribute("aria-expanded", "true");
-				const popover = screen.getByRole("dialog", { name: "Color for Temp" });
-				expect(
-					within(popover).getAllByRole("button", { pressed: true }),
-				).toHaveLength(1);
-
-				expectNamedAndDescribed();
-				await expectNoAxeViolations();
-			},
-			AXE_TIMEOUT_MS,
-		);
 
 		it("toasts with an action", () => {
 			notify({
