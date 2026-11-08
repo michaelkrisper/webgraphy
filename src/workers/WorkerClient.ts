@@ -50,6 +50,9 @@ export class WorkerClient<Req, Res extends { id?: number }, ParsedRes> {
 		// A crash loses all in-flight work and any state the worker held; drop it
 		// so the next request lazily starts a fresh one.
 		worker.onerror = (ev) => {
+			// Handled here, by failing the requests: uncancelled, the error would
+			// also reach the window's error handler and be toasted a second time.
+			if (ev instanceof Event) ev.preventDefault();
 			const err =
 				ev instanceof Error ? ev : new Error(ev.message || "Worker error");
 			worker.terminate();
