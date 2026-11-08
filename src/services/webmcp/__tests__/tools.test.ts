@@ -316,6 +316,7 @@ describe("get_workspace", () => {
 			yAxis: 1,
 			color: "#ff0000",
 			lineStyle: "solid",
+			lineWidth: 1,
 			pointStyle: "circle",
 			visible: true,
 		});
@@ -735,9 +736,28 @@ describe("set_series_style", () => {
 		);
 		await expectError(
 			"set_series_style",
-			{ series: "s-temp", lineWidth: 3 },
-			/Unknown property "lineWidth"/,
+			{ series: "s-temp", lineWidth: 12 },
+			/"lineWidth" must be a number from 0.5 to 10/,
 		);
+	});
+
+	it("sets the line width, storing the default as absent", async () => {
+		const out = await jsonOf("set_series_style", {
+			series: "s-temp",
+			lineWidth: 2.5,
+		});
+		expect(out.series).toMatchObject({ lineWidth: 2.5 });
+		expect(store().series[0].lineWidth).toBe(2.5);
+		expect(useGraphHistory.getState().past.at(-1)?.label).toBe(
+			"change line width of 'Temp'",
+		);
+
+		const back = await jsonOf("set_series_style", {
+			series: "s-temp",
+			lineWidth: 1,
+		});
+		expect(back.series).toMatchObject({ lineWidth: 1 });
+		expect(store().series[0].lineWidth).toBeUndefined();
 	});
 });
 

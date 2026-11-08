@@ -171,6 +171,36 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+.popup-picker-widths {
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	margin-top: 3px;
+	padding: 4px 0 0 10px;
+	border-top: 1px solid var(--border-color);
+	color: var(--text-color);
+	font-size: 0.8rem;
+}
+.popup-picker-widths > span {
+	margin-right: auto;
+	padding-right: 8px;
+}
+.popup-picker-width {
+	min-width: 26px;
+	padding: 4px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: inherit;
+	font: inherit;
+}
+.popup-picker-width:hover,
+.popup-picker-width[aria-pressed="true"] {
+	background: var(--bg3);
+}
+.popup-picker-width[aria-pressed="true"] {
+	font-weight: 600;
+}
 .sc-axis-swatches {
 	display: inline-flex;
 	gap: 2px;

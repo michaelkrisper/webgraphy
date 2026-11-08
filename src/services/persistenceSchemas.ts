@@ -6,6 +6,7 @@
 // persistence.ts.
 import * as z from "zod/mini";
 import type { AxisScale } from "../utils/axisScale";
+import { MAX_LINE_WIDTH, MIN_LINE_WIDTH } from "../utils/lineWidth";
 import { logger } from "../utils/logger";
 import type { ViewportState } from "./persistence";
 
@@ -49,6 +50,12 @@ const SeriesConfigSchema = z.object({
 	pointColor: z.string(),
 	lineStyle: z.enum(["solid", "dashed", "dotted", "none"]),
 	lineColor: z.string(),
+	// Styling, like an axis range, must not cost the whole series config: a
+	// width out of range (or from a newer build) falls back to the default.
+	lineWidth: z.catch(
+		z.optional(z.number().check(z.gte(MIN_LINE_WIDTH), z.lte(MAX_LINE_WIDTH))),
+		undefined,
+	),
 	hidden: z.optional(z.boolean()),
 });
 const ViewportSchema = z.object({

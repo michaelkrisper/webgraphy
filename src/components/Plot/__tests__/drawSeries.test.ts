@@ -64,6 +64,7 @@ describe("drawSeriesLines", () => {
 
 		mockBundle = {
 			lineStyle: "solid",
+			lineWidth: 1,
 			lineColorRgba: [1, 0, 0, 1],
 			isHighlighted: false,
 			dpr: 1,
@@ -157,6 +158,34 @@ describe("drawSeriesLines", () => {
 		expect(mockGLStateCache.lpSetYScaleOff).toHaveBeenCalledWith(-1, 100);
 		// Highlighted stroke: 2.5 CSS px scaled to device px.
 		expect(mockGLStateCache.lpSetWidth).toHaveBeenCalledWith(2.5 * 2);
+	});
+
+	it("draws the series' own width, and bolder still when highlighted", () => {
+		mockBundle.lineWidth = 3;
+		mockBundle.dpr = 2;
+		callDrawSeriesLines();
+		expect(mockGLStateCache.lpSetWidth).toHaveBeenLastCalledWith(3 * 2);
+
+		mockBundle.isHighlighted = true;
+		callDrawSeriesLines();
+		expect(mockGLStateCache.lpSetWidth).toHaveBeenLastCalledWith(4.5 * 2);
+
+		mockBundle.lineWidth = 0.5;
+		callDrawSeriesLines();
+		expect(mockGLStateCache.lpSetWidth).toHaveBeenLastCalledWith(2.5 * 2);
+	});
+
+	it("scales dashes with the configured width, not the highlight", () => {
+		mockBundle.lineStyle = "dashed";
+		mockBundle.lineWidth = 2;
+		mockBundle.isHighlighted = true;
+		callDrawSeriesLines();
+		expect(mockGLStateCache.lpSetDash).toHaveBeenLastCalledWith(16, 12);
+
+		mockBundle.lineStyle = "dotted";
+		mockBundle.lineWidth = 0.5;
+		callDrawSeriesLines();
+		expect(mockGLStateCache.lpSetDash).toHaveBeenLastCalledWith(2, 4);
 	});
 
 	it("draws solid lines as instanced triangle capsules with dashes off", () => {

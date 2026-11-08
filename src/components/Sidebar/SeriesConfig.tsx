@@ -18,6 +18,11 @@ import type {
 import { deleteWithUndo } from "../../store/undoToast";
 import { useGraphStore, withHistory } from "../../store/useGraphStore";
 import {
+	DEFAULT_LINE_WIDTH,
+	lineWidthOf,
+	lineWidthUpdate,
+} from "../../utils/lineWidth";
+import {
 	firstFreeYAxisSlot,
 	ownsYAxisRow,
 	usedYAxes,
@@ -141,6 +146,40 @@ const LINE_OPTIONS: PopupPickerOption<LineStyle>[] = (
 	description: "Draws this series' line this way; hovering previews it",
 }));
 
+const LINE_WIDTHS = [1, 1.5, 2, 3, 4];
+
+function LineWidthChoices({
+	current,
+	onChange,
+	onHover,
+}: {
+	current: number;
+	onChange: (width: number) => void;
+	onHover: (width: number | null) => void;
+}) {
+	return (
+		<div role="group" aria-label="Line width" className="popup-picker-widths">
+			<span aria-hidden="true">Width</span>
+			{LINE_WIDTHS.map((w) => (
+				<button
+					key={w}
+					type="button"
+					className="popup-picker-width"
+					onClick={() => onChange(w)}
+					onMouseEnter={() => onHover(w)}
+					onMouseLeave={() => onHover(null)}
+					title={`${w} px`}
+					aria-label={`${w} px`}
+					aria-pressed={w === current}
+					aria-description="Draws this series' line this wide; hovering previews it"
+				>
+					{w}
+				</button>
+			))}
+		</div>
+	);
+}
+
 const POINT_OPTIONS: PopupPickerOption<PointStyle>[] = (
 	["circle", "square", "cross", "none"] as const
 ).map((v) => ({
@@ -215,6 +254,8 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		: undefined;
 	const yAxisCycleDisabled = allSeries.length <= 1;
 	const seriesName = series.name || series.yColumn;
+	const lineWidth = lineWidthOf(series);
+	const lineStyleText = `${LINE_STYLE_LABELS[series.lineStyle]}${lineWidth === DEFAULT_LINE_WIDTH ? "" : `, ${lineWidth} px`}`;
 
 	const selectYAxis = (n: number) => {
 		const nextAxisId = `axis-${n}`;
@@ -394,15 +435,29 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				}
 				popoverId={`line-style-popover-${series.id}`}
 				label="Line style"
+				footer={(close) => (
+					<LineWidthChoices
+						current={lineWidth}
+						onChange={(w) => {
+							handleUpdate(lineWidthUpdate(w));
+							close();
+						}}
+						onHover={(w) =>
+							setPreviewStyle(
+								w === null ? null : { seriesId: series.id, lineWidth: w },
+							)
+						}
+					/>
+				)}
 				renderTrigger={({ onClick, ref, popupProps }) => (
 					<button
 						ref={ref}
 						onClick={onClick}
 						className="sc-btn"
-						title={`Line Style: ${LINE_STYLE_LABELS[series.lineStyle]}`}
+						title={`Line Style: ${lineStyleText}`}
 						type="button"
 						aria-label="Select Line Style"
-						aria-description={`Currently ${LINE_STYLE_LABELS[series.lineStyle]}. Opens the line styles for ${seriesName}`}
+						aria-description={`Currently ${lineStyleText}. Opens the line styles and widths for ${seriesName}`}
 						{...popupProps}
 					>
 						{lineIcon(series.lineStyle as LineStyle)}

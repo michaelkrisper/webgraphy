@@ -311,6 +311,7 @@ class WorkerBackend implements RenderBackend {
 				pointColorRgba: s.pointColorRgba,
 				lineStyle: s.lineStyle,
 				pointStyle: s.pointStyle,
+				lineWidth: s.lineWidth,
 			});
 		}
 		// The worker prunes to exactly this set, so mirror it here.

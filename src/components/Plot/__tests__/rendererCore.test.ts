@@ -23,6 +23,7 @@ function makeSeries(
 		pointColorRgba: [0, 1, 0],
 		lineStyle: "solid",
 		pointStyle: "none",
+		lineWidth: 1,
 		...overrides,
 	};
 }

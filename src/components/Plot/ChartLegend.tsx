@@ -1,6 +1,7 @@
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
 import type { SeriesConfig } from "../../services/persistence";
+import { legendLineWidth } from "../../utils/lineWidth";
 
 interface ChartLegendProps {
 	series: SeriesConfig[];
@@ -136,7 +137,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 								x2="20"
 								y2="5"
 								stroke={s.lineColor}
-								strokeWidth={1}
+								strokeWidth={legendLineWidth(s)}
 								strokeDasharray={lineStyleDash(s.lineStyle)}
 							/>
 						)}

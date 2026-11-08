@@ -430,6 +430,30 @@ describe("exportToSVG", () => {
 		expect(svgDotted).toContain('stroke-dasharray="2,4"');
 	});
 
+	it("draws a series line at its width, dashes scaled along", () => {
+		const svgOf = (overrides: Partial<SeriesConfig>) =>
+			exportToSVG(
+				mockDatasets,
+				[{ ...mockSeries[0], pointStyle: "none", ...overrides }],
+				mockXAxes,
+				mockYAxes,
+				800,
+				600,
+				THEMES.light,
+			);
+		const pathOf = (svg: string) => svg.match(/<path d="M[^>]*>/)?.[0];
+
+		expect(pathOf(svgOf({}))).toContain('stroke-width="1"');
+		expect(pathOf(svgOf({ lineWidth: 2.5 }))).toContain('stroke-width="2.5"');
+		const dashed = pathOf(svgOf({ lineStyle: "dashed", lineWidth: 3 }));
+		expect(dashed).toContain('stroke-width="3"');
+		expect(dashed).toContain('stroke-dasharray="24,18"');
+		// Thinner than the default keeps the default pattern.
+		expect(pathOf(svgOf({ lineStyle: "dotted", lineWidth: 0.5 }))).toContain(
+			'stroke-dasharray="2,4"',
+		);
+	});
+
 	it("should format date x-axis", () => {
 		const mockXAxesDate: XAxisConfig[] = [
 			{

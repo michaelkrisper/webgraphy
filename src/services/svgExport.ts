@@ -11,6 +11,7 @@ import { getColumnIndex } from "../utils/columns";
 import { worldToScreen } from "../utils/coords";
 import { m4Float32 } from "../utils/decimation";
 import { escapeHTML } from "../utils/dom";
+import { dashScale, legendLineWidth, lineWidthOf } from "../utils/lineWidth";
 import {
 	formatPrimaryLabelFromDate,
 	MS_PER_SECOND,
@@ -413,10 +414,14 @@ const drawSeriesData = (
 				}
 			}
 			if (pathData) {
+				const width = lineWidthOf(s);
+				const unit = dashScale(width);
 				let dashArray = "";
-				if (s.lineStyle === "dashed") dashArray = 'stroke-dasharray="8,6"';
-				else if (s.lineStyle === "dotted") dashArray = 'stroke-dasharray="2,4"';
-				svg += `<path d="${escapeHTML(pathData.trim())}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="1" ${dashArray} />`;
+				if (s.lineStyle === "dashed")
+					dashArray = `stroke-dasharray="${8 * unit},${6 * unit}"`;
+				else if (s.lineStyle === "dotted")
+					dashArray = `stroke-dasharray="${2 * unit},${4 * unit}"`;
+				svg += `<path d="${escapeHTML(pathData.trim())}" fill="none" stroke="${escapeHTML(s.lineColor)}" stroke-width="${width}" ${dashArray} />`;
 			}
 		}
 		if (s.pointStyle !== "none") {
@@ -655,7 +660,7 @@ const drawLegendEntry = (
 	const mx = x + LEGEND.swatchWidth / 2;
 	if (entry.lineStyle !== "none") {
 		const dash = LEGEND_DASH[entry.lineStyle];
-		svg += `<line x1="${x}" y1="${cy}" x2="${x + LEGEND.swatchWidth}" y2="${cy}" stroke="${escapeHTML(entry.lineColor)}" stroke-width="1"${dash ? ` stroke-dasharray="${dash}"` : ""} />`;
+		svg += `<line x1="${x}" y1="${cy}" x2="${x + LEGEND.swatchWidth}" y2="${cy}" stroke="${escapeHTML(entry.lineColor)}" stroke-width="${legendLineWidth(entry)}"${dash ? ` stroke-dasharray="${dash}"` : ""} />`;
 	}
 	const fill = escapeHTML(entry.pointColor);
 	const outline = `stroke="white" stroke-width="0.75" paint-order="stroke fill"`;

@@ -23,9 +23,10 @@ const list = (values: readonly unknown[]) =>
 function typeName(schema: JsonSchema): string {
 	if (schema.anyOf) return schema.anyOf.map(typeName).join(" or ");
 	if (schema.enum) return `one of ${list(schema.enum)}`;
-	if (schema.type === "integer" && schema.minimum !== undefined)
-		return `an integer from ${schema.minimum} to ${schema.maximum}`;
-	return schema.type === "integer" ? "an integer" : `a ${schema.type}`;
+	const article = schema.type === "integer" ? "an integer" : `a ${schema.type}`;
+	if (schema.minimum !== undefined)
+		return `${article} from ${schema.minimum} to ${schema.maximum}`;
+	return article;
 }
 
 function check(

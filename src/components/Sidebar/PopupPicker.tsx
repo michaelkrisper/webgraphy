@@ -44,6 +44,8 @@ interface PopupPickerProps<T> {
 	minWidth?: number;
 	/** Fired when an option is hovered (value) and when the hover leaves (null). */
 	onHoverOption?: (value: T | null) => void;
+	/** A second, related choice below the options, inside the same popover. */
+	footer?: (close: () => void) => ReactNode;
 }
 
 export function PopupPicker<T extends string | number>({
@@ -55,6 +57,7 @@ export function PopupPicker<T extends string | number>({
 	popoverId = "popup-picker-popover",
 	minWidth = 140,
 	onHoverOption,
+	footer,
 }: PopupPickerProps<T>) {
 	const [isOpen, setIsOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -155,6 +158,7 @@ export function PopupPicker<T extends string | number>({
 							</button>
 						);
 					})}
+					{footer?.(close)}
 				</PopupPickerPopover>
 			)}
 		</>
