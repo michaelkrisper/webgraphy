@@ -4,7 +4,7 @@
  * feeds it protocol messages with a mocked WebGL2 OffscreenCanvas.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	makeCanvasMock,
 	makeGl2Mock,
@@ -354,6 +354,69 @@ describe("render.worker", () => {
 		expect(reuploads).toHaveLength(2);
 		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
 	});
+
+	describe("draw scheduling", () => {
+		const frame = {
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		} as const;
+		/** Fake timeouts plus a hand-driven rAF; returns its pending callbacks. */
+		function manualFrames() {
+			vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+			const pending: FrameRequestCallback[] = [];
+			let id = 0;
+			vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
+				pending.push(cb);
+				return ++id;
+			});
+			const cancel = vi
+				.spyOn(globalThis, "cancelAnimationFrame")
+				.mockImplementation(() => {});
+			return { pending, cancel };
+		}
+
+		afterEach(() => {
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+		});
+
+		it("draws even when the worker's animation frame never arrives", async () => {
+			const { gl } = initWorker();
+			// Let a tick still armed by an earlier test run on real time first.
+			await nextFrame();
+			// Cold start: no frame sink yet, so the worker's rAF stays pending.
+			manualFrames();
+			send(frame);
+			vi.advanceTimersByTime(100);
+			expect(gl.clear).toHaveBeenCalledTimes(1);
+			// Not a one-off: the next frame is not stuck behind the lost rAF.
+			send(frame);
+			vi.advanceTimersByTime(100);
+			expect(gl.clear).toHaveBeenCalledTimes(2);
+		});
+
+		it("draws once per tick, then leaves nothing scheduled", async () => {
+			const { gl } = initWorker();
+			await nextFrame();
+			const { pending, cancel } = manualFrames();
+			send(frame);
+			pending.shift()?.(0);
+			expect(gl.clear).toHaveBeenCalledTimes(1);
+			// The frame cancelled its fallback timeout...
+			vi.advanceTimersByTime(500);
+			expect(gl.clear).toHaveBeenCalledTimes(1);
+
+			// ...and a timeout cancels its frame.
+			send(frame);
+			vi.advanceTimersByTime(100);
+			expect(gl.clear).toHaveBeenCalledTimes(2);
+			expect(cancel).toHaveBeenCalledWith(2);
+			expect(vi.getTimerCount()).toBe(0);
+		});
+	});
 });
 
 // Shared fixture for both worker-built-scene paths: the scene context is
@@ -619,5 +682,62 @@ describe("render.worker — SharedArrayBuffer viewport path", () => {
 		await nextFrame();
 		await nextFrame();
 		expect(gl.clear).toHaveBeenCalled();
+	});
+
+	it("keeps the loop alive after a frame that throws", async () => {
+		// Handled here, or Vitest reports the rethrown frame error as unhandled.
+		const swallow = (ev: Event) => ev.preventDefault();
+		window.addEventListener("error", swallow);
+		try {
+			const { gl, writer } = initShared();
+			send({ t: "sceneCtx", ctx: sceneCtx, version: 17 });
+			gl.clear.mockImplementationOnce(() => {
+				throw new Error("GPU hiccup");
+			});
+			writer.write(17, false, [{ min: 0, max: 10 }], [{ min: 0, max: 50 }]);
+			send({ t: "wake" });
+			await nextFrame();
+			await nextFrame();
+			expect(gl.clear).toHaveBeenCalledTimes(1);
+
+			// The loop must not be left flagged as running but never re-armed,
+			// or every later wake is ignored and the plot freezes.
+			send({ t: "plotBg", rgb: [0, 0, 0] });
+			await nextFrame();
+			await nextFrame();
+			expect(gl.clear).toHaveBeenCalledTimes(2);
+		} finally {
+			window.removeEventListener("error", swallow);
+		}
+	});
+
+	it("polls on timeouts when animation frames never arrive, then parks", async () => {
+		// A frame-message host first, so a loop left polling by an earlier
+		// test (on real time) parks before the clocks are faked.
+		initWorker();
+		await nextFrame();
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(() => 1);
+		vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation(() => {});
+		try {
+			const { gl, writer } = initShared();
+			send({ t: "sceneCtx", ctx: sceneCtx, version: 19 });
+			writer.write(19, true, [{ min: 0, max: 10 }], [{ min: 0, max: 50 }]);
+			send({ t: "wake" });
+			vi.advanceTimersByTime(100);
+			expect(gl.clear).toHaveBeenCalledTimes(1);
+
+			writer.write(19, true, [{ min: 1, max: 11 }], [{ min: 0, max: 50 }]);
+			vi.advanceTimersByTime(100);
+			expect(gl.clear).toHaveBeenCalledTimes(2);
+
+			// Idle: it parks and leaves nothing scheduled.
+			vi.advanceTimersByTime(100 * 130);
+			expect(gl.clear).toHaveBeenCalledTimes(2);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+		}
 	});
 });
