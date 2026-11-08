@@ -45,13 +45,15 @@ function columnBounds(
  *   new data when it still shows all of its previous data (not zoomed in) and
  *   the new data sticks out. A user-zoomed axis keeps its range unless the
  *   new data would be entirely off-screen.
- * - An x axis no previous series' dataset sat on is fitted to its datasets.
+ * - An x axis no previous series' dataset sat on is fitted to its datasets;
+ *   one that did (a dataset joining a shared x axis) widens by the y rule.
  */
 export function fitForNewSeries(
 	prev: readonly SeriesConfig[],
 	next: readonly SeriesConfig[],
 	datasetsById: ReadonlyMap<string, Dataset>,
 	yAxes: readonly ({ id: string; scale?: AxisScale } & Range)[],
+	xAxes: readonly ({ id: string; scale?: AxisScale } & Range)[] = [],
 ): { x: Record<string, Range>; y: Record<string, Range> } {
 	const x: Record<string, Range> = {};
 	const y: Record<string, Range> = {};
@@ -79,6 +81,8 @@ export function fitForNewSeries(
 	);
 	const isLogY = (axisId: string) =>
 		yAxes.find((a) => a.id === axisId)?.scale === "log";
+	const isLogX = (axisId: string) =>
+		xAxes.find((a) => a.id === axisId)?.scale === "log";
 	const prevXAxes = new Set(prev.map(xAxisOf));
 
 	const seriesBounds = (list: readonly SeriesConfig[], log = false) => {
@@ -113,40 +117,71 @@ export function fitForNewSeries(
 	for (const [axisId, list] of addedByAxis) {
 		if (refit.has(axisId)) continue;
 		const log = isLogY(axisId);
-		const r = seriesBounds(list, log);
-		const axis = yAxes.find((a) => a.id === axisId);
-		if (!r || !isFiniteRange(axis)) continue;
-		const shown = seriesBounds(
-			prev.filter((s) => s.yAxisId === axisId),
+		const widened = widen(
+			yAxes.find((a) => a.id === axisId),
+			seriesBounds(
+				prev.filter((s) => s.yAxisId === axisId),
+				log,
+			),
+			seriesBounds(list, log),
 			log,
 		);
-		// An axis still showing all of its data is not user-zoomed, so the
-		// new series should fit completely, not just poke into view.
-		const unzoomed = !!shown && axis.min <= shown.min && axis.max >= shown.max;
-		const clipped = r.min < axis.min || r.max > axis.max;
-		const offScreen = r.max < axis.min || r.min > axis.max;
-		if (offScreen || (unzoomed && clipped)) {
-			y[axisId] = unite(axis, padRange(r, log));
-		}
+		if (widened) y[axisId] = widened;
 	}
 
-	const freshX = new Set<string>();
-	for (const s of added) {
-		const id = xAxisOf(s);
-		if (id && !prevXAxes.has(id)) freshX.add(id);
-	}
-	for (const xId of freshX) {
+	const xBounds = (list: readonly SeriesConfig[], xId: string, log: boolean) => {
 		let r: Range | undefined;
 		const seen = new Set<string>();
-		for (const s of next) {
+		for (const s of list) {
 			if (seen.has(s.sourceId) || xAxisOf(s) !== xId) continue;
 			seen.add(s.sourceId);
 			const ds = datasetsById.get(s.sourceId);
-			const b = ds && columnBounds(ds, ds.xAxisColumn);
+			const b = ds && columnBounds(ds, ds.xAxisColumn, log);
 			if (b) r = unite(r, b);
 		}
-		if (r) x[xId] = padRange(r);
+		return r;
+	};
+	const addedX = new Set<string>();
+	for (const s of added) {
+		const id = xAxisOf(s);
+		if (id) addedX.add(id);
+	}
+	for (const xId of addedX) {
+		const log = isLogX(xId);
+		if (!prevXAxes.has(xId)) {
+			const r = xBounds(next, xId, log);
+			if (r) x[xId] = padRange(r, log);
+			continue;
+		}
+		const widened = widen(
+			xAxes.find((a) => a.id === xId),
+			xBounds(prev, xId, log),
+			xBounds(added, xId, log),
+			log,
+		);
+		if (widened) x[xId] = widened;
 	}
 
 	return { x, y };
+}
+
+/**
+ * The range an in-use axis widens to for newly added data `r`, or undefined
+ * to keep it. An axis still showing all of its previous data (`shown`) is not
+ * user-zoomed, so the new data should fit completely, not just poke into
+ * view; a zoomed axis only moves when the new data would be off-screen.
+ */
+function widen(
+	axis: Range | undefined,
+	shown: Range | undefined,
+	r: Range | undefined,
+	log: boolean,
+): Range | undefined {
+	if (!r || !isFiniteRange(axis)) return undefined;
+	const unzoomed = !!shown && axis.min <= shown.min && axis.max >= shown.max;
+	const clipped = r.min < axis.min || r.max > axis.max;
+	const offScreen = r.max < axis.min || r.min > axis.max;
+	return offScreen || (unzoomed && clipped)
+		? unite(axis, padRange(r, log))
+		: undefined;
 }

@@ -10,6 +10,7 @@ import {
 	buildSeriesForColumns,
 	isDenseSeries,
 	pickYAxisId,
+	pickSharedXAxisId,
 	pickYAxisIdForColumn,
 } from "../series";
 
@@ -291,5 +292,69 @@ describe("pickYAxisIdForColumn", () => {
 				bounds: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
 			}),
 		).toBe("axis-2");
+	});
+});
+
+describe("pickSharedXAxisId", () => {
+	const col = (min: number, max: number, extra: Partial<DataColumn> = {}) =>
+		({
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min, max },
+			data: new Float32Array(0),
+			...extra,
+		}) as DataColumn;
+	const date = (min: number, max: number) => col(min, max, { isFloat64: true });
+	const dataset = (id: string, xAxisId: string, x: DataColumn) =>
+		({
+			id,
+			name: id,
+			columns: ["x", "y"],
+			data: [x, col(0, 1)],
+			rowCount: 10,
+			xAxisColumn: "x",
+			xAxisId,
+		}) as Dataset;
+	const xAxes = Array.from({ length: 9 }, (_, i) => ({ id: `axis-${i + 1}` }));
+	const DAY = 86_400_000;
+
+	it("joins an in-use axis of the same kind over a similar range", () => {
+		const a = dataset("a", "axis-1", date(0, 10 * DAY));
+		expect(pickSharedXAxisId([a], xAxes, date(5 * DAY, 12 * DAY))).toBe("axis-1");
+		const n = dataset("n", "axis-2", col(0, 100));
+		expect(pickSharedXAxisId([a, n], xAxes, col(20, 150))).toBe("axis-2");
+	});
+
+	it("keeps dates and numbers apart, and never shares categories", () => {
+		const a = dataset("a", "axis-1", col(0, 100));
+		expect(pickSharedXAxisId([a], xAxes, date(0, 100))).toBeUndefined();
+		const cat = { categoryLabels: ["a", "b"] };
+		const c = dataset("c", "axis-2", col(0, 1, cat));
+		expect(pickSharedXAxisId([c], xAxes, col(0, 1, cat))).toBeUndefined();
+	});
+
+	it("does not share disjoint or very differently sized ranges", () => {
+		const a = dataset("a", "axis-1", col(0, 100));
+		expect(pickSharedXAxisId([a], xAxes, col(200, 300))).toBeUndefined();
+		expect(pickSharedXAxisId([a], xAxes, col(0, 5))).toBeUndefined();
+	});
+
+	it("skips an axis that also carries another kind of column", () => {
+		const a = dataset("a", "axis-1", col(0, 100));
+		const b = dataset("b", "axis-1", date(0, 100));
+		expect(pickSharedXAxisId([a, b], xAxes, col(0, 100))).toBeUndefined();
+	});
+
+	it("keeps a column with values <= 0 off a log axis", () => {
+		const a = dataset("a", "axis-1", col(1, 100));
+		const logX = [{ id: "axis-1", scale: "log" as const }];
+		expect(pickSharedXAxisId([a], logX, col(0, 100))).toBeUndefined();
+		expect(pickSharedXAxisId([a], logX, col(2, 100))).toBe("axis-1");
+	});
+
+	it("prefers the axis that overlaps the column most", () => {
+		const a = dataset("a", "axis-1", col(0, 16));
+		const b = dataset("b", "axis-2", col(12, 30));
+		expect(pickSharedXAxisId([a, b], xAxes, col(14, 24))).toBe("axis-2");
 	});
 });

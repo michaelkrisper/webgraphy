@@ -158,6 +158,24 @@ describe("fitForNewSeries", () => {
 		expect(fresh.min).toBeLessThan(2);
 	});
 
+	it("widens a shared x axis for a joining dataset, unless zoomed in", () => {
+		// "later" joins weather's x axis 1 (0..1000, fitted to 0..1000).
+		const later: Dataset = {
+			...pressure,
+			id: "later",
+			data: [col(500, 1500), col(1000, 1020)],
+			xAxisId: "axis-1",
+		};
+		const ids = new Map([...byId, [later.id, later]]);
+		const p = series("s2", "later", "p", "axis-2");
+		const xAxes = [{ id: "axis-1", min: 0, max: 1000 }];
+		const { x } = fitForNewSeries([temp], [temp, p], ids, yAxes, xAxes);
+		expect(x).toEqual({ "axis-1": { min: 0, max: 1550 } });
+
+		const zoomed = [{ id: "axis-1", min: 100, max: 600 }];
+		expect(fitForNewSeries([temp], [temp, p], ids, yAxes, zoomed).x).toEqual({});
+	});
+
 	it("refits the axis of a series rebound to another column", () => {
 		const rebound = { ...temp, yColumn: "hum" };
 		const { y } = fitForNewSeries([temp], [rebound], byId, yAxes);

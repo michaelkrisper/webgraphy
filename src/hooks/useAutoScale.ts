@@ -660,7 +660,13 @@ export function useAutoScale({
 		}
 		if (prev === series) return;
 		const state = useGraphStore.getState();
-		const { x, y } = fitForNewSeries(prev, series, datasetsById, state.yAxes);
+		const { x, y } = fitForNewSeries(
+			prev,
+			series,
+			datasetsById,
+			state.yAxes,
+			state.xAxes,
+		);
 		if (Object.keys(x).length === 0 && Object.keys(y).length === 0) return;
 		Object.assign(targetXAxes.current, x);
 		Object.assign(targetYs.current, y);

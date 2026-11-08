@@ -20,7 +20,8 @@ import {
 	logSafeRange,
 	positiveBounds,
 } from "../utils/axisScale";
-import { getColumnIndex } from "../utils/columns";
+import { getColumnIndex, xModeFor } from "../utils/columns";
+import { pickSharedXAxisId } from "../utils/series";
 import { logger } from "../utils/logger";
 import { evaluateFormulaInWorker } from "../workers/formulaClient";
 import { notify } from "./useNotificationStore";
@@ -143,9 +144,6 @@ const withAllSlots = <T extends { id: string }>(saved: T[], defaults: T[]) => [
 	...saved,
 	...defaults.filter((d) => !saved.some((a) => a.id === d.id)),
 ];
-
-const xModeFor = (col?: DataColumn): XAxisConfig["xMode"] =>
-	col?.categoryLabels ? "categorical" : col?.isFloat64 ? "date" : "numeric";
 
 /**
  * The x axis refitted to a newly bound column. A log axis keeps log only for
@@ -443,22 +441,28 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 			) ||
 			dataset.columns[0];
 
+		const col = dataset.data[getColumnIndex(dataset, xAxisColumn)];
+
 		let xAxisId = dataset.xAxisId;
+		// A shared axis keeps its range: fitForNewSeries widens it once the
+		// new data is plotted, unless the user zoomed in.
+		let shared = false;
 		if (!xAxisId) {
-			xAxisId =
+			xAxisId = pickSharedXAxisId(state.datasets, state.xAxes, col);
+			shared = !!xAxisId;
+			xAxisId ||=
 				state.xAxes.find((a) => !state.datasets.some((d) => d.xAxisId === a.id))
 					?.id || state.xAxes[0].id;
 		}
 
 		const newDataset: Dataset = { ...dataset, xAxisColumn, xAxisId };
 
-		const xColIdx = getColumnIndex(newDataset, xAxisColumn);
-		const col = newDataset.data[xColIdx];
-
 		const before = beginHistory();
 		set((s) => ({
 			datasets: [...s.datasets, newDataset],
-			xAxes: s.xAxes.map((a) => (a.id === xAxisId ? fitXAxisToColumn(a, col) : a)),
+			xAxes: shared
+				? s.xAxes
+				: s.xAxes.map((a) => (a.id === xAxisId ? fitXAxisToColumn(a, col) : a)),
 		}));
 		commitHistory(before, `add dataset '${newDataset.name}'`);
 

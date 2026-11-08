@@ -93,9 +93,10 @@ describe("importing over demo data", () => {
 		useGraphStore.getState().addDataset({ ...userData, id: "earlier" });
 		await importUserData();
 
+		// Same kind of x column over the same range: one shared X axis.
 		expect(useGraphStore.getState().datasets.map((d) => d.xAxisId)).toEqual([
 			"axis-1",
-			"axis-2",
+			"axis-1",
 		]);
 		expect(
 			useNotificationStore.getState().notifications.map((n) => n.message),

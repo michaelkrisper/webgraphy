@@ -1,6 +1,11 @@
-import type { Dataset, SeriesConfig } from "../services/persistence";
+import type {
+	DataColumn,
+	Dataset,
+	SeriesConfig,
+} from "../services/persistence";
 import { COLOR_PALETTE } from "../themes";
-import { getColumnIndex } from "./columns";
+import { DEFAULT_X_AXIS_ID } from "./axisId";
+import { getColumnIndex, xModeFor } from "./columns";
 
 /**
  * Line and point styles cycle alongside the colour so series identity does
@@ -191,6 +196,57 @@ export function pickYAxisIdForColumn(
 		if (best) return best;
 	}
 	return pickYAxisId(existing, yAxes, bounds);
+}
+
+/**
+ * X axis a new dataset joins instead of taking a free slot: an in-use axis
+ * whose datasets' x columns are the same kind as `col` (dates with dates,
+ * numbers with numbers) and `similarRanges` to it, best overlap first.
+ * Categorical columns never share, and a log axis is skipped for a column
+ * with values <= 0. Undefined when no axis fits.
+ */
+export function pickSharedXAxisId(
+	datasets: readonly Dataset[],
+	xAxes: readonly { id: string; scale?: "linear" | "log" }[],
+	col: DataColumn | undefined,
+): string | undefined {
+	const mode = xModeFor(col);
+	const bounds = col?.bounds;
+	if (mode === "categorical" || !isFiniteRange(bounds)) return undefined;
+	// null: the axis carries a column of another kind.
+	const ranges = new Map<string, Range | null>();
+	for (const d of datasets) {
+		const id = d.xAxisId || DEFAULT_X_AXIS_ID;
+		if (ranges.get(id) === null) continue;
+		const c = d.data[getColumnIndex(d, d.xAxisColumn)];
+		if (xModeFor(c) !== mode || !isFiniteRange(c?.bounds)) {
+			ranges.set(id, null);
+			continue;
+		}
+		const r = ranges.get(id);
+		ranges.set(
+			id,
+			r
+				? {
+						min: Math.min(r.min, c.bounds.min),
+						max: Math.max(r.max, c.bounds.max),
+					}
+				: { ...c.bounds },
+		);
+	}
+	let best: string | undefined;
+	let bestScore = -1;
+	for (const [id, r] of ranges) {
+		if (!r || !similarRanges(r, bounds)) continue;
+		const axis = xAxes.find((a) => a.id === id);
+		if (!axis || (axis.scale === "log" && bounds.min <= 0)) continue;
+		const score = overlapRatio(r, bounds);
+		if (score > bestScore) {
+			bestScore = score;
+			best = id;
+		}
+	}
+	return best;
 }
 
 /**
