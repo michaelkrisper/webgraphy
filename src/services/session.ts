@@ -22,6 +22,11 @@ import {
 } from "../store/useGraphStore";
 import { notify } from "../store/useNotificationStore";
 import { confirmReplaceWorkspace } from "../store/useSessionPrompt";
+import {
+	chooseSaveTarget,
+	type FileTypeFilter,
+	WORKSPACE_PICKER_ID,
+} from "../utils/fileAccess";
 import { SESSION_EXTENSION } from "../utils/importFile";
 import { logger } from "../utils/logger";
 import type { DataColumn, Dataset } from "./persistence";
@@ -275,21 +280,10 @@ function summarize(content: Pick<SessionContent, "datasets" | "series">) {
 const errorMessage = (err: unknown) =>
 	err instanceof Error ? err.message : String(err);
 
-function download(bytes: Uint8Array, fileName: string): void {
-	const url = URL.createObjectURL(
-		new Blob([bytes as Uint8Array<ArrayBuffer>], {
-			type: "application/octet-stream",
-		}),
-	);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = fileName;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	// Revoking right away can cancel the download in some browsers.
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+export const SESSION_FILE_TYPE: FileTypeFilter = {
+	description: "WebGraphy session",
+	accept: { "application/x-webgraphy": [`.${SESSION_EXTENSION}`] },
+};
 
 export function sessionFileName(now = new Date()): string {
 	const pad = (n: number) => String(n).padStart(2, "0");
@@ -297,7 +291,10 @@ export function sessionFileName(now = new Date()): string {
 	return `webgraphy-${stamp}.${SESSION_EXTENSION}`;
 }
 
-/** "Save session…": downloads the current workspace as a `.webgraphy` file. */
+/**
+ * "Save session…" / Ctrl+S: saves the workspace as a `.webgraphy` file where
+ * the user picks, or as a download. Cancelling the picker is silent.
+ */
 export async function saveSession(): Promise<void> {
 	const s = useGraphStore.getState();
 	if (s.datasets.length === 0) {
@@ -308,12 +305,22 @@ export async function saveSession(): Promise<void> {
 		return;
 	}
 	try {
+		// Asked before encoding, which can outlast the click's user activation.
+		const target = await chooseSaveTarget(
+			sessionFileName(),
+			SESSION_FILE_TYPE,
+			WORKSPACE_PICKER_ID,
+		);
+		if (!target) return;
 		const bytes = await encodeSession(s);
-		const name = sessionFileName();
-		download(bytes, name);
+		await target.write(
+			new Blob([bytes as Uint8Array<ArrayBuffer>], {
+				type: "application/octet-stream",
+			}),
+		);
 		notify({
 			kind: "success",
-			message: `Saved session "${name}" (${summarize(s)})`,
+			message: `Saved session "${target.name}" (${summarize(s)})`,
 		});
 	} catch (err) {
 		logger.error("Failed to save session", { error: err });

@@ -123,6 +123,7 @@ interface SidebarHeaderProps {
 	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onCopyImage: () => void;
 	onOpenSession: () => void;
 	onSaveSession: () => void;
 	onExportCSV: () => void;
@@ -134,6 +135,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onExportImage,
 	onExportSVG,
 	onExportPNG,
+	onCopyImage,
 	onOpenSession,
 	onSaveSession,
 	onExportCSV,
@@ -175,7 +177,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				onClick={onImport}
 				icon={<FilePlus size={24} />}
 				title="Import Data Source"
-				description={`Opens a CSV, JSON or Excel file, or a saved session. You can also drop a file anywhere or paste spreadsheet cells (${shortcutHint(SHORTCUTS.pasteData)})`}
+				description={`Opens a CSV, JSON or Excel file, or a saved session (${shortcutHint(SHORTCUTS.openFile)}). You can also drop a file anywhere or paste spreadsheet cells (${shortcutHint(SHORTCUTS.pasteData)})`}
 			/>
 			<div className="sb-hdr-btns">
 				{hdrSep}
@@ -183,6 +185,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					onExportImage={onExportImage}
 					onExportSVG={onExportSVG}
 					onExportPNG={onExportPNG}
+					onCopyImage={onCopyImage}
 					onOpenSession={onOpenSession}
 					onSaveSession={onSaveSession}
 					onExportCSV={onExportCSV}

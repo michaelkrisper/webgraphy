@@ -10,6 +10,11 @@ import {
 	datasetCsvTable,
 	visibleCsvTables,
 } from "../utils/csv-export";
+import {
+	chooseSaveTarget,
+	downloadTarget,
+	type FileTypeFilter,
+} from "../utils/fileAccess";
 import type { Dataset, SeriesConfig, XAxisConfig } from "./persistence";
 
 /** Main-thread budget per slice before yielding to input and paint. */
@@ -49,35 +54,40 @@ export async function buildCsvBlob(table: CsvTable): Promise<Blob> {
 	return new Blob(parts, { type: "text/csv;charset=utf-8" });
 }
 
-export function downloadBlob(blob: Blob, fileName: string): void {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = fileName;
-	a.click();
-	// The download manager resolves the URL asynchronously after the click.
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+export const CSV_FILE_TYPE: FileTypeFilter = {
+	description: "CSV file",
+	accept: { "text/csv": [".csv"] },
+};
 
+/**
+ * Saves one table where the user picks (`ask`) or as a download. Cancelling
+ * the picker is silent.
+ */
 async function exportTable(
 	table: CsvTable,
 	fileName: string,
 	{ notify, dismiss }: ExportFeedback,
+	ask = true,
 ): Promise<void> {
 	const rows = csvRowCount(table);
-	const progress =
-		rows >= PROGRESS_TOAST_ROWS
-			? notify({
-					kind: "info",
-					message: `Exporting ${rows.toLocaleString()} rows to ${fileName}…`,
-					durationMs: 0,
-				})
-			: null;
+	let progress: string | null = null;
 	try {
-		downloadBlob(await buildCsvBlob(table), fileName);
+		// Asked before building, which can outlast the click's user activation.
+		const target = ask
+			? await chooseSaveTarget(fileName, CSV_FILE_TYPE)
+			: downloadTarget(fileName);
+		if (!target) return;
+		if (rows >= PROGRESS_TOAST_ROWS) {
+			progress = notify({
+				kind: "info",
+				message: `Exporting ${rows.toLocaleString()} rows to ${target.name}…`,
+				durationMs: 0,
+			});
+		}
+		await target.write(await buildCsvBlob(table));
 		notify({
 			kind: "success",
-			message: `Exported ${rows.toLocaleString()} rows to ${fileName}`,
+			message: `Exported ${rows.toLocaleString()} rows to ${target.name}`,
 		});
 	} catch (err) {
 		notify({
@@ -100,7 +110,9 @@ export function exportDatasetCsv(
 /**
  * The plotted columns of every dataset with a visible series, restricted to
  * its x-axis's current range. One file per dataset: they have different x
- * columns and row sets, so a single rectangular CSV cannot hold them.
+ * columns and row sets, so a single rectangular CSV cannot hold them. Only a
+ * single file goes through the save picker: a second picker would no longer
+ * have the click's user activation, so several files download instead.
  */
 export async function exportVisibleCsv(
 	input: {
@@ -118,7 +130,13 @@ export async function exportVisibleCsv(
 		});
 		return;
 	}
+	const ask = tables.length === 1;
 	for (const { dataset, table } of tables) {
-		await exportTable(table, csvFileName(dataset.name, "-visible"), feedback);
+		await exportTable(
+			table,
+			csvFileName(dataset.name, "-visible"),
+			feedback,
+			ask,
+		);
 	}
 }

@@ -1,6 +1,7 @@
 import type React from "react";
 import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
+import { useFileShortcuts } from "../../hooks/useFileShortcuts";
 import { useSidebarWidth } from "../../hooks/useSidebarWidth";
 import { loadThemeFonts, useTheme } from "../../hooks/useTheme";
 import type { ImageExportRequest } from "../../services/export";
@@ -11,6 +12,7 @@ import type {
 import { useGraphStore } from "../../store/useGraphStore";
 import { dismissNotification, notify } from "../../store/useNotificationStore";
 import { THEMES } from "../../themes";
+import { copyImageToClipboard } from "../../utils/copyImage";
 import { SESSION_EXTENSION } from "../../utils/importFile";
 import { DataSeriesSection } from "../Sidebar/DataSeriesSection";
 import { DataSourcesSection } from "../Sidebar/DataSourcesSection";
@@ -64,6 +66,22 @@ export const Sidebar: React.FC = () => {
 		isImporting,
 	} = useDataImport();
 
+	// Ctrl+O: the open picker, routed into the same import queue as the
+	// header's open actions (sessions included).
+	const handleOpenFile = async () => {
+		try {
+			const { chooseImportFiles } = await import("../../utils/fileAccess");
+			const files = await chooseImportFiles();
+			if (files?.length) void importFiles(files);
+		} catch (err) {
+			notify({
+				kind: "error",
+				message: `Could not open the file: ${err instanceof Error ? err.message : String(err)}`,
+			});
+		}
+	};
+	useFileShortcuts(handleSaveSession, handleOpenFile);
+
 	const [imageDialogView, setImageDialogView] = useState<{
 		width: number;
 		height: number;
@@ -77,24 +95,32 @@ export const Sidebar: React.FC = () => {
 	// `services/export` carries the whole standalone SVG renderer; loading it on
 	// demand keeps it out of the entry chunk (see size-budget.json). Without a
 	// theme choice the saved export preference applies (Light by default).
+	const loadExporter = async (themeChoice?: ExportTheme) => {
+		const [exporter, { exportThemeName, loadExportOptions }] = await Promise.all([
+			import("../../services/export"),
+			import("../../services/exportOptions"),
+		]);
+		const name = exportThemeName(
+			themeChoice ?? loadExportOptions().theme,
+			themeName,
+		);
+		// Measuring and embedding need the export theme's faces, which are not
+		// loaded yet when it is not the one on screen.
+		return {
+			exporter,
+			theme: THEMES[name],
+			loadFonts: () => loadThemeFonts(name),
+		};
+	};
+	const plot = { datasets, series, xAxes, yAxes };
+
 	const runImageExport = async (
 		request: ImageExportRequest,
 		themeChoice?: ExportTheme,
 	) => {
 		try {
-			const [{ exportImage }, { exportThemeName, loadExportOptions }] =
-				await Promise.all([
-					import("../../services/export"),
-					import("../../services/exportOptions"),
-				]);
-			const name = exportThemeName(
-				themeChoice ?? loadExportOptions().theme,
-				themeName,
-			);
-			// Measuring and embedding need the export theme's faces, which are
-			// not loaded yet when it is not the one on screen.
-			await loadThemeFonts(name);
-			await exportImage({ datasets, series, xAxes, yAxes }, request, THEMES[name]);
+			const { exporter, theme, loadFonts } = await loadExporter(themeChoice);
+			await exporter.exportImage(plot, request, theme, loadFonts);
 		} catch (e) {
 			const tooLarge = e instanceof Error && e.name === "CanvasSizeError";
 			notify({
@@ -108,18 +134,35 @@ export const Sidebar: React.FC = () => {
 
 	// One-click exports: the plot at its on-screen size, legend included when
 	// shown.
-	const quickExport = (format: "svg" | "png") => {
+	const quickRequest = (format: "svg" | "png"): ImageExportRequest | null => {
 		const view = plotViewSize();
-		if (!view) return;
-		return runImageExport({
-			format,
-			...view,
-			pixelRatio: window.devicePixelRatio || 1,
-			legend: legendVisible ? "auto" : null,
-		});
+		return (
+			view && {
+				format,
+				...view,
+				pixelRatio: window.devicePixelRatio || 1,
+				legend: legendVisible ? "auto" : null,
+			}
+		);
+	};
+	const quickExport = (format: "svg" | "png") => {
+		const request = quickRequest(format);
+		return request ? runImageExport(request) : undefined;
 	};
 	const handleExportSVG = () => quickExport("svg");
 	const handleExportPNG = () => quickExport("png");
+
+	// Synchronous up to the clipboard write, which must happen inside the click;
+	// the loading and drawing ride along as the item's pending promise.
+	const handleCopyImage = () => {
+		const request = quickRequest("png");
+		if (!request) return;
+		void copyImageToClipboard(async () => {
+			const { exporter, theme, loadFonts } = await loadExporter();
+			await loadFonts();
+			return exporter.renderImage(plot, request, theme);
+		});
+	};
 
 	const handleOpenImageDialog = () =>
 		setImageDialogView(plotViewSize() ?? { width: 1200, height: 800 });
@@ -159,6 +202,7 @@ export const Sidebar: React.FC = () => {
 					onExportImage={handleOpenImageDialog}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
+					onCopyImage={handleCopyImage}
 					onExportCSV={handleExportCSV}
 					theme={t}
 				/>
@@ -183,6 +227,7 @@ export const Sidebar: React.FC = () => {
 					onExportImage={handleOpenImageDialog}
 					onExportSVG={handleExportSVG}
 					onExportPNG={handleExportPNG}
+					onCopyImage={handleCopyImage}
 					onExportCSV={handleExportCSV}
 					onOpenSession={() => sessionInputRef.current?.click()}
 					onSaveSession={handleSaveSession}
