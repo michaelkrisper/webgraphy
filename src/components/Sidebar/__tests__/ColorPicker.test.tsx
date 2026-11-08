@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { useState } from "react";
 import ColorPicker from "../ColorPicker";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -138,6 +139,57 @@ describe("ColorPicker", () => {
 
 		// #ff0000 -> #ffff00
 		expect(defaultProps.onChange).toHaveBeenCalledWith("#ffff00");
+	});
+
+	describe("RGB fields show the colour they hold", () => {
+		function Controlled() {
+			const [color, setColor] = useState("#ff0000");
+			return (
+				<ColorPicker
+					color={color}
+					onChange={setColor}
+					ariaLabel="Test Color Picker"
+				/>
+			);
+		}
+		const open = () => {
+			render(<Controlled />);
+			const button = screen.getByRole("button", { name: "Test Color Picker" });
+			fireEvent.click(button);
+			return {
+				button,
+				red: screen.getByRole("spinbutton", { name: "Red" }),
+				green: screen.getByRole("spinbutton", { name: "Green" }),
+			};
+		};
+
+		it("clamps out-of-range input in the field, also when the colour stays", () => {
+			const { button, red, green } = open();
+			// Red is already 255, so clamping 300 changes no state.
+			fireEvent.change(red, { target: { value: "300" } });
+			expect(red).toHaveValue(255);
+			fireEvent.change(green, { target: { value: "-5" } });
+			expect(green).toHaveValue(0);
+			expect(button).toHaveStyle({ backgroundColor: "#ff0000" });
+
+			fireEvent.change(green, { target: { value: "128" } });
+			expect(green).toHaveValue(128);
+			expect(button).toHaveStyle({ backgroundColor: "#ff8000" });
+		});
+
+		it("can be cleared and retyped, and restores the value on blur", () => {
+			const { button, red } = open();
+			fireEvent.change(red, { target: { value: "" } });
+			expect(red).toHaveValue(null);
+			expect(button).toHaveStyle({ backgroundColor: "#ff0000" });
+			fireEvent.blur(red);
+			expect(red).toHaveValue(255);
+
+			fireEvent.change(red, { target: { value: "" } });
+			fireEvent.change(red, { target: { value: "12" } });
+			expect(red).toHaveValue(12);
+			expect(button).toHaveStyle({ backgroundColor: "#0c0000" });
+		});
 	});
 
 	it("handles wheel events on RGB inputs", () => {
