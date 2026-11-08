@@ -8,7 +8,7 @@ import { datasetCsvTable, toCsvString, UTF8_BOM } from "../../utils/csv-export";
 import { processRawColumn } from "../../utils/data-processing";
 import {
 	buildCsvBlob,
-	downloadBlob,
+	CSV_FILE_TYPE,
 	exportDatasetCsv,
 	exportVisibleCsv,
 } from "../csvExport";
@@ -105,14 +105,75 @@ describe("buildCsvBlob", () => {
 	});
 });
 
-describe("downloadBlob", () => {
-	it("downloads through an object URL and revokes it afterwards", () => {
-		vi.useFakeTimers();
-		downloadBlob(new Blob(["a"]), "f.csv");
-		expect(names).toEqual(["f.csv"]);
-		expect(revokeSpy).not.toHaveBeenCalled();
-		vi.runAllTimers();
-		expect(revokeSpy).toHaveBeenCalledWith("blob:mock-1");
+describe("with the save picker", () => {
+	let written: Blob[];
+	let picker: ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		written = [];
+		picker = vi.fn(async ({ suggestedName }: { suggestedName: string }) => ({
+			name: `chosen-${suggestedName}`,
+			createWritable: async () => ({
+				write: async (b: Blob) => {
+					written.push(b);
+				},
+				close: async () => {},
+				abort: async () => {},
+			}),
+		}));
+		vi.stubGlobal("showSaveFilePicker", picker);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("saves where the user picks and names that file in the toast", async () => {
+		await exportDatasetCsv(dataset, feedback);
+		expect(picker).toHaveBeenCalledWith(
+			expect.objectContaining({
+				suggestedName: "big.csv",
+				types: [CSV_FILE_TYPE],
+			}),
+		);
+		expect(names).toEqual([]);
+		expect((await written[0].text()).trimEnd().split("\r\n")).toHaveLength(N + 1);
+		const [toast] = useNotificationStore.getState().notifications;
+		expect(toast).toMatchObject({
+			kind: "success",
+			message: "Exported 5,000 rows to chosen-big.csv",
+		});
+	});
+
+	it("stays silent when the user cancels", async () => {
+		picker.mockRejectedValueOnce(new DOMException("aborted", "AbortError"));
+		await exportDatasetCsv(dataset, feedback);
+		expect(names).toEqual([]);
+		expect(written).toEqual([]);
+		expect(useNotificationStore.getState().notifications).toEqual([]);
+	});
+
+	it("asks for a single visible dataset", async () => {
+		await exportVisibleCsv(
+			{ series, datasets: [dataset], xAxes: xAxes(10, 19) },
+			feedback,
+		);
+		expect(picker).toHaveBeenCalledTimes(1);
+		expect(written).toHaveLength(1);
+	});
+
+	it("downloads several visible datasets without asking", async () => {
+		const other: Dataset = { ...dataset, id: "ds-2", name: "other.csv" };
+		await exportVisibleCsv(
+			{
+				series: [...series, { ...series[0], id: "s2", sourceId: "ds-2" }],
+				datasets: [dataset, other],
+				xAxes: xAxes(10, 19),
+			},
+			feedback,
+		);
+		expect(picker).not.toHaveBeenCalled();
+		expect(names).toEqual(["big-visible.csv", "other-visible.csv"]);
 	});
 });
 

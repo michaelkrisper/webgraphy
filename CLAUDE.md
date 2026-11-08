@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-WebGraphy — client-only PWA for high-performance data visualization with WebGL. React 19 + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Deployed to GitHub Pages from `main`.
+WebGraphy — client-only PWA for high-performance data visualization with WebGL. Preact (React API via `preact/compat`) + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Deployed to GitHub Pages from `main`.
 
 ## Commands
 
@@ -76,6 +76,7 @@ A re-export facade over `src/utils/formula/`: `parser.ts` (lexer → shunting-ya
 
 ## Conventions
 
+- UI code imports `react`/`react-dom` as usual; `@preact/preset-vite` aliases them to `preact/compat` in the build and in Vitest (`src/__tests__/setup.ts` covers dependencies Node loads itself). Compat differences to keep in mind: text-input `onChange` fires on `input`, portal events bubble through the DOM rather than the component tree, `autoFocus` is unreliable on inputs mounted later (focus via ref), and there is no StrictMode double-invoke.
 - Tests are colocated in `__tests__/` next to the code (also some `*.test.ts` beside source). Pure logic is unit-tested directly; components use Testing Library; accessibility is asserted with `vitest-axe`.
 - Numeric column data is `Float32Array`; dates/large numbers use a `refPoint` offset (`isFloat64`) to preserve precision — respect this when reading/writing column data.
 - ESLint flat config (`eslint.config.js`) includes `react-hooks` and `react-refresh` rules; the codebase is lint-clean and CI enforces it.

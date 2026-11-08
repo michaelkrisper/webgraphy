@@ -54,6 +54,8 @@ describe("shortcutHint", () => {
 		expect(shortcutHint(SHORTCUTS.fitAll)).toBe("Home");
 		expect(shortcutHint(SHORTCUTS.stackedFit)).toBe("Shift+Home");
 		expect(shortcutHint(SHORTCUTS.undo)).toBe("Ctrl+Z");
+		expect(shortcutHint(SHORTCUTS.saveSession)).toBe("Ctrl+S");
+		expect(shortcutHint(SHORTCUTS.openFile)).toBe("Ctrl+O");
 		expect(shortcutHint(SHORTCUTS.viewBack)).toBe("Alt+←");
 	});
 });

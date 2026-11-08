@@ -123,6 +123,7 @@ interface SidebarHeaderProps {
 	onExportImage: () => void;
 	onExportSVG: () => void;
 	onExportPNG: () => void;
+	onCopyImage: () => void;
 	onOpenSession: () => void;
 	onSaveSession: () => void;
 	onExportCSV: () => void;
@@ -134,6 +135,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	onExportImage,
 	onExportSVG,
 	onExportPNG,
+	onCopyImage,
 	onOpenSession,
 	onSaveSession,
 	onExportCSV,
@@ -149,10 +151,13 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
 
-	// Every X axis that carries data shows its own grid; with none in use the
-	// button drives X axis 1, where the next dataset lands.
+	// Every drawn X axis (one with plotted series) shows its own grid; with
+	// none drawn the button drives X axis 1, where the next dataset lands.
+	const plottedSources = new Set(series.map((s) => s.sourceId));
 	const usedXAxes = xAxes.filter((a) =>
-		datasets.some((d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === a.id),
+		datasets.some(
+			(d) => plottedSources.has(d.id) && (d.xAxisId || DEFAULT_X_AXIS_ID) === a.id,
+		),
 	);
 	const gridXAxes = usedXAxes.length > 0 ? usedXAxes : xAxes.slice(0, 1);
 	const verticalGrid =
@@ -175,7 +180,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 				onClick={onImport}
 				icon={<FilePlus size={24} />}
 				title="Import Data Source"
-				description={`Opens a CSV, JSON or Excel file, or a saved session. You can also drop a file anywhere or paste spreadsheet cells (${shortcutHint(SHORTCUTS.pasteData)})`}
+				description={`Opens a CSV, JSON or Excel file, or a saved session (${shortcutHint(SHORTCUTS.openFile)}). You can also drop a file anywhere or paste spreadsheet cells (${shortcutHint(SHORTCUTS.pasteData)})`}
 			/>
 			<div className="sb-hdr-btns">
 				{hdrSep}
@@ -183,6 +188,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 					onExportImage={onExportImage}
 					onExportSVG={onExportSVG}
 					onExportPNG={onExportPNG}
+					onCopyImage={onCopyImage}
 					onOpenSession={onOpenSession}
 					onSaveSession={onSaveSession}
 					onExportCSV={onExportCSV}

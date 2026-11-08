@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { useDownloads } from "./helpers";
 
 /**
  * Boot and interaction smoke tests.
@@ -159,6 +160,7 @@ test("a ctrl-click without a drag leaves the viewport alone", async ({
 });
 
 test("exports a well-formed SVG", async ({ page }) => {
+	await useDownloads(page);
 	await freshApp(page);
 
 	const downloadPromise = page.waitForEvent("download");

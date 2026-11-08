@@ -163,11 +163,17 @@ function ColorPickerInputs({
 		if (/^#[0-9A-F]{6}$/i.test(val)) onChange(val.toLowerCase());
 	};
 
-	const handleRgbChange = (part: "r" | "g" | "b", val: string) => {
-		let n = parseInt(val, 10);
-		if (Number.isNaN(n)) n = 0;
-		const currentRgb = { r, g, b };
-		const newRgb = { ...currentRgb, [part]: Math.min(255, Math.max(0, n)) };
+	const handleRgbChange = (part: "r" | "g" | "b", input: HTMLInputElement) => {
+		const n = parseInt(input.value, 10);
+		// Cleared or half-typed: keep the colour, so the field can be retyped;
+		// leaving it restores the value.
+		if (Number.isNaN(n)) return;
+		const v = Math.min(255, Math.max(0, n));
+		// Preact does not re-render when the clamped value is the one the
+		// colour already has (300 on a channel at 255), so the field would keep
+		// showing what was typed.
+		if (v !== n) input.value = String(v);
+		const newRgb = { r, g, b, [part]: v };
 		onChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
 	};
 
@@ -216,19 +222,25 @@ function ColorPickerInputs({
 			<div className="color-picker-input-group">
 				<span className="color-picker-label">RGB</span>
 				<div className="color-picker-rgb-inputs" ref={rgbInputsRef}>
-					{(["r", "g", "b"] as const).map((p) => (
-						<input
-							key={p}
-							type="number"
-							min={0}
-							max={255}
-							value={p === "r" ? r : p === "g" ? g : b}
-							onChange={(e) => handleRgbChange(p, e.target.value)}
-							className="color-picker-input"
-							aria-label={RGB_LABELS[p]}
-							aria-description={`${RGB_LABELS[p]} channel from 0 to 255; the mouse wheel steps it by 1`}
-						/>
-					))}
+					{(["r", "g", "b"] as const).map((p) => {
+						const value = p === "r" ? r : p === "g" ? g : b;
+						return (
+							<input
+								key={p}
+								type="number"
+								min={0}
+								max={255}
+								value={value}
+								onChange={(e) => handleRgbChange(p, e.currentTarget)}
+								onBlur={(e) => {
+									e.currentTarget.value = String(value);
+								}}
+								className="color-picker-input"
+								aria-label={RGB_LABELS[p]}
+								aria-description={`${RGB_LABELS[p]} channel from 0 to 255; the mouse wheel steps it by 1`}
+							/>
+						);
+					})}
 				</div>
 			</div>
 		</div>

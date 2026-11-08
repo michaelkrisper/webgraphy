@@ -12,6 +12,8 @@ const CONFIG_KEY = "webgraphy-config";
 const LEGACY_KEY = "webgraphy-state";
 const VERSION = 2;
 const WRITER_LOCK = "webgraphy-writer";
+// How long a starting tab waits for the writer lock before it runs read-only.
+const WRITER_LOCK_WAIT_MS = 1500;
 const LOCAL_STORAGE_PREFIX = "webgraphy-";
 // Keys WebGraphy writes without the prefix. The analytics opt-out ("skipgc")
 // is deliberately not among them: a reset must not re-enable counting.
@@ -515,54 +517,78 @@ function clearLocalStorage(): void {
 
 /**
  * One tab writes at a time, or two tabs overwrite each other's saved state.
- * The first tab holds the exclusive writer lock for its lifetime (the browser
- * releases it when the tab goes away). A later tab still loads what was
- * saved but runs read-only, and queues for the lock: once the writer is gone
- * it offers a reload, which picks up the state that tab saved last.
+ * A starting tab waits briefly for the exclusive writer lock, then holds it
+ * for its lifetime (the browser releases it when the tab goes away). It waits
+ * rather than asking `ifAvailable`: on a reload the old page lets go of the
+ * lock only about when the new one asks, and the new one must win it back.
+ * A tab that does not get it in time still loads what was saved but runs
+ * read-only (see `runReadOnly`).
  */
 function claimWriterLock(locks: LockManager): void {
+	const timeout = new AbortController();
+	const timer = setTimeout(() => timeout.abort(), WRITER_LOCK_WAIT_MS);
 	const decided = new Promise<void>((resolve) => {
 		locks
-			.request(WRITER_LOCK, { ifAvailable: true }, (lock) => {
-				if (lock) {
-					resolve();
-					return new Promise<never>(() => {});
-				}
-				persistence.disable();
+			.request(WRITER_LOCK, { signal: timeout.signal }, () => {
+				clearTimeout(timer);
 				resolve();
-				const readOnly = notify({
-					kind: "info",
-					message:
-						"WebGraphy is open in another tab. Changes in this tab are not saved.",
-					durationMs: Infinity,
-				});
-				locks
-					.request(WRITER_LOCK, () => {
-						dismissNotification(readOnly);
-						notify({
-							kind: "info",
-							message: "WebGraphy was closed in the other tab.",
-							action: {
-								label: "Reload to edit here",
-								onAction: () => location.reload(),
-							},
-							durationMs: Infinity,
-						});
-						// Kept until the reload, so this tab is next in line.
-						return new Promise<never>(() => {});
-					})
-					.catch(() => {});
-				return undefined;
+				return new Promise<never>(() => {});
 			})
 			.catch((error: unknown) => {
-				// E.g. a SecurityError in an opaque origin: write as before.
-				logger.error("Writer lock unavailable", { error });
+				clearTimeout(timer);
+				if (timeout.signal.aborted) {
+					runReadOnly(locks);
+				} else {
+					// E.g. a SecurityError in an opaque origin: write as before.
+					logger.error("Writer lock unavailable", { error });
+				}
 				resolve();
 			});
 	});
 	writerLockPending = decided.then(() => {
 		writerLockPending = null;
 	});
+}
+
+/**
+ * Another tab writes. This one queues for the lock only to learn when that
+ * tab is gone, and lets go of it as soon as it gets it: kept, the lock would
+ * shut out the writer's own reload (and with more tabs pass between read-only
+ * ones). The reload offer waits until a reloading writer has had the time to
+ * claim the lock back, so it only comes when the writer is really gone.
+ */
+function runReadOnly(locks: LockManager): void {
+	persistence.disable();
+	const readOnly = notify({
+		kind: "info",
+		message:
+			"WebGraphy is open in another tab. Changes in this tab are not saved.",
+		durationMs: Infinity,
+	});
+	const offerReload = () => {
+		dismissNotification(readOnly);
+		notify({
+			kind: "info",
+			message: "WebGraphy was closed in the other tab.",
+			action: { label: "Reload to edit here", onAction: () => location.reload() },
+			durationMs: Infinity,
+		});
+	};
+	const awaitWriterGone = (): void => {
+		locks
+			.request(WRITER_LOCK, () => {
+				setTimeout(() => {
+					locks
+						.request(WRITER_LOCK, { ifAvailable: true }, (lock) => {
+							if (lock) offerReload();
+							else awaitWriterGone();
+						})
+						.catch(() => {});
+				}, WRITER_LOCK_WAIT_MS);
+			})
+			.catch(() => {});
+	};
+	awaitWriterGone();
 }
 
 if (typeof window !== "undefined") {

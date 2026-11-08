@@ -224,6 +224,19 @@ describe("pickYAxisIdForColumn", () => {
 		).toBe("axis-2");
 	});
 
+	it("keeps a column with values <= 0 off a similar log axis", () => {
+		const existing = [series("TempMin", "axis-2")];
+		const logY = [{ id: "axis-2", min: 1, max: 100, scale: "log" as const }];
+		const withZero = { bounds: { min: 0, max: 30 } };
+		expect(pickYAxisIdForColumn([ds], existing, logY, withZero)).not.toBe(
+			"axis-2",
+		);
+		// Strictly positive data may still share it.
+		expect(
+			pickYAxisIdForColumn([ds], existing, logY, { bounds: { min: 15, max: 30 } }),
+		).toBe("axis-2");
+	});
+
 	it("unites the ranges of every series on an axis", () => {
 		// 40..60 overlaps neither Low nor High alone, only their union.
 		const existing = [series("Low", "axis-3"), series("High", "axis-3")];

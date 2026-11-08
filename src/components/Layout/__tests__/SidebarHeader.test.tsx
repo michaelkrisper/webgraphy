@@ -73,6 +73,10 @@ vi.mock("../../Sidebar/PopupPicker", () => ({
 							data-testid="export-csv-trigger"
 							onClick={() => onChange("csv")}
 						/>
+						<button
+							data-testid="copy-image-trigger"
+							onClick={() => onChange("copy")}
+						/>
 					</>
 				)}
 				{popoverId === "theme-popover" && (
@@ -106,6 +110,7 @@ describe("SidebarHeader", () => {
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: true }],
 			datasets: [],
+			series: [],
 			legendVisible: true,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: true,
@@ -223,7 +228,13 @@ describe("SidebarHeader", () => {
 				{ id: "axis-2", showGrid: false },
 				{ id: "axis-3", showGrid: false },
 			],
-			datasets: [{ xAxisId: "axis-1" }, { xAxisId: "axis-2" }],
+			datasets: [
+				{ id: "a", xAxisId: "axis-1" },
+				{ id: "b", xAxisId: "axis-2" },
+				// Not plotted: its axis is not drawn and does not count.
+				{ id: "c", xAxisId: "axis-3" },
+			],
+			series: [{ sourceId: "a" }, { sourceId: "b" }],
 		};
 		(useGraphStore as unknown as Mock).mockImplementation(
 			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
@@ -341,6 +352,29 @@ describe("SidebarHeader", () => {
 		expect(mockOnExportSVG).not.toHaveBeenCalled();
 	});
 
+	it("routes “Copy chart as image” and names Ctrl+O on the import button", () => {
+		const onCopyImage = vi.fn();
+		render(
+			<SidebarHeader
+				onCollapse={mockOnCollapse}
+				onImport={mockOnImport}
+				onExportImage={vi.fn()}
+				onExportSVG={mockOnExportSVG}
+				onExportPNG={mockOnExportPNG}
+				onCopyImage={onCopyImage}
+				onOpenSession={mockOnOpenSession}
+				onSaveSession={mockOnSaveSession}
+				onExportCSV={mockOnExportCSV}
+			/>,
+		);
+		fireEvent.click(screen.getByTestId("copy-image-trigger"));
+		expect(onCopyImage).toHaveBeenCalledTimes(1);
+		expect(mockOnExportPNG).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("button", { name: "Import Data Source" }),
+		).toHaveAccessibleDescription(/saved session \(Ctrl\+O\)/);
+	});
+
 	it("exports the visible data as CSV from the export menu", () => {
 		render(
 			<SidebarHeader
@@ -383,6 +417,7 @@ describe("SidebarHeader", () => {
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: false }],
 			datasets: [],
+			series: [],
 			legendVisible: false,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: false,

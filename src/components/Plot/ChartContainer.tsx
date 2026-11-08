@@ -755,7 +755,16 @@ export default function ChartContainer() {
 		) {
 			return;
 		}
-		resetAxisTargets(xAxes, yAxes, targetXAxes.current, targetYs.current);
+		// From the store, not this render: an effect that ran earlier in the
+		// same flush (the initial fit in useAutoScale) may already have written
+		// newer ranges, and Preact can run this before the re-render they cause.
+		const live = useGraphStore.getState();
+		resetAxisTargets(
+			live.xAxes,
+			live.yAxes,
+			targetXAxes.current,
+			targetYs.current,
+		);
 		overlayInitRef.current = false;
 		// Use force=false to schedule via rAF, breaking synchronous render loops.
 		// Redraw is still forced because we set overlayInitRef.current = false above.

@@ -2,8 +2,8 @@ import { FONT_FILES } from "./exportFontFiles";
 
 /*
  * Font decision for exported images: the theme's UI font is *embedded* in the
- * SVG as base64 `@font-face` rules (files in exportFontFiles.ts, served from
- * the PWA precache offline). That costs ~60 KB per SVG but makes it render
+ * SVG as base64 `@font-face` rules (files in exportFontFiles.ts, served by the
+ * service worker offline). That costs ~60 KB per SVG but makes it render
  * identically in Inkscape, Illustrator or another browser — and it is what
  * makes the PNG match at all: an SVG drawn through <img> is sandboxed and
  * cannot see the page's fonts. Only the latin subset is embedded; other

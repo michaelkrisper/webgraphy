@@ -81,6 +81,30 @@ describe("useUndoRedoShortcuts", () => {
 		expect(undo).toHaveBeenCalledTimes(1);
 	});
 
+	it.each([
+		["a modal dialog", { role: "dialog", "aria-modal": "true" }],
+		["a picker popover", { role: "dialog", class: "color-picker-popover" }],
+	])("still undoes and redoes while %s is open", (_label, attrs) => {
+		renderHook(() => useUndoRedoShortcuts());
+		const overlay = document.createElement("div");
+		for (const [k, v] of Object.entries(attrs)) overlay.setAttribute(k, v);
+		const button = document.createElement("button");
+		overlay.appendChild(button);
+		document.body.appendChild(overlay);
+		try {
+			button.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+			);
+			button.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "y", ctrlKey: true, bubbles: true }),
+			);
+			expect(undo).toHaveBeenCalledTimes(1);
+			expect(redo).toHaveBeenCalledTimes(1);
+		} finally {
+			overlay.remove();
+		}
+	});
+
 	it("does not fire from a focused text field", () => {
 		renderHook(() => useUndoRedoShortcuts());
 		const input = document.createElement("input");

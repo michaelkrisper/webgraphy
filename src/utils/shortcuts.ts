@@ -79,6 +79,16 @@ export const SHORTCUTS = {
 		ctrl: true,
 		description: "Redo (also Ctrl+Shift+Z)",
 	},
+	openFile: {
+		keys: ["o", "O"],
+		ctrl: true,
+		description: "Open a data file or a saved session",
+	},
+	saveSession: {
+		keys: ["s", "S"],
+		ctrl: true,
+		description: "Save the session as a .webgraphy file",
+	},
 	/** Handled via the `paste` event Ctrl+V fires, which needs no clipboard permission. */
 	pasteData: {
 		keys: ["v", "V"],
@@ -121,6 +131,14 @@ export const SHORTCUTS = {
 		keys: ["Escape"],
 		description: "Close the dialog",
 	},
+	resizeSidebar: {
+		keys: ["ArrowLeft", "ArrowRight"],
+		description: "Widen / narrow the sidebar (Tab to its left edge)",
+	},
+	resetSidebar: {
+		keys: ["Home"],
+		description: "Reset the sidebar width (on its left edge)",
+	},
 } as const satisfies Record<string, Shortcut>;
 
 export type ShortcutId = keyof typeof SHORTCUTS;
@@ -159,7 +177,9 @@ export const SHORTCUT_GROUPS: readonly {
 			"axisRename",
 		],
 	},
+	{ title: "File", ids: ["openFile", "saveSession"] },
 	{ title: "Edit", ids: ["undo", "redo", "pasteData"] },
+	{ title: "Sidebar edge", ids: ["resizeSidebar", "resetSidebar"] },
 	{ title: "Dialogs", ids: ["closeDialog"] },
 ];
 

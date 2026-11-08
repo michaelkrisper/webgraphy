@@ -78,7 +78,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
 	renderResetConfirm() {
 		const { reset } = this.state;
-		const busy = reset === "working" || reset === "blocked";
+		const blocked = reset === "blocked";
+		const busy = reset === "working" || blocked;
 		return (
 			<section
 				role="alertdialog"
@@ -95,9 +96,11 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 					If the app still works after a plain Reload, save a session first (Save
 					session… in the export menu) so you can restore your data afterwards.
 				</p>
-				{reset === "blocked" && (
+				{blocked && (
 					<p role="status">
-						Waiting for WebGraphy in other tabs — close them to finish the reset.
+						Waiting for WebGraphy in other tabs — close or reload them to finish the
+						reset. The deletion cannot be stopped any more; this page reloads once it
+						is done.
 					</p>
 				)}
 				{reset === "failed" && (
@@ -114,11 +117,17 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 						marginTop: 16,
 					}}
 				>
+					{/* Not disabled while blocked: other tabs may never let go, and
+					    this is the way back to Reload. */}
 					<button
 						type="button"
 						ref={focusOnMount}
-						disabled={busy}
-						aria-description="Keeps the stored data and goes back"
+						disabled={reset === "working"}
+						aria-description={
+							blocked
+								? "Goes back without waiting; the deletion still finishes once the other tabs are closed"
+								: "Keeps the stored data and goes back"
+						}
 						onClick={() => this.setState({ reset: "idle" })}
 						style={{ padding: "10px 20px" }}
 					>

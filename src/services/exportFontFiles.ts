@@ -13,9 +13,13 @@ export interface FontFile {
 }
 
 /**
- * The woff2 files of each theme font, by family: regular plus the bold weight
- * fonts.ts already loads, so these resolve to the same hashed (precached)
- * assets and add nothing to the build.
+ * The woff2 files of each theme font, by family: regular plus the weight bold
+ * text resolves to among the ones fonts-<set>.css declares. These are the
+ * same hashed assets the theme loads, so they add nothing to the build, and
+ * the service worker serves them offline: IBM Plex (the default "light"
+ * export theme) from the precache, the others once their theme has been used
+ * (pwaWorkbox.ts). A file that cannot be fetched leaves the export on the
+ * theme's fallback fonts (exportFonts.ts).
  */
 export const FONT_FILES: Record<string, FontFile[]> = {
 	"IBM Plex Sans": [

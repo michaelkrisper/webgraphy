@@ -7,6 +7,7 @@ vi.mock("../store/useGraphStore", () => ({
 	useGraphStore: {
 		getState: vi.fn(() => ({
 			batchUpdateAxes: vi.fn(),
+			yAxes: [],
 		})),
 	},
 }));
@@ -671,6 +672,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			});
 
 			const targetXAxes = { current: {} };
@@ -836,6 +838,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			});
 
 			const targetXAxes = { current: {} };
@@ -906,6 +909,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			});
 
 			const targetXAxes = { current: {} };
@@ -976,6 +980,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			});
 
 			const targetXAxes = { current: {} };
@@ -1220,6 +1225,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			});
 
 			const targetXAxes = { current: {} };
@@ -1290,6 +1296,7 @@ describe("useAutoScale", () => {
 			const batchUpdateAxes = vi.fn();
 			vi.mocked(useGraphStore.getState).mockReturnValue({
 				batchUpdateAxes,
+				yAxes: [],
 			} as unknown as ReturnType<typeof useGraphStore.getState>);
 
 			const targetXAxes = { current: {} };

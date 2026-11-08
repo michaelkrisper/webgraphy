@@ -168,8 +168,9 @@ tools an AI agent running in the browser can call:
 | `add_calculated_column`  | Add a calculated column from a formula                                   |
 | `undo` / `redo`          | Undo or redo the latest change                                           |
 
-The tools return metadata and aggregate statistics only, never row values, and
-none of them exports, downloads or deletes data. Edits to series, axes and
+The tools return metadata and aggregate statistics only, never rows, and none
+of them exports, downloads or deletes data. Statistics over an X range with
+fewer than 5 values report only the count. Edits to series, axes and
 columns are ordinary undoable steps and show a toast with an Undo button;
 ranges and fits are view changes, like zooming (Alt+Left steps back). Without
 WebMCP support nothing is loaded. To enable the origin trial on a deployment,
@@ -185,8 +186,10 @@ send the header.
   image-export settings) use localStorage. Nothing is uploaded.
 - AI agents: when an AI agent in your browser uses the WebMCP tools above, the
   metadata and statistics it requests (dataset, column and series names, row
-  counts, ranges, aggregates) go to that agent's model provider. Row values are
-  never returned to it, and nothing is sent when no agent calls the tools.
+  counts, ranges, aggregates) go to that agent's model provider. Rows are never
+  returned as such, but aggregates over overlapping ranges can be combined, so
+  treat letting an agent use the tools like sharing the data with it. Nothing
+  is sent when no agent calls the tools.
 - Page views are counted with [GoatCounter](https://www.goatcounter.com/): one
   first-party beacon request per page load (path, title, referrer, screen
   width), no cookies and no third-party script. It is not sent on localhost or

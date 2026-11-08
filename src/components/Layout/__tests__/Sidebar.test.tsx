@@ -5,7 +5,8 @@ import { axe } from "vitest-axe";
 import type { Mock } from "vitest";
 import { useDataImport } from "../../../hooks/useDataImport";
 import { removeSeriesWithUndo } from "../../../store/undoToast";
-import { exportImage } from "../../../services/export";
+import { exportImage, renderImage } from "../../../services/export";
+import { saveSession } from "../../../services/session";
 import { useGraphStore } from "../../../store/useGraphStore";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import { THEMES } from "../../../themes";
@@ -52,6 +53,13 @@ vi.mock("../../../services/export", () => ({
 	exportToPNG: vi.fn().mockResolvedValue("data:image/png;base64,..."),
 	downloadFile: vi.fn(),
 	exportImage: vi.fn().mockResolvedValue(undefined),
+	renderImage: vi
+		.fn()
+		.mockResolvedValue(new Blob(["png"], { type: "image/png" })),
+}));
+
+vi.mock("../../../services/session", () => ({
+	saveSession: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock indexedDB for the Reset/Demo buttons
@@ -374,6 +382,110 @@ describe("Sidebar Component", () => {
 				);
 			} finally {
 				plot.remove();
+			}
+		});
+
+		it("copies the chart as on screen, writing within the click", async () => {
+			class MockClipboardItem {
+				constructor(readonly items: Record<string, Promise<Blob>>) {}
+			}
+			vi.stubGlobal("ClipboardItem", MockClipboardItem);
+			const write = vi.fn(async () => {});
+			Object.defineProperty(navigator, "clipboard", {
+				value: { write },
+				configurable: true,
+			});
+			const plot = document.createElement("div");
+			plot.className = "plot-area";
+			Object.defineProperty(plot, "clientWidth", { value: 320 });
+			Object.defineProperty(plot, "clientHeight", { value: 200 });
+			document.body.appendChild(plot);
+			try {
+				render(<Sidebar />);
+				openMenu();
+				fireEvent.click(
+					screen.getByRole("button", { name: "Copy chart as image" }),
+				);
+				// No await between the click and the clipboard write.
+				expect(write).toHaveBeenCalledTimes(1);
+				const [[[item]]] = write.mock.calls as unknown as [[[MockClipboardItem]]];
+				const png = await item.items["image/png"];
+				expect(png.type).toBe("image/png");
+				expect((renderImage as Mock).mock.calls[0][1]).toMatchObject({
+					format: "png",
+					width: 320,
+					height: 200,
+					legend: "auto",
+				});
+				expect(exportImage).not.toHaveBeenCalled();
+				await vi.waitFor(() =>
+					expect(useNotificationStore.getState().notifications).toContainEqual(
+						expect.objectContaining({
+							kind: "success",
+							message: "Chart copied to the clipboard",
+						}),
+					),
+				);
+			} finally {
+				plot.remove();
+				vi.unstubAllGlobals();
+				Object.defineProperty(navigator, "clipboard", {
+					value: undefined,
+					configurable: true,
+				});
+			}
+		});
+	});
+
+	describe("file shortcuts", () => {
+		const press = (key: string) => {
+			const e = new KeyboardEvent("keydown", {
+				key,
+				ctrlKey: true,
+				cancelable: true,
+			});
+			window.dispatchEvent(e);
+			return e;
+		};
+
+		it("saves the session on Ctrl+S, also with the sidebar collapsed", async () => {
+			render(<Sidebar />);
+			fireEvent.click(
+				screen.getAllByRole("button", { name: "Collapse Sidebar" })[0],
+			);
+			expect(press("s").defaultPrevented).toBe(true);
+			await vi.waitFor(() => expect(saveSession).toHaveBeenCalledTimes(1));
+		});
+
+		it("opens the picked files through the import queue on Ctrl+O", async () => {
+			const file = new File(["a,b\n1,2"], "data.csv");
+			const picker = vi.fn(async () => [{ getFile: async () => file }]);
+			vi.stubGlobal("showOpenFilePicker", picker);
+			try {
+				render(<Sidebar />);
+				expect(press("o").defaultPrevented).toBe(true);
+				await vi.waitFor(() => expect(mockImportFile).toHaveBeenCalledWith([file]));
+				expect(picker).toHaveBeenCalledTimes(1);
+			} finally {
+				vi.unstubAllGlobals();
+			}
+		});
+
+		it("imports nothing when the open picker is cancelled", async () => {
+			const picker = vi.fn(async () => {
+				throw new DOMException("aborted", "AbortError");
+			});
+			vi.stubGlobal("showOpenFilePicker", picker);
+			useNotificationStore.setState({ notifications: [] });
+			try {
+				render(<Sidebar />);
+				press("o");
+				await vi.waitFor(() => expect(picker).toHaveBeenCalled());
+				await new Promise((r) => setTimeout(r, 0));
+				expect(mockImportFile).not.toHaveBeenCalled();
+				expect(useNotificationStore.getState().notifications).toEqual([]);
+			} finally {
+				vi.unstubAllGlobals();
 			}
 		});
 	});

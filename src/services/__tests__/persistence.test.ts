@@ -1040,17 +1040,16 @@ describe("persistence", () => {
 	});
 
 	describe("writer lock across tabs", () => {
-		type LockCallback = (lock: unknown) => unknown;
-		type Mode = "free" | "taken" | "pending" | "error";
-		let request: ReturnType<typeof vi.fn>;
-		let decide: (free: boolean) => void;
-		let grantQueued: () => void;
-		let toasts: () => {
+		type LockCallback = (lock: Lock | null) => unknown;
+		type Toast = {
 			kind: string;
 			message: string;
 			durationMs: number;
 			action?: { label: string; onAction: () => void };
-		}[];
+		};
+		const READ_ONLY =
+			"WebGraphy is open in another tab. Changes in this tab are not saved.";
+		const WRITER_GONE = "WebGraphy was closed in the other tab.";
 		const ds = (id: string): Dataset => ({
 			id,
 			name: id,
@@ -1060,44 +1059,100 @@ describe("persistence", () => {
 			xAxisColumn: "X",
 			xAxisId: "axis-1",
 		});
+		const settle = () => vi.advanceTimersByTimeAsync(0);
 
-		/** Loads the module in a tab whose Web Locks answer as `mode` says. */
-		async function openTab(mode: Mode) {
-			request = vi.fn((name: string, a: unknown, b?: unknown) => {
-				const cb = (typeof a === "function" ? a : b) as LockCallback;
-				const ifAvailable =
-					typeof a === "object" && (a as { ifAvailable?: boolean }).ifAvailable;
-				if (!ifAvailable) {
-					return new Promise((resolve) => {
-						grantQueued = () => resolve(cb({ name, mode: "exclusive" }));
+		/**
+		 * The Web Locks of one origin, shared by the tabs a test opens: one
+		 * exclusive lock, granted asynchronously in request order and held until
+		 * the callback's promise settles, with `ifAvailable` and abort signals as
+		 * specified. Closing a tab releases what it holds and drops its requests.
+		 */
+		function makeLockBroker() {
+			interface Req {
+				tab: number;
+				cb: LockCallback;
+				resolve: (value: unknown) => void;
+				reject: (reason: unknown) => void;
+			}
+			let held: { tab: number } | null = null;
+			const queue: Req[] = [];
+			const lock = { name: "webgraphy-writer", mode: "exclusive" } as Lock;
+			const grantNext = () => {
+				const next = queue.shift();
+				if (next) grant(next);
+			};
+			const grant = (req: Req) => {
+				const hold = { tab: req.tab };
+				held = hold;
+				Promise.resolve()
+					.then(() => req.cb(lock))
+					.then(req.resolve, req.reject)
+					.finally(() => {
+						if (held !== hold) return;
+						held = null;
+						grantNext();
 					});
-				}
-				if (mode === "error") {
-					return Promise.reject(new DOMException("opaque", "SecurityError"));
-				}
-				return new Promise((resolve) => {
-					decide = (free) => resolve(cb(free ? { name, mode: "exclusive" } : null));
-					if (mode !== "pending") decide(mode === "free");
-				});
-			});
+			};
+			return {
+				holder: () => held?.tab ?? null,
+				tab(tab: number): LockManager {
+					const request = (_name: string, a: unknown, b?: unknown) =>
+						new Promise((resolve, reject) => {
+							const cb = (typeof a === "function" ? a : b) as LockCallback;
+							const opts = (typeof a === "function" ? {} : a) as {
+								ifAvailable?: boolean;
+								signal?: AbortSignal;
+							};
+							const req = { tab, cb, resolve, reject };
+							if (!held && queue.length === 0) return grant(req);
+							if (opts.ifAvailable) {
+								Promise.resolve()
+									.then(() => cb(null))
+									.then(resolve, reject);
+								return;
+							}
+							queue.push(req);
+							opts.signal?.addEventListener("abort", () => {
+								const i = queue.indexOf(req);
+								if (i < 0) return;
+								queue.splice(i, 1);
+								reject(opts.signal?.reason);
+							});
+						});
+					return { request } as unknown as LockManager;
+				},
+				close(tab: number) {
+					for (let i = queue.length - 1; i >= 0; i--) {
+						if (queue[i].tab === tab) queue.splice(i, 1);
+					}
+					if (held?.tab !== tab) return;
+					held = null;
+					grantNext();
+				},
+			};
+		}
+
+		/** Loads the module as a fresh tab whose navigator.locks is `locks`. */
+		async function openTab(locks: LockManager) {
 			Object.defineProperty(navigator, "locks", {
-				value: { request },
+				value: locks,
 				configurable: true,
 			});
 			vi.resetModules();
-			openDBMock = vi.mocked((await import("idb")).openDB);
+			const openDB = vi.mocked((await import("idb")).openDB);
 			const { useNotificationStore } = await import(
 				"../../store/useNotificationStore"
 			);
 			useNotificationStore.setState({ notifications: [] });
-			toasts = () => useNotificationStore.getState().notifications;
-			persistence = (await import("../persistence")).persistence;
-			const mockDb = {
+			const tab = (await import("../persistence")).persistence;
+			const db = {
 				put: vi.fn().mockResolvedValue(undefined),
 				delete: vi.fn().mockResolvedValue(undefined),
 			};
-			openDBMock.mockResolvedValue(mockDb);
-			return mockDb;
+			openDB.mockResolvedValue(db as never);
+			const toasts = () =>
+				useNotificationStore.getState().notifications as unknown as Toast[];
+			return { persistence: tab, db, toasts };
 		}
 
 		afterEach(() => {
@@ -1106,62 +1161,62 @@ describe("persistence", () => {
 		});
 
 		it("holds the lock in the first tab, which keeps saving", async () => {
-			const mockDb = await openTab("free");
-			expect(request).toHaveBeenCalledExactlyOnceWith(
-				"webgraphy-writer",
-				{ ifAvailable: true },
-				expect.any(Function),
-			);
+			const broker = makeLockBroker();
+			const a = await openTab(broker.tab(1));
+			await settle();
+			expect(broker.holder()).toBe(1);
 
-			await persistence.saveViewport({ xAxes: [], yAxes: [] });
-			expect(mockDb.put).toHaveBeenCalledTimes(1);
-			expect(persistence.isEnabled()).toBe(true);
-			expect(toasts()).toEqual([]);
+			await a.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			expect(a.db.put).toHaveBeenCalledTimes(1);
+			expect(a.persistence.isEnabled()).toBe(true);
+			expect(a.toasts()).toEqual([]);
 
 			// Hiding the page still flushes a pending dataset at once.
-			await persistence.saveDataset(ds("1"));
+			await a.persistence.saveDataset(ds("1"));
 			Object.defineProperty(document, "visibilityState", {
 				value: "hidden",
 				configurable: true,
 			});
 			document.dispatchEvent(new Event("visibilitychange"));
 			await vi.advanceTimersByTimeAsync(1);
-			expect(mockDb.put).toHaveBeenCalledWith("datasets", ds("1"));
+			expect(a.db.put).toHaveBeenCalledWith("datasets", ds("1"));
 		});
 
 		it("runs read-only beside the writer and offers a reload once it is gone", async () => {
-			const mockDb = await openTab("taken");
-			expect(persistence.isEnabled()).toBe(false);
-			expect(toasts()).toEqual([
+			const broker = makeLockBroker();
+			await openTab(broker.tab(1));
+			const b = await openTab(broker.tab(2));
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(b.persistence.isEnabled()).toBe(false);
+			expect(b.toasts()).toEqual([
 				expect.objectContaining({
 					kind: "info",
-					message:
-						"WebGraphy is open in another tab. Changes in this tab are not saved.",
+					message: READ_ONLY,
 					durationMs: Infinity,
 				}),
 			]);
 
-			await persistence.saveAppState(SAMPLE_APP_STATE);
-			await persistence.saveDataset(ds("1"));
-			await persistence.flushAll();
-			await persistence.deleteDataset("1");
-			await persistence.clearAppState();
-			expect(mockDb.put).not.toHaveBeenCalled();
-			expect(mockDb.delete).not.toHaveBeenCalled();
+			await b.persistence.saveAppState(SAMPLE_APP_STATE);
+			await b.persistence.saveDataset(ds("1"));
+			await b.persistence.flushAll();
+			await b.persistence.deleteDataset("1");
+			await b.persistence.clearAppState();
+			expect(b.db.put).not.toHaveBeenCalled();
+			expect(b.db.delete).not.toHaveBeenCalled();
 
-			// Queued for the lock, without ifAvailable.
-			expect(request).toHaveBeenCalledTimes(2);
-			expect(request.mock.calls[1][0]).toBe("webgraphy-writer");
-			expect(request.mock.calls[1][1]).toEqual(expect.any(Function));
-
-			grantQueued();
-			expect(toasts()).toHaveLength(1);
-			const [toast] = toasts();
-			expect(toast.message).toBe("WebGraphy was closed in the other tab.");
+			broker.close(1);
+			await settle();
+			// The read-only tab let go of the lock at once...
+			expect(broker.holder()).toBeNull();
+			// ...and offers the reload once no reloading writer claimed it.
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(b.toasts()).toHaveLength(1);
+			const [toast] = b.toasts();
+			expect(toast.message).toBe(WRITER_GONE);
 			expect(toast.action?.label).toBe("Reload to edit here");
 			expect(toast.durationMs).toBe(Infinity);
 			// Its state is older than what the other tab saved: still read-only.
-			expect(persistence.isEnabled()).toBe(false);
+			expect(b.persistence.isEnabled()).toBe(false);
 
 			const reload = vi.fn();
 			vi.stubGlobal("location", { reload });
@@ -1170,15 +1225,80 @@ describe("persistence", () => {
 			vi.unstubAllGlobals();
 		});
 
+		it("gives a reloaded writer its lock back, though a read-only tab queued first", async () => {
+			const broker = makeLockBroker();
+			await openTab(broker.tab(1));
+			const b = await openTab(broker.tab(2));
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(b.persistence.isEnabled()).toBe(false);
+
+			// Reload: the new page asks before the old one has let go.
+			const reloaded = await openTab(broker.tab(3));
+			const saving = reloaded.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			await vi.advanceTimersByTimeAsync(200);
+			broker.close(1);
+			await settle();
+			expect(broker.holder()).toBe(3);
+			await saving;
+			expect(reloaded.db.put).toHaveBeenCalledTimes(1);
+			expect(reloaded.persistence.isEnabled()).toBe(true);
+			expect(reloaded.toasts()).toEqual([]);
+
+			// The writer is back, so the read-only tab offers no reload...
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(b.toasts()).toEqual([
+				expect.objectContaining({ message: READ_ONLY }),
+			]);
+			// ...until it is gone for good.
+			broker.close(3);
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(b.toasts()).toEqual([
+				expect.objectContaining({ message: WRITER_GONE }),
+			]);
+			expect(b.persistence.isEnabled()).toBe(false);
+		});
+
+		it("leaves the lock free for the next tab once the writer is gone", async () => {
+			const broker = makeLockBroker();
+			await openTab(broker.tab(1));
+			const b = await openTab(broker.tab(2));
+			await vi.advanceTimersByTimeAsync(1500);
+			broker.close(1);
+			await settle();
+
+			// No waiting it out: the read-only tab does not keep the lock.
+			const c = await openTab(broker.tab(3));
+			await settle();
+			expect(broker.holder()).toBe(3);
+			await c.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			expect(c.db.put).toHaveBeenCalledTimes(1);
+			expect(b.persistence.isEnabled()).toBe(false);
+		});
+
+		it("stays disabled when it gets the lock after loading failed", async () => {
+			const broker = makeLockBroker();
+			const a = await openTab(broker.tab(1));
+			a.persistence.disable();
+			await settle();
+			expect(broker.holder()).toBe(1);
+			await a.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			await a.persistence.deleteDataset("1");
+			expect(a.db.put).not.toHaveBeenCalled();
+			expect(a.db.delete).not.toHaveBeenCalled();
+		});
+
 		it("keeps legacy state on disk when loading it read-only", async () => {
-			const mockDb = await openTab("taken");
+			const broker = makeLockBroker();
+			await openTab(broker.tab(1));
+			const b = await openTab(broker.tab(2));
+			await vi.advanceTimersByTimeAsync(1500);
 			const legacy = {
 				xAxes: SAMPLE_APP_STATE.xAxes,
 				yAxes: [],
 				series: [],
 				axisTitles: { x: "", y: "" },
 			};
-			Object.assign(mockDb, {
+			Object.assign(b.db, {
 				get: vi
 					.fn()
 					.mockResolvedValueOnce(undefined)
@@ -1186,43 +1306,32 @@ describe("persistence", () => {
 					.mockResolvedValueOnce(legacy),
 			});
 
-			expect(await persistence.loadAppState()).not.toBeNull();
-			expect(mockDb.put).not.toHaveBeenCalled();
-			expect(mockDb.delete).not.toHaveBeenCalled();
+			expect(await b.persistence.loadAppState()).not.toBeNull();
+			expect(b.db.put).not.toHaveBeenCalled();
+			expect(b.db.delete).not.toHaveBeenCalled();
 		});
 
 		it("holds writes back until the lock is decided", async () => {
-			const mockDb = await openTab("pending");
-			const saving = persistence.saveViewport({ xAxes: [], yAxes: [] });
-			await vi.advanceTimersByTimeAsync(0);
-			expect(mockDb.put).not.toHaveBeenCalled();
+			const broker = makeLockBroker();
+			await openTab(broker.tab(1));
+			const b = await openTab(broker.tab(2));
+			const saving = b.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(b.db.put).not.toHaveBeenCalled();
 
-			decide(false);
+			await vi.advanceTimersByTimeAsync(500);
 			await saving;
-			expect(mockDb.put).not.toHaveBeenCalled();
-		});
-
-		it("writes once the pending lock is granted", async () => {
-			const mockDb = await openTab("pending");
-			const saving = persistence.saveViewport({ xAxes: [], yAxes: [] });
-			decide(true);
-			await saving;
-			expect(mockDb.put).toHaveBeenCalledTimes(1);
-			// Decided for good: later writes no longer wait.
-			await persistence.saveConfig({
-				series: [],
-				legendVisible: true,
-				crosshairVisible: true,
-			});
-			expect(mockDb.put).toHaveBeenCalledTimes(2);
+			expect(b.db.put).not.toHaveBeenCalled();
 		});
 
 		it("writes as before when the lock cannot be requested", async () => {
 			const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-			const mockDb = await openTab("error");
-			await persistence.saveViewport({ xAxes: [], yAxes: [] });
-			expect(mockDb.put).toHaveBeenCalledTimes(1);
-			expect(toasts()).toEqual([]);
+			const a = await openTab({
+				request: () => Promise.reject(new DOMException("opaque", "SecurityError")),
+			} as unknown as LockManager);
+			await a.persistence.saveViewport({ xAxes: [], yAxes: [] });
+			expect(a.db.put).toHaveBeenCalledTimes(1);
+			expect(a.toasts()).toEqual([]);
 			errorSpy.mockRestore();
 		});
 	});

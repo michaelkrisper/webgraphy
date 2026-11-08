@@ -556,7 +556,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				persistence.clearAppState();
 				return createEmptyState();
 			}
-			return { datasets: newDatasets, series: newSeries };
+			return {
+				datasets: newDatasets,
+				series: newSeries,
+				...releaseUnusedAxes(state, newSeries, newDatasets),
+			};
 		});
 		commitHistory(before, `delete dataset '${name}'`);
 		if (get().isLoaded) debouncedSaveState();
@@ -573,15 +577,25 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 		const current = get().series.find((s) => s.id === id);
 		if (!current || !differs(current, updates)) return;
 		const before = beginHistory();
-		set((state) => ({
-			series: state.series.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-		}));
+		const movesAxis =
+			updates.yAxisId !== undefined && updates.yAxisId !== current.yAxisId;
+		set((state) => {
+			const series = state.series.map((s) =>
+				s.id === id ? { ...s, ...updates } : s,
+			);
+			return movesAxis
+				? { series, ...releaseUnusedAxes(state, series, state.datasets) }
+				: { series };
+		});
 		commitHistory(
 			before,
 			seriesUpdateLabel(current, updates),
 			`series:${id}:${Object.keys(updates).sort().join(",")}`,
 		);
-		if (get().isLoaded) debouncedSaveConfig();
+		if (get().isLoaded) {
+			if (movesAxis) debouncedSaveState();
+			else debouncedSaveConfig();
+		}
 	},
 
 	updateSeriesVisibility: (id, hidden) => {
@@ -606,13 +620,16 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				persistence.clearAppState();
 				return createEmptyState();
 			}
-			return { series: newSeries };
+			return {
+				series: newSeries,
+				...releaseUnusedAxes(state, newSeries, state.datasets),
+			};
 		});
 		commitHistory(
 			before,
 			`delete series '${removed ? seriesName(removed) : id}'`,
 		);
-		if (get().isLoaded) debouncedSaveConfig();
+		if (get().isLoaded) debouncedSaveState();
 	},
 
 	setHighlightedSeries: (id) => {
@@ -754,7 +771,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 				savedState = await persistence.loadAppState();
 				// Builds before the `demo` flag saved the demo under its fixed id.
 				allDatasets = (await persistence.getAllDatasets()).map((d) =>
-					d.id === DEMO_DATASET_ID && !d.demo ? { ...d, demo: true } : d,
+					isLegacyDemoId(d.id) && !d.demo ? { ...d, demo: true } : d,
 				);
 			} catch (error) {
 				// Storage disabled, private mode or a failed open: run on demo data
@@ -932,11 +949,51 @@ export function clearHistory(): void {
 	graphHistory.clear();
 }
 
+/** Demo data saved before the `demo` flag: its fixed id, or a numbered copy. */
+const isLegacyDemoId = (id: string) =>
+	id === DEMO_DATASET_ID || id.startsWith(`${DEMO_DATASET_ID}-`);
+
 const xBinding = (datasets: Dataset[], axisId: string) =>
 	datasets
 		.filter((d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === axisId)
 		.map((d) => `${d.id}\u0000${d.xAxisColumn}`)
 		.join("\n");
+
+const yBinding = (series: SeriesConfig[], axisId: string) =>
+	series
+		.filter((s) => s.yAxisId === axisId)
+		.map((s) => `${s.sourceId}\u0000${s.yColumn}`)
+		.sort()
+		.join("\n");
+
+/**
+ * A slot nothing is plotted on any more drops what described its old data
+ * (a custom Y title, the X title, a log scale), so the next data placed there
+ * starts clean. Layout choices (side, grid) stay. Returns only what changed.
+ */
+function releaseUnusedAxes(
+	state: Pick<GraphState, "xAxes" | "yAxes">,
+	series: readonly SeriesConfig[],
+	datasets: readonly Dataset[],
+): Partial<Pick<GraphState, "xAxes" | "yAxes">> {
+	const usedY = new Set(series.map((s) => s.yAxisId));
+	const usedX = new Set(datasets.map((d) => d.xAxisId || DEFAULT_X_AXIS_ID));
+	let yChanged = false;
+	const yAxes = state.yAxes.map((a) => {
+		if (usedY.has(a.id) || (a.title === undefined && a.scale !== "log")) return a;
+		yChanged = true;
+		const next = { ...a, scale: "linear" as const };
+		delete next.title;
+		return next;
+	});
+	let xChanged = false;
+	const xAxes = state.xAxes.map((a) => {
+		if (usedX.has(a.id) || (!a.name && a.scale !== "log")) return a;
+		xChanged = true;
+		return { ...a, name: "", scale: "linear" as const };
+	});
+	return { ...(yChanged ? { yAxes } : {}), ...(xChanged ? { xAxes } : {}) };
+}
 
 /**
  * Undo is not a viewport history: an axis keeps its current range unless the
@@ -972,7 +1029,7 @@ function mergeViewport(cur: GraphSnapshot, target: GraphSnapshot) {
 			keep(
 				a,
 				cur.yAxes.find((c) => c.id === a.id),
-				!cur.series.some((s) => s.yAxisId === a.id),
+				yBinding(cur.series, a.id) !== yBinding(target.series, a.id),
 			),
 		),
 	};
@@ -1021,7 +1078,7 @@ function seriesUpdateLabel(
 	if ("lineStyle" in updates) return `change line style of '${name}'`;
 	if ("pointStyle" in updates) return `change point style of '${name}'`;
 	if ("yAxisId" in updates)
-		return `move '${name}' to Y-axis ${updates.yAxisId?.split("-")[1]}`;
+		return `move '${name}' to Y axis ${updates.yAxisId?.split("-")[1]}`;
 	if ("yColumn" in updates || "sourceId" in updates)
 		return `change column of '${name}'`;
 	if ("name" in updates) return `rename series '${name}'`;
@@ -1042,7 +1099,7 @@ function axisUpdateLabel(
 	id: string,
 	updates: Partial<XAxisConfig & YAxisConfig>,
 ): string {
-	const axis = `${kind}-axis ${id.split("-")[1]}`;
+	const axis = `${kind} axis ${id.split("-")[1]}`;
 	if ("name" in updates || "title" in updates) return `rename ${axis}`;
 	if ("showGrid" in updates)
 		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;

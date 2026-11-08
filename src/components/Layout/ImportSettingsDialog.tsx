@@ -295,7 +295,21 @@ export const ImportSettingsDialog: React.FC<ImportSettingsDialogProps> = ({
 									min="1"
 									title="Row with the column names; rows above it are skipped"
 									value={startRow}
-									onChange={(e) => setStartRow(parseInt(e.target.value, 10) || 1)}
+									onChange={(e) => {
+										const input = e.currentTarget;
+										const n = parseInt(input.value, 10);
+										// Cleared or half-typed: keep the row, so the field can
+										// be retyped; leaving it restores the value.
+										if (Number.isNaN(n)) return;
+										const row = Math.max(1, n);
+										// Preact does not re-render when the clamped row is the
+										// current one, so the field would keep showing e.g. 0.
+										if (row !== n) input.value = String(row);
+										setStartRow(row);
+									}}
+									onBlur={(e) => {
+										e.currentTarget.value = String(startRow);
+									}}
 									className="isd-input"
 								/>
 							</div>

@@ -121,7 +121,7 @@ describe("SeriesConfigUI", () => {
 			screen.getByRole("button", { name: "Hide Series" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "Select Y-Axis" }),
+			screen.getByRole("button", { name: "Select Y axis" }),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "Select Line Style" }),
@@ -338,7 +338,7 @@ describe("SeriesConfigUI", () => {
 	it("selects y axis and creates new axis if needed", () => {
 		render(<SeriesConfigUI {...defaultProps} />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 
 		// The next axis logic in the component will see `2` because of our mock,
 		// nextAxisId will be `axis-2`. Since allSeries has `axis-2` in our mock state,
@@ -357,7 +357,7 @@ describe("SeriesConfigUI", () => {
 			})) as unknown as typeof useGraphStore);
 		render(<SeriesConfigUI {...defaultProps} />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 
 		// nextAxisId will be axis-2. allSeries doesn't have it.
 		expect(mockUpdateYAxis).toHaveBeenCalledWith("axis-2", { position: "left" });

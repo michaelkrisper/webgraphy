@@ -164,6 +164,57 @@ describe("undo/redo", () => {
 		expect(store().yAxes[0]).toMatchObject({ min: 7, max: 8 });
 	});
 
+	it("frees an emptied Y slot of its title and log scale, undoably", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addSeries(makeSeries("s1"));
+		store().updateYAxis("axis-1", { title: "Pressure [bar]" });
+		store().setAxisScale("y", "axis-1", "log");
+
+		store().removeSeries("s1");
+		expect(store().yAxes[0].title).toBeUndefined();
+		expect(store().yAxes[0].scale).toBe("linear");
+
+		store().undo();
+		expect(store().yAxes[0]).toMatchObject({
+			title: "Pressure [bar]",
+			scale: "log",
+		});
+	});
+
+	it("frees the old Y slot when a series moves to another axis", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addSeries(makeSeries("s1"));
+		store().updateYAxis("axis-1", { title: "Old" });
+		store().updateSeries("s1", { yAxisId: "axis-2" });
+		expect(store().yAxes[0].title).toBeUndefined();
+	});
+
+	it("frees an emptied X slot of its title and log scale", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addDataset(makeDataset("ds-2"));
+		const xId = store().datasets[1].xAxisId ?? "axis-1";
+		store().updateXAxis(xId, { name: "Depth" });
+		store().removeDataset("ds-2");
+		expect(store().xAxes.find((a) => a.id === xId)?.name).toBe("");
+	});
+
+	it("restores the range of a Y axis whose series binding comes back on undo", () => {
+		store().addDataset(makeDataset("ds-1"));
+		store().addSeries(makeSeries("s1"));
+		store().batchUpdateAxes({}, { "axis-1": { min: 1, max: 2 } });
+		// Another column takes the axis over and its range follows.
+		const other = { ...makeSeries("s2", "ds-1"), yColumn: "Time" };
+		withHistory("replace", () => {
+			store().removeSeries("s1");
+			store().addSeries(other);
+		});
+		store().batchUpdateAxes({}, { "axis-1": { min: 0, max: 5000 } });
+
+		store().undo();
+		expect(store().series.map((s) => s.id)).toEqual(["s1"]);
+		expect(store().yAxes[0]).toMatchObject({ min: 1, max: 2 });
+	});
+
 	it("does not record viewport changes", () => {
 		store().batchUpdateAxes({ "axis-1": { min: 1, max: 2 } }, {});
 		store().updateXAxis("axis-1", { min: 3, max: 4 });
@@ -216,9 +267,9 @@ describe("undo/redo", () => {
 		store().setLegendVisible(false);
 		store().setCrosshairVisible(false);
 		expect(past().map((e) => e.label)).toEqual([
-			"rename X-axis 1",
-			"move Y-axis 2 to the left",
-			"hide Y-axis 1 grid",
+			"rename X axis 1",
+			"move Y axis 2 to the left",
+			"hide Y axis 1 grid",
 			"hide legend",
 			"hide crosshair",
 		]);
@@ -243,7 +294,7 @@ describe("undo/redo", () => {
 			past()
 				.map((e) => e.label)
 				.slice(-2),
-		).toEqual(["rename Y-axis 1", "rename Y-axis 1"]);
+		).toEqual(["rename Y axis 1", "rename Y axis 1"]);
 
 		store().undo();
 		expect(store().yAxes[0].title).toBe("Air");
@@ -548,7 +599,7 @@ describe("log axis scale", () => {
 		expect(y.min).toBeGreaterThan(0);
 		expect(y.min).toBeLessThan(1);
 		expect(y.max).toBeGreaterThan(2);
-		expect(past().map((e) => e.label)).toEqual(["set Y-axis 1 to log scale"]);
+		expect(past().map((e) => e.label)).toEqual(["set Y axis 1 to log scale"]);
 
 		store().undo();
 		expect(store().yAxes[0]).toMatchObject({ min: 0, max: 100 });

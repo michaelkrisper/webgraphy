@@ -7,6 +7,7 @@ import {
 	importFixture,
 	plotCanvas,
 	seriesRow,
+	useDownloads,
 } from "./helpers";
 
 /**
@@ -165,6 +166,7 @@ test("the log toggle switches a Y axis to a positive log range", async ({
 });
 
 test("a saved session file opens back into the workspace", async ({ page }) => {
+	await useDownloads(page);
 	const { errors } = await emptyApp(page);
 	await importFixture(page);
 

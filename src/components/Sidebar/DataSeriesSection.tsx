@@ -154,17 +154,17 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								>
 									<ArrowUpDown size={12} />
 								</div>
-								<div title="Y-Axis #" className="sb-series-header-cell">
+								<div title="Y axis #" className="sb-series-header-cell">
 									<Hash size={12} />
 								</div>
-								<div title="Y-Axis Side (L/R)" className="sb-series-header-cell">
+								<div title="Y axis side (L/R)" className="sb-series-header-cell">
 									<MoveHorizontal size={12} />
 								</div>
-								<div title="Y-Axis Grid" className="sb-series-header-cell">
+								<div title="Y axis grid" className="sb-series-header-cell">
 									<Rows3 size={12} />
 								</div>
 								<div
-									title="Y-Axis Log Scale"
+									title="Y axis log scale"
 									className="sb-series-header-cell sb-series-header-cell--log"
 								>
 									log

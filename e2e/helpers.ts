@@ -41,6 +41,19 @@ export async function emptyApp(page: Page) {
 	return { errors };
 }
 
+/**
+ * Removes the File System Access pickers, so saves take the download path a
+ * test can observe; a native picker cannot be driven headless. Call before
+ * the page loads.
+ */
+export async function useDownloads(page: Page) {
+	await page.addInitScript(() => {
+		const w = window as unknown as Record<string, unknown>;
+		delete w.showSaveFilePicker;
+		delete w.showOpenFilePicker;
+	});
+}
+
 /** Picks a file in the data-source input; the import dialog opens next. */
 export async function chooseDataFile(
 	page: Page,

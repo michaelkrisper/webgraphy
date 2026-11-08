@@ -5,7 +5,7 @@ import {
 	type RenderLabel,
 	sizeCanvasToViewport,
 } from "../rendererCore";
-import { makeCanvasMock, makeGl2Mock } from "./glMock";
+import { makeCanvasMock, makeGl2Mock, setGlLost } from "./glMock";
 
 function makeSeries(
 	overrides: Partial<RendererSeriesInput> = {},
@@ -323,6 +323,51 @@ describe("RendererCore", () => {
 			RendererCore.restore(makeCanvasMock(null), core, onFailure),
 		).toBeNull();
 		expect(onFailure).toHaveBeenCalledWith("no-webgl2");
+	});
+
+	it("waits for a restore instead of failing on a context lost at creation", () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		setGlLost(gl, true);
+		const onFailure = vi.fn();
+		const lost = RendererCore.create(canvas, onFailure);
+		// Every compile fails on a lost context; that is no shader failure.
+		expect(onFailure).not.toHaveBeenCalled();
+		expect(lost).not.toBeNull();
+		lost!.setViewport(viewport);
+		lost!.setPlotBg([0.5, 0.25, 0]);
+		lost!.setSeries([makeSeries()]);
+		lost!.drawFrame(axes, axes);
+		expect(gl.clear).not.toHaveBeenCalled();
+		expect(() => RendererCore.create(canvas)!.dispose()).not.toThrow();
+
+		setGlLost(gl, false);
+		const core = RendererCore.restore(canvas, lost!, onFailure);
+		core!.drawFrame(axes, axes);
+		expect(gl.clearColor).toHaveBeenCalledWith(0.5, 0.25, 0, 1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
+		expect(onFailure).not.toHaveBeenCalled();
+	});
+
+	it("carries its inputs over a context lost again during a restore", () => {
+		const gl = makeGl2Mock();
+		const canvas = makeCanvasMock(gl);
+		const first = RendererCore.create(canvas)!;
+		first.setViewport(viewport);
+		first.setPlotBg([0.5, 0.25, 0]);
+		first.setSeries([makeSeries()]);
+		const onFailure = vi.fn();
+
+		setGlLost(gl, true);
+		const interrupted = RendererCore.restore(canvas, first, onFailure);
+		expect(interrupted).not.toBeNull();
+		expect(onFailure).not.toHaveBeenCalled();
+
+		setGlLost(gl, false);
+		const core = RendererCore.restore(canvas, interrupted!, onFailure);
+		core!.drawFrame(axes, axes);
+		expect(gl.clearColor).toHaveBeenCalledWith(0.5, 0.25, 0, 1);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
 	});
 
 	it("uses the exact device-pixel size for the GL viewport when given", () => {

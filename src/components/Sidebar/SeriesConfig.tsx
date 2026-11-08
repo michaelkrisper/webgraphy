@@ -160,8 +160,8 @@ function yAxisOptions(
 			value: a.slot,
 			icon: <span style={{ fontWeight: "bold" }}>Y{a.slot}</span>,
 			label: a.title,
-			title: `Y-Axis ${a.slot}: ${a.title}`,
-			description: `Moves the series onto Y-Axis ${a.slot}, sharing its range`,
+			title: `Y axis ${a.slot}: ${a.title}`,
+			description: `Moves the series onto Y axis ${a.slot}, sharing its range`,
 			trailing: (
 				<span className="sc-axis-swatches" aria-hidden="true">
 					{a.colors.map((c) => (
@@ -177,11 +177,11 @@ function yAxisOptions(
 		icon: <Plus size={14} />,
 		label: "New axis",
 		disabled: free === null,
-		title: free === null ? "All 9 Y-axes are in use" : `Move to Y-Axis ${free}`,
+		title: free === null ? "All 9 Y axes are in use" : `Move to Y axis ${free}`,
 		description:
 			free === null
-				? "All 9 Y-axes are in use"
-				: `Moves the series onto its own Y-Axis ${free}`,
+				? "All 9 Y axes are in use"
+				: `Moves the series onto its own Y axis ${free}`,
 	});
 	return options;
 }
@@ -218,7 +218,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 
 	const selectYAxis = (n: number) => {
 		const nextAxisId = `axis-${n}`;
-		withHistory(`move '${series.name || series.yColumn}' to Y-axis ${n}`, () => {
+		withHistory(`move '${series.name || series.yColumn}' to Y axis ${n}`, () => {
 			if (!allSeries.some((s) => s.yAxisId === nextAxisId)) {
 				// This series' own axis frees up if it is the only one on it.
 				const leftInUse = allSeries.some(
@@ -270,7 +270,7 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				current={currentYAxisIndex}
 				onChange={selectYAxis}
 				popoverId={`y-axis-popover-${series.id}`}
-				label="Y-Axis"
+				label="Y axis"
 				minWidth={180}
 				renderTrigger={({ onClick, ref, popupProps }) => (
 					<button
@@ -283,13 +283,13 @@ export const SeriesConfigUI: React.FC<Props> = ({
 							opacity: yAxisCycleDisabled ? 0.3 : 1,
 							cursor: yAxisCycleDisabled ? "default" : "pointer",
 						}}
-						title="Select Y-Axis"
+						title="Select Y axis"
 						type="button"
-						aria-label="Select Y-Axis"
+						aria-label="Select Y axis"
 						aria-description={
 							yAxisCycleDisabled
-								? `${seriesName} is on Y-Axis ${currentYAxisIndex}; with one series there is no other axis to move to`
-								: `${seriesName} is on Y-Axis ${currentYAxisIndex}. Opens the axes in use and New axis`
+								? `${seriesName} is on Y axis ${currentYAxisIndex}; with one series there is no other axis to move to`
+								: `${seriesName} is on Y axis ${currentYAxisIndex}. Opens the axes in use and New axis`
 						}
 						{...popupProps}
 					>

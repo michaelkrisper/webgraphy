@@ -133,6 +133,16 @@ describe("WorkerClient", () => {
 		await expect(c).resolves.toBe("C");
 	});
 
+	it("handles a crash itself, so it is not reported again as uncaught", async () => {
+		const { workers, send } = setup();
+		const p = send();
+		const ev = new ErrorEvent("error", { message: "boom", cancelable: true });
+		workers[0].onerror?.(ev);
+		// Uncancelled, the window's error handler would toast it a second time.
+		expect(ev.defaultPrevented).toBe(true);
+		await expect(p).rejects.toThrow("boom");
+	});
+
 	it("falls back to a generic message for a crash without one", async () => {
 		const { workers, send } = setup();
 		const p = send();

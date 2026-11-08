@@ -1,15 +1,22 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { axe } from "vitest-axe";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
 	confirmReplaceWorkspace,
 	useSessionPrompt,
 } from "../../../store/useSessionPrompt";
+import { SHORTCUTS, shortcutHint } from "../../../utils/shortcuts";
 import { SessionPromptHost } from "../SessionPromptHost";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
 describe("SessionPromptHost", () => {
+	// The dialog is lazy: transform it up front, so the first test does not
+	// spend findByRole's whole timeout on a cold import under load.
+	beforeAll(async () => {
+		await import("../ConfirmDialog");
+	});
+
 	beforeEach(() => {
 		useSessionPrompt.setState({ prompt: null });
 	});
@@ -32,11 +39,16 @@ describe("SessionPromptHost", () => {
 		async () => {
 			render(<SessionPromptHost />);
 			const answer = ask();
-			const dialog = await screen.findByRole("alertdialog", {
-				name: "Open session?",
-			});
+			const dialog = await screen.findByRole(
+				"alertdialog",
+				{ name: "Open session?" },
+				{ timeout: 4000 },
+			);
 			expect(dialog).toHaveTextContent("work.webgraphy");
 			expect(dialog).toHaveTextContent("2 datasets, 3 series");
+			expect(dialog).toHaveTextContent(
+				`You can undo this with ${shortcutHint(SHORTCUTS.undo)}.`,
+			);
 			expect(await axe(dialog)).toHaveNoViolations();
 
 			fireEvent.click(screen.getByRole("button", { name: "Replace workspace" }));
