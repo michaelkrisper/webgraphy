@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactNode, useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Modal } from "../../components/Layout/Modal";
-import ColorPicker from "../../components/Sidebar/ColorPicker";
 import { PopupPicker } from "../../components/Sidebar/PopupPicker";
+import { SeriesStylePicker } from "../../components/Sidebar/SeriesStylePicker";
 import { useDialogA11y } from "../useDialogA11y";
 
 function Dialog({
@@ -343,19 +343,28 @@ describe("useDialogA11y with nested layers", () => {
 		expect(document.activeElement).toBe(trigger);
 	});
 
-	it("closes a ColorPicker opened inside a Modal without closing the Modal", () => {
+	it("closes the style picker opened inside a Modal without closing the Modal", () => {
 		const onModalClose = vi.fn();
 		render(
 			<Modal title="Series" onClose={onModalClose}>
-				<ColorPicker color="#ff0000" onChange={() => {}} ariaLabel="Color" />
+				<SeriesStylePicker
+					seriesId="s1"
+					seriesName="Temp"
+					color="#ff0000"
+					lineStyle="solid"
+					pointStyle="none"
+					lineWidth={1}
+					onChange={() => {}}
+					onPreview={() => {}}
+				/>
 			</Modal>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Color" }));
-		expect(document.getElementById("color-picker-popover")).not.toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Series Style" }));
+		expect(document.getElementById("style-popover-s1")).not.toBeNull();
 
 		fireEvent.keyDown(document, { key: "Escape" });
 
-		expect(document.getElementById("color-picker-popover")).toBeNull();
+		expect(document.getElementById("style-popover-s1")).toBeNull();
 		expect(onModalClose).not.toHaveBeenCalled();
 	});
 });

@@ -83,7 +83,7 @@ describe("useUndoRedoShortcuts", () => {
 
 	it.each([
 		["a modal dialog", { role: "dialog", "aria-modal": "true" }],
-		["a picker popover", { role: "dialog", class: "color-picker-popover" }],
+		["a picker popover", { role: "dialog", class: "popup-picker-popover" }],
 	])("still undoes and redoes while %s is open", (_label, attrs) => {
 		renderHook(() => useUndoRedoShortcuts());
 		const overlay = document.createElement("div");

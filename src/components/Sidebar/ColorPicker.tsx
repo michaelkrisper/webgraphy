@@ -1,16 +1,16 @@
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useDialogA11y } from "../../hooks/useDialogA11y";
+import { useEffect, useRef, useState } from "react";
 import { COLOR_PALETTE } from "../../themes";
 import { hexToRgb, lchToRgb, rgbToHex, rgbToLch } from "../../utils/colors";
 
 interface ColorPickerProps {
 	color: string;
+	/** A swatch was clicked. */
+	onSelect: (color: string) => void;
+	/** The hex or RGB fields hold a new, complete colour. */
 	onChange: (color: string) => void;
 	onHover?: (color: string) => void;
 	onHoverEnd?: () => void;
-	ariaLabel?: string;
 }
 
 const LCH_LIGHTNESS_STEPS = [22, 38, 54, 68, 82];
@@ -38,7 +38,7 @@ function ColorPaletteButton({
 			onMouseLeave={onHoverLeave}
 			className="color-picker-palette-btn"
 			aria-label={`Color ${targetColor}`}
-			aria-description="Applies this color and closes the picker"
+			aria-description="Applies this color and closes the popup; hovering previews it"
 			aria-pressed={currentColor.toLowerCase() === targetColor.toLowerCase()}
 			style={{
 				backgroundColor: targetColor,
@@ -247,117 +247,22 @@ function ColorPickerInputs({
 	);
 }
 
-/**
- * The popover is a portal at the end of `document.body`, so a keyboard user
- * who opened it tabbed on into the rest of the sidebar rather than into the
- * swatches, and had no way to dismiss it. The dialog focus helper moves focus
- * in, keeps Tab inside, closes on Escape and returns focus to the trigger.
- */
-function ColorPickerPopover({
-	label,
-	style,
-	onClose,
-	children,
-}: {
-	label: string;
-	style: React.CSSProperties;
-	onClose: () => void;
-	children: React.ReactNode;
-}) {
-	const ref = useRef<HTMLDivElement>(null);
-	useDialogA11y(ref, onClose);
-
-	return createPortal(
-		<div
-			ref={ref}
-			id="color-picker-popover"
-			role="dialog"
-			aria-label={label}
-			className="color-picker-popover"
-			style={style}
-		>
-			{children}
-		</div>,
-		document.body,
-	);
-}
-
+/** Swatches plus hex and RGB fields, the colour part of the style popup. */
 function ColorPicker({
 	color,
+	onSelect,
 	onChange,
 	onHover,
 	onHoverEnd,
-	ariaLabel,
 }: ColorPickerProps) {
-	const [isOpen, setIsOpen] = useState(false);
 	const [localHex, setLocalHex] = useState(color);
 	const [prevColor, setPrevColor] = useState(color);
 	const [hoverColor, setHoverColor] = useState<string | null>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: 0 });
 
 	if (color !== prevColor) {
 		setPrevColor(color);
 		setLocalHex(color);
 	}
-
-	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				containerRef.current &&
-				!containerRef.current.contains(event.target as Node)
-			) {
-				const popover = document.getElementById("color-picker-popover");
-				if (popover?.contains(event.target as Node)) return;
-				setIsOpen(false);
-				if (onHoverEnd) onHoverEnd();
-			}
-		};
-		if (isOpen) document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [isOpen, onHoverEnd]);
-
-	// Escape can close the popover while the pointer still rests on a swatch,
-	// so no mouseleave arrives to undo the preview. `close` has to keep a
-	// stable identity — it feeds the popover's focus effect — hence the ref.
-	const onHoverEndRef = useRef(onHoverEnd);
-	useEffect(() => {
-		onHoverEndRef.current = onHoverEnd;
-	}, [onHoverEnd]);
-
-	const close = useCallback(() => {
-		setIsOpen(false);
-		setHoverColor(null);
-		onHoverEndRef.current?.();
-	}, []);
-
-	const toggleOpen = () => {
-		if (!isOpen && containerRef.current) {
-			const rect = containerRef.current.getBoundingClientRect();
-			const popoverWidth = 220;
-			const padding = 10;
-
-			let left = rect.left + window.scrollX;
-			if (left + popoverWidth > window.innerWidth - padding) {
-				left = rect.right + window.scrollX - popoverWidth;
-			}
-
-			setPopoverCoords({
-				top: rect.bottom + window.scrollY,
-				left: Math.max(padding, left),
-			});
-		}
-		if (isOpen && onHoverEnd) onHoverEnd();
-		setIsOpen(!isOpen);
-	};
-
-	const label = ariaLabel || "Select Color";
-
-	const handleColorSelect = (selectedColor: string) => {
-		onChange(selectedColor);
-		if (onHoverEnd) onHoverEnd();
-		setIsOpen(false);
-	};
 
 	const handleColorHover = (hoveredColor: string) => {
 		onHover?.(hoveredColor);
@@ -370,40 +275,20 @@ function ColorPicker({
 	};
 
 	return (
-		<div ref={containerRef} className="color-picker-wrapper">
-			<button
-				type="button"
-				onClick={toggleOpen}
-				title="Select Color"
-				aria-label={label}
-				aria-description={`Current color ${color}. Opens swatches and hex and RGB fields; hovering a swatch previews it on the chart`}
-				aria-haspopup="dialog"
-				aria-expanded={isOpen}
-				className="color-picker-btn"
-				style={{ backgroundColor: color }}
+		<div className="color-picker-panel">
+			<ColorPickerGrid
+				color={color}
+				onSelect={onSelect}
+				onHoverColor={handleColorHover}
+				onHoverLeave={handleColorHoverLeave}
 			/>
-
-			{isOpen && (
-				<ColorPickerPopover
-					label={label}
-					style={{ top: popoverCoords.top + 4, left: popoverCoords.left }}
-					onClose={close}
-				>
-					<ColorPickerGrid
-						color={color}
-						onSelect={handleColorSelect}
-						onHoverColor={handleColorHover}
-						onHoverLeave={handleColorHoverLeave}
-					/>
-					<ColorPickerInputs
-						color={color}
-						hoverColor={hoverColor}
-						localHex={localHex}
-						setLocalHex={setLocalHex}
-						onChange={onChange}
-					/>
-				</ColorPickerPopover>
-			)}
+			<ColorPickerInputs
+				color={color}
+				hoverColor={hoverColor}
+				localHex={localHex}
+				setLocalHex={setLocalHex}
+				onChange={onChange}
+			/>
 		</div>
 	);
 }

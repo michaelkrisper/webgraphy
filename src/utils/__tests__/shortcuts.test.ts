@@ -84,7 +84,6 @@ describe("overlayOwnsKeyboard", () => {
 		['<div role="dialog" aria-modal="true"></div>', "a modal dialog"],
 		['<form role="dialog"></form>', "the axis range popover"],
 		['<div class="popup-picker-popover"></div>', "a picker popover"],
-		['<div class="color-picker-popover"></div>', "the colour picker"],
 	])("is true while %s is open (%s)", (html) => {
 		document.body.innerHTML = html;
 		expect(overlayOwnsKeyboard()).toBe(true);

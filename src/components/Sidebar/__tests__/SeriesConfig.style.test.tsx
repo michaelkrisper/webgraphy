@@ -30,6 +30,7 @@ const datasets = [
 
 const updateSeries = vi.fn();
 const setPreviewStyle = vi.fn();
+const setPreviewColor = vi.fn();
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -41,7 +42,7 @@ beforeEach(() => {
 		setAxisScale: vi.fn(),
 		updateSeriesVisibility: vi.fn(),
 		series: [temp],
-		setPreviewColor: vi.fn(),
+		setPreviewColor,
 		setPreviewStyle,
 	};
 	vi
@@ -103,8 +104,7 @@ describe("SeriesConfigUI style picker", () => {
 			lineStyle: "dotted",
 			pointStyle: "square",
 		});
-		// Stays open so the width can follow.
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		expect(setPreviewStyle).toHaveBeenLastCalledWith(null);
 	});
 
@@ -133,6 +133,46 @@ describe("SeriesConfigUI style picker", () => {
 		});
 		fireEvent.click(three);
 		expect(updateSeries).toHaveBeenCalledWith("s1", { lineWidth: 3 });
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	});
+
+	it("draws the trigger in the series colour", () => {
+		render(<SeriesConfigUI series={temp} datasets={datasets} />);
+		expect(screen.getByRole("button", { name: "Series Style" })).toHaveStyle({
+			color: "#ff0000",
+		});
+	});
+
+	it("previews a colour on hover, applies it to line and points and closes", () => {
+		render(<SeriesConfigUI series={temp} datasets={datasets} />);
+		const black = within(openPicker()).getByRole("button", {
+			name: "Color #000000",
+		});
+		fireEvent.mouseEnter(black);
+		expect(setPreviewColor).toHaveBeenLastCalledWith({
+			seriesId: "s1",
+			color: "#000000",
+		});
+		fireEvent.click(black);
+		expect(updateSeries).toHaveBeenCalledWith("s1", {
+			lineColor: "#000000",
+			pointColor: "#000000",
+		});
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(setPreviewColor).toHaveBeenLastCalledWith(null);
+	});
+
+	it("applies a typed hex colour and stays open", () => {
+		render(<SeriesConfigUI series={temp} datasets={datasets} />);
+		fireEvent.change(
+			within(openPicker()).getByRole("textbox", { name: "Hex color value" }),
+			{ target: { value: "#00ff00" } },
+		);
+		expect(updateSeries).toHaveBeenCalledWith("s1", {
+			lineColor: "#00ff00",
+			pointColor: "#00ff00",
+		});
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 
 	it("stores the default width as absent", () => {

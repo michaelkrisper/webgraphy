@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAnchoredPopover } from "../../hooks/useAnchoredPopover";
 import type { SeriesConfig } from "../../services/persistence";
 import { DEFAULT_LINE_WIDTH, dashScale } from "../../utils/lineWidth";
 import { AnchoredPopover } from "./AnchoredPopover";
+import ColorPicker from "./ColorPicker";
 
 type LineStyle = SeriesConfig["lineStyle"];
 type PointStyle = SeriesConfig["pointStyle"];
@@ -116,6 +117,7 @@ export interface StylePreview {
 	lineStyle?: LineStyle;
 	pointStyle?: PointStyle;
 	lineWidth?: number;
+	color?: string;
 }
 
 interface Props {
@@ -131,9 +133,8 @@ interface Props {
 }
 
 /**
- * One trigger for a series' line style, point style and line width. The
- * popover stays open after a choice, so the width previews can follow a new
- * style and both can be set in one visit.
+ * One trigger for a series' colour, line style, point style and line width.
+ * Hovering a choice previews it on the chart; clicking applies it and closes.
  */
 export function SeriesStylePicker({
 	seriesId,
@@ -151,12 +152,23 @@ export function SeriesStylePicker({
 		260,
 	);
 
+	// The popover's own swatches follow a hovered colour too.
+	const [hoverColor, setHoverColor] = useState<string | null>(null);
+
 	// Clear a hover preview however the popover closes.
 	const wasOpen = useRef(false);
 	useEffect(() => {
-		if (wasOpen.current && !isOpen) onPreview(null);
+		if (wasOpen.current && !isOpen) {
+			onPreview(null);
+			setHoverColor(null);
+		}
 		wasOpen.current = isOpen;
 	}, [isOpen, onPreview]);
+
+	const choose = (updates: StylePreview) => {
+		onChange(updates);
+		close();
+	};
 
 	const current = styleName(lineStyle, pointStyle);
 	const hasLine = lineStyle !== "none";
@@ -172,9 +184,10 @@ export function SeriesStylePicker({
 				title={`Style: ${summary}`}
 				type="button"
 				aria-label="Series Style"
-				aria-description={`Currently ${summary}. Opens the line and point styles and the line widths for ${seriesName}`}
+				aria-description={`Currently ${color}, ${summary}. Opens the colors, line and point styles and line widths for ${seriesName}`}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
+				style={{ color }}
 			>
 				<StyleSwatch line={lineStyle} point={pointStyle} width={swatchWidth} />
 			</button>
@@ -183,71 +196,82 @@ export function SeriesStylePicker({
 					id={popoverId}
 					label="Series style"
 					className="popup-picker-popover ssp-popover"
-					style={{ ...coords, minWidth: 260, color }}
+					style={{ ...coords, minWidth: 260 }}
 					onClose={close}
 				>
-					<div role="group" aria-label="Line and point style" className="ssp-grid">
-						{LINE_STYLES.flatMap((line) =>
-							POINT_STYLES.map((point) => {
-								const name = styleName(line, point);
-								const active = line === lineStyle && point === pointStyle;
-								return (
-									<button
-										key={`${line}-${point}`}
-										type="button"
-										className="ssp-cell"
-										onClick={() => {
-											onChange({ lineStyle: line, pointStyle: point });
-											onPreview(null);
-										}}
-										onMouseEnter={() => onPreview({ lineStyle: line, pointStyle: point })}
-										onMouseLeave={() => onPreview(null)}
-										title={name}
-										aria-label={name}
-										aria-pressed={active}
-										aria-description={
-											line === "none" && point === "none"
-												? "Draws neither line nor points, so the series disappears from the chart"
-												: "Draws this series this way; hovering previews it"
-										}
-									>
-										<StyleSwatch
-											line={line}
-											point={point}
-											width={Math.min(lineWidth, 2)}
-											wide
-										/>
-									</button>
-								);
-							}),
-						)}
-					</div>
-					<div role="group" aria-label="Line width" className="ssp-widths">
-						{LINE_WIDTHS.map((w) => (
-							<button
-								key={w}
-								type="button"
-								className="ssp-width"
-								onClick={() => {
-									onChange({ lineWidth: w });
-									onPreview(null);
-								}}
-								onMouseEnter={() => onPreview({ lineWidth: w })}
-								onMouseLeave={() => onPreview(null)}
-								disabled={!hasLine}
-								title={hasLine ? `${w} px` : "Only lines have a width"}
-								aria-label={`${w} px`}
-								aria-pressed={hasLine && w === lineWidth}
-								aria-description={
-									hasLine
-										? "Draws this series' line this wide; hovering previews it"
-										: "Only lines have a width; choose a line style first"
-								}
-							>
-								<StyleSwatch line={lineStyle} point={pointStyle} width={w} wide />
-								<span className="ssp-width-label">{w}</span>
-							</button>
-						))}
+					<ColorPicker
+						color={color}
+						onSelect={(c) => choose({ color: c })}
+						onChange={(c) => onChange({ color: c })}
+						onHover={(c) => {
+							setHoverColor(c);
+							onPreview({ color: c });
+						}}
+						onHoverEnd={() => {
+							setHoverColor(null);
+							onPreview(null);
+						}}
+					/>
+					<div className="ssp-styles" style={{ color: hoverColor ?? color }}>
+						<div role="group" aria-label="Line and point style" className="ssp-grid">
+							{LINE_STYLES.flatMap((line) =>
+								POINT_STYLES.map((point) => {
+									const name = styleName(line, point);
+									const active = line === lineStyle && point === pointStyle;
+									return (
+										<button
+											key={`${line}-${point}`}
+											type="button"
+											className="ssp-cell"
+											onClick={() => choose({ lineStyle: line, pointStyle: point })}
+											onMouseEnter={() =>
+												onPreview({ lineStyle: line, pointStyle: point })
+											}
+											onMouseLeave={() => onPreview(null)}
+											title={name}
+											aria-label={name}
+											aria-pressed={active}
+											aria-description={
+												line === "none" && point === "none"
+													? "Draws neither line nor points, so the series disappears from the chart"
+													: "Draws this series this way; hovering previews it"
+											}
+										>
+											<StyleSwatch
+												line={line}
+												point={point}
+												width={Math.min(lineWidth, 2)}
+												wide
+											/>
+										</button>
+									);
+								}),
+							)}
+						</div>
+						<div role="group" aria-label="Line width" className="ssp-widths">
+							{LINE_WIDTHS.map((w) => (
+								<button
+									key={w}
+									type="button"
+									className="ssp-width"
+									onClick={() => choose({ lineWidth: w })}
+									onMouseEnter={() => onPreview({ lineWidth: w })}
+									onMouseLeave={() => onPreview(null)}
+									disabled={!hasLine}
+									title={hasLine ? `${w} px` : "Only lines have a width"}
+									aria-label={`${w} px`}
+									aria-pressed={hasLine && w === lineWidth}
+									aria-description={
+										hasLine
+											? "Draws this series' line this wide; hovering previews it"
+											: "Only lines have a width; choose a line style first"
+									}
+								>
+									<StyleSwatch line={lineStyle} point={pointStyle} width={w} wide />
+									<span className="ssp-width-label">{w}</span>
+								</button>
+							))}
+						</div>
 					</div>
 				</AnchoredPopover>
 			)}

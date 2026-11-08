@@ -52,10 +52,10 @@ test("data and a series colour survive a reload", async ({ page }) => {
 	const { errors } = await emptyApp(page);
 	await importFixture(page);
 
-	const swatch = page.getByRole("button", { name: "Color for Sine" });
-	await swatch.click();
+	const style = page.getByRole("button", { name: "Series Style" }).first();
+	await style.click();
 	await page.getByRole("button", { name: "Color #000000" }).first().click();
-	await expect(swatch).toHaveCSS("background-color", "rgb(0, 0, 0)");
+	await expect(style).toHaveCSS("color", "rgb(0, 0, 0)");
 
 	await expect
 		.poll(() => persisted(page), { timeout: 10_000 })
@@ -67,10 +67,9 @@ test("data and a series colour survive a reload", async ({ page }) => {
 		/2 data series: Sine, Growth\./,
 	);
 	await expect(page.getByText("200 rows", { exact: true })).toBeVisible();
-	await expect(page.getByRole("button", { name: "Color for Sine" })).toHaveCSS(
-		"background-color",
-		"rgb(0, 0, 0)",
-	);
+	await expect(
+		page.getByRole("button", { name: "Series Style" }).first(),
+	).toHaveCSS("color", "rgb(0, 0, 0)");
 	expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
 });
 

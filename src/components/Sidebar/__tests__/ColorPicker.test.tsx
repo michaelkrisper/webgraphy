@@ -9,10 +9,10 @@ import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 describe("ColorPicker", () => {
 	const defaultProps = {
 		color: "#ff0000",
+		onSelect: vi.fn(),
 		onChange: vi.fn(),
 		onHover: vi.fn(),
 		onHoverEnd: vi.fn(),
-		ariaLabel: "Test Color Picker",
 	};
 
 	beforeEach(() => {
@@ -23,79 +23,19 @@ describe("ColorPicker", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders correctly with default color", () => {
-		render(<ColorPicker {...defaultProps} />);
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		expect(button).toBeInTheDocument();
-		expect(button).toHaveStyle({ backgroundColor: "#ff0000" });
-	});
-
-	it("toggles the popover when clicked", () => {
-		render(<ColorPicker {...defaultProps} />);
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-
-		// Initially closed
-		expect(
-			document.getElementById("color-picker-popover"),
-		).not.toBeInTheDocument();
-
-		// Open
-		fireEvent.click(button);
-		expect(document.getElementById("color-picker-popover")).toBeInTheDocument();
-
-		// Close
-		fireEvent.click(button);
-		expect(
-			document.getElementById("color-picker-popover"),
-		).not.toBeInTheDocument();
-	});
-
-	it("closes the popover when clicking outside", () => {
-		render(
-			<div>
-				<div data-testid="outside">Outside</div>
-				<ColorPicker {...defaultProps} />
-			</div>,
-		);
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
-
-		expect(document.getElementById("color-picker-popover")).toBeInTheDocument();
-
-		// Click outside
-		fireEvent.mouseDown(screen.getByTestId("outside"));
-
-		expect(
-			document.getElementById("color-picker-popover"),
-		).not.toBeInTheDocument();
-	});
-
-	it("calls onChange when a preset color is selected and closes popover", () => {
-		render(<ColorPicker {...defaultProps} />);
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
-
-		// Find a color palette button, e.g. the grayscale primary (black)
-		const blackButton = document.querySelector(".color-picker-main-color button");
-		if (blackButton) {
-			fireEvent.click(blackButton);
-		}
-
-		expect(defaultProps.onChange).toHaveBeenCalledWith("#000000");
-		expect(
-			document.getElementById("color-picker-popover"),
-		).not.toBeInTheDocument();
+	it("selects a swatch through onSelect, the current one pressed", () => {
+		render(<ColorPicker {...defaultProps} color="#000000" />);
+		const black = screen.getByRole("button", {
+			name: "Color #000000",
+			pressed: true,
+		});
+		fireEvent.click(black);
+		expect(defaultProps.onSelect).toHaveBeenCalledWith("#000000");
+		expect(defaultProps.onChange).not.toHaveBeenCalled();
 	});
 
 	it("calls onHover and onHoverEnd when hovering over preset colors", () => {
 		render(<ColorPicker {...defaultProps} />);
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
 
 		const blackButton = document.querySelector(".color-picker-main-color button");
 		if (blackButton) {
@@ -110,9 +50,6 @@ describe("ColorPicker", () => {
 	it("calls onChange when hex input is updated with valid hex", () => {
 		render(<ColorPicker {...defaultProps} />);
 
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
-
 		const hexInput = screen.getByDisplayValue("#ff0000");
 
 		// Valid hex
@@ -126,9 +63,6 @@ describe("ColorPicker", () => {
 
 	it("calls onChange when RGB inputs are updated", () => {
 		render(<ColorPicker {...defaultProps} />); // #ff0000 is 255, 0, 0
-
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
 
 		// R, G, B inputs are type=number
 		const rgbInputs = document.querySelectorAll(".color-picker-rgb-inputs input");
@@ -145,17 +79,15 @@ describe("ColorPicker", () => {
 		function Controlled() {
 			const [color, setColor] = useState("#ff0000");
 			return (
-				<ColorPicker
-					color={color}
-					onChange={setColor}
-					ariaLabel="Test Color Picker"
-				/>
+				<>
+					<output style={{ backgroundColor: color }}>swatch</output>
+					<ColorPicker color={color} onSelect={setColor} onChange={setColor} />
+				</>
 			);
 		}
 		const open = () => {
 			render(<Controlled />);
-			const button = screen.getByRole("button", { name: "Test Color Picker" });
-			fireEvent.click(button);
+			const button = screen.getByText("swatch");
 			return {
 				button,
 				red: screen.getByRole("spinbutton", { name: "Red" }),
@@ -195,9 +127,6 @@ describe("ColorPicker", () => {
 	it("handles wheel events on RGB inputs", () => {
 		render(<ColorPicker {...defaultProps} />); // #ff0000
 
-		const button = screen.getByRole("button", { name: "Test Color Picker" });
-		fireEvent.click(button);
-
 		const rgbInputsContainer = document.querySelector(".color-picker-rgb-inputs");
 		const rInput = document.querySelectorAll(".color-picker-rgb-inputs input")[0]; // Red
 
@@ -213,15 +142,10 @@ describe("ColorPicker", () => {
 	});
 
 	it(
-		"has no axe violations with the popover open",
+		"has no axe violations",
 		async () => {
 			const { container } = render(<ColorPicker {...defaultProps} />);
-			fireEvent.click(screen.getByRole("button", { name: "Test Color Picker" }));
 			expect(await axe(container)).toHaveNoViolations();
-			// The popover renders through a portal, so it sits outside `container`.
-			const popover = document.getElementById("color-picker-popover");
-			expect(popover).toBeInTheDocument();
-			expect(await axe(popover as HTMLElement)).toHaveNoViolations();
 		},
 		AXE_TIMEOUT_MS,
 	);

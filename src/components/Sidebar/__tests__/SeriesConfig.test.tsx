@@ -14,38 +14,6 @@ vi.mock("../../../store/useGraphStore", () => ({
 	undoIfLatest: vi.fn(),
 }));
 
-interface ColorPickerMockProps {
-	color: string;
-	onChange: (next: string) => void;
-	onHover: (next: string) => void;
-	onHoverEnd: () => void;
-	ariaLabel?: string;
-}
-
-vi.mock("../ColorPicker", () => ({
-	default: ({
-		color,
-		onChange,
-		onHover,
-		onHoverEnd,
-		ariaLabel,
-	}: ColorPickerMockProps) => (
-		<div data-testid="color-picker" aria-label={ariaLabel}>
-			<button type="button" onClick={() => onChange("#000000")}>
-				Change Color
-			</button>
-			<button
-				type="button"
-				onMouseEnter={() => onHover("#111111")}
-				onMouseLeave={onHoverEnd}
-			>
-				Hover Color
-			</button>
-			{color}
-		</div>
-	),
-}));
-
 interface PopupPickerMockProps {
 	current: unknown;
 	onChange: (next: number) => void;
@@ -268,25 +236,6 @@ describe("SeriesConfigUI", () => {
 			"title",
 			"Style: No line, squares",
 		);
-	});
-
-	it("handles color changes via ColorPicker", () => {
-		render(<SeriesConfigUI {...defaultProps} />);
-
-		fireEvent.click(screen.getByText("Change Color"));
-		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", {
-			lineColor: "#000000",
-			pointColor: "#000000",
-		});
-
-		fireEvent.mouseEnter(screen.getByText("Hover Color"));
-		expect(mockSetPreviewColor).toHaveBeenCalledWith({
-			seriesId: "s1",
-			color: "#111111",
-		});
-
-		fireEvent.mouseLeave(screen.getByText("Hover Color"));
-		expect(mockSetPreviewColor).toHaveBeenCalledWith(null);
 	});
 
 	it("toggles left/right axis position", () => {

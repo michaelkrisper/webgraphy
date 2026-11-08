@@ -4,7 +4,6 @@ import {
 	ChevronRight,
 	Hash,
 	MoveHorizontal,
-	Palette,
 	Rows3,
 	Spline,
 } from "lucide-react";
@@ -168,11 +167,11 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								>
 									log
 								</div>
-								<div title="Line and point style" className="sb-series-header-cell">
+								<div
+									title="Color, line and point style"
+									className="sb-series-header-cell"
+								>
 									<Spline size={12} />
-								</div>
-								<div title="Color" className="sb-series-header-cell">
-									<Palette size={12} />
 								</div>
 								<div title="Data Column" className="sb-series-header-cell--text">
 									Column
