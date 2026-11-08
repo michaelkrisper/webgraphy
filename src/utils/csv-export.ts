@@ -24,7 +24,7 @@ export const CSV_EOL = "\r\n";
 
 export type CellKind = "number" | "date" | "category";
 
-/** Mirrors the store's `xModeFor`, so a column exports as the axis shows it. */
+/** Mirrors `xModeFor`, so a column exports as the axis shows it. */
 export function columnKind(col: DataColumn): CellKind {
 	if (col.categoryLabels) return "category";
 	return col.isFloat64 ? "date" : "number";

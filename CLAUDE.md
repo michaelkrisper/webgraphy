@@ -40,7 +40,7 @@ File import → **parser web worker** (`src/workers/parser.worker.ts` → `utils
 
 Single store holding `datasets`, `series`, `xAxes`, `yAxes`, plus UI flags. Key model facts:
 
-- There are always **9 fixed x-axis and 9 fixed y-axis slots** (`axis-1`..`axis-9`), created up front. Adding data assigns a dataset to a free x-axis slot; it does not create axes.
+- There are always **9 fixed x-axis and 9 fixed y-axis slots** (`axis-1`..`axis-9`), created up front. Adding data puts a dataset on an in-use x axis whose x columns are the same kind over a similar range (`pickSharedXAxisId`), else on a free slot; it does not create axes.
 - A **`SeriesConfig`** binds a dataset column (`sourceId` + `yColumn`) to a `yAxisId`. A **`Dataset`** owns one `xAxisColumn`/`xAxisId`.
 - Each axis has `scale: "linear" | "log"`. `utils/axisScale.ts` holds the math: a log axis keeps `min`/`max` in data units (> 0) and does everything positional (pixel mapping, pan, zoom, padding) in "scale space" (log10). Use its helpers rather than hand-rolling `Math.log10`; the series shaders get it as the `u_log_ref` uniform.
 - Persistence is **split and debounced**: `debouncedSaveViewport` (axis min/max, 250ms), `debouncedSaveConfig` (series + toggles, 150ms), `debouncedSaveState` (both), plus `persistence.saveDataset` (debounced per dataset, 300ms). Writes are gated on `isLoaded` and scheduled via `requestIdleCallback`; `flushPendingSaves()` forces them (before an SW-update reload; persistence also flushes on `visibilitychange`). When adding store actions that mutate data, follow the existing pattern of calling the matching debounced saver.

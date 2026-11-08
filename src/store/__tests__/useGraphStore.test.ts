@@ -157,6 +157,7 @@ describe("useGraphStore", () => {
 
 	it("should fallback to axis-1 if all 9 axes are used", () => {
 		const store = useGraphStore.getState();
+		// Disjoint ranges, so no dataset joins another's axis.
 		const datasets: Dataset[] = Array.from({ length: 9 }, (_, i) => ({
 			id: `ds-${i + 1}`,
 			name: `Dataset ${i + 1}`,
@@ -165,7 +166,7 @@ describe("useGraphStore", () => {
 				{
 					isFloat64: false,
 					refPoint: 0,
-					bounds: { min: 0, max: 100 },
+					bounds: { min: 1000 * (i + 1), max: 1000 * (i + 1) + 100 },
 					data: new Float32Array([0, 100]),
 				},
 			],
@@ -197,7 +198,42 @@ describe("useGraphStore", () => {
 		store.addDataset(ds10);
 
 		const state = useGraphStore.getState();
+		expect(new Set(state.datasets.slice(0, 9).map((d) => d.xAxisId)).size).toBe(
+			9,
+		);
 		expect(state.datasets[9].xAxisId).toBe("axis-1");
+	});
+
+	it("shares an in-use X axis with a similar x column and keeps its range", () => {
+		const store = useGraphStore.getState();
+		const make = (id: string, min: number, max: number): Dataset => ({
+			id,
+			name: id,
+			columns: ["Time"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: 0,
+					bounds: { min, max },
+					data: new Float32Array([0, max - min]),
+				},
+			],
+			rowCount: 2,
+			xAxisColumn: "Time",
+			xAxisId: "",
+		});
+		store.addDataset(make("a", 0, 100));
+		store.updateXAxis("axis-1", { min: -5, max: 105 });
+		store.addDataset(make("b", 50, 150));
+		store.addDataset(make("c", 10_000, 10_100));
+
+		const state = useGraphStore.getState();
+		expect(state.datasets.map((d) => d.xAxisId)).toEqual([
+			"axis-1",
+			"axis-1",
+			"axis-2",
+		]);
+		expect(state.xAxes[0]).toMatchObject({ min: -5, max: 105, xMode: "date" });
 	});
 
 	it("should update dataset correctly", () => {

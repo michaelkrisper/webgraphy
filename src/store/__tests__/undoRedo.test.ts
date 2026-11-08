@@ -191,8 +191,8 @@ describe("undo/redo", () => {
 
 	it("frees an emptied X slot of its title and log scale", () => {
 		store().addDataset(makeDataset("ds-1"));
-		store().addDataset(makeDataset("ds-2"));
-		const xId = store().datasets[1].xAxisId ?? "axis-1";
+		store().addDataset({ ...makeDataset("ds-2"), xAxisId: "axis-2" });
+		const xId = "axis-2";
 		store().updateXAxis(xId, { name: "Depth" });
 		store().removeDataset("ds-2");
 		expect(store().xAxes.find((a) => a.id === xId)?.name).toBe("");
