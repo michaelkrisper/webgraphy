@@ -46,7 +46,8 @@ function check(
 			const obj = value as Record<string, unknown>;
 			const props = schema.properties ?? {};
 			for (const key of Object.keys(obj)) {
-				if (!(key in props) && schema.additionalProperties === false) {
+				// Own keys only: `in` would let "constructor" or "toString" through.
+				if (!Object.hasOwn(props, key) && schema.additionalProperties === false) {
 					const allowed = Object.keys(props);
 					return allowed.length
 						? `Unknown property "${key}". Allowed: ${allowed.join(", ")}`
