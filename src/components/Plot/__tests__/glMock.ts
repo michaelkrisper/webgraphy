@@ -95,8 +95,16 @@ export function makeGl2Mock() {
 		deleteProgram: vi.fn(),
 		deleteShader: vi.fn(),
 		getExtension: vi.fn(() => null),
+		isContextLost: vi.fn(() => false),
 	};
 	return gl;
+}
+
+/** Make the mock answer like a lost context (creates return null), or not. */
+export function setGlLost(gl: ReturnType<typeof makeGl2Mock>, lost: boolean) {
+	gl.isContextLost.mockReturnValue(lost);
+	gl.createShader.mockReturnValue((lost ? null : {}) as never);
+	gl.createProgram.mockReturnValue((lost ? null : {}) as never);
 }
 
 /**

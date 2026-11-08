@@ -9,6 +9,7 @@ import {
 	makeCanvasMock,
 	makeGl2Mock,
 	makeLoseContextExt,
+	setGlLost,
 } from "../../components/Plot/__tests__/glMock";
 import type { SceneContext } from "../../components/Plot/frameScene";
 import {
@@ -352,6 +353,39 @@ describe("render.worker", () => {
 			(c) => c[1] instanceof Float32Array && c[2] === gl.STATIC_DRAW,
 		);
 		expect(reuploads).toHaveLength(2);
+		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
+	});
+
+	it("waits for a restore when the context is lost at init", async () => {
+		const post = vi
+			.spyOn(window, "postMessage")
+			.mockImplementation(() => undefined);
+		const gl = makeGl2Mock();
+		setGlLost(gl, true);
+		const canvas = makeCanvasMock(gl);
+		send({
+			t: "init",
+			canvas: canvas as unknown as OffscreenCanvas,
+			viewport,
+			plotBg: [1, 1, 1],
+		});
+		canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+		// No "shader" failure notice: the shaders are fine, the GPU is away.
+		expect(post).not.toHaveBeenCalled();
+		send({ t: "series", list: [seriesMsg(601, 602, true)] });
+		send({
+			t: "frame",
+			xAxes: axes,
+			yAxes: axes,
+			interacting: false,
+			highlight: null,
+		});
+		await nextFrame();
+		expect(gl.clear).not.toHaveBeenCalled();
+
+		setGlLost(gl, false);
+		canvas.dispatchEvent(new Event("webglcontextrestored"));
+		await nextFrame();
 		expect(gl.drawArraysInstanced).toHaveBeenCalledWith(gl.TRIANGLES, 0, 6, 9);
 	});
 
