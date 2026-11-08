@@ -2,6 +2,7 @@
 
 [![Live](https://img.shields.io/badge/Live-app-brightgreen)](https://michaelkrisper.github.io/webgraphy/)
 [![CI](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/michaelkrisper/webgraphy?sort=semver&label=version)](https://github.com/michaelkrisper/webgraphy/releases)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933.svg)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6.svg)](tsconfig.json)
@@ -225,13 +226,17 @@ on pull requests and pushes to `main`:
 - `e2e`: Playwright in a pinned container.
 - `bench`: benchmarks against the baseline.
 - `deploy`: publishes `dist` to GitHub Pages, on `main` only, after `quality`
-  and `e2e` pass, then tags the commit and creates a GitHub release.
+  and `e2e` pass, then tags the commit.
 
-Every merge to `main` is released as the next patch version (`vX.Y.Z` tags are
-the source of truth, computed by `scripts/next-version.mjs`). For a minor or
-major release, raise the `version` in `package.json` in the pull request; the
-merge is then released as exactly that version. The build reads the version
-from `git describe`, or from the `APP_VERSION` environment variable when set.
+Every merge to `main` is deployed and tagged as the next patch version
+(`vX.Y.Z` tags are the source of truth, computed by
+`scripts/next-version.mjs`); only the tip of `main` is versioned and deployed.
+Bundled minor or major releases come from the Release workflow (_Actions →
+Release → Run workflow_): it tags `main`, publishes a GitHub release listing
+the merged pull requests and closed tickets, and redeploys so the app shows
+the release version. The build reads the version from `git describe`, or from
+the `APP_VERSION` environment variable when set. Changes go through issue →
+branch → pull request → auto-merge, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Screenshot baselines are generated only by CI, never locally. To refresh them
 after an intentional UI change, run the workflow manually with
