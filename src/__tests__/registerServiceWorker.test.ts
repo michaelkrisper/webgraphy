@@ -36,6 +36,20 @@ describe("registerServiceWorker", () => {
 		vi.useRealTimers();
 	});
 
+	it("deletes the unprefixed runtime caches of older builds", () => {
+		const del = vi.fn().mockResolvedValue(true);
+		vi.stubGlobal("caches", { delete: del });
+		try {
+			register();
+			expect(del.mock.calls.map((c) => c[0])).toEqual([
+				"excel-worker",
+				"theme-fonts",
+			]);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it("registers immediately in prompt mode with update callbacks", () => {
 		const options = register();
 		expect(options.immediate).toBe(true);

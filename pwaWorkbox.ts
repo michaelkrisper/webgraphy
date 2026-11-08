@@ -13,7 +13,7 @@ export const workbox = {
 		// Fonts likewise: only the default light/dark themes' set
 		// (src/fonts-plex.css, IBM Plex) is precached. The other themes'
 		// sets are fetched when the theme is first applied and cached from
-		// then on ("theme-fonts" below); offline before that, the theme and
+		// then on ("webgraphy-theme-fonts" below); offline before that, the theme and
 		// image exports in it fall back through its font stack.
 		"**/fonts-{jetbrains,serif,comic}-*.css",
 		"**/{jetbrains-mono,source-serif-4,comic-neue}-*.woff2",
@@ -27,7 +27,7 @@ export const workbox = {
 			urlPattern: /\/assets\/excel\.worker-.*\.js$/,
 			handler: "CacheFirst",
 			options: {
-				cacheName: "excel-worker",
+				cacheName: "webgraphy-excel-worker",
 				expiration: { maxEntries: 2 },
 			},
 		},
@@ -38,7 +38,7 @@ export const workbox = {
 			urlPattern: /\/assets\/(?:fonts-[^/]+\.css|[^/]+\.woff2)$/,
 			handler: "CacheFirst",
 			options: {
-				cacheName: "theme-fonts",
+				cacheName: "webgraphy-theme-fonts",
 				expiration: { maxEntries: 24, maxAgeSeconds: 365 * 24 * 60 * 60 },
 			},
 		},
