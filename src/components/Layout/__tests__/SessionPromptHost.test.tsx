@@ -6,6 +6,7 @@ import {
 	confirmReplaceWorkspace,
 	useSessionPrompt,
 } from "../../../store/useSessionPrompt";
+import { SHORTCUTS, shortcutHint } from "../../../utils/shortcuts";
 import { SessionPromptHost } from "../SessionPromptHost";
 import { AXE_TIMEOUT_MS } from "../../../__tests__/axeTimeout";
 
@@ -37,6 +38,9 @@ describe("SessionPromptHost", () => {
 			});
 			expect(dialog).toHaveTextContent("work.webgraphy");
 			expect(dialog).toHaveTextContent("2 datasets, 3 series");
+			expect(dialog).toHaveTextContent(
+				`You can undo this with ${shortcutHint(SHORTCUTS.undo)}.`,
+			);
 			expect(await axe(dialog)).toHaveNoViolations();
 
 			fireEvent.click(screen.getByRole("button", { name: "Replace workspace" }));

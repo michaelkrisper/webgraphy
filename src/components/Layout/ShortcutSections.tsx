@@ -6,7 +6,8 @@ import {
 	type Shortcut,
 } from "../../utils/shortcuts";
 
-const Keys: React.FC<{ shortcut: Shortcut }> = ({ shortcut }) => (
+/** A binding as `<kbd>` keys, e.g. Ctrl + Z or ← / →. */
+export const Keys: React.FC<{ shortcut: Shortcut }> = ({ shortcut }) => (
 	<>
 		{shortcut.ctrl && (
 			<>

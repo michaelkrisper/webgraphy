@@ -128,6 +128,21 @@ describe("MeasureTools", () => {
 		expect(row).toHaveTextContent("+10");
 	});
 
+	it("names and describes each pin tag's remove button", async () => {
+		const { click } = setup();
+		click(sx(2));
+		click(sx(6));
+		await readout();
+		const removeA = screen.getByRole("button", { name: "Remove cursor A" });
+		const removeB = screen.getByRole("button", { name: "Remove cursor B" });
+		expect(removeA).toHaveAccessibleDescription(
+			"Removes this measurement cursor; B, if set, becomes A",
+		);
+		expect(removeB).toHaveAccessibleDescription(
+			"Removes this measurement cursor",
+		);
+	});
+
 	it("does not pin after a drag (pan)", () => {
 		const { click } = setup();
 		click(sx(3), { dragTo: sx(3) + 20 });

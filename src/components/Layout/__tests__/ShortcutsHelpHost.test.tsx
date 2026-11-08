@@ -44,6 +44,24 @@ describe("ShortcutsHelpHost", () => {
 		expect(useShortcutsHelp.getState().open).toBe(false);
 	});
 
+	it.each([
+		["an axis range popover", { role: "dialog", "aria-label": "Y axis 1 range" }],
+		["a picker popover", { class: "popup-picker-popover" }],
+	])("ignores ? while %s is open", (_label, attrs) => {
+		render(<ShortcutsHelpHost />);
+		const overlay = document.createElement("div");
+		for (const [k, v] of Object.entries(attrs)) overlay.setAttribute(k, v);
+		document.body.appendChild(overlay);
+		try {
+			const e = new KeyboardEvent("keydown", { key: "?", cancelable: true });
+			window.dispatchEvent(e);
+			expect(e.defaultPrevented).toBe(false);
+			expect(useShortcutsHelp.getState().open).toBe(false);
+		} finally {
+			overlay.remove();
+		}
+	});
+
 	it("opens on request from elsewhere and closes on Escape", async () => {
 		render(<ShortcutsHelpHost />);
 		act(() => useShortcutsHelp.getState().setOpen(true));

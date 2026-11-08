@@ -108,7 +108,7 @@ describe("SeriesConfigUI axis controls", () => {
 
 	it("lists used axes with their title and swatches, plus New axis", () => {
 		render(<SeriesConfigUI series={dew} datasets={datasets} />);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 
 		const popover = document.getElementById("y-axis-popover-s2");
 		if (!popover) throw new Error("popover not open");
@@ -119,16 +119,16 @@ describe("SeriesConfigUI axis controls", () => {
 			"New axis",
 		]);
 		expect(items[0].querySelectorAll(".sc-axis-swatch")).toHaveLength(2);
-		expect(items[0]).toHaveAttribute("title", "Y-Axis 1: Temp / Dew");
+		expect(items[0]).toHaveAttribute("title", "Y axis 1: Temp / Dew");
 		// Keyboard users land on the first option.
 		expect(items[0]).toHaveFocus();
 	});
 
 	it("moves the series to the first free slot via New axis", () => {
 		render(<SeriesConfigUI series={dew} datasets={datasets} />);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 		const newAxis = screen.getByRole("button", { name: "New axis" });
-		expect(newAxis).toHaveAttribute("title", "Move to Y-Axis 2");
+		expect(newAxis).toHaveAttribute("title", "Move to Y axis 2");
 		fireEvent.click(newAxis);
 		// Temp keeps Y1 on the left, so the new axis opens on the right.
 		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { position: "right" });
@@ -147,7 +147,7 @@ describe("SeriesConfigUI axis controls", () => {
 				datasets={datasets}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 		fireEvent.click(screen.getByRole("button", { name: "New axis" }));
 		// Moving Wind empties the left side, so its new axis takes it.
 		expect(updateYAxis).toHaveBeenCalledWith("axis-2", { position: "left" });
@@ -156,7 +156,7 @@ describe("SeriesConfigUI axis controls", () => {
 	it("titles axes by their custom title where set", () => {
 		setStore([temp, dew, wind], {}, { "axis-1": "Air" });
 		render(<SeriesConfigUI series={dew} datasets={datasets} />);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 		const popover = document.getElementById("y-axis-popover-s2");
 		if (!popover) throw new Error("popover not open");
 		expect(
@@ -169,7 +169,7 @@ describe("SeriesConfigUI axis controls", () => {
 	it("shows the slot as Y1 on the axis button", () => {
 		render(<SeriesConfigUI series={temp} datasets={datasets} />);
 		expect(
-			screen.getByRole("button", { name: "Select Y-Axis" }),
+			screen.getByRole("button", { name: "Select Y axis" }),
 		).toHaveTextContent("Y1");
 	});
 
@@ -179,17 +179,17 @@ describe("SeriesConfigUI axis controls", () => {
 		);
 		setStore(all);
 		render(<SeriesConfigUI series={all[0]} datasets={datasets} />);
-		fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 		const newAxis = screen.getByRole("button", { name: "New axis" });
 		expect(newAxis).toBeDisabled();
-		expect(newAxis).toHaveAttribute("title", "All 9 Y-axes are in use");
+		expect(newAxis).toHaveAttribute("title", "All 9 Y axes are in use");
 	});
 
 	it(
 		"has no axe violations with the picker open",
 		async () => {
 			render(<SeriesConfigUI series={dew} datasets={datasets} />);
-			fireEvent.click(screen.getByRole("button", { name: "Select Y-Axis" }));
+			fireEvent.click(screen.getByRole("button", { name: "Select Y axis" }));
 			// The popover is portalled to <body>; landmarks are the app shell's job.
 			expect(
 				await axe(document.body, { rules: { region: { enabled: false } } }),

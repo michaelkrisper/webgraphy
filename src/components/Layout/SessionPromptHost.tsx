@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback } from "react";
 import { useSessionPrompt } from "../../store/useSessionPrompt";
+import { SHORTCUTS, shortcutHint } from "../../utils/shortcuts";
 
 const ConfirmDialog = lazy(() =>
 	import("./ConfirmDialog").then((m) => ({ default: m.ConfirmDialog })),
@@ -15,7 +16,7 @@ export function SessionPromptHost() {
 		<Suspense fallback={null}>
 			<ConfirmDialog
 				title="Open session?"
-				message={`Opening "${prompt.fileName}" (${prompt.summary}) replaces all current datasets, series and axes. You can undo this with Ctrl+Z.`}
+				message={`Opening "${prompt.fileName}" (${prompt.summary}) replaces all current datasets, series and axes. You can undo this with ${shortcutHint(SHORTCUTS.undo)}.`}
 				confirmLabel="Replace workspace"
 				confirmDescription="Replaces all datasets, series and axes with the session's"
 				onConfirm={confirm}

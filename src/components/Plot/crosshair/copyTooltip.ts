@@ -1,11 +1,16 @@
 import { notify } from "../../../store/useNotificationStore";
-import { hasKey, isEditableTarget, SHORTCUTS } from "../../../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../../../utils/shortcuts";
 import type { SnapResult } from "./types";
 
 /**
  * Ctrl+C copies the tooltip only when nothing else claims the keystroke: a
- * focused text control, an open dialog, or a text selection anywhere on the
- * page all keep the browser's own copy.
+ * focused text control, an open dialog or popover, or a text selection
+ * anywhere on the page all keep the browser's own copy.
  */
 export function shouldCopyTooltip(
 	e: Pick<
@@ -18,7 +23,7 @@ export function shouldCopyTooltip(
 	if (!hasKey(SHORTCUTS.copyTooltip, e.key)) return false;
 	if (isEditableTarget(e.target)) return false;
 	if ((e.target as HTMLElement | null)?.isContentEditable) return false;
-	if (doc.querySelector('[aria-modal="true"]')) return false;
+	if (overlayOwnsKeyboard(doc)) return false;
 	const sel = doc.getSelection();
 	return !sel || sel.toString() === "";
 }

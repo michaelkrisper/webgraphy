@@ -1078,7 +1078,7 @@ function seriesUpdateLabel(
 	if ("lineStyle" in updates) return `change line style of '${name}'`;
 	if ("pointStyle" in updates) return `change point style of '${name}'`;
 	if ("yAxisId" in updates)
-		return `move '${name}' to Y-axis ${updates.yAxisId?.split("-")[1]}`;
+		return `move '${name}' to Y axis ${updates.yAxisId?.split("-")[1]}`;
 	if ("yColumn" in updates || "sourceId" in updates)
 		return `change column of '${name}'`;
 	if ("name" in updates) return `rename series '${name}'`;
@@ -1099,7 +1099,7 @@ function axisUpdateLabel(
 	id: string,
 	updates: Partial<XAxisConfig & YAxisConfig>,
 ): string {
-	const axis = `${kind}-axis ${id.split("-")[1]}`;
+	const axis = `${kind} axis ${id.split("-")[1]}`;
 	if ("name" in updates || "title" in updates) return `rename ${axis}`;
 	if ("showGrid" in updates)
 		return `${updates.showGrid ? "show" : "hide"} ${axis} grid`;

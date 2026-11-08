@@ -149,13 +149,13 @@ describe("DatasetItem", () => {
 
 	it("hides the X-axis slot button while there is a single dataset", () => {
 		setup([makeDataset("ds1")], []);
-		expect(screen.queryByRole("button", { name: "Select X-Axis" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Select X axis" })).toBeNull();
 	});
 
 	it("shows the X-axis slot button once there are two datasets", () => {
 		setup([makeDataset("ds1", "axis-2"), makeDataset("ds2")], []);
 		expect(
-			screen.getByRole("button", { name: "Select X-Axis" }),
+			screen.getByRole("button", { name: "Select X axis" }),
 		).toHaveTextContent(/^X2$/);
 	});
 
@@ -337,7 +337,7 @@ describe("DatasetItem", () => {
 		const { state } = setup([makeDataset("ds1")], []);
 		expect(screen.queryByRole("button", { name: "t" })).toBeNull();
 		fireEvent.change(
-			screen.getByRole("combobox", { name: "X-axis column for Dataset ds1" }),
+			screen.getByRole("combobox", { name: "X axis column for Dataset ds1" }),
 			{ target: { value: "temp" } },
 		);
 		expect(state.updateDataset).toHaveBeenCalledWith("ds1", {

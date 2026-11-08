@@ -1,6 +1,7 @@
 import type React from "react";
+import { SHORTCUTS } from "../../utils/shortcuts";
 import { Modal } from "./Modal";
-import { ShortcutSections } from "./ShortcutSections";
+import { Keys, ShortcutSections } from "./ShortcutSections";
 
 interface HelpModalProps {
 	onClose: () => void;
@@ -39,16 +40,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					<strong>Stacked Fit</strong> gives each Y axis its own band
 				</li>
 				<li>
-					<strong>Zoom history:</strong> <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd>{" "}
-					steps back / forward through earlier views
+					<strong>Zoom history:</strong> <Keys shortcut={SHORTCUTS.viewBack} /> /{" "}
+					<Keys shortcut={SHORTCUTS.viewForward} /> steps back / forward through
+					earlier views
 				</li>
 				<li>
 					<strong>Hover:</strong> Crosshair and tooltip snap to the nearest point
 				</li>
 				<li>
 					<strong>Click:</strong> Pin cursor A, click again for B — the readout shows
-					Δx, Δy and slope (ratio on log axes). <kbd>Esc</kbd> clears them.{" "}
-					<kbd>S</kbd> shows statistics of the visible range
+					Δx, Δy and slope (ratio on log axes).{" "}
+					<Keys shortcut={SHORTCUTS.clearPins} /> clears them.{" "}
+					<Keys shortcut={SHORTCUTS.toggleStats} /> shows statistics of the visible
+					range
 				</li>
 				<li>
 					<strong>Legend:</strong> Click an entry to hide or show its series
@@ -67,20 +71,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					top or bottom fits the data into the upper or lower half
 				</li>
 				<li>
-					<strong>Exact range:</strong> Right-click an axis, or press <kbd>R</kbd> on
-					the focused axis, to type its min and max
+					<strong>Exact range:</strong> Right-click an axis, or press{" "}
+					<Keys shortcut={SHORTCUTS.axisRange} /> on the focused axis, to type its
+					min and max
 				</li>
 				<li>
 					<strong>Rename an X axis:</strong> Double-click its title, or press{" "}
-					<kbd>Enter</kbd> on the focused axis
+					<Keys shortcut={SHORTCUTS.axisRename} /> on the focused axis
 				</li>
 			</Section>
 
 			<Section title="Data">
 				<li>
 					<strong>Import:</strong> CSV, JSON or Excel, or paste spreadsheet cells (
-					<kbd>Ctrl</kbd> + <kbd>V</kbd>). The import dialog sets the delimiter,
-					decimal point, header row and column types
+					<Keys shortcut={SHORTCUTS.pasteData} />
+					). The import dialog sets the delimiter, decimal point, header row and
+					column types
 				</li>
 				<li>
 					<strong>Column chips:</strong> Click to plot a column; click a filled
@@ -105,8 +111,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 					axis — up to 9), its side and grid, line style, markers and colour
 				</li>
 				<li>
-					<strong>Undo:</strong> Deletes and edits can be undone (<kbd>Ctrl</kbd> +{" "}
-					<kbd>Z</kbd>, or Undo in the toast)
+					<strong>Undo:</strong> Deletes and edits can be undone (
+					<Keys shortcut={SHORTCUTS.undo} />, or Undo in the toast)
 				</li>
 			</Section>
 

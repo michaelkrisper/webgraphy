@@ -25,8 +25,8 @@ const X_AXIS_OPTIONS: PopupPickerOption<number>[] = Array.from(
 		return {
 			value: n,
 			icon: <span style={{ fontWeight: "bold" }}>X{n}</span>,
-			label: `X-Axis ${n}`,
-			description: `Plots the dataset against X-Axis ${n}`,
+			label: `X axis ${n}`,
+			description: `Plots the dataset against X axis ${n}`,
 		};
 	},
 );
@@ -211,16 +211,16 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								current={parseInt((ds.xAxisId || "axis-1").split("-")[1], 10) || 1}
 								onChange={(n) => updateDataset(ds.id, { xAxisId: `axis-${n}` })}
 								popoverId={`x-axis-popover-${ds.id}`}
-								label="X-Axis"
+								label="X axis"
 								renderTrigger={({ onClick, ref, popupProps }) => (
 									<button
 										ref={ref}
 										className="sb-xaxis-btn-mono"
 										onClick={onClick}
 										type="button"
-										title="Select X-Axis (1-9)"
-										aria-label="Select X-Axis"
-										aria-description={`${ds.name} uses X-Axis ${(ds.xAxisId || "axis-1").split("-")[1]}. Opens X-axes 1 to 9; datasets on one X axis share its range`}
+										title="Select X axis (1-9)"
+										aria-label="Select X axis"
+										aria-description={`${ds.name} uses X axis ${(ds.xAxisId || "axis-1").split("-")[1]}. Opens X axes 1 to 9; datasets on one X axis share its range`}
 										{...popupProps}
 										style={{
 											padding: "0 5px",
@@ -252,8 +252,8 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 									xAxisColumn: e.target.value,
 								})
 							}
-							title="X-Axis"
-							aria-label={`X-axis column for ${ds.name}`}
+							title="X axis"
+							aria-label={`X axis column for ${ds.name}`}
 							aria-description="Column that gives the X values for all of this dataset's series"
 							style={{
 								fontSize: "0.75rem",

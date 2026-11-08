@@ -105,6 +105,49 @@ describe("ImportSettingsDialog", () => {
 		expect(screen.getByText("Data2")).toBeInTheDocument();
 	});
 
+	describe("Header Row field shows the row in use", () => {
+		const renderCsv = () => {
+			render(
+				<ImportSettingsDialog
+					fileName="test.csv"
+					fileContent={"Comment Line\nHeader1,Header2\nData1,Data2"}
+					fileType="csv"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+					theme={theme}
+				/>,
+			);
+			return screen.getByRole("spinbutton", { name: /Header Row/i });
+		};
+
+		it("restores the row on blur after being cleared", () => {
+			const input = renderCsv();
+			expect(input).toHaveValue(1);
+			fireEvent.change(input, { target: { value: "" } });
+			fireEvent.blur(input);
+			expect(input).toHaveValue(1);
+		});
+
+		it("clamps a row below 1 in the field, also when the row stays 1", () => {
+			const input = renderCsv();
+			fireEvent.change(input, { target: { value: "0" } });
+			expect(input).toHaveValue(1);
+			fireEvent.change(input, { target: { value: "-2" } });
+			expect(input).toHaveValue(1);
+		});
+
+		it("can be cleared and retyped without snapping back", () => {
+			const input = renderCsv();
+			fireEvent.change(input, { target: { value: "3" } });
+			fireEvent.change(input, { target: { value: "" } });
+			expect(input).toHaveValue(null);
+			fireEvent.change(input, { target: { value: "2" } });
+			expect(input).toHaveValue(2);
+			fireEvent.blur(input);
+			expect(input).toHaveValue(2);
+		});
+	});
+
 	it("shows how to pick the X column as visible text", () => {
 		render(
 			<ImportSettingsDialog
