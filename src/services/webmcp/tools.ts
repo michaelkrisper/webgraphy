@@ -33,6 +33,9 @@ import { columnStatistics } from "./stats";
 
 const PRIVACY =
 	"Returns metadata and aggregate statistics only, never individual row values.";
+// Over an X range this narrow, statistics give rows away: one row has
+// min = max = mean = its value, so a column could be read row by row.
+const MIN_RANGE_VALUES = 5;
 const NOT_MOUNTED =
 	"The chart is not on screen, so the view cannot be changed right now";
 
@@ -340,7 +343,7 @@ export function createTools(): ModelContextTool[] {
 		}>({
 			name: "get_column_statistics",
 			title: "Column statistics",
-			description: `Computes count, missing values, min, max, mean and sample standard deviation (n - 1) of one dataset column, locally in the browser. Optionally restricted to rows whose X value lies within [xMin, xMax] (either bound may be omitted). ${PRIVACY}`,
+			description: `Computes count, missing values, min, max, mean and sample standard deviation (n - 1) of one dataset column, locally in the browser. Optionally restricted to rows whose X value lies within [xMin, xMax] (either bound may be omitted); such a range must hold at least ${MIN_RANGE_VALUES} values, otherwise only the counts are returned. ${PRIVACY}`,
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -394,6 +397,11 @@ export function createTools(): ModelContextTool[] {
 						...head,
 						categories: col.categoryLabels?.length ?? 0,
 						note: "Numeric statistics do not apply to a categorical column.",
+					});
+				if (xRange && st.n < MIN_RANGE_VALUES)
+					return ok({
+						...head,
+						note: `Fewer than ${MIN_RANGE_VALUES} values in this X range, so only counts are given: statistics this narrow would reveal individual values. Widen the range.`,
 					});
 				return ok({
 					...head,
