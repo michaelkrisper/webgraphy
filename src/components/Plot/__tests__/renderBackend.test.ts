@@ -401,7 +401,7 @@ describe("WorkerBackend protocol", () => {
 		const { notifications } = useNotificationStore.getState();
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0].kind).toBe("error");
-		expect(notifications[0].message).toContain("renderer crashed");
+		expect(notifications[0].message).toContain("renderer hit an error");
 		notifications[0].action?.onAction();
 		expect(reload).toHaveBeenCalled();
 		releaseRenderBackend(canvas);
