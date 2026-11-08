@@ -242,6 +242,13 @@ describe("accessible names and descriptions", () => {
 			for (const item of within(menu).getAllByRole("button")) {
 				expect(item).not.toHaveAttribute("aria-pressed");
 			}
+			expect(
+				within(menu).getByRole("button", { name: "Copy chart as image" }),
+			).toHaveAccessibleDescription(/clipboard/);
+			// The shortcut hints at the right stay out of the item names.
+			expect(
+				within(menu).getByRole("button", { name: "Save session…" }),
+			).toHaveAccessibleDescription(/Ctrl\+S/);
 			expectNamedAndDescribed();
 		});
 

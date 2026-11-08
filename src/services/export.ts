@@ -1,4 +1,5 @@
 import type { Theme } from "../themes";
+import { chooseSaveTarget, type FileTypeFilter } from "../utils/fileAccess";
 import type { TextMeasurer } from "./exportLayout";
 import { embeddedFontCss, waitForFonts } from "./exportFonts";
 import { CSS_DPI, canvasLimitError } from "./exportOptions";
@@ -168,35 +169,75 @@ export interface ImageExportRequest
 	fileName?: string;
 }
 
+export const IMAGE_FILE_TYPES: Record<
+	ImageExportRequest["format"],
+	FileTypeFilter
+> = {
+	png: { description: "PNG image", accept: { "image/png": [".png"] } },
+	svg: { description: "SVG image", accept: { "image/svg+xml": [".svg"] } },
+};
+
+function checkCanvasLimit({
+	format,
+	width,
+	height,
+	pixelRatio,
+}: ImageExportRequest) {
+	if (format !== "png") return;
+	const limit = canvasLimitError(
+		Math.round(width * pixelRatio),
+		Math.round(height * pixelRatio),
+	);
+	if (limit) throw new CanvasSizeError(limit);
+}
+
 /**
- * Builds and downloads an SVG or PNG of the plot, with the theme font
- * embedded and loaded first. Rejects with CanvasSizeError when a PNG would
- * exceed the browser's canvas limits.
+ * Saves an SVG or PNG of the plot where the user picks, or as a download.
+ * `loadFonts` runs after the picker (which needs the click's user activation)
+ * and before drawing. Cancelling the picker is silent; a PNG beyond the
+ * browser's canvas limits rejects with CanvasSizeError before it opens.
  */
 export async function exportImage(
 	plot: PlotSnapshot,
 	request: ImageExportRequest,
 	theme: Theme,
+	loadFonts?: () => Promise<void>,
 ): Promise<void> {
-	const { format, width, height, pixelRatio, fileName, ...decor } = request;
-	if (format === "png") {
-		const limit = canvasLimitError(
-			Math.round(width * pixelRatio),
-			Math.round(height * pixelRatio),
-		);
-		if (limit) throw new CanvasSizeError(limit);
-	}
+	checkCanvasLimit(request);
+	const target = await chooseSaveTarget(
+		`${request.fileName ?? "webgraphy-export"}.${request.format}`,
+		IMAGE_FILE_TYPES[request.format],
+	);
+	if (!target) return;
+	await loadFonts?.();
+	await target.write(await renderImage(plot, request, theme));
+}
+
+/**
+ * Draws an SVG or PNG of the plot, with the theme font embedded and loaded
+ * first. Rejects with CanvasSizeError when a PNG would exceed the browser's
+ * canvas limits.
+ */
+export async function renderImage(
+	plot: PlotSnapshot,
+	request: ImageExportRequest,
+	theme: Theme,
+): Promise<Blob> {
+	checkCanvasLimit(request);
+	const { format, width, height, pixelRatio } = request;
 	const [fontFaceCss] = await Promise.all([
 		embeddedFontCss(theme.fontFamily),
 		waitForFonts(theme.fontFamily),
 	]);
 	const options: SvgExportOptions = {
-		...decor,
+		title: request.title,
+		legend: request.legend,
+		transparent: request.transparent,
+		physical: request.physical,
 		fontFaceCss,
 		measureText: canvasMeasurer(theme.fontFamily),
 	};
 	const { datasets, series, xAxes, yAxes } = plot;
-	const name = fileName ?? "webgraphy-export";
 	if (format === "svg") {
 		const svg = exportToSVG(
 			datasets,
@@ -208,8 +249,7 @@ export async function exportImage(
 			theme,
 			options,
 		);
-		downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${name}.svg`);
-		return;
+		return new Blob([svg], { type: "image/svg+xml" });
 	}
 	const canvas = await renderPNGCanvas(
 		datasets,
@@ -233,19 +273,8 @@ export async function exportImage(
 	// Layout px are CSS px (96 per inch), so the true resolution is 96 dpi ×
 	// pixel ratio: the chosen dpi for millimetre sizes, 192 dpi for a 2× pixel
 	// export, which then opens at its on-screen size like a HiDPI screenshot.
-	const dpi = CSS_DPI * pixelRatio;
-	downloadBlob(await setPngBlobDpi(blob, dpi), `${name}.png`);
+	return setPngBlobDpi(blob, CSS_DPI * pixelRatio);
 }
-
-/** Triggers a browser download of `blob`. */
-export const downloadBlob = (blob: Blob, fileName: string): void => {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = fileName;
-	a.click();
-	setTimeout(() => URL.revokeObjectURL(url), 100);
-};
 
 /**
  * Triggers browser file download for SVG, PNG, or JSON content.

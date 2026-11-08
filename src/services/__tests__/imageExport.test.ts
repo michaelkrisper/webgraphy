@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { THEMES } from "../../themes";
-import { CanvasSizeError, exportImage, exportToPNG } from "../export";
+import {
+	CanvasSizeError,
+	exportImage,
+	exportToPNG,
+	IMAGE_FILE_TYPES,
+	renderImage,
+} from "../export";
 import { embeddedFontCss, waitForFonts } from "../exportFonts";
 import type { Dataset, SeriesConfig, YAxisConfig } from "../persistence";
 import { PNG_1X1, physOf, readChunks } from "./pngFixture";
@@ -258,5 +264,109 @@ describe("exportImage", () => {
 				THEMES.light,
 			),
 		).rejects.toThrow(CanvasSizeError);
+	});
+});
+
+describe("exportImage with the save picker", () => {
+	let written: Blob[];
+	let order: string[];
+	let picker: ReturnType<typeof vi.fn>;
+	const loadFonts = vi.fn(async () => {
+		order.push("fonts");
+	});
+
+	beforeEach(() => {
+		written = [];
+		order = [];
+		loadFonts.mockClear();
+		picker = vi.fn(async ({ suggestedName }: { suggestedName: string }) => {
+			order.push("picker");
+			return {
+				name: suggestedName,
+				createWritable: async () => ({
+					write: async (b: Blob) => {
+						written.push(b);
+					},
+					close: async () => {},
+					abort: async () => {},
+				}),
+			};
+		});
+		vi.stubGlobal("showSaveFilePicker", picker);
+		vi.mocked(embeddedFontCss).mockImplementation(async () => {
+			order.push("render");
+			return "";
+		});
+	});
+
+	it("asks first, then loads the fonts, draws and writes the file", async () => {
+		await exportImage(
+			plot,
+			{ format: "png", width: 500, height: 400, pixelRatio: 2, fileName: "run" },
+			THEMES.light,
+			loadFonts,
+		);
+		expect(picker).toHaveBeenCalledWith(
+			expect.objectContaining({
+				suggestedName: "run.png",
+				types: [IMAGE_FILE_TYPES.png],
+			}),
+		);
+		expect(order).toEqual(["picker", "fonts", "render"]);
+		expect(written).toHaveLength(1);
+		expect(written[0].type).toBe("image/png");
+		expect(downloads).toEqual([]);
+	});
+
+	it("offers SVG as its own type", async () => {
+		await exportImage(
+			plot,
+			{ format: "svg", width: 500, height: 400, pixelRatio: 1 },
+			THEMES.light,
+		);
+		expect(picker).toHaveBeenCalledWith(
+			expect.objectContaining({
+				suggestedName: "webgraphy-export.svg",
+				types: [IMAGE_FILE_TYPES.svg],
+			}),
+		);
+		expect(written[0].type).toBe("image/svg+xml");
+	});
+
+	it("draws nothing when the user cancels", async () => {
+		picker.mockRejectedValueOnce(new DOMException("aborted", "AbortError"));
+		await exportImage(
+			plot,
+			{ format: "png", width: 500, height: 400, pixelRatio: 1 },
+			THEMES.light,
+			loadFonts,
+		);
+		expect(loadFonts).not.toHaveBeenCalled();
+		expect(canvas.getContext).not.toHaveBeenCalled();
+		expect(written).toEqual([]);
+		expect(downloads).toEqual([]);
+	});
+
+	it("rejects a too-large PNG before asking", async () => {
+		await expect(
+			exportImage(
+				plot,
+				{ format: "png", width: 20000, height: 100, pixelRatio: 1 },
+				THEMES.light,
+			),
+		).rejects.toThrow(CanvasSizeError);
+		expect(picker).not.toHaveBeenCalled();
+	});
+});
+
+describe("renderImage", () => {
+	it("returns the tagged PNG without saving it", async () => {
+		const png = await renderImage(
+			plot,
+			{ format: "png", width: 100, height: 100, pixelRatio: 1 },
+			THEMES.light,
+		);
+		expect(png.type).toBe("image/png");
+		expect(downloads).toEqual([]);
 	});
 });

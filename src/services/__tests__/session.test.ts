@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	clearHistory,
 	useGraphHistory,
@@ -17,11 +17,14 @@ import {
 	decodeSession,
 	encodeSession,
 	openSession,
+	SESSION_FILE_TYPE,
 	SESSION_FORMAT_VERSION,
 	type SessionContent,
 	SessionError,
+	saveSession,
 	sessionFileName,
 } from "../session";
+import { WORKSPACE_PICKER_ID } from "../../utils/fileAccess";
 
 vi.mock("../persistence", async (importOriginal) => ({
 	...(await importOriginal<typeof import("../persistence")>()),
@@ -444,5 +447,108 @@ describe("openSession", () => {
 			),
 		});
 		expect(useSessionPrompt.getState().prompt).toBeNull();
+	});
+});
+
+describe("saveSession", () => {
+	const toasts = () => useNotificationStore.getState().notifications;
+	let written: Blob[];
+	let downloads: string[];
+
+	const picker = (name: string) =>
+		vi.fn(async () => ({
+			name,
+			createWritable: async () => ({
+				write: async (b: Blob) => {
+					written.push(b);
+				},
+				close: async () => {},
+				abort: async () => {},
+			}),
+		}));
+
+	beforeEach(() => {
+		useGraphStore.setState({ ...sampleContent(), isLoaded: true });
+		useNotificationStore.setState({ notifications: [] });
+		written = [];
+		downloads = [];
+		URL.createObjectURL = vi.fn(() => "blob:session");
+		URL.revokeObjectURL = vi.fn();
+		vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+			this: HTMLAnchorElement,
+		) {
+			downloads.push(this.download);
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it("writes the session where the user picks and names it in the toast", async () => {
+		const show = picker("mine.webgraphy");
+		vi.stubGlobal("showSaveFilePicker", show);
+		await saveSession();
+		expect(show).toHaveBeenCalledWith({
+			suggestedName: expect.stringMatching(/^webgraphy-.*\.webgraphy$/),
+			types: [SESSION_FILE_TYPE],
+			id: WORKSPACE_PICKER_ID,
+		});
+		expect(downloads).toEqual([]);
+		const decoded = await decodeSession(await written[0].arrayBuffer());
+		expect(decoded.datasets.map((d) => d.id)).toEqual(
+			sampleContent().datasets.map((d) => d.id),
+		);
+		expect(toasts().at(-1)).toMatchObject({
+			kind: "success",
+			message: expect.stringContaining('Saved session "mine.webgraphy"'),
+		});
+	});
+
+	it("stays silent when the user cancels the picker", async () => {
+		vi.stubGlobal(
+			"showSaveFilePicker",
+			vi.fn(async () => {
+				throw new DOMException("aborted", "AbortError");
+			}),
+		);
+		await saveSession();
+		expect(written).toEqual([]);
+		expect(downloads).toEqual([]);
+		expect(toasts()).toEqual([]);
+	});
+
+	it("downloads where there is no picker", async () => {
+		await saveSession();
+		expect(downloads).toEqual([expect.stringMatching(/\.webgraphy$/)]);
+		expect(toasts().at(-1)).toMatchObject({ kind: "success" });
+	});
+
+	it("reports a failed write", async () => {
+		vi.stubGlobal(
+			"showSaveFilePicker",
+			vi.fn(async () => ({
+				name: "x.webgraphy",
+				createWritable: async () => {
+					throw new Error("No permission");
+				},
+			})),
+		);
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		await saveSession();
+		expect(toasts().at(-1)).toMatchObject({
+			kind: "error",
+			message: "Could not save the session: No permission",
+		});
+	});
+
+	it("has nothing to save in an empty workspace, and does not ask", async () => {
+		const show = picker("never.webgraphy");
+		vi.stubGlobal("showSaveFilePicker", show);
+		useGraphStore.setState({ datasets: [], series: [] });
+		await saveSession();
+		expect(show).not.toHaveBeenCalled();
+		expect(toasts().at(-1)).toMatchObject({ kind: "info" });
 	});
 });

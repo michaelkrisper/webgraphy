@@ -79,6 +79,16 @@ export const SHORTCUTS = {
 		ctrl: true,
 		description: "Redo (also Ctrl+Shift+Z)",
 	},
+	openFile: {
+		keys: ["o", "O"],
+		ctrl: true,
+		description: "Open a data file or a saved session",
+	},
+	saveSession: {
+		keys: ["s", "S"],
+		ctrl: true,
+		description: "Save the session as a .webgraphy file",
+	},
 	/** Handled via the `paste` event Ctrl+V fires, which needs no clipboard permission. */
 	pasteData: {
 		keys: ["v", "V"],
@@ -167,6 +177,7 @@ export const SHORTCUT_GROUPS: readonly {
 			"axisRename",
 		],
 	},
+	{ title: "File", ids: ["openFile", "saveSession"] },
 	{ title: "Edit", ids: ["undo", "redo", "pasteData"] },
 	{ title: "Sidebar edge", ids: ["resizeSidebar", "resetSidebar"] },
 	{ title: "Dialogs", ids: ["closeDialog"] },
