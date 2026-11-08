@@ -2,6 +2,10 @@
 //   Ctrl+Z (Cmd+Z)                    undo
 //   Ctrl+Shift+Z / Ctrl+Y (Cmd+...)   redo
 // Ignored while focus is in a form field, so text inputs keep native undo.
+// Unlike the chart keys it stays live while a dialog or popover is open
+// (no overlayOwnsKeyboard() gate): the colour and style pickers apply their
+// edits at once, and Ctrl+Z takes one back without closing the picker. No
+// overlay binds Ctrl+Z or Ctrl+Y itself.
 
 import { useEffect } from "react";
 import { useGraphStore } from "../store/useGraphStore";

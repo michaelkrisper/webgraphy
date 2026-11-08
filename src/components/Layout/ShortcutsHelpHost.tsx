@@ -1,5 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect } from "react";
-import { hasKey, isEditableTarget, SHORTCUTS } from "../../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../../utils/shortcuts";
 import { useShortcutsHelp } from "./shortcutsHelp";
 
 // Rarely opened; kept out of the entry chunk (see size-budget.json).
@@ -21,9 +26,9 @@ export function ShortcutsHelpHost() {
 			if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
 			if (!hasKey(SHORTCUTS.showShortcuts, e.key)) return;
 			if (isEditableTarget(e.target)) return;
-			// Another dialog already owns focus; stacking a second trap on it
-			// would leave two handlers fighting over Tab.
-			if (document.querySelector('[aria-modal="true"]')) return;
+			// A dialog or popover already owns the keyboard; stacking a second
+			// focus trap on it would leave two handlers fighting over Tab.
+			if (overlayOwnsKeyboard()) return;
 			e.preventDefault();
 			useShortcutsHelp.getState().setOpen(true);
 		};

@@ -120,4 +120,16 @@ describe("useZoomHistory shortcuts", () => {
 		setup(false);
 		expect(press().defaultPrevented).toBe(false);
 	});
+
+	it.each([
+		["a picker popover", { class: "popup-picker-popover" }],
+		["an axis range popover", { role: "dialog", "aria-label": "X axis 1 range" }],
+	])("leaves Alt+Left alone while %s is open", (_label, attrs) => {
+		const overlay = document.createElement("div");
+		for (const [k, v] of Object.entries(attrs)) overlay.setAttribute(k, v);
+		document.body.appendChild(overlay);
+		const { syncViewport } = setup();
+		expect(press().defaultPrevented).toBe(false);
+		expect(syncViewport).not.toHaveBeenCalled();
+	});
 });

@@ -11,7 +11,12 @@ import {
 	useState,
 } from "react";
 import { useGraphStore } from "../store/useGraphStore";
-import { hasKey, isEditableTarget, SHORTCUTS } from "../utils/shortcuts";
+import {
+	hasKey,
+	isEditableTarget,
+	overlayOwnsKeyboard,
+	SHORTCUTS,
+} from "../utils/shortcuts";
 import {
 	createZoomHistory,
 	type RangeTargets,
@@ -174,7 +179,7 @@ export function useZoomHistory({
 		const onKeyDown = (e: KeyboardEvent) => {
 			const action = viewNavActionFor(e);
 			if (!action) return;
-			if (document.querySelector('[aria-modal="true"]')) return;
+			if (overlayOwnsKeyboard()) return;
 			// Also when there is nothing to go back to: Alt+Left would otherwise
 			// navigate the page away from the app.
 			e.preventDefault();
