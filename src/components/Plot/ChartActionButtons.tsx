@@ -44,7 +44,7 @@ export function ChartActionButtons({
 			<button
 				onClick={onStackedFit}
 				type="button"
-				title={`Stacked Fit — each Y-axis fitted to its own slice (${stackedHint})`}
+				title={`Stacked Fit — each Y axis fitted to its own slice (${stackedHint})`}
 				aria-label="Stacked Fit"
 				aria-description={`Fits each Y axis into its own horizontal slice (${stackedHint})`}
 				aria-keyshortcuts={stackedHint}

@@ -189,7 +189,7 @@ describe("DataSourcesSection", () => {
 
 		renderComponent();
 
-		const select = screen.getByTitle("X-Axis");
+		const select = screen.getByTitle("X axis");
 		fireEvent.change(select, { target: { value: "y" } });
 		expect(mockUpdateDataset).toHaveBeenCalledWith("ds1", { xAxisColumn: "y" });
 	});

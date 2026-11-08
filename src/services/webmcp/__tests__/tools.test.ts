@@ -732,9 +732,9 @@ describe("set_axis", () => {
 		const out = await jsonOf("set_axis", { axis: "y", slot: 2, scale: "log" });
 		expect(out.axis).toMatchObject({ slot: 2, scale: "log" });
 		expect(useGraphHistory.getState().past.at(-1)?.label).toBe(
-			"set Y-axis 2 to log scale",
+			"set Y axis 2 to log scale",
 		);
-		expect(toasts().at(-1)?.message).toBe("AI agent: set Y-axis 2 to log scale");
+		expect(toasts().at(-1)?.message).toBe("AI agent: set Y axis 2 to log scale");
 
 		await call("set_axis", {
 			axis: "x",

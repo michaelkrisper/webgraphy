@@ -267,9 +267,9 @@ describe("undo/redo", () => {
 		store().setLegendVisible(false);
 		store().setCrosshairVisible(false);
 		expect(past().map((e) => e.label)).toEqual([
-			"rename X-axis 1",
-			"move Y-axis 2 to the left",
-			"hide Y-axis 1 grid",
+			"rename X axis 1",
+			"move Y axis 2 to the left",
+			"hide Y axis 1 grid",
 			"hide legend",
 			"hide crosshair",
 		]);
@@ -294,7 +294,7 @@ describe("undo/redo", () => {
 			past()
 				.map((e) => e.label)
 				.slice(-2),
-		).toEqual(["rename Y-axis 1", "rename Y-axis 1"]);
+		).toEqual(["rename Y axis 1", "rename Y axis 1"]);
 
 		store().undo();
 		expect(store().yAxes[0].title).toBe("Air");
@@ -599,7 +599,7 @@ describe("log axis scale", () => {
 		expect(y.min).toBeGreaterThan(0);
 		expect(y.min).toBeLessThan(1);
 		expect(y.max).toBeGreaterThan(2);
-		expect(past().map((e) => e.label)).toEqual(["set Y-axis 1 to log scale"]);
+		expect(past().map((e) => e.label)).toEqual(["set Y axis 1 to log scale"]);
 
 		store().undo();
 		expect(store().yAxes[0]).toMatchObject({ min: 0, max: 100 });

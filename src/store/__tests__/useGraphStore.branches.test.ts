@@ -189,7 +189,7 @@ describe("useGraphStore branches", () => {
 			const a = xAxis("axis-1");
 			expect(a.scale).toBe("log");
 			expect(a.min).toBeGreaterThan(0);
-			expect(lastLabel()).toBe("set X-axis 1 to log scale");
+			expect(lastLabel()).toBe("set X axis 1 to log scale");
 		});
 
 		it("ignores scale switches of unknown axes", () => {
@@ -274,7 +274,7 @@ describe("useGraphStore branches", () => {
 
 		it.each([
 			[{ pointStyle: "square" }, "change point style of 's1'"],
-			[{ yAxisId: "axis-3" }, "move 's1' to Y-axis 3"],
+			[{ yAxisId: "axis-3" }, "move 's1' to Y axis 3"],
 			[{ yColumn: "Time" }, "change column of 's1'"],
 			[{ name: "renamed" }, "rename series 's1'"],
 			[{ hidden: true }, "edit series 's1'"],

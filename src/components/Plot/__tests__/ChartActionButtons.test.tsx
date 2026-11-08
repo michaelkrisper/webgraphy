@@ -46,7 +46,7 @@ describe("ChartActionButtons", () => {
 		const stackedFitBtn = screen.getByRole("button", { name: "Stacked Fit" });
 		expect(stackedFitBtn).toHaveAttribute(
 			"title",
-			"Stacked Fit — each Y-axis fitted to its own slice (Shift+Home)",
+			"Stacked Fit — each Y axis fitted to its own slice (Shift+Home)",
 		);
 		expect(stackedFitBtn).toHaveAttribute("aria-keyshortcuts", "Shift+Home");
 	});
