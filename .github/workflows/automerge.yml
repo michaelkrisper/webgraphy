@@ -13,6 +13,9 @@ on:
 
 permissions:
   actions: write
+  # Private repos need these to read the pull request's check results.
+  checks: read
+  statuses: read
   contents: write
   issues: write
   pull-requests: write
