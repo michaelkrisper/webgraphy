@@ -11,6 +11,7 @@ export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
  */
 export function registerServiceWorker(): void {
 	let offlineReadyShown = false;
+	deleteLegacyCaches();
 
 	const updateSW = registerSW({
 		immediate: true,
@@ -42,4 +43,16 @@ export function registerServiceWorker(): void {
 			}, UPDATE_CHECK_INTERVAL_MS);
 		},
 	});
+}
+
+/**
+ * Cache Storage is shared by every app on michaelkrisper.github.io, so the
+ * runtime caches carry a "webgraphy-" prefix. These are their unprefixed
+ * predecessors, orphaned by the rename.
+ */
+const LEGACY_CACHES = ["excel-worker", "theme-fonts"];
+
+function deleteLegacyCaches(): void {
+	if (typeof caches === "undefined") return;
+	for (const name of LEGACY_CACHES) void caches.delete(name).catch(() => {});
 }

@@ -63,7 +63,7 @@ describe("service worker precache", () => {
 			expect(precached(asset(f)), f).toBe(false);
 			const route = runtimeRoute(asset(f));
 			expect(route?.handler, f).toBe("CacheFirst");
-			expect(route?.options.cacheName, f).toBe("theme-fonts");
+			expect(route?.options.cacheName, f).toBe("webgraphy-theme-fonts");
 		}
 		const { expiration } = runtimeRoute(asset(files[0]))?.options ?? {};
 		// Room for a deploy's worth of replaced files, which then expire.
@@ -74,6 +74,8 @@ describe("service worker precache", () => {
 	it("gives every runtime cache its own name", () => {
 		const names = workbox.runtimeCaching.map((r) => r.options.cacheName);
 		expect(new Set(names).size).toBe(names.length);
+		// Cache Storage is shared with the other apps on the Pages origin.
+		for (const n of names) expect(n).toMatch(/^webgraphy-/);
 	});
 
 	it("ships woff2 only", () => {
@@ -103,6 +105,8 @@ describe("service worker precache", () => {
 	it("keeps the Excel worker out of the precache", () => {
 		const worker = asset("excel.worker.js");
 		expect(precached(worker)).toBe(false);
-		expect(runtimeRoute(worker)?.options.cacheName).toBe("excel-worker");
+		expect(runtimeRoute(worker)?.options.cacheName).toBe(
+			"webgraphy-excel-worker",
+		);
 	});
 });
