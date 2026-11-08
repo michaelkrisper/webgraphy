@@ -22,5 +22,5 @@
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true
 	},
-	"include": ["vite.config.ts", "appVersion.ts"]
+	"include": ["vite.config.ts", "appVersion.ts", "pwaWorkbox.ts"]
 }

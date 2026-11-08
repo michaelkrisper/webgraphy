@@ -3,6 +3,7 @@ import { visualizer } from "rollup-plugin-visualizer";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 import { resolveAppVersion } from "./appVersion.ts";
+import { workbox } from "./pwaWorkbox.ts";
 
 // Cross-origin isolation enables SharedArrayBuffer, which the render worker
 // uses for the per-frame viewport handoff (falls back to postMessage without
@@ -54,32 +55,7 @@ export default defineConfig({
 			// Manifest icons are precached through includeAssets/globPatterns
 			// instead, so globIgnores can keep the maskable one out.
 			includeManifestIcons: false,
-			// Precache self-hosted fonts (default globs omit woff2) so every
-			// theme's typography is available fully offline.
-			workbox: {
-				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-				// The Excel worker carries the whole spreadsheet library and is
-				// only constructed on the first .xlsx import, which most sessions
-				// never do. Precaching it would put that cost on every cold load,
-				// so it is fetched on demand and cached from then on instead.
-				// The maskable icon and store screenshots are only read by the OS
-				// install UI, never by the running app.
-				globIgnores: [
-					"**/excel.worker-*.js",
-					"**/pwa-maskable-*.png",
-					"**/screenshot-*.png",
-				],
-				runtimeCaching: [
-					{
-						urlPattern: /\/assets\/excel\.worker-.*\.js$/,
-						handler: "CacheFirst",
-						options: {
-							cacheName: "excel-worker",
-							expiration: { maxEntries: 2 },
-						},
-					},
-				],
-			},
+			workbox,
 			manifest: {
 				// Resolves against start_url: the identity existing installs already have.
 				id: "./",
