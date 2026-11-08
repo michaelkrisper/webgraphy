@@ -15,6 +15,12 @@ import { notify } from "../../store/useNotificationStore";
 import { DEFAULT_X_AXIS_ID } from "../../utils/axisCalculations";
 import { parseAxisValue, validateAxisRange } from "../../utils/axisRange";
 import { getColumnIndex } from "../../utils/columns";
+import {
+	lineWidthOf,
+	lineWidthUpdate,
+	MAX_LINE_WIDTH,
+	MIN_LINE_WIDTH,
+} from "../../utils/lineWidth";
 import type { FormulaCategory } from "../../utils/formulaFunctions";
 import { buildSeriesConfig, pickYAxisId } from "../../utils/series";
 import { runViewportCommand } from "../../utils/viewportCommands";
@@ -189,6 +195,7 @@ const describeSeries = (s: SeriesConfig) => ({
 	color: s.lineColor,
 	...(s.pointColor !== s.lineColor ? { pointColor: s.pointColor } : {}),
 	lineStyle: s.lineStyle,
+	lineWidth: lineWidthOf(s),
 	pointStyle: s.pointStyle,
 	visible: !s.hidden,
 });
@@ -543,13 +550,14 @@ export function createTools(): ModelContextTool[] {
 			series: string;
 			color?: string;
 			lineStyle?: SeriesConfig["lineStyle"];
+			lineWidth?: number;
 			pointStyle?: SeriesConfig["pointStyle"];
 			visible?: boolean;
 		}>({
 			name: "set_series_style",
 			title: "Style a series",
 			description:
-				"Changes how a plotted series is drawn: color (line and points), line style, point marker and visibility. Only the properties passed change; line width is fixed and cannot be set. Undoable.",
+				"Changes how a plotted series is drawn: color (line and points), line style, line width, point marker and visibility. Only the properties passed change. Undoable.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -560,6 +568,12 @@ export function createTools(): ModelContextTool[] {
 						description: 'Hex color such as "#1f77b4".',
 					},
 					lineStyle: { type: "string", enum: ["solid", "dashed", "dotted", "none"] },
+					lineWidth: {
+						type: "number",
+						minimum: MIN_LINE_WIDTH,
+						maximum: MAX_LINE_WIDTH,
+						description: "Line width in px; the default is 1.",
+					},
 					pointStyle: {
 						type: "string",
 						enum: ["circle", "square", "cross", "none"],
@@ -580,11 +594,13 @@ export function createTools(): ModelContextTool[] {
 					updates.pointColor = hex;
 				}
 				if (input.lineStyle) updates.lineStyle = input.lineStyle;
+				if (input.lineWidth != null)
+					Object.assign(updates, lineWidthUpdate(input.lineWidth));
 				if (input.pointStyle) updates.pointStyle = input.pointStyle;
 				const restyle = Object.keys(updates).length > 0;
 				if (!restyle && input.visible == null)
 					throw new ToolError(
-						"Pass at least one of color, lineStyle, pointStyle, visible",
+						"Pass at least one of color, lineStyle, lineWidth, pointStyle, visible",
 					);
 				if (
 					(input.lineStyle || input.pointStyle) &&

@@ -68,6 +68,7 @@ export interface WorkerSeriesMsg {
 	pointColorRgba: number[];
 	lineStyle: "solid" | "dashed" | "dotted" | "none";
 	pointStyle: "circle" | "square" | "cross" | "none";
+	lineWidth: number;
 }
 
 export type RenderWorkerRequest =
@@ -352,6 +353,7 @@ function applySeries(list: WorkerSeriesMsg[]): void {
 			pointColorRgba: s.pointColorRgba,
 			lineStyle: s.lineStyle,
 			pointStyle: s.pointStyle,
+			lineWidth: s.lineWidth,
 		});
 	}
 	for (const id of columns.keys()) {

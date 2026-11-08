@@ -81,6 +81,7 @@ function seriesMsg(
 		pointColorRgba: [0, 1, 0],
 		lineStyle: "solid" as const,
 		pointStyle: "none" as const,
+		lineWidth: 1,
 		...overrides,
 	};
 }

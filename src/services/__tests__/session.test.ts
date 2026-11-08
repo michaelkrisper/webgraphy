@@ -156,7 +156,10 @@ function sampleContent(): SessionContent {
 	y[2] = { ...y[2], min: 0.1, max: 1000, scale: "log" };
 	return {
 		datasets: [main, sparse],
-		series: [series("s-1", "ds-1", "Temp"), series("s-2", sparse.id, "avg")],
+		series: [
+			{ ...series("s-1", "ds-1", "Temp"), lineWidth: 2.5 },
+			series("s-2", sparse.id, "avg"),
+		],
 		xAxes: x,
 		yAxes: y,
 		legendVisible: false,
@@ -333,6 +336,15 @@ describe("session validation", () => {
 			(h.config as { series: unknown[] }).series[0] = { id: 1 };
 		});
 		expect(await reason(bytes)).toMatch(/damaged/);
+	});
+
+	it("drops a line width out of range instead of the whole config", async () => {
+		const bytes = withHeader(await raw(), (h) => {
+			(h.config as { series: { lineWidth: number }[] }).series[0].lineWidth = 99;
+		});
+		const back = await decodeSession(bufferOf(bytes));
+		expect(back.series[0].lineWidth).toBeUndefined();
+		expect(back.series[0].lineStyle).toBe("dashed");
 	});
 
 	it("rejects column data outside the file", async () => {

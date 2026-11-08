@@ -122,6 +122,8 @@ export interface RendererSeriesInput {
 	pointColorRgba: number[];
 	lineStyle: "solid" | "dashed" | "dotted" | "none";
 	pointStyle: "circle" | "square" | "cross" | "none";
+	/** CSS px. */
+	lineWidth: number;
 }
 
 interface CompiledProgram {
@@ -627,6 +629,7 @@ export class RendererCore {
 				sliceEnd,
 				lineStyle: s.lineStyle,
 				pointStyle: s.pointStyle,
+				lineWidth: s.lineWidth,
 			};
 
 			drawSeriesLines(

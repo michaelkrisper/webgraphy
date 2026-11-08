@@ -14,6 +14,7 @@
  */
 
 import { findFirstGE, findLastLE } from "../../utils/binarySearch";
+import { dashScale, highlightedLineWidth } from "../../utils/lineWidth";
 import type { GLStateCache } from "./GLStateCache";
 import {
 	type DecimCache,
@@ -79,6 +80,8 @@ export interface SeriesDrawBundle {
 	sliceEnd: number;
 	lineStyle: "solid" | "dashed" | "dotted" | "none";
 	pointStyle: "circle" | "square" | "cross" | "none";
+	/** CSS px. */
+	lineWidth: number;
 }
 
 /**
@@ -397,7 +400,10 @@ export function drawSeriesLines(
 	);
 	const c = bundle.lineColorRgba;
 	st.lpSetColor(c[0], c[1], c[2], 1.0);
-	st.lpSetWidth((bundle.isHighlighted ? 2.5 : 1.0) * bundle.dpr);
+	const width = bundle.lineWidth;
+	st.lpSetWidth(
+		(bundle.isHighlighted ? highlightedLineWidth(width) : width) * bundle.dpr,
+	);
 
 	if (bundle.lineStyle === "solid") {
 		st.lpSetDash(0, 0);
@@ -427,10 +433,11 @@ export function drawSeriesLines(
 			drawPlainLines(st, bundle);
 		}
 	} else {
+		const unit = dashScale(width) * bundle.dpr;
 		if (bundle.lineStyle === "dashed") {
-			st.lpSetDash(8 * bundle.dpr, 6 * bundle.dpr);
+			st.lpSetDash(8 * unit, 6 * unit);
 		} else {
-			st.lpSetDash(2 * bundle.dpr, 4 * bundle.dpr);
+			st.lpSetDash(2 * unit, 4 * unit);
 		}
 		drawDashedLines(st, bundle, segBuffersRef, segParamsRef, segBufferKey);
 	}

@@ -83,6 +83,8 @@ export interface SeriesConfig {
 	pointColor: string;
 	lineStyle: "solid" | "dashed" | "dotted" | "none";
 	lineColor: string;
+	/** CSS px; absent means 1 (configs created before widths existed). */
+	lineWidth?: number;
 	hidden?: boolean;
 }
 

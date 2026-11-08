@@ -43,12 +43,14 @@ interface GraphState {
 		seriesId: string;
 		lineStyle?: SeriesConfig["lineStyle"];
 		pointStyle?: SeriesConfig["pointStyle"];
+		lineWidth?: number;
 	} | null;
 	setPreviewStyle: (
 		preview: {
 			seriesId: string;
 			lineStyle?: SeriesConfig["lineStyle"];
 			pointStyle?: SeriesConfig["pointStyle"];
+			lineWidth?: number;
 		} | null,
 	) => void;
 
@@ -1076,6 +1078,7 @@ function seriesUpdateLabel(
 	if ("lineColor" in updates || "pointColor" in updates)
 		return `change color of '${name}'`;
 	if ("lineStyle" in updates) return `change line style of '${name}'`;
+	if ("lineWidth" in updates) return `change line width of '${name}'`;
 	if ("pointStyle" in updates) return `change point style of '${name}'`;
 	if ("yAxisId" in updates)
 		return `move '${name}' to Y axis ${updates.yAxisId?.split("-")[1]}`;

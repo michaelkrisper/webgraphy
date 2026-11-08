@@ -9,6 +9,7 @@ const schema: JsonSchema = {
 		mode: { type: "string", enum: ["a", "b"] },
 		count: { type: "integer", minimum: 1, maximum: 9 },
 		ratio: { type: "number" },
+		width: { type: "number", minimum: 0.5, maximum: 10 },
 		flag: { type: "boolean" },
 		either: {
 			anyOf: [
@@ -64,6 +65,9 @@ describe("validateInput", () => {
 		);
 		expect(validateInput(schema, { name: "x", ratio: "1" })).toBe(
 			'"ratio" must be a number',
+		);
+		expect(validateInput(schema, { name: "x", width: 0.25 })).toBe(
+			'"width" must be a number from 0.5 to 10',
 		);
 		expect(validateInput(schema, { name: "x", flag: "yes" })).toBe(
 			'"flag" must be a boolean',

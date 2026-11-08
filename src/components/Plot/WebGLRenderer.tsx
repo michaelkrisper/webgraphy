@@ -15,6 +15,7 @@ import type {
 import { useGraphStore } from "../../store/useGraphStore";
 import { hexToRgba } from "../../utils/colors";
 import { getColumnIndex } from "../../utils/columns";
+import { lineWidthOf } from "../../utils/lineWidth";
 import { exactPixelSize } from "../../hooks/useDevicePixelSize";
 import { buildOverlay, type OverlayInput } from "./buildOverlay";
 import { CHART_KEYS_DESCRIPTION, describeChart } from "./chartDescription";
@@ -221,6 +222,7 @@ export const WebGLRenderer = React.memo(
 					pointColorRgba: hexToRgba(isPreviewed ? previewColor.color : s.pointColor),
 					lineStyle: stylePreview?.lineStyle ?? s.lineStyle,
 					pointStyle: stylePreview?.pointStyle ?? s.pointStyle,
+					lineWidth: stylePreview?.lineWidth ?? lineWidthOf(s),
 				});
 			}
 			return result;

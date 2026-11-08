@@ -58,7 +58,13 @@ export const TITLE = {
 
 export type LegendEntry = Pick<
 	SeriesConfig,
-	"id" | "name" | "lineColor" | "lineStyle" | "pointColor" | "pointStyle"
+	| "id"
+	| "name"
+	| "lineColor"
+	| "lineStyle"
+	| "lineWidth"
+	| "pointColor"
+	| "pointStyle"
 >;
 
 /**
@@ -70,14 +76,17 @@ export const legendEntries = (series: SeriesConfig[]): LegendEntry[] =>
 		.filter(
 			(s) => !s.hidden && (s.lineStyle !== "none" || s.pointStyle !== "none"),
 		)
-		.map(({ id, name, lineColor, lineStyle, pointColor, pointStyle }) => ({
-			id,
-			name,
-			lineColor,
-			lineStyle,
-			pointColor,
-			pointStyle,
-		}));
+		.map(
+			({ id, name, lineColor, lineStyle, lineWidth, pointColor, pointStyle }) => ({
+				id,
+				name,
+				lineColor,
+				lineStyle,
+				lineWidth,
+				pointColor,
+				pointStyle,
+			}),
+		);
 
 /** `text` shortened with an ellipsis until it fits `maxWidth`. */
 export function fitText(
