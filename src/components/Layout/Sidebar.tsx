@@ -1,6 +1,7 @@
 import type React from "react";
 import { Suspense, useRef, useState } from "react";
 import { useDataImport } from "../../hooks/useDataImport";
+import { useSidebarWidth } from "../../hooks/useSidebarWidth";
 import { loadThemeFonts, useTheme } from "../../hooks/useTheme";
 import type { ImageExportRequest } from "../../services/export";
 import type {
@@ -18,6 +19,7 @@ import { ExportImageDialogLazy } from "./exportImageDialogLazy";
 import { ImportSettingsDialogLazy } from "./importSettingsDialogLazy";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
+import { SidebarResizer } from "./SidebarResizer";
 
 /**
  * Sidebar Component
@@ -30,6 +32,7 @@ export const Sidebar: React.FC = () => {
 	const legendVisible = useGraphStore((s) => s.legendVisible);
 	const [themeName] = useTheme();
 	const t = THEMES[themeName];
+	const sidebarWidth = useSidebarWidth();
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const sessionInputRef = useRef<HTMLInputElement>(null);
@@ -166,7 +169,13 @@ export const Sidebar: React.FC = () => {
 
 	return (
 		<>
-			<aside className="sidebar">
+			<aside className="sidebar" style={{ width: sidebarWidth.width }}>
+				<SidebarResizer
+					width={sidebarWidth.width}
+					maxWidth={sidebarWidth.maxWidth}
+					onResize={sidebarWidth.setWidth}
+					onCommit={sidebarWidth.commit}
+				/>
 				{/* Header */}
 				<SidebarHeader
 					onCollapse={() => setIsCollapsed(true)}

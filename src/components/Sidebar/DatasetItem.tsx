@@ -117,40 +117,92 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 					padding: "6px 10px",
 					borderBottom: `1px solid ${t.bg3}`,
 					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
+					flexDirection: "column",
 					gap: "4px",
 				}}
 			>
-				<span
-					style={{
-						fontWeight: "700",
-						fontSize: "0.85rem",
-						color: t.textMid,
-						whiteSpace: "nowrap",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						minWidth: 0,
-						flex: "0 1 auto",
-					}}
-					title={ds.name}
-				>
-					{ds.name}
-				</span>
-				<span className="sb-dataset-meta">{ds.rowCount.toLocaleString()} rows</span>
-				<div
-					style={{
-						display: "flex",
-						gap: "4px",
-						alignItems: "center",
-						flexShrink: 0,
-					}}
-				>
+				<div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+					<span
+						style={{
+							fontWeight: "700",
+							fontSize: "0.85rem",
+							color: t.textMid,
+							whiteSpace: "nowrap",
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							minWidth: 0,
+							flex: "1 1 auto",
+						}}
+						title={ds.name}
+					>
+						{ds.name}
+					</span>
+					<div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+						<button
+							onClick={() => setCalculatingDatasetId(ds.id)}
+							style={{
+								padding: "4px",
+								background: "none",
+								border: "none",
+								cursor: "pointer",
+								color: t.textMuted,
+							}}
+							type="button"
+							title="Add Calculated Column"
+							aria-label="Add Calculated Column"
+							aria-description={`Opens the formula editor for a new column computed from ${ds.name}`}
+						>
+							<Calculator size={16} />
+						</button>
+						<button
+							type="button"
+							onClick={() =>
+								void import("../../services/csvExport").then((m) =>
+									m.exportDatasetCsv(ds, { notify, dismiss: dismissNotification }),
+								)
+							}
+							style={{
+								padding: "4px",
+								background: "none",
+								border: "none",
+								cursor: "pointer",
+								color: t.textMuted,
+							}}
+							title="Export Dataset as CSV"
+							aria-label={`Export ${ds.name} as CSV`}
+							aria-description="Downloads all rows, calculated columns included"
+						>
+							<Download size={16} />
+						</button>
+						<button
+							type="button"
+							onClick={() => deleteWithUndo(ds.name, () => removeDataset(ds.id))}
+							style={{
+								padding: "4px",
+								background: "none",
+								border: "none",
+								cursor: "pointer",
+								color: t.danger,
+							}}
+							title="Delete Dataset"
+							aria-label="Delete Dataset"
+							aria-description={`Removes ${ds.name} and its series. ${UNDO_HINT}`}
+						>
+							<Trash2 size={16} />
+						</button>
+					</div>
+				</div>
+				<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+					<span className="sb-dataset-meta">
+						{ds.rowCount.toLocaleString()} rows
+					</span>
 					<div
 						style={{
 							display: "flex",
 							gap: "0",
 							alignItems: "center",
+							marginLeft: "auto",
+							minWidth: 0,
 						}}
 					>
 						{datasets.length > 1 && (
@@ -211,7 +263,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 								border: `1px solid ${t.border}`,
 								background: t.selectBg,
 								color: t.selectColor,
-								maxWidth: "100px",
+								maxWidth: "180px",
 							}}
 						>
 							{ds.columns.map((c) => (
@@ -256,58 +308,6 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							log
 						</button>
 					</div>
-					<button
-						onClick={() => setCalculatingDatasetId(ds.id)}
-						style={{
-							padding: "4px",
-							background: "none",
-							border: "none",
-							cursor: "pointer",
-							color: t.textMuted,
-						}}
-						type="button"
-						title="Add Calculated Column"
-						aria-label="Add Calculated Column"
-						aria-description={`Opens the formula editor for a new column computed from ${ds.name}`}
-					>
-						<Calculator size={16} />
-					</button>
-					<button
-						type="button"
-						onClick={() =>
-							void import("../../services/csvExport").then((m) =>
-								m.exportDatasetCsv(ds, { notify, dismiss: dismissNotification }),
-							)
-						}
-						style={{
-							padding: "4px",
-							background: "none",
-							border: "none",
-							cursor: "pointer",
-							color: t.textMuted,
-						}}
-						title="Export Dataset as CSV"
-						aria-label={`Export ${ds.name} as CSV`}
-						aria-description="Downloads all rows, calculated columns included"
-					>
-						<Download size={16} />
-					</button>
-					<button
-						type="button"
-						onClick={() => deleteWithUndo(ds.name, () => removeDataset(ds.id))}
-						style={{
-							padding: "4px",
-							background: "none",
-							border: "none",
-							cursor: "pointer",
-							color: t.danger,
-						}}
-						title="Delete Dataset"
-						aria-label="Delete Dataset"
-						aria-description={`Removes ${ds.name} and its series. ${UNDO_HINT}`}
-					>
-						<Trash2 size={16} />
-					</button>
 				</div>
 			</div>
 

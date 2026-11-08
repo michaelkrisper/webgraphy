@@ -121,6 +121,14 @@ export const SHORTCUTS = {
 		keys: ["Escape"],
 		description: "Close the dialog",
 	},
+	resizeSidebar: {
+		keys: ["ArrowLeft", "ArrowRight"],
+		description: "Widen / narrow the sidebar (Tab to its left edge)",
+	},
+	resetSidebar: {
+		keys: ["Home"],
+		description: "Reset the sidebar width (on its left edge)",
+	},
 } as const satisfies Record<string, Shortcut>;
 
 export type ShortcutId = keyof typeof SHORTCUTS;
@@ -160,6 +168,7 @@ export const SHORTCUT_GROUPS: readonly {
 		],
 	},
 	{ title: "Edit", ids: ["undo", "redo", "pasteData"] },
+	{ title: "Sidebar edge", ids: ["resizeSidebar", "resetSidebar"] },
 	{ title: "Dialogs", ids: ["closeDialog"] },
 ];
 
