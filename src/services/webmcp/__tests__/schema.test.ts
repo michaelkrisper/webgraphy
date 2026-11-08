@@ -86,4 +86,19 @@ describe("validateInput", () => {
 			validateInput({ type: "object", additionalProperties: false }, { a: 1 }),
 		).toBe('Unknown property "a". This tool takes no input');
 	});
+
+	it("rejects keys inherited from Object.prototype as unknown", () => {
+		for (const key of [
+			"constructor",
+			"toString",
+			"__proto__",
+			"hasOwnProperty",
+		]) {
+			// JSON.parse makes "__proto__" an own key, as agent input would.
+			const input = JSON.parse(`{"name": "x", "${key}": 1}`);
+			expect(validateInput(schema, input)).toMatch(
+				new RegExp(`^Unknown property "${key}"`),
+			);
+		}
+	});
 });

@@ -114,13 +114,36 @@ describe("ErrorBoundary", () => {
 				screen.getByRole("button", { name: "Delete all data and reload" }),
 			);
 			expect((await screen.findByRole("status")).textContent).toContain(
-				"close them to finish the reset",
+				"close or reload them to finish the reset",
 			);
 			expect(
 				screen.getByRole("button", { name: "Delete all data and reload" }),
 			).toHaveProperty("disabled", true);
 			finish();
 			await waitFor(() => expect(reload).toHaveBeenCalled());
+		});
+
+		it("keeps Cancel available while the deletion stays blocked", async () => {
+			resetAll.mockImplementation(
+				(onBlocked: () => void) =>
+					new Promise<void>(() => {
+						onBlocked();
+					}),
+			);
+			crashTop();
+			fireEvent.click(
+				screen.getByRole("button", { name: "Delete all data and reload" }),
+			);
+			await screen.findByRole("status");
+			// Other tabs may never let go: there must still be a way back.
+			const cancel = screen.getByRole("button", { name: "Cancel" });
+			expect(cancel).toHaveProperty("disabled", false);
+			expect(cancel.getAttribute("aria-description")).toContain(
+				"the deletion still finishes",
+			);
+			fireEvent.click(cancel);
+			expect(screen.queryByRole("alertdialog")).toBeNull();
+			expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
 		});
 
 		it("says so when the data could not be deleted, without reloading", async () => {

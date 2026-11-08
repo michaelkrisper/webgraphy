@@ -196,13 +196,23 @@ interface LabelProgramLocations {
 const LABEL_INST_FLOATS = 11;
 const LABEL_INST_STRIDE = LABEL_INST_FLOATS * 4;
 
+interface CompiledPrograms {
+	main: CompiledProgram;
+	line: CompiledProgram;
+	label: CompiledProgram;
+}
+
 export class RendererCore {
 	private readonly gl: WebGL2RenderingContext;
-	private readonly st: GLStateCache;
-	private main: CompiledProgram;
-	private line: CompiledProgram;
-	private label: CompiledProgram;
-	private labelLocs: LabelProgramLocations;
+	// False for a core created while the context was lost: it has no programs
+	// (so neither these GL fields), only collects inputs and draws nothing
+	// until `restore` builds a real core from them.
+	private readonly ready: boolean;
+	private readonly st!: GLStateCache;
+	private main!: CompiledProgram;
+	private line!: CompiledProgram;
+	private label!: CompiledProgram;
+	private labelLocs!: LabelProgramLocations;
 	private labelAtlas: GlLabelAtlas | null = null;
 	private labels: RenderLabel[] = [];
 	private labelInstScratch = new Float32Array(0);
@@ -258,11 +268,12 @@ export class RendererCore {
 
 	private constructor(
 		gl: WebGL2RenderingContext,
-		main: CompiledProgram,
-		line: CompiledProgram,
-		label: CompiledProgram,
+		programs: CompiledPrograms | null,
 	) {
 		this.gl = gl;
+		this.ready = programs !== null;
+		if (!programs) return;
+		const { main, line, label } = programs;
 		this.main = main;
 		this.line = line;
 		this.label = label;
@@ -321,7 +332,9 @@ export class RendererCore {
 	}
 
 	/** Create a core on any canvas (DOM or Offscreen); null when WebGL2 or
-	 * shader compilation is unavailable, with the reason given to `onFailure`. */
+	 * shader compilation is unavailable, with the reason given to `onFailure`.
+	 * On a context that is lost it returns a core that draws nothing until it
+	 * is restored, and reports nothing: the restore is still to come. */
 	static create(
 		canvas: HTMLCanvasElement | OffscreenCanvas,
 		onFailure?: RenderFailureListener,
@@ -353,10 +366,14 @@ export class RendererCore {
 			"label",
 		);
 		if (!main || !line || !label) {
+			// Every compile fails on a lost context (lost already, or again
+			// during a restore), which says nothing about the shaders. Keep a
+			// core to collect inputs so the next restore can rebuild from it.
+			if (gl.isContextLost()) return new RendererCore(gl, null);
 			onFailure?.("shader");
 			return null;
 		}
-		return new RendererCore(gl, main, line, label);
+		return new RendererCore(gl, { main, line, label });
 	}
 
 	/**
@@ -364,6 +381,7 @@ export class RendererCore {
 	 * decimation caches, and the label atlas all start empty (the old ones
 	 * died with the context); the host-supplied inputs carry over from
 	 * `prev`, so the next drawFrame re-uploads and reproduces the last scene.
+	 * Lost again meanwhile, the result just carries them on to the next one.
 	 */
 	static restore(
 		canvas: HTMLCanvasElement | OffscreenCanvas,
@@ -465,6 +483,7 @@ export class RendererCore {
 	}
 
 	drawFrame(xAxes: RenderAxis[], yAxes: RenderAxis[]): void {
+		if (!this.ready) return;
 		const { gl, st } = this;
 		const { width, height, padding, dpr } = this.viewport;
 
@@ -812,15 +831,17 @@ export class RendererCore {
 	dispose(): void {
 		const { gl } = this;
 		this.labelAtlas?.dispose();
-		gl.deleteProgram(this.main.program);
-		gl.deleteShader(this.main.vs);
-		gl.deleteShader(this.main.fs);
-		gl.deleteProgram(this.line.program);
-		gl.deleteShader(this.line.vs);
-		gl.deleteShader(this.line.fs);
-		gl.deleteProgram(this.label.program);
-		gl.deleteShader(this.label.vs);
-		gl.deleteShader(this.label.fs);
+		if (this.ready) {
+			gl.deleteProgram(this.main.program);
+			gl.deleteShader(this.main.vs);
+			gl.deleteShader(this.main.fs);
+			gl.deleteProgram(this.line.program);
+			gl.deleteShader(this.line.vs);
+			gl.deleteShader(this.line.fs);
+			gl.deleteProgram(this.label.program);
+			gl.deleteShader(this.label.vs);
+			gl.deleteShader(this.label.fs);
+		}
 		gl.getExtension("WEBGL_lose_context")?.loseContext();
 	}
 }

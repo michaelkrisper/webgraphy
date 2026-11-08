@@ -220,6 +220,9 @@ describe("tool definitions", () => {
 			expect(t?.description).toMatch(/never individual row values/);
 			expect(t?.annotations?.untrustedContentHint).toBe(true);
 		}
+		expect(
+			tools.find((x) => x.name === "get_column_statistics")?.description,
+		).toMatch(/must hold at least 5 values/);
 	});
 });
 
@@ -404,28 +407,70 @@ describe("get_column_statistics", () => {
 	});
 
 	it("restricts to an X range given as dates or epoch seconds", async () => {
+		const ramp: Dataset = {
+			id: "ds-3",
+			name: "Ramp",
+			columns: ["t", "v"],
+			data: [
+				{
+					isFloat64: true,
+					refPoint: T0,
+					bounds: { min: T0, max: T0 + 540 },
+					data: Float32Array.from({ length: 10 }, (_, i) => i * 60),
+				},
+				{
+					isFloat64: false,
+					refPoint: 0,
+					bounds: { min: 0, max: 9 },
+					data: Float32Array.from({ length: 10 }, (_, i) => i),
+				},
+			],
+			rowCount: 10,
+			xAxisColumn: "t",
+			xAxisId: "axis-3",
+		};
+		useGraphStore.setState({ datasets: [sensor(), lab(), ramp] });
 		const byDate = await jsonOf("get_column_statistics", {
-			dataset: "ds-1",
-			column: "Flow",
+			dataset: "ds-3",
+			column: "v",
 			xMin: new Date((T0 + 60) * 1000).toISOString(),
-			xMax: T0 + 180,
+			xMax: T0 + 300,
 		});
-		expect(byDate).toMatchObject({
-			rows: 3,
-			n: 3,
-			min: 1002,
-			max: 1004,
-			mean: 1003,
-		});
+		expect(byDate).toMatchObject({ rows: 5, n: 5, min: 1, max: 5, mean: 3 });
 		expect(byDate.xRange.minDate).toBe(new Date((T0 + 60) * 1000).toISOString());
 
 		const open = await jsonOf("get_column_statistics", {
-			dataset: "ds-2",
-			column: "y",
-			xMin: 2,
+			dataset: "ds-3",
+			column: "v",
+			xMin: T0 + 240,
 		});
-		expect(open).toMatchObject({ rows: 2, n: 2, min: 4, max: 8 });
-		expect(open.xRange).toEqual({ min: 2, max: null });
+		expect(open).toMatchObject({ rows: 6, n: 6, min: 4, max: 9 });
+		expect(open.xRange).toMatchObject({ min: T0 + 240, max: null });
+	});
+
+	it("gives only counts over an X range of fewer than 5 values", async () => {
+		// One row: min = max = mean would be that row's value.
+		const one = await jsonOf("get_column_statistics", {
+			dataset: "ds-1",
+			column: "Temp",
+			xMin: T0 + 60,
+			xMax: T0 + 60,
+		});
+		expect(one).toMatchObject({ rows: 1, n: 1, missing: 0 });
+		expect(one.note).toMatch(/Fewer than 5 values/);
+		for (const key of ["min", "max", "mean", "std"]) {
+			expect(one).not.toHaveProperty(key);
+		}
+		expect(JSON.stringify(one)).not.toContain(String(SENTINEL));
+
+		// It counts values, not rows: five rows, but one of them is missing.
+		const four = await jsonOf("get_column_statistics", {
+			dataset: "ds-1",
+			column: "Temp",
+			xMin: T0,
+		});
+		expect(four).toMatchObject({ rows: 5, n: 4, missing: 1 });
+		expect(four).not.toHaveProperty("mean");
 	});
 
 	it("reports date statistics as dates too", async () => {

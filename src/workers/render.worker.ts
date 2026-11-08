@@ -11,7 +11,8 @@
  * backend mirrors this, so host and worker agree on what needs resending.
  *
  * Frame messages are coalesced: only the newest pending frame is drawn on
- * the next worker rAF tick, so a burst of pan events costs one draw.
+ * the next tick (worker rAF, or a timeout should that never come), so a
+ * burst of pan events costs one draw.
  *
  * Overlay geometry and labels are derived here from the scene context, on
  * both transports: with a SharedArrayBuffer the ranges come from the polled
@@ -127,10 +128,49 @@ let latestFrame: {
 	/** Host sent no overlay/labels: build the scene here before drawing. */
 	deriveScene: boolean;
 } | null = null;
-let drawScheduled = false;
+
+/**
+ * A worker rAF is not guaranteed to arrive: before the OffscreenCanvas has a
+ * compositor frame sink (a cold GPU process on first load) one can stay
+ * pending indefinitely, and a "scheduled" flag waiting on it turns every
+ * later draw request into a no-op. So each tick is armed with both rAF and a
+ * timeout; whichever fires first runs it and cancels the other.
+ */
+const FRAME_FALLBACK_MS = 100;
+
+/**
+ * Returns `arm`, which schedules `run` for the next tick and is a no-op while
+ * one is pending. The flag clears before `run`, so a tick that throws cannot
+ * leave it set; the callbacks are bound once, so arming allocates nothing.
+ */
+function frameTicker(run: () => void): () => void {
+	let pending = false;
+	let raf = 0;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const onFrame = () => {
+		clearTimeout(timer);
+		pending = false;
+		run();
+	};
+	const onTimeout = () => {
+		if (raf) cancelAnimationFrame(raf);
+		pending = false;
+		run();
+	};
+	return () => {
+		if (pending) return;
+		pending = true;
+		// rAF exists in workers wherever OffscreenCanvas does; guard anyway.
+		raf =
+			typeof requestAnimationFrame === "function"
+				? requestAnimationFrame(onFrame)
+				: 0;
+		timer = setTimeout(onTimeout, FRAME_FALLBACK_MS);
+	};
+}
 
 // --- SharedArrayBuffer viewport mode ---------------------------------------
-// The worker polls the shared viewport once per rAF and derives the whole
+// The worker polls the shared viewport once per tick and derives the whole
 // scene (tick layouts, overlay geometry, labels) itself; the main thread's
 // only per-frame work is the seqlocked write. The loop parks after ~2s
 // without a new snapshot and is restarted by a "wake" message.
@@ -141,7 +181,6 @@ let sceneCtx: SceneContext | null = null;
 let sceneCtxVersion = -1;
 const sceneCaches = createFrameSceneCaches();
 let currentViewport: RendererViewport | null = null;
-let loopRunning = false;
 let idleFrames = 0;
 let sceneDirty = false;
 // Reused per-frame axis arrays (ids stable per scene context).
@@ -193,35 +232,32 @@ function drawSharedFrame(): void {
 	core.drawFrame(sabXAxes, sabYAxes);
 }
 
+// The loop is running exactly while this ticker is armed: parking is simply
+// not re-arming it, and a wake while it runs is a no-op.
+const armSharedLoop = frameTicker(sharedLoop);
+
 function sharedLoop(): void {
-	if (!viewportReader || !core || contextLost) {
-		loopRunning = false;
-		return;
+	if (!viewportReader || !core || contextLost) return;
+	try {
+		const fresh = viewportReader.read(viewportSnap);
+		if ((fresh || sceneDirty) && viewportSnap.version === sceneCtxVersion) {
+			sceneDirty = false;
+			idleFrames = 0;
+			drawSharedFrame();
+		} else {
+			idleFrames++;
+		}
+	} finally {
+		// Also after a frame that threw: the host only wakes a loop it
+		// believes parked, so a dead one would stay dead until a remount.
+		if (idleFrames <= IDLE_PARK_FRAMES) armSharedLoop();
 	}
-	const fresh = viewportReader.read(viewportSnap);
-	if ((fresh || sceneDirty) && viewportSnap.version === sceneCtxVersion) {
-		sceneDirty = false;
-		idleFrames = 0;
-		drawSharedFrame();
-	} else {
-		idleFrames++;
-	}
-	if (idleFrames > IDLE_PARK_FRAMES) {
-		loopRunning = false;
-		return;
-	}
-	requestAnimationFrame(sharedLoop);
 }
 
 function wakeSharedLoop(): void {
-	if (!viewportReader || loopRunning || contextLost) return;
-	loopRunning = true;
+	if (!viewportReader || contextLost) return;
 	idleFrames = 0;
-	if (typeof requestAnimationFrame === "function") {
-		requestAnimationFrame(sharedLoop);
-	} else {
-		loopRunning = false;
-	}
+	armSharedLoop();
 }
 // ---------------------------------------------------------------------------
 
@@ -255,29 +291,23 @@ function fillPostedSnapshot(xAxes: RenderAxis[], yAxes: RenderAxis[]): boolean {
 	return true;
 }
 
-function scheduleDraw(): void {
-	if (drawScheduled || contextLost) return;
-	drawScheduled = true;
-	const run = () => {
-		drawScheduled = false;
-		if (core && latestFrame && !contextLost) {
-			// Deferred to the draw tick, not done on receipt: a burst of pan
-			// messages must cost one scene build, like it costs one draw.
-			if (
-				latestFrame.deriveScene &&
-				fillPostedSnapshot(latestFrame.xAxes, latestFrame.yAxes)
-			) {
-				applyScene(postedSnap);
-			}
-			core.drawFrame(latestFrame.xAxes, latestFrame.yAxes);
-		}
-	};
-	// rAF exists in workers wherever OffscreenCanvas does; guard anyway.
-	if (typeof requestAnimationFrame === "function") {
-		requestAnimationFrame(run);
-	} else {
-		setTimeout(run, 0);
+function drawLatestFrame(): void {
+	if (!core || !latestFrame || contextLost) return;
+	// Deferred to the draw tick, not done on receipt: a burst of pan
+	// messages must cost one scene build, like it costs one draw.
+	if (
+		latestFrame.deriveScene &&
+		fillPostedSnapshot(latestFrame.xAxes, latestFrame.yAxes)
+	) {
+		applyScene(postedSnap);
 	}
+	core.drawFrame(latestFrame.xAxes, latestFrame.yAxes);
+}
+
+const armDraw = frameTicker(drawLatestFrame);
+
+function scheduleDraw(): void {
+	if (!contextLost) armDraw();
 }
 
 function applyViewport(viewport: RendererViewport): void {
@@ -353,7 +383,9 @@ self.onmessage = (ev: MessageEvent<RenderWorkerRequest>) => {
 			sceneCtx = null;
 			sceneCtxVersion = -1;
 			latestFrame = null;
-			if (msg.viewportSab) viewportReader = new ViewportReader(msg.viewportSab);
+			viewportReader = msg.viewportSab
+				? new ViewportReader(msg.viewportSab)
+				: null;
 			break;
 		}
 		case "viewport": {
