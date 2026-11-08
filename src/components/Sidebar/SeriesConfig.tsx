@@ -1,5 +1,4 @@
 import {
-	Circle,
 	CornerLeftUp,
 	Eye,
 	EyeOff,
@@ -7,9 +6,9 @@ import {
 	Plus,
 	Rows3,
 	Trash2,
-	X,
 } from "lucide-react";
 import type React from "react";
+import { useCallback } from "react";
 import type {
 	Dataset,
 	SeriesConfig,
@@ -17,11 +16,7 @@ import type {
 } from "../../services/persistence";
 import { deleteWithUndo } from "../../store/undoToast";
 import { useGraphStore, withHistory } from "../../store/useGraphStore";
-import {
-	DEFAULT_LINE_WIDTH,
-	lineWidthOf,
-	lineWidthUpdate,
-} from "../../utils/lineWidth";
+import { lineWidthOf, lineWidthUpdate } from "../../utils/lineWidth";
 import {
 	firstFreeYAxisSlot,
 	ownsYAxisRow,
@@ -30,6 +25,7 @@ import {
 } from "../../utils/yAxisSlots";
 import ColorPicker from "./ColorPicker";
 import { PopupPicker, type PopupPickerOption } from "./PopupPicker";
+import { SeriesStylePicker, type StylePreview } from "./SeriesStylePicker";
 import { UNDO_HINT } from "./undoHint";
 
 interface Props {
@@ -37,157 +33,6 @@ interface Props {
 	datasets: Dataset[];
 	onHandleMouseDown?: (e: React.MouseEvent) => void;
 }
-
-type LineStyle = "solid" | "dashed" | "dotted" | "none";
-type PointStyle = "circle" | "square" | "cross" | "none";
-
-const LINE_STYLE_LABELS: Record<LineStyle, string> = {
-	solid: "Solid",
-	dashed: "Dashed",
-	dotted: "Dotted",
-	none: "No Line",
-};
-
-const POINT_STYLE_LABELS: Record<PointStyle, string> = {
-	circle: "Circle",
-	square: "Square",
-	cross: "Cross",
-	none: "No Points",
-};
-
-function lineIcon(style: LineStyle) {
-	const color = "currentColor";
-	const common = { x1: 1, y1: 8, x2: 15, y2: 8, stroke: color };
-	return (
-		<svg width="18" height="18" viewBox="0 0 16 16" className="sc-line-icon">
-			<title>Line {style}</title>
-			{style === "solid" && <line {...common} strokeWidth="2.5" />}
-			{style === "dashed" && (
-				<line {...common} strokeWidth="2.5" strokeDasharray="4,3" />
-			)}
-			{style === "dotted" && (
-				<line
-					{...common}
-					strokeWidth="2.5"
-					strokeDasharray="1,3"
-					strokeLinecap="round"
-				/>
-			)}
-			{style === "none" && (
-				<>
-					<line {...common} strokeWidth="2.5" opacity="0.35" />
-					<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="1.5" />
-				</>
-			)}
-		</svg>
-	);
-}
-
-function PointCircleIcon({ size }: { size: number }) {
-	return (
-		<Circle size={size} fill="currentColor" stroke="white" strokeWidth={1} />
-	);
-}
-
-function PointSquareIcon({ size }: { size: number }) {
-	return (
-		<svg width={size} height={size} viewBox="0 0 24 24">
-			<title>Square</title>
-			<rect
-				x="3"
-				y="3"
-				width="18"
-				height="18"
-				rx="2"
-				ry="2"
-				fill="currentColor"
-				stroke="white"
-				strokeWidth="2"
-				paintOrder="stroke fill"
-			/>
-		</svg>
-	);
-}
-
-function PointCrossIcon({ size }: { size: number }) {
-	return <X size={size + 2} strokeWidth={3} />;
-}
-
-function PointNoneIcon({ size }: { size: number }) {
-	return (
-		<svg width={size + 4} height={size + 4} viewBox="0 0 16 16">
-			<title>No Points</title>
-			<circle cx="8" cy="8" r="5" fill="currentColor" opacity="0.35" />
-			<line x1="2" y1="2" x2="14" y2="14" stroke="#dc3545" strokeWidth="1.5" />
-		</svg>
-	);
-}
-
-function pointIcon(style: PointStyle) {
-	const size = 12;
-	switch (style) {
-		case "circle":
-			return <PointCircleIcon size={size} />;
-		case "square":
-			return <PointSquareIcon size={size} />;
-		case "cross":
-			return <PointCrossIcon size={size} />;
-		case "none":
-			return <PointNoneIcon size={size} />;
-	}
-}
-
-const LINE_OPTIONS: PopupPickerOption<LineStyle>[] = (
-	["solid", "dashed", "dotted", "none"] as const
-).map((v) => ({
-	value: v,
-	icon: lineIcon(v),
-	label: LINE_STYLE_LABELS[v],
-	description: "Draws this series' line this way; hovering previews it",
-}));
-
-const LINE_WIDTHS = [1, 1.5, 2, 3, 4];
-
-function LineWidthChoices({
-	current,
-	onChange,
-	onHover,
-}: {
-	current: number;
-	onChange: (width: number) => void;
-	onHover: (width: number | null) => void;
-}) {
-	return (
-		<div role="group" aria-label="Line width" className="popup-picker-widths">
-			<span aria-hidden="true">Width</span>
-			{LINE_WIDTHS.map((w) => (
-				<button
-					key={w}
-					type="button"
-					className="popup-picker-width"
-					onClick={() => onChange(w)}
-					onMouseEnter={() => onHover(w)}
-					onMouseLeave={() => onHover(null)}
-					title={`${w} px`}
-					aria-label={`${w} px`}
-					aria-pressed={w === current}
-					aria-description="Draws this series' line this wide; hovering previews it"
-				>
-					{w}
-				</button>
-			))}
-		</div>
-	);
-}
-
-const POINT_OPTIONS: PopupPickerOption<PointStyle>[] = (
-	["circle", "square", "cross", "none"] as const
-).map((v) => ({
-	value: v,
-	icon: pointIcon(v),
-	label: POINT_STYLE_LABELS[v],
-	description: "Marks this series' data points this way; hovering previews it",
-}));
 
 /** The axes in use, titled like the chart draws them, plus "New axis". */
 function yAxisOptions(
@@ -254,8 +99,11 @@ export const SeriesConfigUI: React.FC<Props> = ({
 		: undefined;
 	const yAxisCycleDisabled = allSeries.length <= 1;
 	const seriesName = series.name || series.yColumn;
-	const lineWidth = lineWidthOf(series);
-	const lineStyleText = `${LINE_STYLE_LABELS[series.lineStyle]}${lineWidth === DEFAULT_LINE_WIDTH ? "" : `, ${lineWidth} px`}`;
+	const previewStyle = useCallback(
+		(preview: StylePreview | null) =>
+			setPreviewStyle(preview && { seriesId: series.id, ...preview }),
+		[setPreviewStyle, series.id],
+	);
 
 	const selectYAxis = (n: number) => {
 		const nextAxisId = `axis-${n}`;
@@ -425,70 +273,17 @@ export const SeriesConfigUI: React.FC<Props> = ({
 				</button>
 			)}
 
-			{/* Line Style Picker */}
-			<PopupPicker
-				options={LINE_OPTIONS}
-				current={series.lineStyle as LineStyle}
-				onChange={(v) => handleUpdate({ lineStyle: v })}
-				onHoverOption={(v) =>
-					setPreviewStyle(v ? { seriesId: series.id, lineStyle: v } : null)
+			<SeriesStylePicker
+				seriesId={series.id}
+				seriesName={seriesName}
+				color={series.lineColor}
+				lineStyle={series.lineStyle}
+				pointStyle={series.pointStyle}
+				lineWidth={lineWidthOf(series)}
+				onChange={({ lineWidth, ...styles }) =>
+					handleUpdate(lineWidth === undefined ? styles : lineWidthUpdate(lineWidth))
 				}
-				popoverId={`line-style-popover-${series.id}`}
-				label="Line style"
-				footer={(close) => (
-					<LineWidthChoices
-						current={lineWidth}
-						onChange={(w) => {
-							handleUpdate(lineWidthUpdate(w));
-							close();
-						}}
-						onHover={(w) =>
-							setPreviewStyle(
-								w === null ? null : { seriesId: series.id, lineWidth: w },
-							)
-						}
-					/>
-				)}
-				renderTrigger={({ onClick, ref, popupProps }) => (
-					<button
-						ref={ref}
-						onClick={onClick}
-						className="sc-btn"
-						title={`Line Style: ${lineStyleText}`}
-						type="button"
-						aria-label="Select Line Style"
-						aria-description={`Currently ${lineStyleText}. Opens the line styles and widths for ${seriesName}`}
-						{...popupProps}
-					>
-						{lineIcon(series.lineStyle as LineStyle)}
-					</button>
-				)}
-			/>
-
-			{/* Point Style Picker */}
-			<PopupPicker
-				options={POINT_OPTIONS}
-				current={series.pointStyle as PointStyle}
-				onChange={(v) => handleUpdate({ pointStyle: v })}
-				onHoverOption={(v) =>
-					setPreviewStyle(v ? { seriesId: series.id, pointStyle: v } : null)
-				}
-				popoverId={`point-style-popover-${series.id}`}
-				label="Point style"
-				renderTrigger={({ onClick, ref, popupProps }) => (
-					<button
-						ref={ref}
-						onClick={onClick}
-						className="sc-btn"
-						title={`Point Style: ${POINT_STYLE_LABELS[series.pointStyle]}`}
-						type="button"
-						aria-label="Select Point Style"
-						aria-description={`Currently ${POINT_STYLE_LABELS[series.pointStyle]}. Opens the point markers for ${seriesName}`}
-						{...popupProps}
-					>
-						{pointIcon(series.pointStyle as PointStyle)}
-					</button>
-				)}
+				onPreview={previewStyle}
 			/>
 
 			{/* Color Picker */}

@@ -124,10 +124,7 @@ describe("SeriesConfigUI", () => {
 			screen.getByRole("button", { name: "Select Y axis" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "Select Line Style" }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Select Point Style" }),
+			screen.getByRole("button", { name: "Series Style" }),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "Delete Series" }),
@@ -260,19 +257,17 @@ describe("SeriesConfigUI", () => {
 		expect(mockUpdateSeriesVisibility).not.toHaveBeenCalled();
 	});
 
-	it("names the line and point style in their tooltips", () => {
+	it("names the line and point style in the style tooltip", () => {
 		render(
 			<SeriesConfigUI
 				{...defaultProps}
 				series={{ ...defaultProps.series, lineStyle: "none", pointStyle: "square" }}
 			/>,
 		);
-		expect(
-			screen.getByRole("button", { name: "Select Line Style" }),
-		).toHaveAttribute("title", "Line Style: No Line");
-		expect(
-			screen.getByRole("button", { name: "Select Point Style" }),
-		).toHaveAttribute("title", "Point Style: Square");
+		expect(screen.getByRole("button", { name: "Series Style" })).toHaveAttribute(
+			"title",
+			"Style: No line, squares",
+		);
 	});
 
 	it("handles color changes via ColorPicker", () => {
@@ -317,22 +312,6 @@ describe("SeriesConfigUI", () => {
 		expect(btn).toHaveAttribute("aria-pressed", "false");
 		fireEvent.click(btn);
 		expect(mockSetAxisScale).toHaveBeenCalledWith("y", "axis-1", "log");
-	});
-
-	it("updates line style via PopupPicker trigger", () => {
-		render(<SeriesConfigUI {...defaultProps} />);
-
-		fireEvent.click(screen.getByRole("button", { name: "Select Line Style" }));
-		// Note: since our mock passes 2 back, it's called with 2.
-		// A more complete test might use dynamic callbacks, but this verifies the wiring.
-		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { lineStyle: 2 });
-	});
-
-	it("updates point style via PopupPicker trigger", () => {
-		render(<SeriesConfigUI {...defaultProps} />);
-
-		fireEvent.click(screen.getByRole("button", { name: "Select Point Style" }));
-		expect(mockUpdateSeries).toHaveBeenCalledWith("s1", { pointStyle: 2 });
 	});
 
 	it("selects y axis and creates new axis if needed", () => {

@@ -1,13 +1,7 @@
 import type React from "react";
-import {
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
-import { createPortal } from "react-dom";
-import { useDialogA11y } from "../../hooks/useDialogA11y";
+import { type ReactNode, useEffect } from "react";
+import { useAnchoredPopover } from "../../hooks/useAnchoredPopover";
+import { AnchoredPopover } from "./AnchoredPopover";
 
 export interface PopupPickerOption<T> {
 	value: T;
@@ -44,8 +38,6 @@ interface PopupPickerProps<T> {
 	minWidth?: number;
 	/** Fired when an option is hovered (value) and when the hover leaves (null). */
 	onHoverOption?: (value: T | null) => void;
-	/** A second, related choice below the options, inside the same popover. */
-	footer?: (close: () => void) => ReactNode;
 }
 
 export function PopupPicker<T extends string | number>({
@@ -57,55 +49,9 @@ export function PopupPicker<T extends string | number>({
 	popoverId = "popup-picker-popover",
 	minWidth = 140,
 	onHoverOption,
-	footer,
 }: PopupPickerProps<T>) {
-	const [isOpen, setIsOpen] = useState(false);
-	const triggerRef = useRef<HTMLButtonElement>(null);
-	const [coords, setCoords] = useState<{
-		top?: number;
-		bottom?: number;
-		left: number;
-	}>({ top: 0, left: 0 });
-
-	useEffect(() => {
-		if (!isOpen) return;
-		const handleClickOutside = (event: MouseEvent) => {
-			const popover = document.getElementById(popoverId);
-			if (popover?.contains(event.target as Node)) return;
-			if (triggerRef.current?.contains(event.target as Node)) return;
-			setIsOpen(false);
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [isOpen, popoverId]);
-
-	const close = useCallback(() => setIsOpen(false), []);
-
-	const toggleOpen = () => {
-		if (!isOpen && triggerRef.current) {
-			const rect = triggerRef.current.getBoundingClientRect();
-			const padding = 10;
-			let left = rect.left + window.scrollX;
-			if (left + minWidth > window.innerWidth - padding) {
-				left = rect.right + window.scrollX - minWidth;
-			}
-			// A trigger in the lower half (the collapsed menu sits bottom-right)
-			// opens upwards so the list is not pushed off-screen.
-			const openUp = rect.top > window.innerHeight / 2;
-			setCoords(
-				openUp
-					? {
-							bottom: window.innerHeight - (rect.top + window.scrollY) + 4,
-							left: Math.max(padding, left),
-						}
-					: {
-							top: rect.bottom + window.scrollY + 4,
-							left: Math.max(padding, left),
-						},
-			);
-		}
-		setIsOpen(!isOpen);
-	};
+	const { isOpen, setIsOpen, close, toggleOpen, triggerRef, coords } =
+		useAnchoredPopover(popoverId, minWidth);
 
 	// Menus of plain actions (export, "more") have no current value; their
 	// items must not read as toggle buttons.
@@ -131,7 +77,7 @@ export function PopupPicker<T extends string | number>({
 				popupProps: { "aria-haspopup": "dialog", "aria-expanded": isOpen },
 			})}
 			{isOpen && (
-				<PopupPickerPopover
+				<AnchoredPopover
 					id={popoverId}
 					label={label}
 					style={{ ...coords, minWidth }}
@@ -158,47 +104,8 @@ export function PopupPicker<T extends string | number>({
 							</button>
 						);
 					})}
-					{footer?.(close)}
-				</PopupPickerPopover>
+				</AnchoredPopover>
 			)}
 		</>
-	);
-}
-
-/**
- * The popover is a portal at the end of `document.body`, so tabbing out of the
- * trigger walked past it into the rest of the sidebar: the options existed but
- * could not be reached, and nothing dismissed them but a click. Mounting it
- * through the dialog focus helper moves focus onto the first option, keeps Tab
- * inside the list, closes on Escape and hands focus back to the trigger.
- */
-function PopupPickerPopover({
-	id,
-	label,
-	style,
-	onClose,
-	children,
-}: {
-	id: string;
-	label: string;
-	style: React.CSSProperties;
-	onClose: () => void;
-	children: ReactNode;
-}) {
-	const ref = useRef<HTMLDivElement>(null);
-	useDialogA11y(ref, onClose);
-
-	return createPortal(
-		<div
-			ref={ref}
-			id={id}
-			role="dialog"
-			aria-label={label}
-			className="popup-picker-popover"
-			style={style}
-		>
-			{children}
-		</div>,
-		document.body,
 	);
 }

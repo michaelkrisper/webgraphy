@@ -171,35 +171,59 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.popup-picker-widths {
+.ssp-popover {
+	flex-direction: row;
+	gap: 6px;
+}
+.ssp-grid {
+	display: grid;
+	grid-template-columns: repeat(4, auto);
+	gap: 1px;
+}
+.ssp-widths {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding-left: 6px;
+	border-left: 1px solid var(--border-color);
+}
+.ssp-cell,
+.ssp-width {
 	display: flex;
 	align-items: center;
-	gap: 1px;
-	margin-top: 3px;
-	padding: 4px 0 0 10px;
-	border-top: 1px solid var(--border-color);
-	color: var(--text-color);
-	font-size: 0.8rem;
-}
-.popup-picker-widths > span {
-	margin-right: auto;
-	padding-right: 8px;
-}
-.popup-picker-width {
-	min-width: 26px;
+	gap: 6px;
 	padding: 4px;
 	background: none;
 	border: none;
 	cursor: pointer;
 	color: inherit;
-	font: inherit;
+	font-size: 0.8rem;
 }
-.popup-picker-width:hover,
-.popup-picker-width[aria-pressed="true"] {
+.ssp-width-label {
+	min-width: 1.6em;
+	text-align: right;
+	color: var(--text-color);
+}
+.ssp-cell:hover,
+.ssp-cell[aria-pressed="true"],
+.ssp-width:hover:not(:disabled),
+.ssp-width[aria-pressed="true"] {
 	background: var(--bg3);
 }
-.popup-picker-width[aria-pressed="true"] {
+.ssp-cell[aria-pressed="true"],
+.ssp-width[aria-pressed="true"] {
+	outline: 1px solid var(--text-light);
+	outline-offset: -1px;
+}
+.ssp-width[aria-pressed="true"] .ssp-width-label {
 	font-weight: 600;
+}
+.ssp-width:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+.ssp-swatch {
+	display: block;
 }
 .sc-axis-swatches {
 	display: inline-flex;
@@ -320,7 +344,7 @@
 
 	font-size: var(--ui-font-size);
 	display: grid;
-	grid-template-columns: 24px repeat(7, var(--ui-size)) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
 	align-items: center;
 	overflow: hidden;
 }
@@ -420,9 +444,6 @@
 	border: none;
 	color: var(--text-muted-color);
 	background: transparent;
-}
-.sc-line-icon {
-	display: block;
 }
 
 /* ── ChartLegend ────────────────────────────────────── */
@@ -694,7 +715,7 @@
 }
 .sb-series-header {
 	display: grid;
-	grid-template-columns: 24px repeat(7, var(--ui-size)) 1fr var(--ui-size);
+	grid-template-columns: 24px repeat(6, var(--ui-size)) 1fr var(--ui-size);
 	padding: 4px 0;
 	color: var(--text-light);
 

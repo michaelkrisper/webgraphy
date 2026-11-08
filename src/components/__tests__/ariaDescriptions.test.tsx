@@ -213,19 +213,22 @@ describe("accessible names and descriptions", () => {
 			async () => {
 				render(<Sidebar />);
 				const trigger = screen.getAllByRole("button", {
-					name: "Select Line Style",
+					name: "Series Style",
 				})[0];
 				expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
 				expect(trigger).toHaveAttribute("aria-expanded", "false");
 
 				fireEvent.click(trigger);
 				expect(trigger).toHaveAttribute("aria-expanded", "true");
-				const popover = screen.getByRole("dialog", { name: "Line style" });
+				const popover = screen.getByRole("dialog", { name: "Series style" });
 				expect(
-					within(popover).getByRole("button", { name: /Solid/, pressed: true }),
-				).toBeInTheDocument();
+					within(popover).getAllByRole("button", { pressed: true }),
+				).toHaveLength(2);
 				expect(
-					within(popover).getByRole("button", { name: /Dashed/, pressed: false }),
+					within(popover).getByRole("button", {
+						name: "Dashed line, circles",
+						pressed: false,
+					}),
 				).toBeInTheDocument();
 
 				expectNamedAndDescribed();
