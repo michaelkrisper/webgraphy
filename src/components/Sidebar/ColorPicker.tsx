@@ -208,7 +208,6 @@ function ColorPickerInputs({
 	return (
 		<div className="color-picker-inputs">
 			<div className="color-picker-input-group">
-				<span className="color-picker-label">Hex</span>
 				<input
 					type="text"
 					value={displayHex}

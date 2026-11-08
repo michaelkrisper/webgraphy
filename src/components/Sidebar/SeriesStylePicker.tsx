@@ -16,6 +16,7 @@ const POINT_STYLES: readonly PointStyle[] = [
 	"none",
 ];
 const LINE_WIDTHS = [1, 1.5, 2, 3, 4];
+const POPOVER_WIDTH = 220;
 
 const LINE_LABELS: Record<LineStyle, string> = {
 	solid: "Solid line",
@@ -67,7 +68,7 @@ function StyleSwatch({
 	width: number;
 	wide?: boolean;
 }) {
-	const w = wide ? 40 : 20;
+	const w = wide ? 32 : 20;
 	const unit = dashScale(width);
 	const dash =
 		line === "dashed"
@@ -75,7 +76,7 @@ function StyleSwatch({
 			: line === "dotted"
 				? `0,${2.5 * unit}`
 				: undefined;
-	const markers = wide ? [12, 28] : [10];
+	const markers = wide ? [10, 22] : [10];
 	return (
 		<svg
 			width={w}
@@ -149,7 +150,7 @@ export function SeriesStylePicker({
 	const popoverId = `style-popover-${seriesId}`;
 	const { isOpen, close, toggleOpen, triggerRef, coords } = useAnchoredPopover(
 		popoverId,
-		260,
+		POPOVER_WIDTH,
 	);
 
 	// The popover's own swatches follow a hovered colour too.
@@ -196,7 +197,7 @@ export function SeriesStylePicker({
 					id={popoverId}
 					label="Series style"
 					className="popup-picker-popover ssp-popover"
-					style={{ ...coords, minWidth: 260 }}
+					style={{ ...coords, minWidth: POPOVER_WIDTH }}
 					onClose={close}
 				>
 					<ColorPicker
