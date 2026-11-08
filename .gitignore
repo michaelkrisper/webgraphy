@@ -32,6 +32,7 @@ coverage/
 
 # Claude / tooling
 .claude/
+CLAUDE.local.md
 graphify-out/
 .graphify/
 .gemini/
