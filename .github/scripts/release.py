@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Versioning, release and pull request automation for the GitHub Actions workflows.
 
 Subcommands:
@@ -59,7 +58,9 @@ PR_FIELDS = (
 
 
 def run(*args: str, stdin: str | None = None) -> str:
-    result = subprocess.run(args, input=stdin, capture_output=True, text=True)
+    result = subprocess.run(
+        args, input=stdin, capture_output=True, text=True, check=False
+    )
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} failed: {result.stderr.strip()}")
     return result.stdout.strip()
@@ -82,8 +83,7 @@ def output(**values: str) -> None:
     path = os.environ.get("GITHUB_OUTPUT")
     if path:
         with open(path, "a", encoding="utf-8") as fh:
-            for key, value in values.items():
-                fh.write(f"{key}={value}\n")
+            fh.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
 def summary(text: str) -> None:
@@ -154,11 +154,15 @@ def create_tag(tag: str, sha: str) -> None:
 def cmd_tag() -> int:
     sha = os.environ["GITHUB_SHA"]
     existing = sort_versions(run("git", "tag", "--points-at", sha).split())
+    tags = version_tags()
     if existing:
+        if existing[-1] != tags[-1]:
+            # Re-run of an older commit: no version output, so nothing redeploys it.
+            summary(f"{sha[:7]} is {existing[-1]}, older than {tags[-1]}; skipping.")
+            return 0
         output(version=existing[-1])
         summary(f"{sha[:7]} is already tagged {existing[-1]}.")
         return 0
-    tags = version_tags()
     if not tags:
         summary(
             "No version tag yet. Create the first release with the Release workflow."
@@ -471,7 +475,10 @@ def rollup_state(checks: list[dict]) -> str:
 
 
 def merge_if_green(number: int, sha: str, default: str) -> bool:
-    fields = "state,isDraft,headRefOid,baseRefName,isCrossRepository,statusCheckRollup"
+    fields = (
+        "state,isDraft,headRefOid,headRefName,baseRefName,isCrossRepository,"
+        "statusCheckRollup"
+    )
     pr = gh_json("pr", "view", str(number), "--repo", repo(), "--json", fields)
     reason = None
     if pr["state"] != "OPEN":
@@ -519,7 +526,17 @@ def merge_if_green(number: int, sha: str, default: str) -> bool:
         raise
     summary(f"Merged PR #{number}.")
     close_linked_issues(number)
+    delete_branch(pr["headRefName"])
     return True
+
+
+def delete_branch(branch: str) -> None:
+    """Delete the merged branch (delete_branch_on_merge skips GITHUB_TOKEN merges)."""
+    try:
+        run("gh", "api", "-X", "DELETE", f"repos/{repo()}/git/refs/heads/{branch}")
+        print(f"Deleted branch {branch}.")
+    except RuntimeError as error:
+        print(f"Branch {branch} not deleted: {error}")
 
 
 def close_linked_issues(number: int) -> None:
