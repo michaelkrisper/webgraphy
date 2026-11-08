@@ -50,8 +50,7 @@ test("a malformed file raises an error toast and imports nothing", async ({
 		buffer: Buffer.from('{"rows": [1, 2,', "utf8"),
 	});
 
-	// Scoped to the toasts: without WebGL2 (Firefox in the CI container) the
-	// plot shows its own alert too.
+	// Scoped to the toasts: without WebGL2 the plot shows its own alert too.
 	await expect(
 		page.getByRole("region", { name: "Notifications" }).getByRole("alert"),
 	).toContainText('Could not open "broken.json"');
@@ -120,9 +119,6 @@ test("pasting spreadsheet cells opens the import dialog for them", async ({
 			bubbles: true,
 			cancelable: true,
 		});
-		// Firefox replaces the init dict's `clipboardData` with an empty one on
-		// a synthetic event.
-		Object.defineProperty(event, "clipboardData", { value: data });
 		document.body.dispatchEvent(event);
 	}, tsv);
 
