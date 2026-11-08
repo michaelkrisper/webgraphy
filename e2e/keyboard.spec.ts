@@ -163,8 +163,8 @@ test("a popover opened mid-path is operable and hands focus back", async ({
 
 	// The pickers render through a portal at the end of the body, so without
 	// focus management the next Tab walks past them into the rest of the page.
-	const opener = page.getByRole("button", { name: "Select Line Style" }).first();
-	const popover = page.locator('[id^="line-style-popover-"]');
+	const opener = page.getByRole("button", { name: "Series Style" }).first();
+	const popover = page.locator('[id^="style-popover-"]');
 	await opener.focus();
 	await page.keyboard.press("Enter");
 
@@ -172,7 +172,7 @@ test("a popover opened mid-path is operable and hands focus back", async ({
 	const inside = await page.evaluate(
 		() =>
 			!!document
-				.querySelector('[id^="line-style-popover-"]')
+				.querySelector('[id^="style-popover-"]')
 				?.contains(document.activeElement),
 	);
 	expect(inside, "focus did not move into the popover").toBe(true);
@@ -181,7 +181,7 @@ test("a popover opened mid-path is operable and hands focus back", async ({
 	await expect(popover).toHaveCount(0);
 	await expect
 		.poll(() => focused(page).then((s) => s?.name ?? ""))
-		.toBe("Select Line Style");
+		.toBe("Series Style");
 });
 
 test("the plotted data is reachable as a table without a mouse", async ({

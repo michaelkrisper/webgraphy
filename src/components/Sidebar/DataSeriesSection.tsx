@@ -2,12 +2,11 @@ import {
 	ArrowUpDown,
 	ChevronDown,
 	ChevronRight,
-	Circle,
 	Hash,
-	Minus,
 	MoveHorizontal,
 	Palette,
 	Rows3,
+	Spline,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -169,11 +168,8 @@ export const DataSeriesSection: React.FC<DataSeriesSectionProps> = ({
 								>
 									log
 								</div>
-								<div title="Line Style" className="sb-series-header-cell">
-									<Minus size={12} />
-								</div>
-								<div title="Point Style" className="sb-series-header-cell">
-									<Circle size={10} />
+								<div title="Line and point style" className="sb-series-header-cell">
+									<Spline size={12} />
 								</div>
 								<div title="Color" className="sb-series-header-cell">
 									<Palette size={12} />
