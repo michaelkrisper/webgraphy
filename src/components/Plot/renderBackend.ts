@@ -247,7 +247,7 @@ class WorkerBackend implements RenderBackend {
 			notify({
 				kind: "error",
 				message:
-					"The chart renderer crashed, so the plot no longer updates. Reload to restart it.",
+					"The chart renderer hit an error. If the plot stops updating, reload to restart it.",
 				action: { label: "Reload", onAction: () => location.reload() },
 			});
 		};
