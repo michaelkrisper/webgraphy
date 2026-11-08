@@ -170,7 +170,7 @@ export const DatasetItem: React.FC<DatasetItemProps> = ({
 							}}
 							title="Export Dataset as CSV"
 							aria-label={`Export ${ds.name} as CSV`}
-							aria-description="Downloads all rows, calculated columns included"
+							aria-description="Saves all rows as a CSV file, calculated columns included"
 						>
 							<Download size={16} />
 						</button>

@@ -110,6 +110,7 @@ describe("SidebarHeader", () => {
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: true }],
 			datasets: [],
+			series: [],
 			legendVisible: true,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: true,
@@ -227,7 +228,13 @@ describe("SidebarHeader", () => {
 				{ id: "axis-2", showGrid: false },
 				{ id: "axis-3", showGrid: false },
 			],
-			datasets: [{ xAxisId: "axis-1" }, { xAxisId: "axis-2" }],
+			datasets: [
+				{ id: "a", xAxisId: "axis-1" },
+				{ id: "b", xAxisId: "axis-2" },
+				// Not plotted: its axis is not drawn and does not count.
+				{ id: "c", xAxisId: "axis-3" },
+			],
+			series: [{ sourceId: "a" }, { sourceId: "b" }],
 		};
 		(useGraphStore as unknown as Mock).mockImplementation(
 			(sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
@@ -410,6 +417,7 @@ describe("SidebarHeader", () => {
 			updateXAxis: mockUpdateXAxis,
 			xAxes: [{ id: "axis-1", showGrid: false }],
 			datasets: [],
+			series: [],
 			legendVisible: false,
 			setLegendVisible: mockSetLegendVisible,
 			crosshairVisible: false,

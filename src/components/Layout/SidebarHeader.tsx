@@ -151,10 +151,13 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 	const series = useGraphStore((s) => s.series);
 	const [dataTableOpen, setDataTableOpen] = useState(false);
 
-	// Every X axis that carries data shows its own grid; with none in use the
-	// button drives X axis 1, where the next dataset lands.
+	// Every drawn X axis (one with plotted series) shows its own grid; with
+	// none drawn the button drives X axis 1, where the next dataset lands.
+	const plottedSources = new Set(series.map((s) => s.sourceId));
 	const usedXAxes = xAxes.filter((a) =>
-		datasets.some((d) => (d.xAxisId || DEFAULT_X_AXIS_ID) === a.id),
+		datasets.some(
+			(d) => plottedSources.has(d.id) && (d.xAxisId || DEFAULT_X_AXIS_ID) === a.id,
+		),
 	);
 	const gridXAxes = usedXAxes.length > 0 ? usedXAxes : xAxes.slice(0, 1);
 	const verticalGrid =
