@@ -514,12 +514,14 @@ describe("useGraphStore", () => {
 			.mocked(persistence.getAllDatasets)
 			.mockResolvedValueOnce([
 				{ id: "demo-dataset" } as unknown as Dataset,
+				{ id: "demo-dataset-2" } as unknown as Dataset,
 				{ id: "ds3" } as unknown as Dataset,
 			]);
 
 		await store.loadPersistedState();
-		const [demo, user] = useGraphStore.getState().datasets;
+		const [demo, copy, user] = useGraphStore.getState().datasets;
 		expect(demo.demo).toBe(true);
+		expect(copy.demo).toBe(true);
 		expect(user.demo).toBeUndefined();
 	});
 

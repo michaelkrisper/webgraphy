@@ -145,10 +145,16 @@ const similarRanges = (a: Range, b: Range): boolean => {
 export function pickYAxisIdForColumn(
 	datasets: readonly Dataset[],
 	existing: readonly SeriesConfig[],
-	yAxes: readonly ({ id: string } & Range)[],
+	yAxes: readonly ({ id: string; scale?: "linear" | "log" } & Range)[],
 	column: { bounds?: Range; categorical?: boolean },
 ): string {
 	const bounds = isFiniteRange(column.bounds) ? column.bounds : undefined;
+	// A log axis would drop this column's values <= 0.
+	const logAxes = new Set(
+		bounds && bounds.min <= 0
+			? yAxes.filter((a) => a.scale === "log").map((a) => a.id)
+			: [],
+	);
 	if (bounds && !column.categorical) {
 		// null: the axis carries a categorical series.
 		const ranges = new Map<string, Range | null>();
@@ -175,7 +181,7 @@ export function pickYAxisIdForColumn(
 		let best: string | undefined;
 		let bestScore = -1;
 		for (const [id, r] of ranges) {
-			if (!r || !similarRanges(r, bounds)) continue;
+			if (!r || logAxes.has(id) || !similarRanges(r, bounds)) continue;
 			const score = overlapRatio(r, bounds);
 			if (score > bestScore) {
 				bestScore = score;

@@ -1,5 +1,10 @@
 import type { Dataset, SeriesConfig } from "../services/persistence";
 import { DEFAULT_X_AXIS_ID } from "../utils/axisCalculations";
+import {
+	type AxisScale,
+	padRange as padScaleRange,
+	positiveBounds,
+} from "../utils/axisScale";
 import { getColumnIndex } from "../utils/columns";
 
 interface Range {
@@ -9,10 +14,9 @@ interface Range {
 
 export const AXIS_PADDING_RATIO = 0.05;
 
-export const padRange = ({ min, max }: Range): Range => {
-	const pad = (max - min || 1) * AXIS_PADDING_RATIO;
-	return { min: min - pad, max: max + pad };
-};
+/** Pads in scale space, so a log axis stays positive. */
+export const padRange = ({ min, max }: Range, log = false): Range =>
+	padScaleRange(min, max, AXIS_PADDING_RATIO, log);
 
 const isFiniteRange = (r: Range | undefined): r is Range =>
 	!!r && Number.isFinite(r.min) && Number.isFinite(r.max) && r.min <= r.max;
@@ -20,9 +24,16 @@ const isFiniteRange = (r: Range | undefined): r is Range =>
 const unite = (a: Range | undefined, b: Range): Range =>
 	a ? { min: Math.min(a.min, b.min), max: Math.max(a.max, b.max) } : { ...b };
 
-function columnBounds(ds: Dataset, column: string): Range | undefined {
-	const bounds = ds.data[getColumnIndex(ds, column)]?.bounds;
-	return isFiniteRange(bounds) ? bounds : undefined;
+/** A log axis can only show the strictly positive values. */
+function columnBounds(
+	ds: Dataset,
+	column: string,
+	log = false,
+): Range | undefined {
+	const col = ds.data[getColumnIndex(ds, column)];
+	if (!col) return undefined;
+	const bounds = log ? positiveBounds(col.data, col.refPoint) : col.bounds;
+	return bounds && isFiniteRange(bounds) ? bounds : undefined;
 }
 
 /**
@@ -40,7 +51,7 @@ export function fitForNewSeries(
 	prev: readonly SeriesConfig[],
 	next: readonly SeriesConfig[],
 	datasetsById: ReadonlyMap<string, Dataset>,
-	yAxes: readonly ({ id: string } & Range)[],
+	yAxes: readonly ({ id: string; scale?: AxisScale } & Range)[],
 ): { x: Record<string, Range>; y: Record<string, Range> } {
 	const x: Record<string, Range> = {};
 	const y: Record<string, Range> = {};
@@ -61,14 +72,20 @@ export function fitForNewSeries(
 		const ds = datasetsById.get(s.sourceId);
 		return ds ? ds.xAxisId || DEFAULT_X_AXIS_ID : undefined;
 	};
-	const prevYAxes = new Set(prev.map((s) => s.yAxisId));
+	// Series of a dataset removed in the same step (an import replacing the
+	// demo) no longer occupy their axis: it is fresh and gets fitted.
+	const prevYAxes = new Set(
+		prev.filter((s) => datasetsById.has(s.sourceId)).map((s) => s.yAxisId),
+	);
+	const isLogY = (axisId: string) =>
+		yAxes.find((a) => a.id === axisId)?.scale === "log";
 	const prevXAxes = new Set(prev.map(xAxisOf));
 
-	const seriesBounds = (list: readonly SeriesConfig[]) => {
+	const seriesBounds = (list: readonly SeriesConfig[], log = false) => {
 		let r: Range | undefined;
 		for (const s of list) {
 			const ds = datasetsById.get(s.sourceId);
-			const b = ds && columnBounds(ds, s.yColumn);
+			const b = ds && columnBounds(ds, s.yColumn, log);
 			if (b) r = unite(r, b);
 		}
 		return r;
@@ -86,22 +103,30 @@ export function fitForNewSeries(
 	}
 
 	for (const axisId of refit) {
-		const r = seriesBounds(next.filter((s) => s.yAxisId === axisId));
-		if (r) y[axisId] = padRange(r);
+		const log = isLogY(axisId);
+		const r = seriesBounds(
+			next.filter((s) => s.yAxisId === axisId),
+			log,
+		);
+		if (r) y[axisId] = padRange(r, log);
 	}
 	for (const [axisId, list] of addedByAxis) {
 		if (refit.has(axisId)) continue;
-		const r = seriesBounds(list);
+		const log = isLogY(axisId);
+		const r = seriesBounds(list, log);
 		const axis = yAxes.find((a) => a.id === axisId);
 		if (!r || !isFiniteRange(axis)) continue;
-		const shown = seriesBounds(prev.filter((s) => s.yAxisId === axisId));
+		const shown = seriesBounds(
+			prev.filter((s) => s.yAxisId === axisId),
+			log,
+		);
 		// An axis still showing all of its data is not user-zoomed, so the
 		// new series should fit completely, not just poke into view.
 		const unzoomed = !!shown && axis.min <= shown.min && axis.max >= shown.max;
 		const clipped = r.min < axis.min || r.max > axis.max;
 		const offScreen = r.max < axis.min || r.min > axis.max;
 		if (offScreen || (unzoomed && clipped)) {
-			y[axisId] = unite(axis, padRange(r));
+			y[axisId] = unite(axis, padRange(r, log));
 		}
 	}
 

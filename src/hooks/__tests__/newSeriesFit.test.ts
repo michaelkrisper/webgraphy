@@ -116,6 +116,48 @@ describe("fitForNewSeries", () => {
 		expect(y).toEqual({ "axis-1": { min: 0, max: 1021 } });
 	});
 
+	it("fits an axis freed by a dataset removed in the same step", () => {
+		// The demo is replaced: its series are still in prev, its dataset is gone.
+		const onlyPressure = new Map([[pressure.id, pressure]]);
+		const p = series("s2", "pressure", "p", "axis-1");
+		const { y } = fitForNewSeries([temp], [p], onlyPressure, yAxes);
+		expect(y).toEqual({ "axis-1": { min: 999, max: 1021 } });
+	});
+
+	it("pads a log axis in scale space and ignores non-positive values", () => {
+		const logCol = (values: number[]) => ({
+			isFloat64: false,
+			refPoint: 0,
+			bounds: { min: Math.min(...values), max: Math.max(...values) },
+			data: new Float32Array(values),
+		});
+		const ds: Dataset = {
+			id: "lg",
+			name: "lg",
+			columns: ["t", "a", "b"],
+			data: [logCol([0, 1, 2]), logCol([1, 10, 1000]), logCol([-3, 2, 5000])],
+			rowCount: 3,
+			xAxisColumn: "t",
+			xAxisId: "axis-1",
+		};
+		const a = series("a", "lg", "a", "axis-3");
+		const b = series("b", "lg", "b", "axis-3");
+		const logAxes = yAxes.map((ax) =>
+			ax.id === "axis-3"
+				? { ...ax, min: 0.8, max: 1200, scale: "log" as const }
+				: ax,
+		);
+		const { y } = fitForNewSeries([a], [a, b], new Map([[ds.id, ds]]), logAxes);
+		expect(y["axis-3"].min).toBe(0.8);
+		expect(y["axis-3"].max).toBeGreaterThan(5000);
+
+		const fresh = fitForNewSeries([], [b], new Map([[ds.id, ds]]), logAxes).y[
+			"axis-3"
+		];
+		expect(fresh.min).toBeGreaterThan(0);
+		expect(fresh.min).toBeLessThan(2);
+	});
+
 	it("refits the axis of a series rebound to another column", () => {
 		const rebound = { ...temp, yColumn: "hum" };
 		const { y } = fitForNewSeries([temp], [rebound], byId, yAxes);
