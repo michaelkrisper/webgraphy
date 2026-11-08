@@ -46,12 +46,18 @@ jobs:
           node-version: 24
           cache: npm
       - name: Release version
-        # Every build of main is a release: the next patch after the highest
-        # tag, the package.json version when that is ahead, or the tag already
-        # on this commit (re-runs). Deploy tags it once Pages is live.
+        # Every build of main gets a version: the next patch after the highest
+        # tag, or the tag already on this commit (re-runs, or a release cut by
+        # the Release workflow). Deploy tags it once Pages is live. Only the
+        # tip of main is versioned: re-running an older run deploys nothing.
         id: version
         if: github.ref == 'refs/heads/main'
         run: |
+          git fetch --quiet origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "::notice::$GITHUB_SHA is no longer the tip of main; this run neither tags nor deploys."
+            exit 0
+          fi
           version=$(node scripts/next-version.mjs)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Release version: v$version" >> "$GITHUB_STEP_SUMMARY"
@@ -76,7 +82,7 @@ jobs:
         # the PWA precache total.
         run: node scripts/size-check.mjs
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
+        if: steps.version.outputs.version != ''
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist
@@ -174,15 +180,16 @@ jobs:
 
   deploy:
     # Only deploy a build of main that passed the quality gates and the
-    # end-to-end tests; reuses the artifact from quality. Then tags the commit
-    # with the version quality built it as and publishes a GitHub release.
+    # end-to-end tests and got a version; reuses the artifact from quality.
+    # Then tags the commit with the version quality built it as. Patch
+    # versions get no GitHub release; bundled releases come from release.yml.
     needs: [quality, e2e]
-    if: github.ref == 'refs/heads/main'
+    if: needs.quality.outputs.version != ''
     runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
-      # Push the version tag and create the release.
+      # Push the version tag.
       contents: write
     # Serialise deploys, and never cancel one that has started. Uncontended
     # while main runs serialise at the workflow level; kept as a safeguard.
@@ -193,21 +200,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Tag and release
-        # Idempotent, so a re-run finishes what a failed attempt started. Tags
-        # pushed with the GITHUB_TOKEN trigger no workflows, so no loop.
+      - name: Check version tag
+        # Before deploying: the version must be free or already on this commit.
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.quality.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -z "$VERSION" ]; then
-            echo "::error::quality did not compute a release version"
-            exit 1
-          fi
           tag="v$VERSION"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
             # Expected on a re-run; on another commit the version was reused.
@@ -216,15 +215,22 @@ jobs:
               echo "::error::$tag already exists on another commit"
               exit 1
             fi
+          fi
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Tag
+        # Idempotent, so a re-run finishes what a failed attempt started. Tags
+        # pushed with the GITHUB_TOKEN trigger no workflows, so no loop.
+        env:
+          VERSION: ${{ needs.quality.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             echo "Tag $tag already exists"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$tag" -m "WebGraphy $tag" "$GITHUB_SHA"
             git push origin "refs/tags/$tag"
-          fi
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists"
-          else
-            gh release create "$tag" --verify-tag --generate-notes
           fi
