@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude sessions (local, cloud, worktree agents) working in this repository. Machine-specific notes belong in `CLAUDE.local.md` (gitignored).
 
 ## Project
 
-WebGraphy — client-only PWA for high-performance data visualization with WebGL. Preact (React API via `preact/compat`) + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Deployed to GitHub Pages from `main`.
+WebGraphy — client-only PWA for high-performance data visualization with WebGL. Preact (React API via `preact/compat`) + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Desktop-first: targets Chromium-based desktop browsers. Deployed to GitHub Pages (https://michaelkrisper.github.io/webgraphy/) from `main`.
 
 ## Commands
 
@@ -26,9 +26,9 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 
 `@` is aliased to `./src` (see `vitest.config.ts`). Tests run in jsdom; `src/__tests__/setup.ts` mocks `localStorage`. Vitest runs test files in parallel but benchmarks serially (`fileParallelism` is off only in benchmark mode) and excludes `e2e/`, whose `*.spec.ts` files are Playwright-only.
 
-CI (`.github/workflows/ci.yml`) is the only workflow: a `quality` job (format → lint → coverage test → build → size budget), a containerised `e2e` job, an advisory-but-binding `bench` job, and a `deploy` job that publishes `dist` to Pages on `main`.
+Workflows: `ci.yml` runs a `quality` job (format → lint → coverage test → build → size budget), a containerised Chromium-only `e2e` job, an advisory-but-binding `bench` job, and on `main` tags the next patch and deploys `dist` to Pages. `tickets.yml` is the "Linked ticket" check, `automerge.yml` squash-merges green PRs, `release.yml` cuts minor/major releases.
 
-Versioning: every merge to `main` is built as, then tagged as, the next patch version (`scripts/next-version.mjs`; `vX.Y.Z` tags are the source of truth, main runs are serialised, only the tip of `main` is versioned and deployed). Patch versions get no GitHub release. Minor/major releases come from `.github/workflows/release.yml` (workflow_dispatch; `.github/scripts/release.py` tags main and writes notes from merged PRs and closed tickets, then dispatches CI so the deployed app shows the release version). `APP_VERSION` overrides the version at build time (`appVersion.ts`). Work goes through issue → branch `<issue>-<slug>` → PR (`Closes #N`) → Auto-merge once all checks are green (`tickets.yml`, `automerge.yml`).
+Versioning internals: `scripts/next-version.mjs` derives the next patch from the newest `vX.Y.Z` tag (tags are the source of truth; main runs are serialised and only the tip of `main` is versioned and deployed). Patch versions get no GitHub release. `release.yml` (`.github/scripts/release.py`) tags `main`, writes notes from merged PRs and closed tickets, then dispatches CI so the deployed app shows the release version. `APP_VERSION` overrides the version at build time (`appVersion.ts`).
 
 ## Architecture
 
@@ -70,6 +70,10 @@ The hot path. `ChartContainer.tsx` orchestrates; it does **not** re-render per f
 - Pan/zoom and keyboard nav mutate **target ref objects** (`targetXAxes`/`targetYs`), and a `requestAnimationFrame` loop interpolates → redraws imperatively, only writing back to the Zustand store when interaction settles (`syncStoreUpdates.ts`). This ref+rAF indirection is deliberate: do not "simplify" it into render-driven state, and avoid adding store subscriptions or React state on the per-frame path.
 - Layout math is extracted into pure, individually-tested modules (`computeAxesLayout`, `buildXAxisLayout`, `axisGutters`, `seriesPrep`, `drawSeries`, `buildOverlay`, `overlayGeometry`, etc.). Prefer adding/adjusting these pure functions over inlining logic into components.
 
+### WebMCP — `src/services/webmcp/`
+
+When the browser exposes `document.modelContext` (origin trial; token injected at build time from `VITE_WEBMCP_OT_TOKEN`), `register.ts` registers the tools in `tools.ts` so an in-browser agent can inspect and drive the chart. Tools return metadata and aggregates only, never rows; `stats.ts` reports only a count for fewer than 5 values.
+
 ### Formula engine — `src/utils/formula.ts`
 
 A re-export facade over `src/utils/formula/`: `parser.ts` (lexer → shunting-yard RPN), `compile.ts`, `evaluate.ts` (row-wise interpreter over a pre-allocated stack), `stateful.ts` (rolling/time/group state), `wholeColumn.ts` (regression/KDE/group-average paths, which can emit a compact sparse sub-dataset). **No `eval`/`new Function`**; column refs and function names are validated against the dataset and `formulaFunctions.ts` (the single source of truth for functions — add new functions there).
@@ -83,3 +87,26 @@ A re-export facade over `src/utils/formula/`: `parser.ts` (lexer → shunting-ya
 - Keyboard: every binding is registered in `utils/shortcuts.ts` (`SHORTCUTS`); handlers match against it and the "?" shortcuts dialog renders it, so never hard-code a key elsewhere. Use its `isEditableTarget` to ignore keys typed into inputs.
 - User feedback goes through `notify()` (`store/useNotificationStore.ts`, rendered by `Toaster`): kinds `info`/`success`/`error`, optional action button (e.g. Undo); errors stay until dismissed; repeating the newest toast refreshes it instead of stacking. Prefer toasts, menus and shortcuts over new permanent toolbar buttons.
 - PNG export (`services/export.ts`) tags the file with a pHYs chunk (`services/pngMetadata.ts`) at 96 dpi × pixel ratio — the chosen dpi for millimetre sizes, 192 dpi for a 2× pixel export.
+- UI text is English. Accessibility: every control needs an accessible name **and** an `aria-description` saying what it does; `src/components/__tests__/ariaDescriptions.test.tsx` enforces it for the rendered UI.
+- Keep the UI uncluttered: refine, don't redesign; secondary actions go into menus, shortcuts or toasts, not new toolbar icons. The UI term is "Calculated Column".
+- No new dependencies without a clear need; the entry chunk and PWA precache are budgeted (`size-budget.json`).
+
+## Rules and pitfalls
+
+- Never add JSX `autoFocus` (ESLint forbids it): Preact ignores it on elements mounted after page load; focus via a ref callback.
+- Never draw series with native `gl.LINES`/`LINE_STRIP`: driver line width caps at 1 px on ANGLE/D3D.
+- Never move per-frame pan/zoom state into the store or React state; the ref + rAF loop exists so frames don't re-render.
+- Never generate e2e screenshot baselines locally; only CI's pinned container produces comparable pixels.
+- Never treat a local `bench:check` failure as a regression on a busy machine; CI's run is the binding one.
+- Always keep `persistenceSchemas.ts` in sync with the `Dataset`/`*Config` interfaces: entries the schema rejects are dropped on load. Optional fields keep old session files readable; incompatible layout changes bump `SESSION_FORMAT_VERSION`.
+- Always wrap user-facing mutations in history (`beginHistory`/`commitHistory` or `withHistory`) and call the matching debounced saver.
+- Don't merge a TypeScript 7 bump while typescript-eslint's peer range excludes it (`npm view typescript-eslint peerDependencies`): ESLint crashes and fails CI.
+- No responsive/mobile work; the app is desktop-only.
+
+## Workflow
+
+- Every change starts with a GitHub issue. Branch `<issue>-<slug>` from `main`, open a PR with `Closes #<issue>`. Never push to `main` directly.
+- PRs auto-merge (squash) once CI and the "Linked ticket" check pass; drafts are not merged.
+- Versions exist only as git tags `vX.Y.Z`. Every merge to `main` tags the next patch; never edit version numbers in files. Minor/major releases: Actions -> Release.
+- Merging to `main` deploys to GitHub Pages automatically.
+- Details: CONTRIBUTING.md.
