@@ -1,0 +1,65 @@
+/*
+ * Light + dark: IBM Plex Sans (UI) + IBM Plex Mono (values). The default
+ * themes' set, precached by the service worker (pwaWorkbox.ts).
+ *
+ * The fonts-*.css files restate @fontsource's latin @font-face rules with only
+ * the woff2 source: its own CSS adds a .woff fallback that no supported
+ * browser fetches, yet makes the build emit a second copy of every font.
+ * Keep the fonts-<set>.css names: the precache globs select by them.
+ */
+@font-face {
+	font-family: "IBM Plex Sans";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 400;
+	src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Sans";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 500;
+	src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Sans";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 600;
+	src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Sans";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 700;
+	src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-700-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 400;
+	src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 500;
+	src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2")
+		format("woff2");
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 600;
+	src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2")
+		format("woff2");
+}
