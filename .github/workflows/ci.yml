@@ -163,7 +163,10 @@ jobs:
         # Normalised against control workloads measured in the same run, so
         # results survive the spread between runner classes. Fails the build
         # only here: CI has a dedicated runner, developer machines do not.
-        run: npm run bench:check
+        # Measured a second time before failing: a single benchmark now and
+        # then lands past the tolerance on a noisy runner with a low rme, and
+        # a real regression fails both runs (#797).
+        run: npm run bench:check || npm run bench:check
       - name: Upload raw benchmark result
         # Lets a clean baseline be regenerated from a run on an idle runner,
         # without measuring on a contended developer machine.
