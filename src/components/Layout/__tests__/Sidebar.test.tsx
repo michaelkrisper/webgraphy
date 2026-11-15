@@ -27,9 +27,6 @@ vi.mock("../ImportSettingsDialog", () => ({
 vi.mock("../CalculatedColumnModal", () => ({
 	CalculatedColumnModal: () => <div data-testid="calc-modal">Calc Modal</div>,
 }));
-vi.mock("../ImprintModal", () => ({
-	ImprintModal: () => <div data-testid="imprint-modal">Imprint</div>,
-}));
 vi.mock("../HelpModal", () => ({
 	HelpModal: () => <div data-testid="help-modal">Help</div>,
 }));
@@ -164,10 +161,6 @@ describe("Sidebar Component", () => {
 		render(<Sidebar />);
 
 		const more = screen.getByRole("button", { name: "More" });
-		fireEvent.click(more);
-		fireEvent.click(screen.getByText("Imprint"));
-		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
-
 		fireEvent.click(more);
 		fireEvent.click(screen.getByText("License"));
 		expect(await screen.findByTestId("license-modal")).toBeInTheDocument();
