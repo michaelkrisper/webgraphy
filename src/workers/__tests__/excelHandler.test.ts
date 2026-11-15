@@ -95,7 +95,7 @@ describe("handleExcelRequest", () => {
 
 	it("replies with an error for an unknown sheet or an empty sheet name", async () => {
 		const { bookId } = await openBook(twoSheets());
-		for (const sheetName of ["Nope", ""]) {
+		for (const sheetName of ["Nope", "", "__proto__", "constructor"]) {
 			const res = await send({
 				action: "preview",
 				bookId: bookId as number,

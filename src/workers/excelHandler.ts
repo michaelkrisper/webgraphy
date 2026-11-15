@@ -47,7 +47,10 @@ function getSheet(bookId: number, sheetName: string): WorkSheet {
 			"The workbook is no longer loaded. Please import the file again.",
 		);
 	}
-	const sheet = sheetName ? book.Sheets[sheetName] : undefined;
+	// Own properties only: "__proto__" would otherwise hand out Object.prototype.
+	const sheet = Object.hasOwn(book.Sheets, sheetName)
+		? book.Sheets[sheetName]
+		: undefined;
 	if (!sheet) throw new Error(`Sheet "${sheetName}" not found in the workbook.`);
 	return sheet;
 }
