@@ -189,11 +189,6 @@ is injected as an `origin-trial` meta tag at runtime.
   returned as such, but aggregates over overlapping ranges can be combined, so
   treat letting an agent use the tools like sharing the data with it. Nothing
   is sent when no agent calls the tools.
-- Page views are counted with [GoatCounter](https://www.goatcounter.com/): one
-  first-party beacon request per page load (path, title, referrer, screen
-  width), no cookies and no third-party script. It is not sent on localhost or
-  inside frames. To opt out, run `localStorage.setItem("skipgc", "t")` in the
-  browser console.
 
 ## Development
 

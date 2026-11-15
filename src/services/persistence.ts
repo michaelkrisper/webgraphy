@@ -15,8 +15,7 @@ const WRITER_LOCK = "webgraphy-writer";
 // How long a starting tab waits for the writer lock before it runs read-only.
 const WRITER_LOCK_WAIT_MS = 1500;
 const LOCAL_STORAGE_PREFIX = "webgraphy-";
-// Keys WebGraphy writes without the prefix. The analytics opt-out ("skipgc")
-// is deliberately not among them: a reset must not re-enable counting.
+// Keys WebGraphy writes without the prefix.
 const LOCAL_STORAGE_KEYS = ["theme"];
 
 export interface DataColumn {
