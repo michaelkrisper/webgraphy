@@ -46,8 +46,8 @@ export function registerServiceWorker(): void {
 }
 
 /**
- * Cache Storage is shared by every app on michaelkrisper.github.io, so the
- * runtime caches carry a "webgraphy-" prefix. These are their unprefixed
+ * The app used to share its origin, and so Cache Storage, with other apps,
+ * so the runtime caches carry a "webgraphy-" prefix. These are their unprefixed
  * predecessors, orphaned by the rename.
  */
 const LEGACY_CACHES = ["excel-worker", "theme-fonts"];

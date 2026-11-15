@@ -8,8 +8,8 @@ import { workbox } from "./pwaWorkbox.ts";
 // Cross-origin isolation enables SharedArrayBuffer, which the render worker
 // uses for the per-frame viewport handoff (falls back to postMessage without
 // it). `credentialless` (not `require-corp`) keeps the cross-origin GoatCounter
-// beacon loading; Safari lacks it and simply stays on the fallback path. GitHub
-// Pages cannot set response headers, so production also uses the fallback.
+// beacon loading; Safari lacks it and simply stays on the fallback path. The
+// production server sends no such headers, so production also uses the fallback.
 const coiHeaders = {
 	"Cross-Origin-Opener-Policy": "same-origin",
 	"Cross-Origin-Embedder-Policy": "credentialless",
