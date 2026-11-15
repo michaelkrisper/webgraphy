@@ -23,7 +23,7 @@ async function freshApp(page: Page, opts: { isolated?: boolean } = {}) {
 		localStorage.clear();
 	});
 	// The preview server sends COOP/COEP, so the suite would only ever see the
-	// SharedArrayBuffer transport. GitHub Pages cannot set those headers, so
+	// SharedArrayBuffer transport. The production server does not send those headers, so
 	// hiding the flag is the only way to exercise what actually ships.
 	if (opts.isolated === false) {
 		await page.addInitScript(() => {

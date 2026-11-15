@@ -1,6 +1,6 @@
 # WebGraphy
 
-[![Live](https://img.shields.io/badge/Live-app-brightgreen)](https://michaelkrisper.github.io/webgraphy/)
+[![Live](https://img.shields.io/badge/Live-app-brightgreen)](https://webgraphy.krisperapps.de/)
 [![CI](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/michaelkrisper/webgraphy/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/michaelkrisper/webgraphy?sort=semver&label=version)](https://github.com/michaelkrisper/webgraphy/releases)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -13,7 +13,7 @@ There is no backend: your files are parsed, stored and rendered locally and
 never leave the browser. It installs as a PWA and works offline.
 The user interface is in English.
 
-**Open it:** <https://michaelkrisper.github.io/webgraphy/>
+**Open it:** <https://webgraphy.krisperapps.de/>
 
 ![WebGraphy with several series on multiple axes](public/screenshot-wide.png)
 
@@ -176,8 +176,7 @@ ranges and fits are view changes, like zooming (Alt+Left steps back). Without
 WebMCP support nothing is loaded. To enable the origin trial on a deployment,
 register the origin for the WebMCP trial and store the token as the repository
 variable `WEBMCP_OT_TOKEN`; CI builds with it as `VITE_WEBMCP_OT_TOKEN`, and it
-is injected as an `origin-trial` meta tag at runtime, since GitHub Pages cannot
-send the header.
+is injected as an `origin-trial` meta tag at runtime.
 
 ## Privacy
 
@@ -228,8 +227,9 @@ on pull requests and pushes to `main`:
 - `quality`: format check, lint, tests with coverage, build, size budget.
 - `e2e`: Playwright in a pinned container.
 - `bench`: benchmarks against the baseline.
-- `deploy`: publishes `dist` to GitHub Pages, on `main` only, after `quality`
-  and `e2e` pass, then tags the commit.
+- `server`: uploads `dist` to <https://webgraphy.krisperapps.de/>, on `main`
+  only, after `quality` and `e2e` pass.
+- `version`: tags the uploaded commit.
 
 Every merge to `main` is deployed and tagged as the next patch version
 (`vX.Y.Z` tags are the source of truth, computed by

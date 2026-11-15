@@ -48,7 +48,7 @@ jobs:
       - name: Release version
         # Every build of main gets a version: the next patch after the highest
         # tag, or the tag already on this commit (re-runs, or a release cut by
-        # the Release workflow). Deploy tags it once Pages is live. Only the
+        # the Release workflow). It is tagged once the site is uploaded. Only the
         # tip of main is versioned: re-running an older run deploys nothing.
         id: version
         if: github.ref == 'refs/heads/main'
@@ -72,7 +72,7 @@ jobs:
         # The release version, so the deployed bundle shows exactly the tag
         # it ships under. Empty off main: appVersion.ts uses git describe.
         # WEBMCP_OT_TOKEN (repository variable, optional) is the Chrome origin
-        # trial token for WebMCP; Pages cannot send it as a header.
+        # trial token for WebMCP, injected as a meta tag.
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_WEBMCP_OT_TOKEN: ${{ vars.WEBMCP_OT_TOKEN }}
@@ -81,11 +81,13 @@ jobs:
         # Operates on the build produced above; gzipped bytes, per entry plus
         # the PWA precache total.
         run: node scripts/size-check.mjs
-      - name: Upload Pages artifact
+      - name: Upload site
         if: steps.version.outputs.version != ''
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          name: site
           path: dist
+          retention-days: 1
 
   # Runs in the pinned Playwright container, not on the bare runner: screenshot
   # baselines depend on the exact browser build, font set and rasteriser, and
@@ -177,31 +179,48 @@ jobs:
           path: bench-result.json
           retention-days: 7
 
-  deploy:
-    # Only deploy a build of main that passed the quality gates and the
+  server:
+    name: krisperapps.de
+    # Only publish a build of main that passed the quality gates and the
     # end-to-end tests and got a version; reuses the artifact from quality.
-    # Then tags the commit with the version quality built it as. Patch
-    # versions get no GitHub release; bundled releases come from release.yml.
+    # The key may only write into this app's folder on the server, and this
+    # job runs no code from the repository: it downloads the site and rsyncs.
     needs: [quality, e2e]
     if: needs.quality.outputs.version != ''
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-      # Push the version tag.
-      contents: write
-    # Serialise deploys, and never cancel one that has started. Uncontended
+    # Serialise uploads, and never cancel one that has started. Uncontended
     # while main runs serialise at the workflow level; kept as a safeguard.
     concurrency:
-      group: pages
+      group: server
       cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: _site
+      - name: Upload
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          echo 'krisperapps.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMchrlhQI1OFJ2cEfQosiydiSPg498c/+Mggebk+zVLO' > ~/.ssh/known_hosts
+          rsync -rtz --delete -e 'ssh -i ~/.ssh/deploy' _site/ deploy@krisperapps.de:./
+
+  version:
+    name: Version tag
+    # Tags the uploaded commit with the version quality built it as. Patch
+    # versions get no GitHub release; bundled releases come from release.yml.
+    needs: [quality, server]
+    runs-on: ubuntu-latest
+    permissions:
+      # Push the version tag.
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check version tag
-        # Before deploying: the version must be free or already on this commit.
+        # The version must be free or already on this commit.
         env:
           VERSION: ${{ needs.quality.outputs.version }}
         run: |
@@ -215,8 +234,6 @@ jobs:
               exit 1
             fi
           fi
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
       - name: Tag
         # Idempotent, so a re-run finishes what a failed attempt started. Tags
         # pushed with the GITHUB_TOKEN trigger no workflows, so no loop.

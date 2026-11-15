@@ -506,8 +506,8 @@ const sceneCtx: SceneContext = {
 
 /**
  * Without cross-origin isolation the axis ranges arrive on the frame message,
- * but the scene is still built in the worker — this is the path production on
- * GitHub Pages takes, so the host must not have to compute overlay or labels.
+ * but the scene is still built in the worker — this is the path production
+ * takes, so the host must not have to compute overlay or labels.
  */
 describe("render.worker — scene building on the postMessage path", () => {
 	const frame = (xAxes = axes, yAxes = axes) =>

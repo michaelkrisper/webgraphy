@@ -34,8 +34,8 @@ export function getModelContext(): ModelContext | null {
 }
 
 /**
- * GitHub Pages cannot send the Origin-Trial header, so the token comes in as
- * a meta tag, which must exist before the API is probed.
+ * The token is known at build time only, so it comes in as a meta tag
+ * instead of an Origin-Trial header, which must exist before the API is probed.
  */
 export function injectOriginTrialToken(token: string): void {
 	const meta = document.createElement("meta");

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { countPageview, GOATCOUNTER_ENDPOINT, pageviewUrl } from "../analytics";
 
-function setHost(hostname: string, pathname = "/webgraphy/") {
+function setHost(hostname: string, pathname = "/") {
 	vi.stubGlobal("location", {
 		...window.location,
 		protocol: "https:",
@@ -18,11 +18,11 @@ describe("analytics", () => {
 	});
 
 	it("builds a GoatCounter pageview URL for the current page", () => {
-		setHost("example.github.io");
+		setHost("webgraphy.example");
 		document.title = "WebGraphy";
 		const url = new URL(pageviewUrl() ?? "");
 		expect(`${url.origin}${url.pathname}`).toBe(GOATCOUNTER_ENDPOINT);
-		expect(url.searchParams.get("p")).toBe("/webgraphy/");
+		expect(url.searchParams.get("p")).toBe("/");
 		expect(url.searchParams.get("t")).toBe("WebGraphy");
 		expect(url.searchParams.has("r")).toBe(false);
 		expect(url.searchParams.get("b")).toBe("0");
@@ -40,13 +40,13 @@ describe("analytics", () => {
 	);
 
 	it("honours the skipgc opt-out", () => {
-		setHost("example.github.io");
+		setHost("webgraphy.example");
 		localStorage.setItem("skipgc", "t");
 		expect(pageviewUrl()).toBeNull();
 	});
 
 	it("flags automated browsers as bots", () => {
-		setHost("example.github.io");
+		setHost("webgraphy.example");
 		Object.defineProperty(navigator, "webdriver", {
 			value: true,
 			configurable: true,
@@ -60,7 +60,7 @@ describe("analytics", () => {
 	});
 
 	it("sends the beacon as an image request once loaded", () => {
-		setHost("example.github.io");
+		setHost("webgraphy.example");
 		const sources: string[] = [];
 		vi.stubGlobal(
 			"Image",

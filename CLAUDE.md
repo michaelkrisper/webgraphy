@@ -4,7 +4,7 @@ Guidance for Claude sessions (local, cloud, worktree agents) working in this rep
 
 ## Project
 
-WebGraphy — client-only PWA for high-performance data visualization with WebGL. Preact (React API via `preact/compat`) + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Desktop-first: targets Chromium-based desktop browsers. Deployed to GitHub Pages (https://michaelkrisper.github.io/webgraphy/) from `main`.
+WebGraphy — client-only PWA for high-performance data visualization with WebGL. Preact (React API via `preact/compat`) + TypeScript + Vite. No backend; all data lives in the browser (IndexedDB). Desktop-first: targets Chromium-based desktop browsers. Deployed to https://webgraphy.krisperapps.de/ (own server, root of its own origin) from `main`.
 
 ## Commands
 
@@ -26,7 +26,7 @@ Package manager is **npm** (ships with Node >=24). CI runs `npm ci`; locally use
 
 `@` is aliased to `./src` (see `vitest.config.ts`). Tests run in jsdom; `src/__tests__/setup.ts` mocks `localStorage`. Vitest runs test files in parallel but benchmarks serially (`fileParallelism` is off only in benchmark mode) and excludes `e2e/`, whose `*.spec.ts` files are Playwright-only.
 
-Workflows: `ci.yml` runs a `quality` job (format → lint → coverage test → build → size budget), a containerised Chromium-only `e2e` job, an advisory-but-binding `bench` job, and on `main` tags the next patch and deploys `dist` to Pages. `tickets.yml` is the "Linked ticket" check, `automerge.yml` squash-merges green PRs, `release.yml` cuts minor/major releases.
+Workflows: `ci.yml` runs a `quality` job (format → lint → coverage test → build → size budget), a containerised Chromium-only `e2e` job, an advisory-but-binding `bench` job, and on `main` uploads `dist` to the server (`server` job, rsync) and tags the next patch (`version` job). `tickets.yml` is the "Linked ticket" check, `automerge.yml` squash-merges green PRs, `release.yml` cuts minor/major releases.
 
 Versioning internals: `scripts/next-version.mjs` derives the next patch from the newest `vX.Y.Z` tag (tags are the source of truth; main runs are serialised and only the tip of `main` is versioned and deployed). Patch versions get no GitHub release. `release.yml` (`.github/scripts/release.py`) tags `main`, writes notes from merged PRs and closed tickets, then dispatches CI so the deployed app shows the release version. `APP_VERSION` overrides the version at build time (`appVersion.ts`).
 
@@ -65,7 +65,7 @@ The hot path. `ChartContainer.tsx` orchestrates; it does **not** re-render per f
 - Decimation is **M4** (`utils/decimation.ts`): pixel-anchored buckets plus an octave-merge pyramid, cached per series in `decimationCache.ts`. A log x axis uses log-uniform buckets (`m4ByLogXFloat32`, widths in decades; x <= 0 never emitted), and the cache keeps separate linear/log slots per x column since their levels would collide.
 - **Context loss / DPR**: both backends cancel `webglcontextlost` via `contextLoss.ts` and rebuild the core from its last inputs on restore. The canvas backing store follows `hooks/useDevicePixelSize.ts` (exact `device-pixel-content-box` size, DPR changes from monitor moves/zoom), not `round(css * devicePixelRatio)`.
 - **Scene building**: the worker rebuilds the whole scene itself via `frameScene.ts` (ticks, overlay geometry, labels) from a slim `SceneContext` that only changes on config/theme/resize. The host stops computing overlay/labels as soon as it has sent that context (`sceneShared()`); before then, and on the main-thread backend, it computes them itself and calls `setOverlay`/`setLabels`. Keep both alive — the early frames use the host path.
-- **Viewport transport**: with `crossOriginIsolated`, `viewportChannel.ts` writes the axis ranges into a `SharedArrayBuffer` behind a seqlock and the worker's rAF loop polls it, so pan/zoom costs zero postMessages. Without it the ranges ride on the `frame` message and the worker derives the scene from those (`fillPostedSnapshot`). `vite.config.ts` sets COOP/COEP on dev and preview only and GitHub Pages cannot set headers, so **production takes the postMessage transport** — which is why `e2e/smoke.spec.ts` runs one test with `crossOriginIsolated` stubbed to false.
+- **Viewport transport**: with `crossOriginIsolated`, `viewportChannel.ts` writes the axis ranges into a `SharedArrayBuffer` behind a seqlock and the worker's rAF loop polls it, so pan/zoom costs zero postMessages. Without it the ranges ride on the `frame` message and the worker derives the scene from those (`fillPostedSnapshot`). `vite.config.ts` sets COOP/COEP on dev and preview only and the production server sends none, so **production takes the postMessage transport** — which is why `e2e/smoke.spec.ts` runs one test with `crossOriginIsolated` stubbed to false.
 - The worker backend mirrors only the columns of live series (keyed by `Float32Array` identity, pruned symmetrically) — never assume the worker has data the last `series` message didn't reference.
 - Pan/zoom and keyboard nav mutate **target ref objects** (`targetXAxes`/`targetYs`), and a `requestAnimationFrame` loop interpolates → redraws imperatively, only writing back to the Zustand store when interaction settles (`syncStoreUpdates.ts`). This ref+rAF indirection is deliberate: do not "simplify" it into render-driven state, and avoid adding store subscriptions or React state on the per-frame path.
 - Layout math is extracted into pure, individually-tested modules (`computeAxesLayout`, `buildXAxisLayout`, `axisGutters`, `seriesPrep`, `drawSeries`, `buildOverlay`, `overlayGeometry`, etc.). Prefer adding/adjusting these pure functions over inlining logic into components.
@@ -108,5 +108,5 @@ A re-export facade over `src/utils/formula/`: `parser.ts` (lexer → shunting-ya
 - Every change starts with a GitHub issue. Branch `<issue>-<slug>` from `main`, open a PR with `Closes #<issue>`. Never push to `main` directly.
 - PRs auto-merge (squash) once CI and the "Linked ticket" check pass; drafts are not merged.
 - Versions exist only as git tags `vX.Y.Z`. Every merge to `main` tags the next patch; never edit version numbers in files. Minor/major releases: Actions -> Release.
-- Merging to `main` deploys to GitHub Pages automatically.
+- Merging to `main` deploys to https://webgraphy.krisperapps.de/ automatically.
 - Details: CONTRIBUTING.md.

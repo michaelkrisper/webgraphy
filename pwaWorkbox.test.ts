@@ -21,7 +21,7 @@ const precached = (file: string) =>
 
 const runtimeRoute = (file: string) =>
 	workbox.runtimeCaching.find((r) =>
-		r.urlPattern.test(`https://example.test/webgraphy/${file}`),
+		r.urlPattern.test(`https://example.test/${file}`),
 	);
 
 const fontsTs = readFileSync("src/fonts.ts", "utf8");
@@ -74,7 +74,7 @@ describe("service worker precache", () => {
 	it("gives every runtime cache its own name", () => {
 		const names = workbox.runtimeCaching.map((r) => r.options.cacheName);
 		expect(new Set(names).size).toBe(names.length);
-		// Cache Storage is shared with the other apps on the Pages origin.
+		// Prefixed since the app shared an origin with other apps.
 		for (const n of names) expect(n).toMatch(/^webgraphy-/);
 	});
 
