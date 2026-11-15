@@ -147,17 +147,3 @@
 	margin-top: 20px;
 	line-height: 1.5;
 }
-
-/* ── ImprintModal ───────────────────────────────────── */
-.imprint-text {
-	line-height: 1.6;
-}
-.imprint-link {
-	color: var(--accent);
-}
-.imprint-note {
-	font-size: 0.85em;
-	color: var(--text-muted-color);
-	margin-top: 30px;
-	line-height: 1.5;
-}

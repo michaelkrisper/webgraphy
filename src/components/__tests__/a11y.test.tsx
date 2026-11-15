@@ -8,7 +8,6 @@ import { EmptyState } from "../Plot/EmptyState";
 import { ConfirmDialog } from "../Layout/ConfirmDialog";
 import { HelpModal } from "../Layout/HelpModal";
 import { KeyboardShortcutsModal } from "../Layout/KeyboardShortcutsModal";
-import { ImprintModal } from "../Layout/ImprintModal";
 import { LicenseModal } from "../Layout/LicenseModal";
 import { AXE_TIMEOUT_MS } from "../../__tests__/axeTimeout";
 
@@ -79,7 +78,6 @@ const cases: Array<[string, () => React.ReactElement]> = [
 		),
 	],
 	["HelpModal", () => <HelpModal onClose={vi.fn()} />],
-	["ImprintModal", () => <ImprintModal onClose={vi.fn()} />],
 	["LicenseModal", () => <LicenseModal onClose={vi.fn()} />],
 ];
 

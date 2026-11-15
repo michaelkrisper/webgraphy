@@ -17,7 +17,6 @@ import { ConfirmDialog } from "../Layout/ConfirmDialog";
 import { ExportImageDialog } from "../Layout/ExportImageDialog";
 import { HelpModal } from "../Layout/HelpModal";
 import { ImportSettingsDialog } from "../Layout/ImportSettingsDialog";
-import { ImprintModal } from "../Layout/ImprintModal";
 import { KeyboardShortcutsModal } from "../Layout/KeyboardShortcutsModal";
 import { LicenseModal } from "../Layout/LicenseModal";
 import { Sidebar } from "../Layout/Sidebar";
@@ -511,7 +510,6 @@ describe("accessible names and descriptions", () => {
 		it.each([
 			["Help", () => <HelpModal onClose={vi.fn()} />],
 			["Keyboard shortcuts", () => <KeyboardShortcutsModal onClose={vi.fn()} />],
-			["Imprint", () => <ImprintModal onClose={vi.fn()} />],
 			["License", () => <LicenseModal onClose={vi.fn()} />],
 			[
 				"Plotted data",

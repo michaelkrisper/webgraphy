@@ -745,9 +745,10 @@
 .sb-footer {
 	position: relative;
 	display: flex;
+	flex-wrap: wrap;
 	justify-content: space-between;
 	align-items: center;
-	gap: 12px;
+	gap: 4px 12px;
 	padding: 8px 12px;
 	border-top: 1px solid var(--border-color);
 	flex-shrink: 0;
@@ -774,6 +775,15 @@
 .sb-footer-copy {
 	opacity: 0.8;
 	flex-shrink: 0;
+}
+.sb-footer-legal {
+	flex-basis: 100%;
+	display: flex;
+	gap: 8px;
+	opacity: 0.8;
+}
+.sb-footer-legal a {
+	color: inherit;
 }
 .sb-footer .sb-footer-btn {
 	font-size: inherit;

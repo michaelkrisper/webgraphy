@@ -17,17 +17,6 @@ vi.mock("../HelpModal", () => ({
 	),
 }));
 
-vi.mock("../ImprintModal", () => ({
-	ImprintModal: ({ onClose }: { onClose: () => void }) => (
-		<div data-testid="imprint-modal">
-			Imprint Modal{" "}
-			<button type="button" onClick={onClose} data-testid="close-imprint">
-				Close
-			</button>
-		</div>
-	),
-}));
-
 vi.mock("../LicenseModal", () => ({
 	LicenseModal: ({ onClose }: { onClose: () => void }) => (
 		<div data-testid="license-modal">
@@ -73,7 +62,7 @@ describe("SidebarFooter", () => {
 			"Keyboard shortcuts (?)",
 			"Storage usage",
 			"License",
-			"Imprint",
+			"Source code",
 		]) {
 			expect(screen.getByRole("button", { name })).toBeInTheDocument();
 		}
@@ -114,17 +103,34 @@ describe("SidebarFooter", () => {
 		expect(screen.queryByTestId("license-modal")).not.toBeInTheDocument();
 	});
 
-	it("opens and closes the Imprint modal", async () => {
+	it("links the central legal pages in a new tab", () => {
 		render(<SidebarFooter />);
 
-		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
+		const links = {
+			Imprint: "https://krisperapps.de/impressum",
+			Privacy: "https://krisperapps.de/datenschutz#webgraphy",
+			Terms: "https://krisperapps.de/nutzung",
+		};
+		for (const [name, href] of Object.entries(links)) {
+			const link = screen.getByRole("link", { name });
+			expect(link).toHaveAttribute("href", href);
+			expect(link).toHaveAttribute("target", "_blank");
+			expect(link).toHaveAttribute("rel", "noopener");
+		}
+	});
+
+	it("opens the source code repository in a new tab", () => {
+		const open = vi.fn();
+		vi.stubGlobal("open", open);
+		render(<SidebarFooter />);
 
 		openMore();
-		fireEvent.click(screen.getByRole("button", { name: "Imprint" }));
-		expect(await screen.findByTestId("imprint-modal")).toBeInTheDocument();
-
-		fireEvent.click(screen.getByTestId("close-imprint"));
-		expect(screen.queryByTestId("imprint-modal")).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Source code" }));
+		expect(open).toHaveBeenCalledWith(
+			"https://github.com/michaelkrisper/webgraphy",
+			"_blank",
+			"noopener",
+		);
 	});
 
 	it("toggles the lazily loaded storage readout", async () => {
