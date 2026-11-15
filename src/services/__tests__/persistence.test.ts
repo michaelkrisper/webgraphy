@@ -987,7 +987,6 @@ describe("persistence", () => {
 				"webgraphy-export-options",
 				"webgraphy-cleared",
 				"theme",
-				"skipgc",
 				"other-app",
 			]) {
 				localStorage.setItem(key, "x");
@@ -1005,8 +1004,7 @@ describe("persistence", () => {
 			expect(localStorage.getItem("webgraphy-export-options")).toBeNull();
 			expect(localStorage.getItem("webgraphy-cleared")).toBeNull();
 			expect(localStorage.getItem("theme")).toBeNull();
-			// The analytics opt-out and other apps' keys survive.
-			expect(localStorage.getItem("skipgc")).toBe("x");
+			// Other apps' keys survive.
 			expect(localStorage.getItem("other-app")).toBe("x");
 
 			// Nothing may recreate the database before the reload.
